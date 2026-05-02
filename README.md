@@ -2,7 +2,7 @@
 
 A small C# tool for studying the composite antenna pattern of a non-GSO
 satellite as individual beams are switched on or off (e.g. to avoid
-transmissions toward a GSO-protection region). The single-beam pattern is
+transmissions toward protected region). The single-beam pattern is
 the **Taylor circular illumination function** of Recommendation
 **ITU-R S.1528-1 §1.4** (2025 revision), which gives a realistic
 side-lobe shape rather than an envelope.
