@@ -1,0 +1,25 @@
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# .NET build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.pdb
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Claude Code local settings
+.claude/settings.local.json

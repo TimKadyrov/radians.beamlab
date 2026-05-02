@@ -1,0 +1,243 @@
+<Window x:Class="radians.beamlab.app.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        Title="radians beamlab — non-GSO PFD mask analyser"
+        Icon="radians.ico"
+        Height="720" Width="1280"
+        Background="#ffffff"
+        Foreground="#1a1a1a"
+        FontFamily="Segoe UI" FontSize="12">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#1a1a1a"/>
+            <Setter Property="Margin" Value="0,2,0,2"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#ffffff"/>
+            <Setter Property="Foreground" Value="#1a1a1a"/>
+            <Setter Property="BorderBrush" Value="#bdbdbd"/>
+            <Setter Property="Padding" Value="3"/>
+            <Setter Property="Margin" Value="0,1,0,1"/>
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#ffffff"/>
+            <Setter Property="Foreground" Value="#1a1a1a"/>
+            <Setter Property="Margin" Value="0,1,0,1"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#f3f3f3"/>
+            <Setter Property="Foreground" Value="#1a1a1a"/>
+            <Setter Property="BorderBrush" Value="#bdbdbd"/>
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="Margin" Value="0,2,0,2"/>
+        </Style>
+        <Style TargetType="GroupBox">
+            <Setter Property="Foreground" Value="#404040"/>
+            <Setter Property="BorderBrush" Value="#cccccc"/>
+            <Setter Property="Margin" Value="0,4,0,4"/>
+            <Setter Property="Padding" Value="6"/>
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#1a1a1a"/>
+            <Setter Property="Margin" Value="0,2,0,2"/>
+        </Style>
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#1a1a1a"/>
+            <Setter Property="Margin" Value="0,2,0,2"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="280"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <ScrollViewer Grid.Column="0" Grid.Row="0" Grid.RowSpan="2"
+                      VerticalScrollBarVisibility="Auto" Background="#fafafa">
+            <StackPanel Margin="10">
+                <TextBlock Text="radians beamlab" FontWeight="Bold" FontSize="14"/>
+                <TextBlock Text="non-GSO PFD mask analyser  ·  ITU-R S.1528" Foreground="#666666" Margin="0,0,0,8"/>
+
+                <GroupBox Header="Orbit">
+                    <StackPanel>
+                        <TextBlock Text="Altitude (km)"/>
+                        <TextBox Text="{Binding AltitudeKm, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="{Binding AltReadoutText}" Foreground="#666666"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Sub-satellite point">
+                    <StackPanel>
+                        <TextBlock Text="Latitude (deg)"/>
+                        <TextBox Text="{Binding SubSatLatDeg, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
+                        <TextBlock Text="Longitude (deg)"/>
+                        <TextBox Text="{Binding SubSatLonDeg, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="RF / antenna">
+                    <StackPanel>
+                        <TextBlock Text="Centre frequency (GHz)"/>
+                        <TextBox Text="{Binding FrequencyGHz, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
+                        <TextBlock Text="{Binding DerivedReadoutText}" Foreground="#666666" TextWrapping="Wrap"/>
+                        <Button Content="Fill θb from Gm" Command="{Binding FillThetaCommand}"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Beam pattern">
+                    <StackPanel>
+                        <TextBlock Text="Pattern model"/>
+                        <ComboBox SelectedIndex="{Binding PatternKindIndex}">
+                            <ComboBoxItem Content="S.1528-1 §1.4 Taylor (circular, θb)"/>
+                            <ComboBoxItem Content="S.1528-1 §1.4 Taylor (elliptical, α/β/roll-off)"/>
+                            <ComboBoxItem Content="S.1528-0 §1.2 envelope (APL APSREC409V01)"/>
+                            <ComboBoxItem Content="S.1528-0 §1.3 LEO (APL APSREC411V01)"/>
+                            <ComboBoxItem Content="S.1528-0 §1.3 MEO (APL APSREC410V01)"/>
+                            <ComboBoxItem Content="S.1528-0 §1.3 HEO (APL APSREC4XXV01)"/>
+                        </ComboBox>
+
+                        <TextBlock Text="Peak gain Gm (dBi)"/>
+                        <TextBox Text="{Binding GmDbi, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="Half 3-dB beamwidth θb (deg)"/>
+                        <TextBox Text="{Binding ThetaBDeg, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
+                        <TextBlock Text="Far-out / null floor LF (dBi)"/>
+                        <TextBox Text="{Binding LfDbi, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+
+                        <TextBlock Text="§1.4 Taylor only:" Margin="0,6,0,0" Foreground="#666666"/>
+                        <TextBlock Text="Side-lobe ratio SLR (dB)"/>
+                        <TextBox Text="{Binding TaylorSlrDb, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="n̄ secondary lobes (2..6)"/>
+                        <TextBox Text="{Binding TaylorNbar, UpdateSourceTrigger=LostFocus}"/>
+
+                        <TextBlock Text="Layout:" Margin="0,6,0,0" Foreground="#666666"/>
+                        <CheckBox IsChecked="{Binding AutoMode}" Content="Auto hex tessellation (3GPP NTN UV-plane / Annex 2 ground-plane)"/>
+                        <StackPanel Visibility="{Binding IsEllipticalAutoMode, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="Target ground-cell radius (km)  — elliptical only"/>
+                            <TextBox Text="{Binding CellRadiusKm, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        </StackPanel>
+
+                        <StackPanel Visibility="{Binding IsEllipticalPattern, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="§1.4 elliptical (Annex 2 cell parameterisation):" Margin="0,6,0,0" Foreground="#666666"/>
+                            <StackPanel Visibility="{Binding IsEllipticalManualMode, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="Half-radial cell axis α (deg subtended at sat)"/>
+                                <TextBox Text="{Binding EllAlphaDeg, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
+                                <TextBlock Text="Half-transverse cell axis β (deg subtended at sat)"/>
+                                <TextBox Text="{Binding EllBetaDeg, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
+                            </StackPanel>
+                            <TextBlock Text="Edge-of-cell roll-off (dB)  — Annex 2: 3 / 5 / 7"/>
+                            <TextBox Text="{Binding EllRollOffDb, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        </StackPanel>
+
+                        <TextBlock Text="§1.2 envelope only:" Margin="0,6,0,0" Foreground="#666666"/>
+                        <TextBlock Text="Near-in side-lobe LN (dB rel. peak)"/>
+                        <TextBox Text="{Binding LnDb, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+
+                        <Button Content="Show pattern…" Command="{Binding ShowPatternCommand}" Margin="0,8,0,0"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Beam layout (concentric rings)">
+                    <StackPanel>
+                        <TextBlock Text="Min user-elevation served (deg above horizon)"/>
+                        <TextBox Text="{Binding MinElevDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="Adjacent-beam crossover level (dB, negative)"/>
+                        <TextBox Text="{Binding CrossoverDb, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
+                        <TextBlock Text="{Binding LayoutReadoutText}" Foreground="#666666" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Heatmap / probe">
+                    <StackPanel>
+                        <RadioButton GroupName="HeatmapMode"
+                                     Content="Power-sum from adjacent beams"
+                                     IsChecked="{Binding IsPowerSumMode}"/>
+                        <RadioButton GroupName="HeatmapMode"
+                                     Content="Single-beam max gain contribution"
+                                     IsChecked="{Binding IsMaxSingleMode}"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Region exclusion">
+                    <StackPanel>
+                        <TextBlock Text="Switch off all beams whose ground footprint centre falls inside a country."/>
+                        <ComboBox IsEditable="True" StaysOpenOnEdit="True" Margin="0,2,0,2"
+                                  ItemsSource="{Binding Countries}"
+                                  Text="{Binding SelectedCountry, UpdateSourceTrigger=PropertyChanged}"/>
+                        <Button Content="Switch off beams in country" Command="{Binding ExcludeCountryCommand}"/>
+
+                        <TextBlock Margin="0,8,0,0" Text="Or by lat/lon bounding box:"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                            <TextBlock Text="lat min" Grid.Column="0" Grid.Row="0"/>
+                            <TextBlock Text="lat max" Grid.Column="1" Grid.Row="0"/>
+                            <TextBox Text="{Binding ExcludeLatMin, UpdateSourceTrigger=LostFocus, StringFormat=F1}" Grid.Column="0" Grid.Row="1"/>
+                            <TextBox Text="{Binding ExcludeLatMax, UpdateSourceTrigger=LostFocus, StringFormat=F1}" Grid.Column="1" Grid.Row="1"/>
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                            <TextBlock Text="lon min" Grid.Column="0" Grid.Row="0"/>
+                            <TextBlock Text="lon max" Grid.Column="1" Grid.Row="0"/>
+                            <TextBox Text="{Binding ExcludeLonMin, UpdateSourceTrigger=LostFocus, StringFormat=F1}" Grid.Column="0" Grid.Row="1"/>
+                            <TextBox Text="{Binding ExcludeLonMax, UpdateSourceTrigger=LostFocus, StringFormat=F1}" Grid.Column="1" Grid.Row="1"/>
+                        </Grid>
+                        <Button Content="Switch off beams in box" Command="{Binding ExcludeBoxCommand}"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="PFD adjustment">
+                    <StackPanel>
+                        <TextBlock TextWrapping="Wrap"
+                                   Text="Reduce the gain of beams whose side lobes leak into the country selected above so the aggregate PFD over that country stays below the limit."/>
+                        <TextBlock Text="Tx power per beam, in refBW (dBW)"/>
+                        <TextBox Text="{Binding TxPowerDbw, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="PFD limit mask (function of elevation δ)"/>
+                        <ComboBox SelectedIndex="{Binding PfdMaskIndex}">
+                            <ComboBoxItem Content="US MSS 1.518–1.525 GHz (4 kHz refBW)"/>
+                            <ComboBoxItem Content="Flat (use constant below)"/>
+                        </ComboBox>
+                        <TextBlock Text="Flat PFD limit (dB(W/m²)) — used if Flat selected"/>
+                        <TextBox Text="{Binding FlatPfdLimitDbWm2, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="Minimum Gmax (dBi) — beams whose required reduction would push Gm below this are switched off"
+                                   TextWrapping="Wrap"/>
+                        <TextBox Text="{Binding MinGmaxDbi, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <Button Content="Adjust adjacent beam gains" Command="{Binding PfdAdjustCommand}"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <Button Content="All beams ON" Command="{Binding AllOnCommand}"/>
+
+                <GroupBox Header="Display">
+                    <StackPanel>
+                        <CheckBox Content="Render gain heatmap" IsChecked="{Binding HeatmapEnabled}"/>
+                        <CheckBox Content="Show 3-dB footprint circles" IsChecked="{Binding FootprintsEnabled}"/>
+                        <TextBlock Text="Heatmap floor (dBi)"/>
+                        <TextBox Text="{Binding FloorDbi, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <TextBlock Margin="0,8,0,0" Foreground="#666666"
+                           TextWrapping="Wrap"
+                           Text="Click a beam marker on the map to toggle on/off. Click anywhere else to probe composite gain at that ground location. Right-drag the map to move the satellite, left-drag to pan, mouse wheel to zoom."/>
+
+                <Button Content="Refresh / rebuild" Command="{Binding RefreshCommand}" Margin="0,8,0,0"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Column="1" Grid.Row="0" Background="#0d1014" BorderBrush="#cccccc" BorderThickness="1,0,0,0">
+            <Canvas x:Name="MapCanvas" Background="#0d1014"/>
+        </Border>
+
+        <Border Grid.Column="1" Grid.Row="1" Background="#f3f3f3" BorderBrush="#cccccc" BorderThickness="1,1,0,0" Padding="10,4">
+            <TextBlock Text="{Binding StatusText}" Foreground="#1a1a1a"/>
+        </Border>
+    </Grid>
+</Window>
