@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>radians.beamlab.app</RootNamespace>
+    <AssemblyName>radians.beamlab.app</AssemblyName>
+    <ApplicationIcon>radians.ico</ApplicationIcon>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\radians.beamlab.core\radians.beamlab.core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="radians.ico" />
+  </ItemGroup>
+
+  <!-- Ship the Natural Earth GeoJSON alongside the binary so the app is portable. -->
+  <ItemGroup>
+    <None Include="..\..\countries.json" Link="countries.json" Condition="Exists('..\..\countries.json')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

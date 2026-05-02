@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/radians.beamlab.app/radians.beamlab.app.csproj" />
+    <Project Path="src/radians.beamlab.core/radians.beamlab.core.csproj" />
+  </Folder>
+</Solution>
