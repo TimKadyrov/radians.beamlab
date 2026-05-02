@@ -109,23 +109,6 @@ Targets `net8.0` (Core) and `net8.0-windows` (App, WPF). Tested with the
 binary directory, and the project root — drop a Natural Earth GeoJSON
 there and restart.
 
-## Caveats / limitations
-
-- **Spherical Earth.** No WGS-84, no oblateness; sufficient for first-order
-  pointing studies but do not lift these numbers into a coordination filing.
-- **Stationary "snapshot".** The model uses one (apogee, perigee, true
-  anomaly) sample to set altitude, plus an independently chosen sub-satellite
-  lat/lon. It does not propagate the orbit; the ground track is whatever you
-  set by hand.
-- **Circular beams only.** §1.4 has L_r ≠ L_t (elliptical) provisions; this
-  implementation uses L_r = L_t and parameterises directly via θ_b.
-- **Power-sum composition.** Correct for incoherent multi-beam payloads;
-  incorrect for coherent phased arrays.
-- **Near nulls.** F(u) has nulls at u = μ_n where the kernel and one
-  denominator factor share a simple zero; the implementation floors |denom|
-  with a small ε so the value is approximated rather than NaN, which is
-  fine in conjunction with the LF floor.
-
 ## License
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the
