@@ -121,9 +121,9 @@ public sealed class MapRenderer
         // The visible-disc boundary on the equirectangular map is a transcendental
         // curve; sample 360 points at fixed Earth-central distance from sub-sat.
         double alpha = HorizonHalfAngleDeg(_scene.AltitudeKm);
-        var pts = SampleSphericalCircle(_scene.SubSatLatDeg, _scene.SubSatLonDeg, alpha, 360);
+        var pts = GeoMath.SampleSmallCircle(_scene.SubSatLatDeg, _scene.SubSatLonDeg, alpha, 360);
         var stroke = new SolidColorBrush(Color.FromArgb(180, 0xff, 0xc8, 0x66));
-        AddSplitPolyline(pts, stroke, 1.2);
+        MapDraw.AddSplitPolyline(_canvas, pts, stroke, 1.2, _vp.MapW * 0.5, _vp.ToCanvas);
     }
 
     private void DrawSubSatMarker()
@@ -211,10 +211,10 @@ public sealed class MapRenderer
                     double thetaB = beam.Pattern.ThetaB;
                     halfAngleAt = _ => thetaB;
                 }
-                foreach (var seg in SampleBeamConeOnGround(beam, halfAngleAt, samples: 64))
+                foreach (var seg in BeamFootprint.SampleConeOnGround(_scene.SatEcef, beam.Boresight, beam.RadialAxisEcef, halfAngleAt, samples: 64))
                 {
                     if (seg.Count < 3) continue;
-                    AddSplitPolyline(seg, stroke, 0.5);
+                    MapDraw.AddSplitPolyline(_canvas, seg, stroke, 0.5, _vp.MapW * 0.5, _vp.ToCanvas);
                 }
             }
         }
@@ -262,7 +262,7 @@ public sealed class MapRenderer
                     double t = (g - floor) / Math.Max(1e-6, peak - floor);
                     if (t < 0) t = 0; else if (t > 1) t = 1;
 
-                    GainColor(t, out byte r, out byte gg, out byte b);
+                    ColorRamp.Gain.Sample(t, out byte r, out byte gg, out byte b);
                     byte alpha = (byte)(160 + 95 * t);
                     row[i * 4 + 0] = (byte)(b * alpha / 255);
                     row[i * 4 + 1] = (byte)(gg * alpha / 255);
@@ -342,159 +342,4 @@ public sealed class MapRenderer
             ctx.PolyLineTo(batch, isStroked: true, isSmoothJoin: false);
     }
 
-    /// <summary>Sample N points on a small circle of given Earth-central radius around (centreLat, centreLon).</summary>
-    private static List<(double lat, double lon)> SampleSphericalCircle(double centreLat, double centreLon, double radiusCentralDeg, int n)
-    {
-        var res = new List<(double, double)>(n + 1);
-        double cLat = centreLat * Math.PI / 180.0;
-        double cLon = centreLon * Math.PI / 180.0;
-        double r = radiusCentralDeg * Math.PI / 180.0;
-        double sinR = Math.Sin(r), cosR = Math.Cos(r);
-        for (int i = 0; i <= n; i++)
-        {
-            double brg = (2.0 * Math.PI) * i / n;
-            double sinLat = Math.Sin(cLat) * cosR + Math.Cos(cLat) * sinR * Math.Cos(brg);
-            double lat2 = Math.Asin(Math.Clamp(sinLat, -1, 1));
-            double lon2 = cLon + Math.Atan2(
-                Math.Sin(brg) * sinR * Math.Cos(cLat),
-                cosR - Math.Sin(cLat) * Math.Sin(lat2));
-            res.Add((lat2 * 180.0 / Math.PI, ((lon2 * 180.0 / Math.PI + 540.0) % 360.0) - 180.0));
-        }
-        return res;
-    }
-
-    private void AddSplitPolyline(List<(double lat, double lon)> pts, Brush stroke, double thickness)
-    {
-        // Same canvas-space split as AddRingToContext: a single segment
-        // longer than half the map width is treated as a wrap-around and
-        // breaks the polyline rather than spanning the whole canvas.
-        double maxSegPx = _vp.MapW * 0.5;
-
-        Polyline? cur = null;
-        Point? prev = null;
-        foreach (var (lat, lon) in pts)
-        {
-            var (x, y) = _vp.ToCanvas(lat, lon);
-            var p = new Point(x, y);
-            if (prev is Point q)
-            {
-                double dx = p.X - q.X, dy = p.Y - q.Y;
-                if (Math.Abs(dx) > maxSegPx || Math.Abs(dy) > maxSegPx) cur = null;
-            }
-            if (cur is null)
-            {
-                cur = new Polyline { Stroke = stroke, StrokeThickness = thickness, IsHitTestVisible = false };
-                _canvas.Children.Add(cur);
-            }
-            cur.Points.Add(p);
-            prev = p;
-        }
-    }
-
-    /// <summary>
-    /// Sample the beam's 3-dB cone (half-angle θ_b around its boresight) in 3D
-    /// and project each sample to ground via ray-Earth intersection. Returns
-    /// connected segments — when the cone partially overshoots the horizon,
-    /// missed samples split the contour into open arcs (no spurious chord).
-    /// </summary>
-    private List<List<(double lat, double lon)>> SampleBeamConeOnGround(Beam beam, Func<double, double> halfAngleAtPhiDeg, int samples)
-    {
-        var segments = new List<List<(double lat, double lon)>>();
-        var sat = _scene.SatEcef;
-        var b = beam.Boresight;
-
-        // φ = 0 axis: use the beam's radial axis when defined (elliptical patterns),
-        // otherwise pick any axis ⊥ boresight. e2 is the transverse axis (Lt direction).
-        Vec3 e1;
-        if (beam.RadialAxisEcef is Vec3 r)
-        {
-            e1 = r;
-        }
-        else
-        {
-            var ref0 = (Math.Abs(b.Z) < 0.9) ? new Vec3(0, 0, 1) : new Vec3(1, 0, 0);
-            var c = Vec3.Cross(b, ref0);
-            double clen = Math.Sqrt(Vec3.Dot(c, c));
-            if (clen < 1e-9) return segments;
-            e1 = new Vec3(c.X / clen, c.Y / clen, c.Z / clen);
-        }
-        var e2 = Vec3.Cross(b, e1);
-
-        var hits = new (double lat, double lon)?[samples];
-        for (int i = 0; i < samples; i++)
-        {
-            double phiDeg = 360.0 * i / samples;
-            double phi = phiDeg * Math.PI / 180.0;
-            double halfAngleDeg = halfAngleAtPhiDeg(phiDeg);
-            double cs = Math.Cos(halfAngleDeg * Math.PI / 180.0);
-            double sn = Math.Sin(halfAngleDeg * Math.PI / 180.0);
-            double cp = Math.Cos(phi), sp = Math.Sin(phi);
-            var d = new Vec3(
-                b.X * cs + e1.X * sn * cp + e2.X * sn * sp,
-                b.Y * cs + e1.Y * sn * cp + e2.Y * sn * sp,
-                b.Z * cs + e1.Z * sn * cp + e2.Z * sn * sp);
-            var hit = RaySphereHit(sat, d);
-            if (hit is null) hits[i] = null;
-            else
-            {
-                var (lat, lon, _) = EcefToGeodetic(hit.Value);
-                hits[i] = (lat, lon);
-            }
-        }
-
-        bool anyMiss = false;
-        foreach (var h in hits) if (h is null) { anyMiss = true; break; }
-        if (!anyMiss)
-        {
-            var seg = new List<(double, double)>(samples + 1);
-            for (int i = 0; i < samples; i++) seg.Add(hits[i]!.Value);
-            seg.Add(hits[0]!.Value);
-            segments.Add(seg);
-            return segments;
-        }
-
-        int firstMiss = -1;
-        for (int k = 0; k < samples; k++) if (hits[k] is null) { firstMiss = k; break; }
-        int start = (firstMiss + 1) % samples;
-
-        List<(double, double)>? cur = null;
-        for (int k = 0; k < samples; k++)
-        {
-            int idx = (start + k) % samples;
-            var h = hits[idx];
-            if (h is null) { cur = null; continue; }
-            if (cur is null) { cur = new List<(double, double)>(); segments.Add(cur); }
-            cur.Add(h.Value);
-        }
-        return segments;
-    }
-
-    /// <summary>Viridis-ish colour ramp: dark blue → teal → green → yellow → white as t: 0 → 1.</summary>
-    private static void GainColor(double t, out byte r, out byte g, out byte b)
-    {
-        // Anchor stops.
-        var stops = new (double t, double r, double g, double b)[]
-        {
-            (0.00, 0.10, 0.05, 0.30),
-            (0.25, 0.10, 0.45, 0.65),
-            (0.50, 0.20, 0.75, 0.45),
-            (0.75, 0.95, 0.85, 0.20),
-            (1.00, 1.00, 1.00, 0.95),
-        };
-        for (int i = 0; i < stops.Length - 1; i++)
-        {
-            if (t <= stops[i + 1].t)
-            {
-                double f = (t - stops[i].t) / (stops[i + 1].t - stops[i].t);
-                double rr = stops[i].r + f * (stops[i + 1].r - stops[i].r);
-                double gg = stops[i].g + f * (stops[i + 1].g - stops[i].g);
-                double bb = stops[i].b + f * (stops[i + 1].b - stops[i].b);
-                r = (byte)Math.Clamp(rr * 255, 0, 255);
-                g = (byte)Math.Clamp(gg * 255, 0, 255);
-                b = (byte)Math.Clamp(bb * 255, 0, 255);
-                return;
-            }
-        }
-        r = g = b = 255;
-    }
 }

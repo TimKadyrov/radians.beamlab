@@ -11,6 +11,7 @@
     <AssemblyName>radians.beamlab.app</AssemblyName>
     <ApplicationIcon>radians.ico</ApplicationIcon>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Version>1.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
