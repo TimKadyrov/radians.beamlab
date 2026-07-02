@@ -1,0 +1,146 @@
+<UserControl x:Class="radians.beamlab.app.PfdMaskView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#ffffff"
+             Foreground="#1a1a1a"
+             FontFamily="Segoe UI" FontSize="12">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="280"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <ScrollViewer Grid.Column="0" Grid.Row="0" Grid.RowSpan="2"
+                      VerticalScrollBarVisibility="Auto" Background="#fafafa">
+            <StackPanel Margin="10">
+                <TextBlock Text="PFD mask (Az / El)" FontWeight="Bold" FontSize="14"/>
+                <TextBlock Text="Taylor §1.4 elliptical + 3GPP hex" Foreground="#666666" Margin="0,0,0,8"/>
+
+                <GroupBox Header="Orbit">
+                    <StackPanel>
+                        <TextBlock Text="Altitude (km)"/>
+                        <TextBox Text="{Binding AltitudeKm, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="Latitude (deg)"/>
+                        <TextBox Text="{Binding SubSatLatDeg, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
+                        <TextBlock Text="Longitude (deg)"/>
+                        <TextBox Text="{Binding SubSatLonDeg, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="RF / antenna">
+                    <StackPanel>
+                        <TextBlock Text="Centre frequency (GHz)"/>
+                        <TextBox Text="{Binding FrequencyGHz, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
+                        <TextBlock Text="{Binding FrequencyReadout}" Foreground="#666666" TextWrapping="Wrap"/>
+                        <TextBlock Text="Peak gain Gm (dBi)"/>
+                        <TextBox Text="{Binding GmDbi, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="Cell radius (km)  — drives α/β per beam"/>
+                        <TextBox Text="{Binding CellRadiusKm, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="Edge-of-cell roll-off (dB)"/>
+                        <TextBox Text="{Binding EllRollOffDb, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="Side-lobe ratio SLR (dB)"/>
+                        <TextBox Text="{Binding TaylorSlrDb, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="n̄ secondary lobes (2..6)"/>
+                        <TextBox Text="{Binding TaylorNbar, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Text="Far-out / null floor LF (dBi)"/>
+                        <TextBox Text="{Binding LfDbi, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Beam gating">
+                    <StackPanel>
+                        <TextBlock Text="Minimum user elevation ε_min (deg)"/>
+                        <TextBox Text="{Binding MinElevDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="GSO exclusion α_excl (deg)"/>
+                        <TextBox Text="{Binding AlphaExclDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="{Binding LayoutReadout}" Foreground="#666666" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="PFD plot">
+                    <StackPanel>
+                        <TextBlock Text="Tx EIRP per beam (dBW / refBW)"/>
+                        <TextBox Text="{Binding TxEirpDbw, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="Reference bandwidth (kHz)"/>
+                        <TextBox Text="{Binding RefBwKHz, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="Mask sampling step (deg)  — az &amp; el resolution"/>
+                        <TextBox Text="{Binding MaskStepDeg, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
+                        <TextBlock Foreground="#666666" Text="Colour ramp auto-scales to the data (min / max PFD)."/>
+                    </StackPanel>
+                </GroupBox>
+
+                <Button Content="Refresh / rebuild" Command="{Binding RefreshCommand}" Margin="0,8,0,0"/>
+
+                <TextBlock Margin="0,8,0,0" Foreground="#666666" TextWrapping="Wrap"
+                           Text="Az/el are S.1503-4 §D6.4.5 satellite-frame angles: az from nadir toward East, el out of the East-Down plane toward North. Each pixel = look direction from the sat; colour = aggregate PFD at that direction's ground intersection. Pixels past the horizon or with ES elevation &lt; ε_min stay blank."/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Column="1" Grid.Row="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="2*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="3*"/>
+            </Grid.RowDefinitions>
+            <Border Grid.Row="0" Background="#f3f3f3" BorderBrush="#cccccc" BorderThickness="1,0,0,0" Padding="6,3">
+                <CheckBox Content="Show 3-dB footprint rings" IsChecked="{Binding FootprintsEnabled}"/>
+            </Border>
+            <Border Grid.Row="1" Background="#0d1014" BorderBrush="#cccccc" BorderThickness="1,1,0,0">
+                <Canvas x:Name="MapCanvas" Background="#0d1014"/>
+            </Border>
+
+            <!-- Draggable divider between the map and the plots -->
+            <GridSplitter Grid.Row="2" Height="6" HorizontalAlignment="Stretch"
+                          VerticalAlignment="Center" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
+                          Background="#b0b0b0" BorderBrush="#888888" BorderThickness="0,1,0,1"/>
+
+            <Grid Grid.Row="3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Heatmap: toolbar + canvas -->
+                <Border Grid.Column="0" Grid.Row="0" Background="#f3f3f3" BorderBrush="#cccccc" BorderThickness="1,1,0,0" Padding="6,3">
+                    <CheckBox Content="Mark α &lt; α_excl" IsChecked="{Binding ShowAlphaContour}"/>
+                </Border>
+                <Border Grid.Column="0" Grid.Row="1" Background="#ffffff" BorderBrush="#cccccc" BorderThickness="1,1,0,0">
+                    <Canvas x:Name="PlotCanvas" Background="#ffffff"/>
+                </Border>
+
+                <!-- Elevation profile: azimuth slider + canvas -->
+                <Border Grid.Column="1" Grid.Row="0" Background="#f3f3f3" BorderBrush="#cccccc" BorderThickness="1,1,0,0" Padding="6,3">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Azimuth cut" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <Slider Grid.Column="1" VerticalAlignment="Center"
+                                Minimum="-90" Maximum="90" SmallChange="1" LargeChange="10"
+                                TickFrequency="30" TickPlacement="BottomRight"
+                                Value="{Binding ProfileAzimuthDeg, Mode=TwoWay}"/>
+                        <TextBlock Grid.Column="2" Text="{Binding ProfileAzimuthReadout}" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                    </Grid>
+                </Border>
+                <Border Grid.Column="1" Grid.Row="1" Background="#ffffff" BorderBrush="#cccccc" BorderThickness="1,1,0,0">
+                    <Canvas x:Name="ProfileCanvas" Background="#ffffff"/>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <Border Grid.Column="1" Grid.Row="1" Background="#f3f3f3" BorderBrush="#cccccc" BorderThickness="1,1,0,0" Padding="10,4">
+            <TextBlock Text="{Binding StatusText}" Foreground="#1a1a1a"/>
+        </Border>
+    </Grid>
+</UserControl>

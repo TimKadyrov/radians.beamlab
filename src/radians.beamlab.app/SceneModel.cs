@@ -154,18 +154,7 @@ public sealed class SceneModel
     }
 
     /// <summary>Off-nadir cone angle (deg) of the outermost ring, derived from MinElevDeg + altitude.</summary>
-    public double OuterOffNadirDeg
-    {
-        get
-        {
-            double R = EarthRadiusKm;
-            double r = R + AltitudeKm;
-            double elev = MinElevDeg * Math.PI / 180.0;
-            double s = R * Math.Cos(elev) / r;
-            if (s >= 1.0) s = 1.0; // clamp at horizon
-            return Math.Asin(s) * 180.0 / Math.PI;
-        }
-    }
+    public double OuterOffNadirDeg => OffNadirForEsElevationDeg(MinElevDeg, AltitudeKm);
 
     /// <summary>Wavelength in m derived from <see cref="FrequencyGHz"/>.</summary>
     public double WavelengthM => SpeedOfLightKmPerSec / (FrequencyGHz * 1e6);
@@ -214,19 +203,6 @@ public sealed class SceneModel
             BeamPatternKind.Taylor_1p4_Ell => BuildEllipticalPatternFor(gmDbi, offNadirDeg),
             _                             => new Rec1528_1p4(gmDbi, thetaB, TaylorSlrDb, TaylorNbar, LfDbi),
         };
-    }
-
-    /// <summary>Slant range (km) to the ground footprint at the given off-nadir angle. Returns the spherical-Earth solution.</summary>
-    public double SlantRangeForOffNadirKm(double offNadirDeg)
-    {
-        double R = EarthRadiusKm;
-        double r = R + AltitudeKm;
-        double off = offNadirDeg * Math.PI / 180.0;
-        double sinOff = Math.Sin(off);
-        double cosOff = Math.Cos(off);
-        double disc = R * R - r * r * sinOff * sinOff;
-        if (disc < 0) return AltitudeKm;            // beam misses Earth (above horizon)
-        return r * cosOff - Math.Sqrt(disc);
     }
 
     private Rec1528_1p4_Ell BuildEllipticalPatternFor(double gmDbi, double offNadirDeg)

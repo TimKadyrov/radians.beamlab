@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace radians.beamlab;
 
@@ -131,6 +132,20 @@ public static class GeoMath
         => Math.Asin(EarthRadiusKm / (EarthRadiusKm + altKm)) * Rad2Deg;
 
     /// <summary>
+    /// Off-nadir cone angle (deg) at the satellite toward a ground point where the
+    /// satellite is seen at user elevation <paramref name="esElevDeg"/> above the
+    /// local horizon. From the law of sines in the (Earth-centre, sat, ground)
+    /// triangle: sin θ = (R / (R + h))·cos ε. Clamped at the horizon (ε = 0), where
+    /// it equals <see cref="HorizonOffNadirDeg"/>.
+    /// </summary>
+    public static double OffNadirForEsElevationDeg(double esElevDeg, double altKm)
+    {
+        double s = EarthRadiusKm * Math.Cos(esElevDeg * Deg2Rad) / (EarthRadiusKm + altKm);
+        if (s > 1.0) s = 1.0;
+        return Math.Asin(s) * Rad2Deg;
+    }
+
+    /// <summary>
     /// User elevation (deg above the horizontal plane at the ground point) of
     /// the satellite as seen from <paramref name="groundEcef"/>. Returns 90°
     /// when the points coincide.
@@ -157,6 +172,33 @@ public static class GeoMath
         double y = EarthRadiusKm * Math.Sin(c);
         double x = r - EarthRadiusKm * Math.Cos(c);
         return Math.Atan2(y, x) * Rad2Deg;
+    }
+
+    /// <summary>
+    /// Sample <paramref name="n"/> points (plus a closing duplicate) on a small
+    /// circle of Earth-central radius <paramref name="radiusCentralDeg"/> around
+    /// (centreLat, centreLon). Longitudes are wrapped to [−180°, 180°]. Used for
+    /// horizon discs and beam footprint rings on the equirectangular maps.
+    /// </summary>
+    public static List<(double lat, double lon)> SampleSmallCircle(
+        double centreLat, double centreLon, double radiusCentralDeg, int n)
+    {
+        var res = new List<(double, double)>(n + 1);
+        double cLat = centreLat * Deg2Rad;
+        double cLon = centreLon * Deg2Rad;
+        double r = radiusCentralDeg * Deg2Rad;
+        double sinR = Math.Sin(r), cosR = Math.Cos(r);
+        for (int i = 0; i <= n; i++)
+        {
+            double brg = (2.0 * Math.PI) * i / n;
+            double sinLat = Math.Sin(cLat) * cosR + Math.Cos(cLat) * sinR * Math.Cos(brg);
+            double lat2 = Math.Asin(Math.Clamp(sinLat, -1, 1));
+            double lon2 = cLon + Math.Atan2(
+                Math.Sin(brg) * sinR * Math.Cos(cLat),
+                cosR - Math.Sin(cLat) * Math.Sin(lat2));
+            res.Add((lat2 * Rad2Deg, ((lon2 * Rad2Deg + 540.0) % 360.0) - 180.0));
+        }
+        return res;
     }
 
     /// <summary>
