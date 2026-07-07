@@ -7,28 +7,29 @@ using System.Windows.Shapes;
 namespace radians.beamlab.app;
 
 /// <summary>
-/// PFD (dB(W/m²)) vs mask (satellite-frame) elevation angle, plotted as a
-/// single curve: a vertical slice through the az/el heatmap at the azimuth the
-/// user selects with the slider (<see cref="PfdMaskViewModel.ProfileAzimuthDeg"/>).
-/// X range mirrors the heatmap Y so the two plots read together.
+/// Single-curve PFD profile through the mask heatmap at the slider-selected
+/// cut (<see cref="PfdMaskViewModel.ProfileCutDeg"/>):
+///   AzEl — vertical cut at an azimuth → PFD vs sat-frame elevation;
+///   α/ΔLongitude — horizontal cut at a signed α → PFD vs ΔLongitude,
+///   i.e. one row of the ITU mask table.
 ///
 /// Data is not recomputed here — the slice is read from the shared
-/// <see cref="AzElPfdField"/> via <see cref="AzElPfdField.ElevationProfileAtAzimuth"/>.
-/// The heatmap renderer rebuilds that field when dirty, so redrawing this plot
-/// after the heatmap renderer is enough.
+/// <see cref="PfdMaskField"/> (<see cref="PfdMaskField.ProfileAtX"/> /
+/// <see cref="PfdMaskField.ProfileAtY"/>). The heatmap renderer rebuilds that
+/// field when dirty, so redrawing this plot after the heatmap renderer is enough.
 /// </summary>
-public sealed class PfdVsElRenderer
+public sealed class PfdProfileRenderer
 {
     private readonly Canvas _canvas;
     private readonly PfdMaskViewModel _vm;
-    private readonly AzElPfdField _field;
+    private readonly PfdMaskField _field;
 
     private const double LeftMargin = 52.0;
     private const double RightMargin = 16.0;
     private const double TopMargin = 20.0;
     private const double BottomMargin = 36.0;
 
-    public PfdVsElRenderer(Canvas canvas, PfdMaskViewModel vm, AzElPfdField field)
+    public PfdProfileRenderer(Canvas canvas, PfdMaskViewModel vm, PfdMaskField field)
     {
         _canvas = canvas;
         _vm = vm;
@@ -46,9 +47,12 @@ public sealed class PfdVsElRenderer
         double t = TopMargin, b = H - BottomMargin;
         if (r - l < 10 || b - t < 10) return;
 
-        // X = mask (sat-frame) elevation, full ±90° range — matches heatmap Y.
-        double xMin = -90.0;
-        double xMax = 90.0;
+        // Profile X axis: AzEl slices vertically at an azimuth → X = the field's
+        // Y (mask elevation, ±90°); α/ΔLongitude slices horizontally at an α →
+        // X = the field's X (ΔLongitude, ±180°) — one row of the mask table.
+        bool alphaDelta = _field.Kind == MaskPlotKind.AlphaDeltaLong;
+        double xMin = alphaDelta ? _field.XMin : _field.YMin;
+        double xMax = alphaDelta ? _field.XMax : _field.YMax;
 
         // Y-range: prefer the source's auto-scaled bounds so the two plots match.
         double yMin, yMax;
@@ -66,56 +70,166 @@ public sealed class PfdVsElRenderer
 
         ChartPrimitives.AddBackground(_canvas, l, r, t, b);
         DrawAxes(l, r, t, b, xMin, xMax, yMin, yMax);
-        DrawEsElevationGuides(l, r, t, b, xMin, xMax);
-        DrawAlphaGuides(l, r, t, b, xMin, xMax);
+        if (!alphaDelta)
+        {
+            // Closed-form geometric guides in the az/el frame.
+            DrawEsElevationGuides(l, r, t, b, xMin, xMax);
+            DrawAlphaGuides(l, r, t, b, xMin, xMax);
+        }
+        else
+        {
+            DrawExclusionNote(l, t);
+            DrawEsElevationGuidesAlphaDelta(l, r, t, b, xMin, xMax);
+        }
         DrawCurve(l, r, t, b, xMin, xMax, yMin, yMax);
     }
 
     /// <summary>
-    /// Vertical guide lines where the GSO avoidance angle |α| crosses the
-    /// exclusion threshold α_excl along the current azimuth slice — the mask-el
-    /// boundaries of the GSO exclusion zone on this cut. Red, to match the
-    /// heatmap's α tint. Always drawn (independent of the heatmap's "Mark α"
-    /// toggle, which only tints the heatmap).
+    /// α/ΔLongitude mode: the cut sits at a fixed α, so the exclusion is a whole
+    /// state, not a line — classify the cut |α| against the bands and note it
+    /// (off → red "side lobes only"; attenuate → orange "beams −N dB").
     /// </summary>
-    private void DrawAlphaGuides(double l, double r, double t, double b, double xMin, double xMax)
+    private void DrawExclusionNote(double l, double t)
     {
-        var slice = _field.AlphaProfileAtAzimuth(_vm.ProfileAzimuthDeg);
+        var band = PfdMaskViewModel.BandFor(_vm.ExclusionBandsSorted(), Math.Abs(_vm.ProfileCutDeg));
+        if (band is not { } b) return;
+
+        var (stroke, text) = b.IsOff
+            ? (new SolidColorBrush(Color.FromArgb(230, 0xd6, 0x4c, 0x4c)),
+               $"|α| < {b.OuterDeg:F0}°  — beams off, side lobes only")
+            : (new SolidColorBrush(Color.FromArgb(230, 0xe0, 0x9a, 0x44)),
+               $"|α| < {b.OuterDeg:F0}°  — beams attenuated −{b.AttenDb:F0} dB");
+
+        var lbl = new TextBlock { Text = text, Foreground = stroke, FontSize = 10 };
+        Canvas.SetLeft(lbl, l + 8);
+        Canvas.SetTop(lbl, t + 4);
+        _canvas.Children.Add(lbl);
+    }
+
+    /// <summary>
+    /// α/ΔLongitude mode: ES-elevation guides derived from the sampled data
+    /// (no closed form in these coordinates), along the ΔLongitude axis at the
+    /// cut α. Cyan verticals where the slice's ES elevation crosses ε_min;
+    /// amber verticals at the slice's data edges — the visible-disc boundary,
+    /// where ES elevation reaches ≈ 0°.
+    /// </summary>
+    private void DrawEsElevationGuidesAlphaDelta(double l, double r, double t, double b, double xMin, double xMax)
+    {
+        var slice = _field.EsElevProfileAtY(_vm.ProfileCutDeg);
         if (slice.Count < 2) return;
 
-        double excl = _vm.AlphaExclDeg;
-        var stroke = new SolidColorBrush(Color.FromArgb(220, 0xd6, 0x4c, 0x4c));
+        double xRange = xMax - xMin;
+        // Gap threshold scales with bin width so coarse mask steps don't break every pair.
+        double binW = _field.PixW > 0 ? (_field.XMax - _field.XMin) / _field.PixW : 1.0;
+        double gap = Math.Max(3.0, 2.5 * binW);
 
-        bool labelled = false;
-        for (int i = 1; i < slice.Count; i++)
+        void Vertical(double xv, Brush stroke)
         {
-            double e0 = slice[i - 1].elDeg, a0 = slice[i - 1].alphaDeg;
-            double e1 = slice[i].elDeg,     a1 = slice[i].alphaDeg;
-            double d0 = a0 - excl, d1 = a1 - excl;
-            if (d0 == 0.0) d0 = -1e-9;                 // treat exact hits as just-below
-            if (d0 * d1 >= 0.0) continue;              // no crossing between these samples
-
-            // Linear interpolation of the elevation where |α| == α_excl.
-            double frac = d0 / (d0 - d1);
-            double elCross = e0 + frac * (e1 - e0);
-            if (elCross < xMin || elCross > xMax) continue;
-
-            double x = l + (elCross - xMin) / (xMax - xMin) * (r - l);
+            if (xv < xMin || xv > xMax) return;
+            double x = l + (xv - xMin) / xRange * (r - l);
             _canvas.Children.Add(new Line
             {
                 X1 = x, Y1 = t, X2 = x, Y2 = b,
                 Stroke = stroke,
                 StrokeThickness = 1.1,
-                StrokeDashArray = new DoubleCollection { 2, 3 },
+                StrokeDashArray = new DoubleCollection { 4, 4 },
                 IsHitTestVisible = false,
             });
+        }
+
+        void Label(string text, Brush stroke, double xv, double labelY)
+        {
+            double x = l + (xv - xMin) / xRange * (r - l);
+            var lbl = new TextBlock { Text = text, Foreground = stroke, FontSize = 9 };
+            Canvas.SetLeft(lbl, Math.Min(x + 2, r - 46));
+            Canvas.SetTop(lbl, labelY);
+            _canvas.Children.Add(lbl);
+        }
+
+        // Horizon (ES ε ≈ 0°): the data edges of the slice ARE the visible-disc
+        // boundary — mark the outermost samples in amber.
+        var amber = new SolidColorBrush(Color.FromArgb(200, 0xff, 0xc8, 0x66));
+        Vertical(slice[0].xDeg, amber);
+        Vertical(slice[^1].xDeg, amber);
+        Label("ES ε≈0°", amber, slice[^1].xDeg, b - 40);
+
+        // ε_min: crossing detection along the slice, skipping pairs that span a
+        // data gap (a jump much larger than the bin width means a discontinuity).
+        var cyan = new SolidColorBrush(Color.FromArgb(200, 0x5a, 0xd0, 0xe0));
+        double target = _vm.MinElevDeg;
+        bool labelled = false;
+        for (int i = 1; i < slice.Count; i++)
+        {
+            double x0 = slice[i - 1].xDeg, v0 = slice[i - 1].esElevDeg;
+            double x1 = slice[i].xDeg,     v1 = slice[i].esElevDeg;
+            if (x1 - x0 > gap) continue;               // gap in the slice
+            double d0 = v0 - target, d1 = v1 - target;
+            if (d0 == 0.0) d0 = -1e-9;
+            if (d0 * d1 >= 0.0) continue;              // no crossing between these samples
+
+            double frac = d0 / (d0 - d1);
+            double xCross = x0 + frac * (x1 - x0);
+            Vertical(xCross, cyan);
             if (!labelled)
             {
-                var lbl = new TextBlock { Text = $"|α|={excl:F0}°", Foreground = stroke, FontSize = 9 };
-                Canvas.SetLeft(lbl, Math.Min(x + 2, r - 46));
-                Canvas.SetTop(lbl, t + 2);
-                _canvas.Children.Add(lbl);
+                Label($"ES ε={target:F0}°", cyan, xCross, b - 26);
                 labelled = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Vertical guide lines where the GSO avoidance angle |α| crosses each
+    /// exclusion-band outer edge along the current azimuth slice — the mask-el
+    /// boundaries of the exclusion zone on this cut. Off bands red, attenuate
+    /// bands orange, to match the heatmap tint. Always drawn (independent of the
+    /// heatmap's "Mark α" toggle).
+    /// </summary>
+    private void DrawAlphaGuides(double l, double r, double t, double b, double xMin, double xMax)
+    {
+        var slice = _field.AlphaProfileAtX(_vm.ProfileCutDeg);
+        if (slice.Count < 2) return;
+
+        var offStroke   = new SolidColorBrush(Color.FromArgb(220, 0xd6, 0x4c, 0x4c));
+        var attenStroke = new SolidColorBrush(Color.FromArgb(220, 0xe0, 0x9a, 0x44));
+
+        foreach (var band in _vm.ExclusionBandsSorted())
+        {
+            double excl = band.OuterDeg;
+            var stroke = band.IsOff ? offStroke : attenStroke;
+            string label = band.IsOff ? $"|α|={excl:F0}° off" : $"|α|={excl:F0}° −{band.AttenDb:F0}dB";
+            bool labelled = false;
+
+            for (int i = 1; i < slice.Count; i++)
+            {
+                double e0 = slice[i - 1].yDeg, a0 = slice[i - 1].alphaDeg;
+                double e1 = slice[i].yDeg,     a1 = slice[i].alphaDeg;
+                double d0 = a0 - excl, d1 = a1 - excl;
+                if (d0 == 0.0) d0 = -1e-9;                 // treat exact hits as just-below
+                if (d0 * d1 >= 0.0) continue;              // no crossing between these samples
+
+                // Linear interpolation of the elevation where |α| == the band edge.
+                double frac = d0 / (d0 - d1);
+                double elCross = e0 + frac * (e1 - e0);
+                if (elCross < xMin || elCross > xMax) continue;
+
+                double x = l + (elCross - xMin) / (xMax - xMin) * (r - l);
+                _canvas.Children.Add(new Line
+                {
+                    X1 = x, Y1 = t, X2 = x, Y2 = b,
+                    Stroke = stroke,
+                    StrokeThickness = 1.1,
+                    StrokeDashArray = new DoubleCollection { 2, 3 },
+                    IsHitTestVisible = false,
+                });
+                if (!labelled)
+                {
+                    var lbl = new TextBlock { Text = label, Foreground = stroke, FontSize = 9 };
+                    Canvas.SetLeft(lbl, Math.Min(x + 2, r - 70));
+                    Canvas.SetTop(lbl, t + 2);
+                    _canvas.Children.Add(lbl);
+                    labelled = true;
+                }
             }
         }
     }
@@ -131,7 +245,7 @@ public sealed class PfdVsElRenderer
     /// </summary>
     private void DrawEsElevationGuides(double l, double r, double t, double b, double xMin, double xMax)
     {
-        double az = _vm.ProfileAzimuthDeg;
+        double az = _vm.ProfileCutDeg;
         double altKm = _vm.Scene.AltitudeKm;
 
         void Guide(double esElevDeg, Color color, string label, double labelY)
@@ -196,8 +310,8 @@ public sealed class PfdVsElRenderer
         var gridStroke = new SolidColorBrush(Color.FromArgb(50, 0xff, 0xff, 0xff));
         var labelBrush = new SolidColorBrush(Color.FromRgb(0x1a, 0x1a, 0x1a));
 
-        // X ticks every 30° from −90° to +90° so labels align with the heatmap's Y grid.
-        for (double x = -90.0; x <= 90.0 + 1e-6; x += 30.0)
+        // X ticks every 30° across the range (el/α: ±90°; ΔLongitude: ±180°).
+        for (double x = xMin; x <= xMax + 1e-6; x += 30.0)
         {
             double px = l + (x - xMin) / (xMax - xMin) * (r - l);
             _canvas.Children.Add(new Line { X1 = px, Y1 = t, X2 = px, Y2 = b, Stroke = gridStroke, StrokeThickness = 0.5, IsHitTestVisible = false });
@@ -223,7 +337,9 @@ public sealed class PfdVsElRenderer
 
         var xTitle = new TextBlock
         {
-            Text = $"mask elevation at az = {_vm.ProfileAzimuthDeg:+0;-0;0}° (sat frame)",
+            Text = _vm.MaskKind == MaskPlotKind.AlphaDeltaLong
+                ? $"ΔLongitude at α = {_vm.ProfileCutDeg:+0;-0;0}° (deg) — one mask-table row"
+                : $"mask elevation at az = {_vm.ProfileCutDeg:+0;-0;0}° (sat frame)",
             Foreground = labelBrush,
             FontSize = 11,
         };
@@ -237,8 +353,11 @@ public sealed class PfdVsElRenderer
     private void DrawCurve(double l, double r, double t, double b,
                            double xMin, double xMax, double yMin, double yMax)
     {
-        // Single PFD-vs-elevation slice through the heatmap at the selected azimuth.
-        var slice = _field.ElevationProfileAtAzimuth(_vm.ProfileAzimuthDeg);
+        // Single PFD slice through the heatmap at the selected cut: a column
+        // (AzEl, cut = azimuth) or a row (α/ΔLongitude, cut = α).
+        var slice = _field.Kind == MaskPlotKind.AlphaDeltaLong
+            ? _field.ProfileAtY(_vm.ProfileCutDeg)
+            : _field.ProfileAtX(_vm.ProfileCutDeg);
         var stroke = new SolidColorBrush(Color.FromRgb(0x28, 0xb5, 0x50));
 
         double xRange = xMax - xMin;

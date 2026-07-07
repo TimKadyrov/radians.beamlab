@@ -1,4 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Linq;
 using System.Windows.Input;
 using radians.beamlab;
 using static radians.beamlab.GeoMath;
@@ -49,11 +54,75 @@ public sealed class PfdMaskViewModel : ObservableObject
     public PfdMaskViewModel(CoastlineDataProvider? coastlines = null)
     {
         Coastlines = coastlines ?? new CoastlineDataProvider();
+
+        // Seed the advanced-exclusion list with a sensible starter (matches the
+        // basic α_excl default) so the dialog is never empty.
+        ExclusionRings.Add(new AlphaExclusionRing { OuterDeg = 10.0, IsOff = true });
+        ExclusionRings.CollectionChanged += OnExclusionRingsChanged;
+        HookRing(ExclusionRings[0]);
+
         Rebuild();
-        RefreshCommand = new RelayCommand(Rebuild);
+        RefreshCommand           = new RelayCommand(Rebuild);
+        EditExclusionRingsCommand = new RelayCommand(() => EditExclusionRingsRequested?.Invoke());
+        AddExclusionRingCommand   = new RelayCommand(AddExclusionRing);
+        RemoveExclusionRingCommand = new RelayCommand(RemoveSelectedExclusionRing);
+        GenerateXmlCommand        = new RelayCommand(() => GenerateXmlRequested?.Invoke());
     }
 
     public ICommand RefreshCommand { get; }
+    /// <summary>Ask the view to open the exclusion-rings dialog.</summary>
+    public ICommand EditExclusionRingsCommand { get; }
+    /// <summary>Append a new ring beyond the current outermost.</summary>
+    public ICommand AddExclusionRingCommand { get; }
+    /// <summary>Remove <see cref="SelectedExclusionRing"/>.</summary>
+    public ICommand RemoveExclusionRingCommand { get; }
+    /// <summary>Ask the view to open the mask-XML export dialog.</summary>
+    public ICommand GenerateXmlCommand { get; }
+
+    /// <summary>Raised when the user clicks "Edit α rings…"; the view opens the modal dialog.</summary>
+    public event Action? EditExclusionRingsRequested;
+    /// <summary>Raised when the user clicks "Generate mask XML…"; the view opens the export dialog.</summary>
+    public event Action? GenerateXmlRequested;
+
+    /// <summary>
+    /// Copy every compute-affecting setting into another VM instance (used to
+    /// build an independent generation VM for the XML exporter, so the live
+    /// view is not disturbed). Exclusion rings are deep-copied.
+    /// </summary>
+    public void CopySettingsTo(PfdMaskViewModel d)
+    {
+        d.Scene.AltitudeKm   = Scene.AltitudeKm;
+        d.Scene.SubSatLonDeg = Scene.SubSatLonDeg;
+        d.Scene.FrequencyGHz = Scene.FrequencyGHz;
+        d.Scene.GmDbi        = Scene.GmDbi;
+        d.Scene.CellRadiusKm = Scene.CellRadiusKm;
+        d.Scene.EllRollOffDb = Scene.EllRollOffDb;
+        d.Scene.TaylorSlrDb  = Scene.TaylorSlrDb;
+        d.Scene.TaylorNbar   = Scene.TaylorNbar;
+        d.Scene.LfDbi        = Scene.LfDbi;
+        d.Scene.MinElevDeg   = Scene.MinElevDeg;
+
+        d._alphaExclDeg        = _alphaExclDeg;
+        d._txEirpDbw           = _txEirpDbw;
+        d._refBwKHz            = _refBwKHz;
+        d._maskStepDeg         = _maskStepDeg;
+        d._powerMode           = _powerMode;
+        d._aggregation         = _aggregation;
+        d._reuseKIndex         = _reuseKIndex;
+        d._maskKind            = _maskKind;
+        d._useAdvancedExclusion = _useAdvancedExclusion;
+
+        d.ExclusionRings.Clear();
+        foreach (var r in ExclusionRings)
+            d.ExclusionRings.Add(new AlphaExclusionRing { OuterDeg = r.OuterDeg, IsOff = r.IsOff, AttenDb = r.AttenDb });
+    }
+
+    /// <summary>Rebuild beams + exclusion without raising events — for the XML exporter's per-latitude sweep.</summary>
+    public void RebuildForCompute()
+    {
+        Scene.RebuildBeams();
+        ApplyAlphaExclusion();
+    }
 
     // --- Orbit / antenna, mirrored to Scene ---
 
@@ -124,7 +193,12 @@ public sealed class PfdMaskViewModel : ObservableObject
         set { if (Scene.LfDbi != value) { Scene.LfDbi = value; OnSceneChanged(rebuild: true); } }
     }
 
-    /// <summary>User-elevation cut-off (deg). Applies to beam gating and to the plot Y-axis lower bound.</summary>
+    /// <summary>
+    /// Minimum served user elevation ε_min (deg). Gates which beams are ON
+    /// (outermost ring / hex extent) and draws the cyan guide on the profile
+    /// plot. PFD itself is evaluated over the whole visible disc — side lobes
+    /// radiate below ε_min too.
+    /// </summary>
     public double MinElevDeg
     {
         get => Scene.MinElevDeg;
@@ -134,20 +208,197 @@ public sealed class PfdMaskViewModel : ObservableObject
     // --- PFD-plot-specific inputs (not shared with SceneModel) ---
 
     private double _alphaExclDeg = 10.0;
-    /// <summary>GSO avoidance angle α_excl (deg, S.1503-4 §D6). Beams whose footprint sits inside |α| &lt; this get switched off.</summary>
+    /// <summary>GSO avoidance angle α_excl (deg, S.1503-4 §D6). Basic mode: beams whose footprint sits inside |α| &lt; this get switched off.</summary>
     public double AlphaExclDeg
     {
         get => _alphaExclDeg;
         set { if (SetField(ref _alphaExclDeg, value)) OnSceneChanged(rebuild: true); }
     }
 
+    private bool _useAdvancedExclusion;
+    /// <summary>
+    /// When true the exclusion uses the multi-ring <see cref="ExclusionRings"/>
+    /// (each ring switches beams off or attenuates them); when false the single
+    /// <see cref="AlphaExclDeg"/> hard cut-off is used (original behaviour).
+    /// </summary>
+    public bool UseAdvancedExclusion
+    {
+        get => _useAdvancedExclusion;
+        set
+        {
+            if (SetField(ref _useAdvancedExclusion, value))
+            {
+                OnPropertyChanged(nameof(ExclusionSummary));
+                Rebuild();
+            }
+        }
+    }
+
+    /// <summary>Concentric α exclusion rings (advanced mode), sorted by outer edge when applied.</summary>
+    public ObservableCollection<AlphaExclusionRing> ExclusionRings { get; } = new();
+
+    private AlphaExclusionRing? _selectedExclusionRing;
+    /// <summary>Row selected in the exclusion-rings dialog (for the Remove command).</summary>
+    public AlphaExclusionRing? SelectedExclusionRing
+    {
+        get => _selectedExclusionRing;
+        set => SetField(ref _selectedExclusionRing, value);
+    }
+
+    /// <summary>One-line description of the active exclusion configuration.</summary>
+    public string ExclusionSummary => UseAdvancedExclusion
+        ? $"advanced: {ExclusionRings.Count} ring(s)"
+        : $"basic: |α| < {AlphaExclDeg:F1}° off";
+
+    /// <summary>
+    /// Exclusion bands sorted by outer α edge, used by both the beam-gating
+    /// pass and the plot tint/guides. Basic mode reduces to a single off band
+    /// at <see cref="AlphaExclDeg"/> (empty when α_excl ≤ 0).
+    /// </summary>
+    public IReadOnlyList<ExclusionBand> ExclusionBandsSorted()
+    {
+        if (UseAdvancedExclusion)
+        {
+            return ExclusionRings
+                .Where(r => r.OuterDeg > 0.0)
+                .OrderBy(r => r.OuterDeg)
+                .Select(r => new ExclusionBand(r.OuterDeg, r.IsOff, r.AttenDb))
+                .ToList();
+        }
+        return _alphaExclDeg > 0.0
+            ? new[] { new ExclusionBand(_alphaExclDeg, IsOff: true, AttenDb: 0.0) }
+            : Array.Empty<ExclusionBand>();
+    }
+
+    /// <summary>
+    /// The exclusion band a footprint / pixel |α| falls in (the innermost band
+    /// whose outer edge it is under), or null if unaffected. Concentric bands
+    /// from α = 0 outward.
+    /// </summary>
+    public static ExclusionBand? BandFor(IReadOnlyList<ExclusionBand> bands, double alphaDeg)
+    {
+        for (int i = 0; i < bands.Count; i++)
+            if (alphaDeg < bands[i].OuterDeg) return bands[i];   // bands are sorted ascending
+        return null;
+    }
+
+    private void AddExclusionRing()
+    {
+        double outer = ExclusionRings.Count > 0 ? ExclusionRings.Max(r => r.OuterDeg) + 5.0 : 10.0;
+        ExclusionRings.Add(new AlphaExclusionRing { OuterDeg = outer, IsOff = false, AttenDb = 6.0 });
+    }
+
+    private void RemoveSelectedExclusionRing()
+    {
+        if (SelectedExclusionRing is { } ring) ExclusionRings.Remove(ring);
+    }
+
+    private void OnExclusionRingsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems != null) foreach (AlphaExclusionRing r in e.OldItems) r.PropertyChanged -= OnRingPropertyChanged;
+        if (e.NewItems != null) foreach (AlphaExclusionRing r in e.NewItems) HookRing(r);
+        OnPropertyChanged(nameof(ExclusionSummary));
+        if (UseAdvancedExclusion) Rebuild();
+    }
+
+    private void HookRing(AlphaExclusionRing r) => r.PropertyChanged += OnRingPropertyChanged;
+
+    private void OnRingPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (UseAdvancedExclusion) Rebuild();
+    }
+
     private double _txEirpDbw = 0.0;
-    /// <summary>Transmit EIRP per beam in the reference bandwidth (dBW).</summary>
+    /// <summary>
+    /// Transmit power per beam in the reference bandwidth (dBW). In
+    /// <see cref="BeamPowerMode.ConstantEirp"/> every beam gets exactly this;
+    /// in <see cref="BeamPowerMode.ConstantBoresightPfd"/> it is the
+    /// nadir-reference power and beam k gets +20·log10(slant_k / altitude) so
+    /// each beam's boresight PFD stays constant despite spreading loss.
+    /// </summary>
     public double TxEirpDbw
     {
         get => _txEirpDbw;
         set { if (SetField(ref _txEirpDbw, value)) SceneChanged?.Invoke(); }
     }
+
+    private BeamPowerMode _powerMode = BeamPowerMode.ConstantEirp;
+    /// <summary>Per-beam transmit power policy — see <see cref="BeamPowerMode"/>.</summary>
+    public BeamPowerMode PowerMode
+    {
+        get => _powerMode;
+        set
+        {
+            if (_powerMode == value) return;
+            _powerMode = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsConstantEirpMode));
+            OnPropertyChanged(nameof(IsConstantPfdMode));
+            SceneChanged?.Invoke();
+        }
+    }
+
+    public bool IsConstantEirpMode
+    {
+        get => PowerMode == BeamPowerMode.ConstantEirp;
+        set { if (value) PowerMode = BeamPowerMode.ConstantEirp; }
+    }
+
+    public bool IsConstantPfdMode
+    {
+        get => PowerMode == BeamPowerMode.ConstantBoresightPfd;
+        set { if (value) PowerMode = BeamPowerMode.ConstantBoresightPfd; }
+    }
+
+    private PfdAggregation _aggregation = PfdAggregation.PowerSum;
+    /// <summary>
+    /// Aggregation across beams for the mask PFD — see <see cref="PfdAggregation"/>.
+    /// </summary>
+    public PfdAggregation Aggregation
+    {
+        get => _aggregation;
+        set
+        {
+            if (_aggregation == value) return;
+            _aggregation = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsPowerSumMode));
+            OnPropertyChanged(nameof(IsCoChannelMode));
+            SceneChanged?.Invoke();
+        }
+    }
+
+    public bool IsPowerSumMode
+    {
+        get => Aggregation == PfdAggregation.PowerSum;
+        set { if (value) Aggregation = PfdAggregation.PowerSum; }
+    }
+
+    public bool IsCoChannelMode
+    {
+        get => Aggregation == PfdAggregation.CoChannelSum;
+        set { if (value) Aggregation = PfdAggregation.CoChannelSum; }
+    }
+
+    private static readonly int[] ReuseKValues = { 3, 4, 7 };
+    private int _reuseKIndex;
+    /// <summary>ComboBox index into the standard hex reuse cluster sizes {3, 4, 7}.</summary>
+    public int ReuseKIndex
+    {
+        get => _reuseKIndex;
+        set
+        {
+            if (value < 0 || value >= ReuseKValues.Length) return;
+            if (SetField(ref _reuseKIndex, value))
+            {
+                OnPropertyChanged(nameof(ReuseColorsK));
+                SceneChanged?.Invoke();
+            }
+        }
+    }
+
+    /// <summary>Number of frequency-reuse colours K for <see cref="PfdAggregation.CoChannelSum"/>.</summary>
+    public int ReuseColorsK => ReuseKValues[_reuseKIndex];
 
     private double _refBwKHz = 40.0;
     /// <summary>Reference bandwidth (kHz) used to interpret the EIRP. Purely informational for the plot legend.</summary>
@@ -155,6 +406,45 @@ public sealed class PfdMaskViewModel : ObservableObject
     {
         get => _refBwKHz;
         set { if (SetField(ref _refBwKHz, value)) SceneChanged?.Invoke(); }
+    }
+
+    // --- Mask type ---
+
+    private MaskPlotKind _maskKind = MaskPlotKind.AzEl;
+    /// <summary>
+    /// Which S.1503-4 PFD-mask coordinate system the heatmap / profile use:
+    /// satellite-frame az/el (§D6.4.5) or signed α / ΔLongitude (§D6.4.4).
+    /// Switching re-samples the whole field.
+    /// </summary>
+    public MaskPlotKind MaskKind
+    {
+        get => _maskKind;
+        set
+        {
+            if (_maskKind == value) return;
+            _maskKind = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsAzElMask));
+            OnPropertyChanged(nameof(IsAlphaDeltaMask));
+            OnPropertyChanged(nameof(ProfileCutLabel));
+            OnPropertyChanged(nameof(ProfileCutMinDeg));
+            OnPropertyChanged(nameof(ProfileCutMaxDeg));
+            // Re-clamp the cut into the new kind's range (no-op when already inside).
+            ProfileCutDeg = _profileCutDeg;
+            SceneChanged?.Invoke();
+        }
+    }
+
+    public bool IsAzElMask
+    {
+        get => MaskKind == MaskPlotKind.AzEl;
+        set { if (value) MaskKind = MaskPlotKind.AzEl; }
+    }
+
+    public bool IsAlphaDeltaMask
+    {
+        get => MaskKind == MaskPlotKind.AlphaDeltaLong;
+        set { if (value) MaskKind = MaskPlotKind.AlphaDeltaLong; }
     }
 
     // --- Display ---
@@ -186,30 +476,40 @@ public sealed class PfdMaskViewModel : ObservableObject
         set { if (SetField(ref _footprintsEnabled, value)) SceneChanged?.Invoke(); }
     }
 
-    private double _profileAzimuthDeg;
+    private double _profileCutDeg;
     /// <summary>
-    /// Mask (sat-frame) azimuth the elevation-profile plot slices, in [−90°, +90°].
-    /// Changing it does NOT rebuild the heatmap — it only re-slices the retained
-    /// grid, so the setter raises the lightweight <see cref="ProfileCursorChanged"/>
-    /// rather than <see cref="SceneChanged"/>.
+    /// Coordinate the profile plot slices at: sat-frame azimuth for the AzEl
+    /// mask (a vertical cut → PFD vs elevation), signed α for the
+    /// α/ΔLongitude mask (a horizontal cut → PFD vs ΔLongitude, one mask-table
+    /// row). Changing it does NOT rebuild the heatmap — it only re-slices the
+    /// retained grid, so the setter raises the lightweight
+    /// <see cref="ProfileCursorChanged"/> rather than <see cref="SceneChanged"/>.
     /// </summary>
-    public double ProfileAzimuthDeg
+    public double ProfileCutDeg
     {
-        get => _profileAzimuthDeg;
+        get => _profileCutDeg;
         set
         {
-            double clamped = Math.Clamp(value, -90.0, 90.0);
-            if (SetField(ref _profileAzimuthDeg, clamped))
+            double clamped = Math.Clamp(value, ProfileCutMinDeg, ProfileCutMaxDeg);
+            if (SetField(ref _profileCutDeg, clamped))
             {
-                OnPropertyChanged(nameof(ProfileAzimuthReadout));
+                OnPropertyChanged(nameof(ProfileCutReadout));
                 ProfileCursorChanged?.Invoke();
             }
         }
     }
 
-    public string ProfileAzimuthReadout => $"azimuth cut: {_profileAzimuthDeg:+0;-0;0}°";
+    /// <summary>Slider lower bound for <see cref="ProfileCutDeg"/> (azimuth or α — ±90° in both modes).</summary>
+    public double ProfileCutMinDeg => -90.0;
+    /// <summary>Slider upper bound for <see cref="ProfileCutDeg"/>.</summary>
+    public double ProfileCutMaxDeg => 90.0;
 
-    /// <summary>Raised when only the azimuth cursor moved — cheap redraw, no heatmap rebuild.</summary>
+    public string ProfileCutLabel => MaskKind == MaskPlotKind.AlphaDeltaLong ? "α cut" : "Azimuth cut";
+
+    public string ProfileCutReadout =>
+        (MaskKind == MaskPlotKind.AlphaDeltaLong ? "α = " : "az = ") + $"{_profileCutDeg:+0;-0;0}°";
+
+    /// <summary>Raised when only the profile cut cursor moved — cheap redraw, no heatmap rebuild.</summary>
     public event Action? ProfileCursorChanged;
 
     private string _statusText = "ready";
@@ -247,20 +547,23 @@ public sealed class PfdMaskViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Post-pass: switch off any beam whose ground-footprint ES sits inside
-    /// the α_excl cone from any visible GSO satellite. Elevation gating already
-    /// happened inside <see cref="SceneModel.RebuildBeams"/> (elliptical auto).
+    /// Post-pass: apply the GSO exclusion to each beam by its ground-footprint
+    /// |α| to the nearest visible GSO arc. Basic mode switches off beams inside
+    /// α_excl; advanced mode applies the ring the footprint α falls in (off, or
+    /// attenuate by N dB via the beam weight). Elevation gating already happened
+    /// inside <see cref="SceneModel.RebuildBeams"/> (elliptical auto).
     /// </summary>
     private void ApplyAlphaExclusion()
     {
-        if (AlphaExclDeg <= 0) return;
+        var bands = ExclusionBandsSorted();
+        if (bands.Count == 0) return;
         foreach (var beam in Scene.Beams)
         {
             var fp = Scene.GroundFootprint(beam);
             if (fp is null) continue;
             var groundEcef = GeodeticToEcef(fp.Value.lat, fp.Value.lon, 0.0);
             double alphaDeg = GsoGeometry.AlphaMinAbsDeg(groundEcef, Scene.SatEcef);
-            if (alphaDeg < AlphaExclDeg) beam.Weight = 0.0;
+            if (BandFor(bands, alphaDeg) is { } band) beam.Weight = band.WeightFactor;
         }
     }
 
@@ -271,4 +574,43 @@ public sealed class PfdMaskViewModel : ObservableObject
         if (rebuild) Rebuild();
         else SceneChanged?.Invoke();
     }
+}
+
+/// <summary>
+/// PFD-mask coordinate system, mirroring the S.1503-4 mask types the tool can
+/// visualise (radians MaskPFDType AzEl / AlphaDelta; the X/ΔLong variant is
+/// not implemented).
+/// </summary>
+public enum MaskPlotKind
+{
+    /// <summary>Satellite-frame azimuth / elevation (§D6.4.5).</summary>
+    AzEl,
+    /// <summary>Signed α / ΔLongitude (§D6.4.4).</summary>
+    AlphaDeltaLong,
+}
+
+/// <summary>Per-beam transmit power policy for the PFD-mask computation.</summary>
+public enum BeamPowerMode
+{
+    /// <summary>Every beam transmits the same power (constant EIRP per beam).</summary>
+    ConstantEirp,
+    /// <summary>
+    /// Each beam's power is raised by 20·log10(boresight slant / altitude) so its
+    /// boresight PFD is constant regardless of spreading loss — typical downlink
+    /// power control that flattens the served-area PFD.
+    /// </summary>
+    ConstantBoresightPfd,
+}
+
+/// <summary>How per-beam PFD contributions are aggregated into the mask.</summary>
+public enum PfdAggregation
+{
+    /// <summary>All beams co-frequency (reuse factor 1) — the conservative upper bound.</summary>
+    PowerSum,
+    /// <summary>
+    /// K-colour frequency reuse: only same-colour lattice beams share a channel;
+    /// each colour is power-summed and the worst colour is taken per pixel.
+    /// The realistic view for hex-lattice payloads with a frequency plan.
+    /// </summary>
+    CoChannelSum,
 }

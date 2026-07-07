@@ -1,11 +1,24 @@
 # radians.beamlab — non-GSO multi-beam composer
 
-A small C# tool for studying the composite antenna pattern of a non-GSO
-satellite as individual beams are switched on or off (e.g. to avoid
-transmissions toward protected region). The single-beam pattern is
-the **Taylor circular illumination function** of Recommendation
-**ITU-R S.1528-1 §1.4** (2025 revision), which gives a realistic
-side-lobe shape rather than an envelope.
+A small C# / WPF tool for studying the composite antenna pattern and
+downlink PFD of a non-GSO satellite as individual beams are switched on or
+off (e.g. to avoid transmissions toward a protected region). The single-beam
+pattern is the **Taylor circular illumination function** of Recommendation
+**ITU-R S.1528-1 §1.4** (2025 revision), which gives a realistic side-lobe
+shape rather than an envelope.
+
+Two tabs:
+
+- **Composite gain map** — the original composer: place a beam set, switch
+  beams on/off, and view the composite gain heatmap on a world map.
+- **PFD Mask Generator** — build a downlink PFD mask in the ITU-R S.1503-4
+  coordinate systems (satellite-frame az/el §D6.4.5, or signed α / ΔLongitude
+  §D6.4.4), with per-beam power control, frequency-reuse aggregation, a
+  GSO-arc exclusion zone, and export to S.1503-4 mask **XML** and tabular
+  **CSV**.
+
+See the **[user guide](docs/user-guide.md)** for a full walk-through of both
+tabs and every control.
 
 Layout:
 
@@ -66,27 +79,41 @@ intersected with the spherical Earth (radius 6 371 km) to find the ground
 footprint centre. The horizon (line-of-sight) cap on Earth has half-angle
 `arccos(R / (R + h))` from the sub-point.
 
-## The WPF tool
+## Tabs
 
-Inputs (left panel):
+### Composite gain map
 
-- **Orbit**: a single altitude (km) above the spherical Earth.
-- **Sub-satellite point**: latitude, longitude.
-- **RF / antenna**: frequency (GHz), antenna diameter D (m), aperture efficiency η. The panel computes λ, D/λ, a recommended half-3-dB beamwidth (≈ 35.2°·λ/D) and a recommended peak gain (η·(πD/λ)²). "Fill θ_b" / "Fill G_m" stamp those values into the pattern inputs.
-- **Beam pattern (S.1528-1 §1.4 Taylor)**: peak gain G_m, half-3-dB beamwidth θ_b, side-lobe ratio SLR, secondary-lobe count n̄ (2..6), null floor LF.
-- **Beam layout**: number of rings (0..8) and the **outer ring off-nadir / FOV edge** (deg). The per-ring step is FOV edge / rings, so ring `r` sits at off-nadir `r · step` and contains `6r` beams equally spaced in azimuth. A "Fit FOV to horizon" button sets the FOV edge to ~0.97 × the geometric horizon-tilt at the current altitude, so the beam set spans the visible footprint.
-- **GSO-region exclusion**: a (lat, lon) bounding box. Every beam whose footprint centre falls inside the box gets `w_k = 0`.
-- **Display**: heatmap on/off, restrict heatmap to the visible disc, draw 3-dB footprint rings, heatmap floor (dBi).
+The original composer. Inputs (left panel): orbit altitude and sub-satellite
+lat/lon; centre frequency; the per-beam pattern (six S.1528 models — §1.4
+Taylor circular/elliptical, §1.2 envelope, §1.3 LEO/MEO/HEO); the beam layout
+(auto hex tessellation or concentric rings, driven by a served
+min-elevation and an adjacent-beam crossover level); heatmap/probe mode; a
+country- or bounding-box exclusion; and an optional PFD-adjuster that trims
+adjacent-beam gains to hold an aggregate PFD limit over a chosen country.
 
-Map (right panel):
+Map (right panel): equirectangular world map with coastlines from
+`countries.json`, the sub-satellite point and horizon disc, and each beam's
+ground footprint as a coloured marker (green = on, red = off) with an optional
+3-dB ring. **Click a beam** to toggle it, **click elsewhere** to probe the
+composite gain; **left-drag** pans, **right-drag** moves the satellite, wheel
+zooms.
 
-- Equirectangular projection.
-- Coastlines / country boundaries are loaded from `countries.json` (Natural Earth GeoJSON FeatureCollection of `Polygon` / `MultiPolygon` features) at startup. Falls back to a built-in coarse outline if absent. The status bar reports which source was used.
-- Sub-satellite point marked, horizon (visible disc) outlined in amber.
-- Each beam's ground footprint drawn as a coloured marker — green=on, red=off — with optional 3-dB ring.
-- **Click a beam marker** to toggle its on/off state.
-- **Click anywhere else** on the map to probe the composite gain at that ground point.
-- The heatmap colours every visible ground pixel by composite gain on a fixed ramp from `floor` (dark) to `G_m` (white).
+### PFD Mask Generator
+
+Builds a downlink PFD mask for the current beam set. Left panel selects the
+**mask type** (az/el §D6.4.5 or α/ΔLongitude §D6.4.4), antenna and cell
+parameters, **beam gating** (served min-elevation and GSO exclusion), the
+per-beam **power mode** (constant power, or constant-boresight-PFD spreading-
+loss compensation), the **aggregation** (all-co-frequency power sum, or
+K-colour frequency-reuse worst-colour sum), and the **advanced α-ring
+exclusion** dialog (concentric α rings, each switching beams off or
+attenuating them). The right side shows a small footprint map, the mask
+heatmap, and a profile slice with ES-elevation and α guides. **Generate mask
+XML…** exports an S.1503-4 mask (XML and/or CSV) over a latitude table capped
+by the orbital inclination.
+
+Full details and the maths for every control are in the
+**[user guide](docs/user-guide.md)**.
 
 ## Auto-mode hex layout
 

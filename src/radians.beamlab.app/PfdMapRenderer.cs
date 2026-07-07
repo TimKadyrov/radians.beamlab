@@ -10,24 +10,43 @@ using static radians.beamlab.GeoMath;
 namespace radians.beamlab.app;
 
 /// <summary>
-/// Static equirectangular map for the PFD-mask tab: coastlines, graticule,
-/// horizon disc, sub-satellite marker, and one small marker per beam coloured
-/// by on/off status. Fixed full-earth view — no pan / zoom / click-toggle
-/// (which live in <see cref="MapRenderer"/> for tab 1). Kept intentionally
-/// simple so the PFD tab stays a read-only situational picture.
+/// Equirectangular map for the PFD-mask tab: coastlines, graticule, horizon
+/// disc, sub-satellite marker, and one small marker per beam. Markers and
+/// footprint rings are coloured by on/off status (green/red) — or, when
+/// co-channel aggregation is selected, ON beams are painted by their K-colour
+/// frequency-reuse assignment so the plan is visible. Pan / zoom via the
+/// shared <see cref="MapViewport"/> (input wired by
+/// <see cref="PfdMapInteractionHandler"/>); unlike tab 1's
+/// <see cref="MapRenderer"/> there is no probe, beam toggle or satellite drag
+/// — the PFD map stays a read-only situational picture.
 /// </summary>
 public sealed class PfdMapRenderer
 {
     private readonly Canvas _canvas;
+    private readonly MapViewport _vp;
     private readonly PfdMaskViewModel _vm;
     private readonly CoastlineDataProvider _coasts;
 
     private const double GraticuleStepDeg = 30.0;
     private const double BeamMarkerRadiusPx = 2.5;
 
-    public PfdMapRenderer(Canvas canvas, PfdMaskViewModel vm, CoastlineDataProvider coasts)
+    // Distinguishable palette for frequency-reuse colours 0..6 (red is reserved
+    // for OFF beams). Index = BeamComposer.HexReuseColor(i, j, K).
+    private static readonly Color[] ReusePalette =
+    {
+        Color.FromRgb(0x4c, 0xc6, 0x76),   // green
+        Color.FromRgb(0x4c, 0x8a, 0xd6),   // blue
+        Color.FromRgb(0xe6, 0xc8, 0x44),   // yellow
+        Color.FromRgb(0xb0, 0x6c, 0xd6),   // violet
+        Color.FromRgb(0x4c, 0xc6, 0xc6),   // cyan
+        Color.FromRgb(0xe6, 0x8a, 0x44),   // orange
+        Color.FromRgb(0xd8, 0xd8, 0xd8),   // light grey
+    };
+
+    public PfdMapRenderer(Canvas canvas, MapViewport viewport, PfdMaskViewModel vm, CoastlineDataProvider coasts)
     {
         _canvas = canvas;
+        _vp = viewport;
         _vm = vm;
         _coasts = coasts;
     }
@@ -35,26 +54,13 @@ public sealed class PfdMapRenderer
     public void Redraw()
     {
         _canvas.Children.Clear();
-        double W = _canvas.ActualWidth;
-        double H = _canvas.ActualHeight;
-        if (W < 10 || H < 10) return;
+        if (!_vp.TryRecomputePlacement(_canvas.ActualWidth, _canvas.ActualHeight)) return;
+        _canvas.Clip = new RectangleGeometry(new Rect(_vp.MapX, _vp.MapY, _vp.MapW, _vp.MapH));
 
-        // Inscribe a 2:1 rectangle (equirectangular full earth).
-        double mapW, mapH;
-        double byH = H * 2.0;
-        if (byH <= W) { mapW = byH; mapH = H; }
-        else          { mapW = W;  mapH = W / 2.0; }
-        double mapX = (W - mapW) * 0.5;
-        double mapY = (H - mapH) * 0.5;
+        double mapW = _vp.MapW;
+        Func<double, double, (double x, double y)> toCanvas = _vp.ToCanvas;
 
-        (double x, double y) toCanvas(double lat, double lon)
-        {
-            double x = mapX + (lon + 180.0) / 360.0 * mapW;
-            double y = mapY + (90.0 - lat) / 180.0 * mapH;
-            return (x, y);
-        }
-
-        DrawBackground(mapX, mapY, mapW, mapH);
+        DrawBackground(_vp.MapX, _vp.MapY, mapW, _vp.MapH);
         DrawCoastlines(mapW, toCanvas);
         DrawGraticule(mapW, toCanvas);
         DrawHorizon(mapW, toCanvas);
@@ -133,6 +139,11 @@ public sealed class PfdMapRenderer
         double maxSegPx = mapW * 0.5;
         var sat = _vm.Scene.SatEcef;
 
+        // In co-channel mode, paint ON beams by their reuse colour so the
+        // frequency plan is visible; OFF beams stay red in every mode.
+        bool showReuse = _vm.Aggregation == PfdAggregation.CoChannelSum;
+        int k = _vm.ReuseColorsK;
+
         foreach (var beam in _vm.Scene.Beams)
         {
             var fp = _vm.Scene.GroundFootprint(beam);
@@ -140,7 +151,22 @@ public sealed class PfdMapRenderer
             var (lat, lon) = fp.Value;
             var (x, y) = toCanvas(lat, lon);
 
-            Color c = beam.Weight <= 0 ? Color.FromRgb(0xd6, 0x4c, 0x4c) : Color.FromRgb(0x4c, 0xc6, 0x76);
+            Color c;
+            if (beam.Weight <= 0)
+            {
+                c = Color.FromRgb(0xd6, 0x4c, 0x4c);
+            }
+            else if (showReuse)
+            {
+                int colour = beam.LatticeI is int li && beam.LatticeJ is int lj
+                    ? BeamComposer.HexReuseColor(li, lj, k)
+                    : 0;
+                c = ReusePalette[colour % ReusePalette.Length];
+            }
+            else
+            {
+                c = Color.FromRgb(0x4c, 0xc6, 0x76);
+            }
             var armBrush = new SolidColorBrush(Color.FromArgb(0xd0, c.R, c.G, c.B));
             double r = BeamMarkerRadiusPx;
             _canvas.Children.Add(new Line { X1 = x - r, Y1 = y, X2 = x + r, Y2 = y, Stroke = armBrush, StrokeThickness = 0.9, IsHitTestVisible = false });

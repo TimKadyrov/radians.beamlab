@@ -43,6 +43,16 @@ public sealed class Beam
     public double OffNadirDeg { get; init; }
 
     /// <summary>
+    /// Optional hex-lattice axial index i from the auto-tessellation (basis
+    /// e1 = (s, 0), e2 = (s/2, s·√3/2)). Null for manual ring layouts. Used
+    /// for K-colour frequency-reuse colouring.
+    /// </summary>
+    public int? LatticeI { get; init; }
+
+    /// <summary>Optional hex-lattice axial index j — see <see cref="LatticeI"/>.</summary>
+    public int? LatticeJ { get; init; }
+
+    /// <summary>
     /// Unit vector ⊥ <see cref="Boresight"/> defining φ = 0 (the radial / Lr direction)
     /// for elliptical patterns. For circular patterns this is unused. Conventionally the
     /// projection of the satellite-to-nadir direction onto the plane perpendicular to

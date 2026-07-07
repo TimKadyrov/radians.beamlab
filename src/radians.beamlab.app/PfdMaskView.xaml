@@ -1,12 +1,16 @@
 <UserControl x:Class="radians.beamlab.app.PfdMaskView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:app="clr-namespace:radians.beamlab.app"
              Background="#ffffff"
              Foreground="#1a1a1a"
              FontFamily="Segoe UI" FontSize="12">
+    <UserControl.Resources>
+        <app:InverseBooleanConverter x:Key="NotBool"/>
+    </UserControl.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="280"/>
+            <ColumnDefinition Width="340"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
@@ -17,7 +21,7 @@
         <ScrollViewer Grid.Column="0" Grid.Row="0" Grid.RowSpan="2"
                       VerticalScrollBarVisibility="Auto" Background="#fafafa">
             <StackPanel Margin="10">
-                <TextBlock Text="PFD mask (Az / El)" FontWeight="Bold" FontSize="14"/>
+                <TextBlock Text="PFD Mask Generator" FontWeight="Bold" FontSize="14"/>
                 <TextBlock Text="Taylor §1.4 elliptical + 3GPP hex" Foreground="#666666" Margin="0,0,0,8"/>
 
                 <GroupBox Header="Orbit">
@@ -55,16 +59,57 @@
                     <StackPanel>
                         <TextBlock Text="Minimum user elevation ε_min (deg)"/>
                         <TextBox Text="{Binding MinElevDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
-                        <TextBlock Text="GSO exclusion α_excl (deg)"/>
-                        <TextBox Text="{Binding AlphaExclDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="GSO exclusion α_excl (deg)"
+                                   IsEnabled="{Binding UseAdvancedExclusion, Converter={StaticResource NotBool}}"/>
+                        <TextBox Text="{Binding AlphaExclDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"
+                                 IsEnabled="{Binding UseAdvancedExclusion, Converter={StaticResource NotBool}}"/>
+                        <CheckBox Content="Advanced exclusion (α rings)" Margin="0,4,0,0"
+                                  IsChecked="{Binding UseAdvancedExclusion}"/>
+                        <Button Content="Edit α rings…" Command="{Binding EditExclusionRingsCommand}"
+                                IsEnabled="{Binding UseAdvancedExclusion}" HorizontalAlignment="Left" Padding="8,2"/>
+                        <TextBlock Text="{Binding ExclusionSummary}" Foreground="#666666"/>
                         <TextBlock Text="{Binding LayoutReadout}" Foreground="#666666" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Mask type">
+                    <StackPanel>
+                        <RadioButton GroupName="MaskKind"
+                                     Content="Azimuth / Elevation  (S.1503-4 §D6.4.5)"
+                                     IsChecked="{Binding IsAzElMask}"/>
+                        <RadioButton GroupName="MaskKind"
+                                     Content="α / ΔLongitude  (S.1503-4 §D6.4.4)"
+                                     IsChecked="{Binding IsAlphaDeltaMask}"/>
                     </StackPanel>
                 </GroupBox>
 
                 <GroupBox Header="PFD plot">
                     <StackPanel>
-                        <TextBlock Text="Tx EIRP per beam (dBW / refBW)"/>
+                        <TextBlock Text="Tx power per beam (dBW / refBW)"/>
                         <TextBox Text="{Binding TxEirpDbw, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <RadioButton GroupName="PowerMode"
+                                     Content="Constant power per beam"
+                                     IsChecked="{Binding IsConstantEirpMode}"/>
+                        <RadioButton GroupName="PowerMode"
+                                     Content="Constant boresight PFD (compensate spreading loss)"
+                                     IsChecked="{Binding IsConstantPfdMode}"/>
+                        <TextBlock Foreground="#666666" TextWrapping="Wrap"
+                                   Text="Constant-PFD mode: input = nadir-reference power; beam k gets +20·log10(slant/alt)."/>
+                        <TextBlock Text="Aggregation" Margin="0,6,0,0" Foreground="#666666"/>
+                        <RadioButton GroupName="PfdAggMode"
+                                     Content="Power sum of all beams (aggregate mask)"
+                                     IsChecked="{Binding IsPowerSumMode}"/>
+                        <RadioButton GroupName="PfdAggMode"
+                                     Content="Co-channel sum, K-colour reuse (worst colour)"
+                                     IsChecked="{Binding IsCoChannelMode}"/>
+                        <StackPanel Orientation="Horizontal" Margin="18,2,0,0">
+                            <TextBlock Text="Reuse colours K:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Width="60" SelectedIndex="{Binding ReuseKIndex}">
+                                <ComboBoxItem Content="3"/>
+                                <ComboBoxItem Content="4"/>
+                                <ComboBoxItem Content="7"/>
+                            </ComboBox>
+                        </StackPanel>
                         <TextBlock Text="Reference bandwidth (kHz)"/>
                         <TextBox Text="{Binding RefBwKHz, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
                         <TextBlock Text="Mask sampling step (deg)  — az &amp; el resolution"/>
@@ -74,9 +119,10 @@
                 </GroupBox>
 
                 <Button Content="Refresh / rebuild" Command="{Binding RefreshCommand}" Margin="0,8,0,0"/>
+                <Button Content="Generate mask XML…" Command="{Binding GenerateXmlCommand}" Margin="0,2,0,0"/>
 
                 <TextBlock Margin="0,8,0,0" Foreground="#666666" TextWrapping="Wrap"
-                           Text="Az/el are S.1503-4 §D6.4.5 satellite-frame angles: az from nadir toward East, el out of the East-Down plane toward North. Each pixel = look direction from the sat; colour = aggregate PFD at that direction's ground intersection. Pixels past the horizon or with ES elevation &lt; ε_min stay blank."/>
+                           Text="Az/El mask (§D6.4.5): satellite-frame angles — az from nadir toward East, el out of the East-Down plane toward North; each pixel = one look direction, colour = aggregate PFD at its ground intersection. α/ΔLongitude mask (§D6.4.4): signed α to the nearest visible GSO arc point vs ΔLongitude (NGSO sub-long − GSO point long); each cell = max PFD over all ground points sharing (α, ΔL). Both cover the whole visible disc (side-lobe radiation below ε_min included — ε_min only gates which beams are on); unreachable cells stay blank."/>
             </StackPanel>
         </ScrollViewer>
 
@@ -125,12 +171,13 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Azimuth cut" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Grid.Column="0" Text="{Binding ProfileCutLabel}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                         <Slider Grid.Column="1" VerticalAlignment="Center"
-                                Minimum="-90" Maximum="90" SmallChange="1" LargeChange="10"
+                                Minimum="{Binding ProfileCutMinDeg}" Maximum="{Binding ProfileCutMaxDeg}"
+                                SmallChange="1" LargeChange="10"
                                 TickFrequency="30" TickPlacement="BottomRight"
-                                Value="{Binding ProfileAzimuthDeg, Mode=TwoWay}"/>
-                        <TextBlock Grid.Column="2" Text="{Binding ProfileAzimuthReadout}" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                Value="{Binding ProfileCutDeg, Mode=TwoWay}"/>
+                        <TextBlock Grid.Column="2" Text="{Binding ProfileCutReadout}" VerticalAlignment="Center" Margin="6,0,0,0"/>
                     </Grid>
                 </Border>
                 <Border Grid.Column="1" Grid.Row="1" Background="#ffffff" BorderBrush="#cccccc" BorderThickness="1,1,0,0">

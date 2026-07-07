@@ -12,36 +12,22 @@ using static radians.beamlab.GeoMath;
 namespace radians.beamlab.app;
 
 /// <summary>
-/// Renders aggregate PFD as a heatmap in azimuth-elevation coordinates for
-/// the "PFD mask (Az/El)" tab.
-///
-/// Sampling strategy (forward rasterisation):
-///   * walk out from the sub-satellite point on the ground in polar
-///     coordinates (β_sub, γ) — bearing at sub-sat, great-circle central
-///     angle to the ES;
-///   * γ ranges from 0 to γ_max where γ_max is the central angle at which
-///     the user-elevation equals ε_min (so we never sample below the min
-///     elevation cut-off);
-///   * for each ES = destination(sub-sat, γ, β_sub) compute az/el of the
-///     NGSO in the ES horizon frame and the aggregate PFD produced by all
-///     active beams; bin (max) into an az/el pixel.
-///
-/// This gives an areal fill over the (az, el) region actually reachable by
-/// an ES on the ground under the current sat, unlike the earlier 1-D ES
-/// longitude sweep which degenerated to a curve.
-///
-/// α overlay: pixels whose ES lies inside |α| &lt; α_excl of the nearest
-/// visible GSO satellite are drawn with a red tint mixed over the PFD colour.
+/// Renders aggregate PFD as a heatmap in satellite-frame azimuth-elevation
+/// coordinates (S.1503-4 §D6.4.5) for the "PFD mask (Az/El)" tab. The data —
+/// PFD and α grids, auto-scaled ramp bounds — lives in the shared
+/// <see cref="PfdMaskField"/>; this class rebuilds the field when dirty, blits
+/// it to a WriteableBitmap (α exclusion tinted red when the overlay is on),
+/// and draws axes, azimuth cursor and colour legend.
 ///
 /// The rasterised bitmap is cached on the instance and only recomputed when
-/// <see cref="Invalidate"/> is called — this keeps canvas-resize handling
-/// snappy (Redraw just re-stretches the cached image).
+/// <see cref="Invalidate"/> is called — this keeps canvas-resize and
+/// azimuth-cursor redraws snappy (Redraw just re-stretches the cached image).
 /// </summary>
-public sealed class AzElPfdRenderer
+public sealed class PfdHeatmapRenderer
 {
     private readonly Canvas _canvas;
     private readonly PfdMaskViewModel _vm;
-    private readonly AzElPfdField _field;
+    private readonly PfdMaskField _field;
 
     private const double LeftMargin = 46.0;
     private const double RightMargin = 100.0;
@@ -51,7 +37,7 @@ public sealed class AzElPfdRenderer
     private WriteableBitmap? _bmp;
     private bool _dirty = true;
 
-    public AzElPfdRenderer(Canvas canvas, PfdMaskViewModel vm, AzElPfdField field)
+    public PfdHeatmapRenderer(Canvas canvas, PfdMaskViewModel vm, PfdMaskField field)
     {
         _canvas = canvas;
         _vm = vm;
@@ -74,44 +60,65 @@ public sealed class AzElPfdRenderer
         double plotB = H - BottomMargin;
         if (plotR - plotL < 10 || plotB - plotT < 10) return;
 
-        // S.1503-4 §D6.4.5 sat-frame axes: az from nadir toward East ∈ [-90°, +90°];
-        // el from the East-Down plane toward North ∈ [-90°, +90°].
-        double azMin = -90.0, azMax = 90.0;
-        double elMin = -90.0, elMax = 90.0;
-
         ChartPrimitives.AddBackground(_canvas, plotL, plotR, plotT, plotB);
-        DrawHeatmap(plotL, plotR, plotT, plotB, elMin, elMax);
-        DrawAxes(plotL, plotR, plotT, plotB, azMin, azMax, elMin, elMax);
-        DrawAzimuthCursor(plotL, plotR, plotT, plotB, azMin, azMax);
+        // DrawHeatmap rebuilds the field when dirty — axes / cursor read the
+        // field's axis metadata afterwards, so they always match the grids.
+        DrawHeatmap(plotL, plotR, plotT, plotB);
+        DrawAxes(plotL, plotR, plotT, plotB);
+        DrawCutCursor(plotL, plotR, plotT, plotB);
         DrawColorLegend(W - RightMargin + 12, plotT, plotB);
     }
 
-    /// <summary>Vertical line marking the azimuth the companion elevation-profile plot is slicing.</summary>
-    private void DrawAzimuthCursor(double l, double r, double t, double b, double azMin, double azMax)
+    /// <summary>
+    /// Line marking the cut the companion profile plot is slicing: vertical at
+    /// X = azimuth (AzEl) or horizontal at Y = α (α/ΔLongitude — one mask row).
+    /// </summary>
+    private void DrawCutCursor(double l, double r, double t, double b)
     {
-        double az = Math.Clamp(_vm.ProfileAzimuthDeg, azMin, azMax);
-        double x = l + (az - azMin) / (azMax - azMin) * (r - l);
         var stroke = new SolidColorBrush(Color.FromArgb(220, 0xff, 0xff, 0xff));
-        _canvas.Children.Add(new Line
-        {
-            X1 = x, Y1 = t, X2 = x, Y2 = b,
-            Stroke = stroke,
-            StrokeThickness = 1.2,
-            StrokeDashArray = new DoubleCollection { 3, 3 },
-            IsHitTestVisible = false,
-        });
         var lbl = new TextBlock
         {
-            Text = $"az = {az:+0;-0;0}°",
+            Text = _vm.ProfileCutReadout,
             Foreground = stroke,
             FontSize = 10,
         };
-        Canvas.SetLeft(lbl, Math.Min(x + 3, r - 46));
-        Canvas.SetTop(lbl, t + 2);
+
+        if (_field.Kind == MaskPlotKind.AlphaDeltaLong)
+        {
+            double yMin = _field.YMin, yMax = _field.YMax;
+            double cut = Math.Clamp(_vm.ProfileCutDeg, yMin, yMax);
+            double y = b - (cut - yMin) / (yMax - yMin) * (b - t);
+            _canvas.Children.Add(new Line
+            {
+                X1 = l, Y1 = y, X2 = r, Y2 = y,
+                Stroke = stroke,
+                StrokeThickness = 1.2,
+                StrokeDashArray = new DoubleCollection { 3, 3 },
+                IsHitTestVisible = false,
+            });
+            Canvas.SetLeft(lbl, l + 4);
+            Canvas.SetTop(lbl, Math.Max(t + 2, y - 15));
+        }
+        else
+        {
+            double xMin = _field.XMin, xMax = _field.XMax;
+            double cut = Math.Clamp(_vm.ProfileCutDeg, xMin, xMax);
+            double x = l + (cut - xMin) / (xMax - xMin) * (r - l);
+            _canvas.Children.Add(new Line
+            {
+                X1 = x, Y1 = t, X2 = x, Y2 = b,
+                Stroke = stroke,
+                StrokeThickness = 1.2,
+                StrokeDashArray = new DoubleCollection { 3, 3 },
+                IsHitTestVisible = false,
+            });
+            Canvas.SetLeft(lbl, Math.Min(x + 3, r - 52));
+            Canvas.SetTop(lbl, t + 2);
+        }
         _canvas.Children.Add(lbl);
     }
 
-    private void DrawHeatmap(double l, double r, double t, double b, double elMin, double elMax)
+    private void DrawHeatmap(double l, double r, double t, double b)
     {
         if (_dirty || _bmp is null)
         {
@@ -140,7 +147,7 @@ public sealed class AzElPfdRenderer
     /// Rasterise the field's PFD grid into the cached WriteableBitmap: colour by
     /// the auto-scaled ramp, tint pixels inside the α exclusion when the overlay
     /// is on, leave no-data pixels transparent. Called only when the cache is
-    /// dirty (after <see cref="AzElPfdField.Rebuild"/>).
+    /// dirty (after <see cref="PfdMaskField.Rebuild"/>).
     /// </summary>
     private void BuildBitmap()
     {
@@ -151,8 +158,10 @@ public sealed class AzElPfdRenderer
 
         double floor = _field.PfdFloor;
         double range = Math.Max(1e-6, _field.PfdCeil - _field.PfdFloor);
-        double alphaExcl = _vm.AlphaExclDeg;
         bool showAlpha = _vm.ShowAlphaContour;
+        // Exclusion bands (sorted) snapshot once — off bands tint red, attenuate
+        // bands tint orange. Basic mode reduces to a single off band at α_excl.
+        var bands = _vm.ExclusionBandsSorted();
 
         var bmp = new WriteableBitmap(pixW, pixH, 96, 96, PixelFormats.Pbgra32, null);
         bmp.Lock();
@@ -175,11 +184,22 @@ public sealed class AzElPfdRenderer
                     double tRamp = Math.Clamp((pfd - floor) / range, 0.0, 1.0);
                     ColorRamp.Pfd.Sample(tRamp, out byte rr, out byte gg, out byte bb);
 
-                    if (showAlpha && alphaBuf[idx] < alphaExcl)
+                    if (showAlpha && PfdMaskViewModel.BandFor(bands, alphaBuf[idx]) is { } band)
                     {
-                        rr = (byte)Math.Min(255, rr + 60);
-                        gg = (byte)(gg * 0.6);
-                        bb = (byte)(bb * 0.6);
+                        if (band.IsOff)
+                        {
+                            rr = (byte)Math.Min(255, rr + 60);
+                            gg = (byte)(gg * 0.6);
+                            bb = (byte)(bb * 0.6);
+                        }
+                        else
+                        {
+                            // Attenuate band — lighter orange wash, deeper with more dB.
+                            double f = Math.Clamp(band.AttenDb / 20.0, 0.15, 0.6);
+                            rr = (byte)Math.Min(255, rr + (int)(50 * f));
+                            gg = (byte)Math.Min(255, gg + (int)(25 * f));
+                            bb = (byte)(bb * (1.0 - 0.5 * f));
+                        }
                     }
 
                     byte alpha = 240;
@@ -195,41 +215,48 @@ public sealed class AzElPfdRenderer
         _bmp = bmp;
     }
 
-    private void DrawAxes(double l, double r, double t, double b,
-                          double azMin, double azMax, double elMin, double elMax)
+    private void DrawAxes(double l, double r, double t, double b)
     {
         var gridStroke = new SolidColorBrush(Color.FromArgb(50, 0xff, 0xff, 0xff));
         var labelBrush = new SolidColorBrush(Color.FromRgb(0x1a, 0x1a, 0x1a));
+        double xMin = _field.XMin, xMax = _field.XMax;
+        double yMin = _field.YMin, yMax = _field.YMax;
 
-        for (double az = -90.0; az <= 90.0 + 1e-6; az += 30.0)
+        for (double x = xMin; x <= xMax + 1e-6; x += 30.0)
         {
-            double x = l + (az - azMin) / (azMax - azMin) * (r - l);
-            _canvas.Children.Add(new Line { X1 = x, Y1 = t, X2 = x, Y2 = b, Stroke = gridStroke, StrokeThickness = 0.5, IsHitTestVisible = false });
-            var lbl = new TextBlock { Text = $"{az:+0;-0;0}°", Foreground = labelBrush, FontSize = 10 };
-            Canvas.SetLeft(lbl, x - 12);
+            double px = l + (x - xMin) / (xMax - xMin) * (r - l);
+            _canvas.Children.Add(new Line { X1 = px, Y1 = t, X2 = px, Y2 = b, Stroke = gridStroke, StrokeThickness = 0.5, IsHitTestVisible = false });
+            var lbl = new TextBlock { Text = $"{x:+0;-0;0}°", Foreground = labelBrush, FontSize = 10 };
+            Canvas.SetLeft(lbl, px - 12);
             Canvas.SetTop(lbl, b + 3);
             _canvas.Children.Add(lbl);
         }
-        for (double el = -90.0; el <= 90.0 + 1e-6; el += 30.0)
+        for (double y = yMin; y <= yMax + 1e-6; y += 30.0)
         {
-            double y = b - (el - elMin) / (elMax - elMin) * (b - t);
-            _canvas.Children.Add(new Line { X1 = l, Y1 = y, X2 = r, Y2 = y, Stroke = gridStroke, StrokeThickness = 0.5, IsHitTestVisible = false });
-            var lbl = new TextBlock { Text = $"{el:+0;-0;0}°", Foreground = labelBrush, FontSize = 10 };
+            double py = b - (y - yMin) / (yMax - yMin) * (b - t);
+            _canvas.Children.Add(new Line { X1 = l, Y1 = py, X2 = r, Y2 = py, Stroke = gridStroke, StrokeThickness = 0.5, IsHitTestVisible = false });
+            var lbl = new TextBlock { Text = $"{y:+0;-0;0}°", Foreground = labelBrush, FontSize = 10 };
             Canvas.SetLeft(lbl, l - 28);
-            Canvas.SetTop(lbl, y - 7);
+            Canvas.SetTop(lbl, py - 7);
             _canvas.Children.Add(lbl);
         }
+
+        bool alphaDelta = _field.Kind == MaskPlotKind.AlphaDeltaLong;
         var xTitle = new TextBlock
         {
-            Text = "azimuth (sat frame, from nadir toward East — S.1503-4 §D6.4.5)",
+            Text = alphaDelta
+                ? "ΔLongitude = NGSO sub-sat long − GSO arc point long (deg) — S.1503-4 §D6.4.4"
+                : "azimuth (sat frame, from nadir toward East — S.1503-4 §D6.4.5)",
             Foreground = labelBrush,
             FontSize = 11,
         };
-        Canvas.SetLeft(xTitle, (l + r) / 2 - 155);
+        Canvas.SetLeft(xTitle, (l + r) / 2 - (alphaDelta ? 210 : 155));
         Canvas.SetTop(xTitle, b + 18);
         _canvas.Children.Add(xTitle);
         ChartPrimitives.AddRotatedYTitle(_canvas,
-            "elevation (sat frame, out of East-Down plane toward North)",
+            alphaDelta
+                ? "α (signed, deg — S.1503-4 §D6.4.4.1)"
+                : "elevation (sat frame, out of East-Down plane toward North)",
             labelBrush, x: 4, yCenter: (t + b) / 2);
     }
 
@@ -271,18 +298,25 @@ public sealed class AzElPfdRenderer
 
         if (_vm.ShowAlphaContour)
         {
-            var swatch = new Rectangle
+            var offBrush   = new SolidColorBrush(Color.FromRgb(0xd6, 0x4c, 0x4c));
+            var attenBrush = new SolidColorBrush(Color.FromRgb(0xe0, 0x9a, 0x44));
+            bool advanced = _vm.UseAdvancedExclusion;
+            bool anyAtten = advanced && _vm.ExclusionRings.Any(r => !r.IsOff && r.OuterDeg > 0);
+
+            void Chip(Brush fill, string text, double yOff)
             {
-                Width = 12, Height = 12,
-                Fill = new SolidColorBrush(Color.FromRgb(0xd6, 0x4c, 0x4c)),
-            };
-            Canvas.SetLeft(swatch, x0);
-            Canvas.SetTop(swatch, b + 10);
-            _canvas.Children.Add(swatch);
-            var lbl = new TextBlock { Text = $"|α| < {_vm.AlphaExclDeg:F1}°", Foreground = labelBrush, FontSize = 10 };
-            Canvas.SetLeft(lbl, x0 + 16);
-            Canvas.SetTop(lbl, b + 10);
-            _canvas.Children.Add(lbl);
+                var swatch = new Rectangle { Width = 12, Height = 12, Fill = fill };
+                Canvas.SetLeft(swatch, x0);
+                Canvas.SetTop(swatch, b + yOff);
+                _canvas.Children.Add(swatch);
+                var lbl = new TextBlock { Text = text, Foreground = labelBrush, FontSize = 10 };
+                Canvas.SetLeft(lbl, x0 + 16);
+                Canvas.SetTop(lbl, b + yOff);
+                _canvas.Children.Add(lbl);
+            }
+
+            Chip(offBrush, advanced ? "off ring" : $"|α| < {_vm.AlphaExclDeg:F1}°", 10);
+            if (anyAtten) Chip(attenBrush, "atten ring", 26);
         }
     }
 }

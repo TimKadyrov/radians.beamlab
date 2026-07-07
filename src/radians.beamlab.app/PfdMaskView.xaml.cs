@@ -4,17 +4,20 @@ using System.Windows.Controls;
 namespace radians.beamlab.app;
 
 /// <summary>
-/// UserControl hosting the PFD-mask (Az/El) tab. Instantiates its own
-/// <see cref="PfdMaskViewModel"/> and both renderers — a small geo map for
-/// footprints (top) and the az/el PFD heatmap (bottom).
+/// UserControl hosting the PFD-mask tab (az/el or α/ΔLongitude coordinates).
+/// Instantiates its own <see cref="PfdMaskViewModel"/>, the shared
+/// <see cref="PfdMaskField"/>, and three renderers — geo map for footprints
+/// (top), mask heatmap (bottom left) and profile slice (bottom right).
 /// </summary>
 public partial class PfdMaskView : UserControl
 {
     private readonly PfdMaskViewModel _vm = new();
-    private readonly AzElPfdField _field = new();
-    private AzElPfdRenderer? _plotRenderer;
+    private readonly PfdMaskField _field = new();
+    private PfdHeatmapRenderer? _plotRenderer;
+    private MapViewport? _mapViewport;
     private PfdMapRenderer? _mapRenderer;
-    private PfdVsElRenderer? _profileRenderer;
+    private PfdMapInteractionHandler? _mapInteraction;
+    private PfdProfileRenderer? _profileRenderer;
 
     public PfdMaskView()
     {
@@ -25,9 +28,28 @@ public partial class PfdMaskView : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        _mapRenderer     = new PfdMapRenderer(MapCanvas, _vm, _vm.Coastlines);
-        _plotRenderer    = new AzElPfdRenderer(PlotCanvas, _vm, _field);
-        _profileRenderer = new PfdVsElRenderer(ProfileCanvas, _vm, _field);
+        _mapViewport     = new MapViewport();
+        _mapRenderer     = new PfdMapRenderer(MapCanvas, _mapViewport, _vm, _vm.Coastlines);
+        _mapInteraction  = new PfdMapInteractionHandler(MapCanvas, _mapViewport);
+        _plotRenderer    = new PfdHeatmapRenderer(PlotCanvas, _vm, _field);
+        _profileRenderer = new PfdProfileRenderer(ProfileCanvas, _vm, _field);
+
+        // Pan / zoom moves the viewport — redraw just the map.
+        _mapViewport.Changed += _mapRenderer.Redraw;
+
+        // Open the advanced-exclusion dialog on request.
+        _vm.EditExclusionRingsRequested += () =>
+        {
+            var dlg = new ExclusionRingsWindow(_vm) { Owner = Window.GetWindow(this) };
+            dlg.ShowDialog();
+        };
+
+        // Open the mask-XML export dialog on request.
+        _vm.GenerateXmlRequested += () =>
+        {
+            var dlg = new MaskXmlExportWindow(new MaskXmlExportViewModel(_vm)) { Owner = Window.GetWindow(this) };
+            dlg.ShowDialog();
+        };
 
         // Scene changes (rebuild / gating / alpha overlay toggle) invalidate the
         // pre-rasterised PFD bitmap so the next Redraw regenerates the shared
