@@ -1,188 +1,243 @@
-# radians.beamlab — user guide
+# radians.beamlab — User Guide
 
-This guide walks through both tabs of the tool and every control. For the
-theory of the single-beam pattern and the hex layout see the
-[README](../README.md) and [hex-layout.md](hex-layout.md).
+radians.beamlab helps you answer two practical questions about a multi-beam
+non-GSO satellite:
 
-The app opens with two tabs:
+1. **"What does my beam layout radiate onto the Earth?"** — the
+   **Composite gain map** tab: lay out beams, switch them on and off, and see
+   the combined antenna gain painted on a world map.
+2. **"What PFD mask does that produce, and can I file it?"** — the
+   **PFD Mask Generator** tab: compute the downlink power-flux-density mask
+   in the ITU coordinate systems, experiment with power control, frequency
+   reuse and GSO-arc protection, and export the result as S.1503-4 mask XML
+   or a CSV table.
 
-- **Composite gain map** — place a multi-beam set and view its composite
-  antenna gain on a world map.
-- **PFD Mask Generator** — compute the downlink power-flux-density mask of
-  that beam set in the ITU-R S.1503-4 coordinate systems and export it.
-
-The two tabs are **independent**: each keeps its own orbit, antenna and
-display state, so editing one never disturbs the other.
-
----
-
-## Common concepts
-
-- **Spherical Earth**, radius 6371 km. All geometry is line-of-sight on the
-  sphere; there is no atmosphere or terrain.
-- **Beams.** The satellite carries a set of beams, each an S.1528-1 §1.4
-  Taylor pattern pointed at a ground cell. A per-beam **weight** in [0, 1]
-  scales its contribution: 1 = on, 0 = off, in between = attenuated.
-- **Composite** gain / PFD is the incoherent power sum of the active beams —
-  correct when each beam carries an independent signal (the usual non-GSO
-  multi-beam payload).
+The two tabs are independent — each keeps its own satellite, antenna and
+display settings, so you can experiment in one without disturbing the other.
 
 ---
 
-## Tab 1 — Composite gain map
-
-Left panel, top to bottom:
-
-- **Orbit** — altitude (km). The read-out shows the horizon off-nadir angle.
-- **Sub-satellite point** — latitude, longitude.
-- **RF / antenna** — centre frequency (GHz); the read-out gives λ and a
-  gain-derived beamwidth. *Fill θb from Gm* stamps that beamwidth in.
-- **Beam pattern** — one of six S.1528 models: §1.4 Taylor circular or
-  elliptical, §1.2 envelope, §1.3 LEO/MEO/HEO. Peak gain Gm, half-3-dB
-  beamwidth θb, side-lobe ratio and n̄ (Taylor), null floor LF, and the
-  elliptical cell parameters. *Auto hex tessellation* places beams on a hex
-  lattice (3GPP NTN UV-plane for circular patterns, ground tangent plane for
-  the elliptical one); otherwise beams are laid out as concentric rings.
-- **Beam layout** — the served **min user-elevation** (sets how far out the
-  outer ring reaches) and the **adjacent-beam crossover level** (sets the
-  centre-to-centre spacing).
-- **Heatmap / probe** — power-sum vs single-dominant-beam gain.
-- **Region exclusion** — switch off every beam whose footprint centre falls
-  inside a selected country or a lat/lon box.
-- **PFD adjustment** — reduce adjacent-beam gains (or switch beams off) so the
-  aggregate PFD over the selected country stays under a limit mask.
-- **Display** — heatmap on/off, footprint rings, heatmap floor.
-
-Map (right): equirectangular world map with coastlines (`countries.json`),
-the sub-satellite marker and amber horizon disc, and each beam's footprint as
-a green (on) / red (off) marker with an optional 3-dB ring.
-
-- **Click a beam** → toggle it on/off.
-- **Click elsewhere** → probe composite gain / PFD at that ground point.
-- **Left-drag** pans, **right-drag** moves the satellite, **wheel** zooms.
-
----
-
-## Tab 2 — PFD Mask Generator
-
-This tab is locked to the S.1528-1 §1.4 elliptical Taylor pattern on a 3GPP
-hex lattice, and computes a **PFD mask**: PFD as a function of the S.1503-4
-mask coordinates. It never mutates Tab 1.
-
-### Mask type
-
-Radio buttons pick the coordinate system (both are satellite-referenced per
-S.1503-4):
-
-- **Azimuth / Elevation (§D6.4.5).** X = azimuth from nadir toward East
-  (±90°), Y = elevation out of the East-Down plane toward North (±90°). Each
-  heatmap pixel is one look direction from the satellite; its colour is the
-  aggregate PFD at that direction's ground intersection.
-- **α / ΔLongitude (§D6.4.4).** X = ΔLongitude (NGSO sub-satellite longitude
-  minus the longitude of the α-minimising GSO arc point, ±180°), Y = signed
-  α, the avoidance angle to the nearest visible GSO arc point (±90°, sign per
-  §D6.4.4.1). The visible disc is swept and each ground point's PFD is
-  max-binned into its (α, ΔL) cell — the ITU mask is the maximum PFD over all
-  ground points sharing (α, ΔL). α is computed with the analytic §D6.4.4.4
-  method (quartic + Newton).
-
-The whole visible disc is sampled, **including ground below the served
-min-elevation**, because the active beams' side lobes still radiate there.
-Only look directions past the horizon are blank.
-
-### Antenna, cell, gating
-
-- **Frequency, Gm, cell radius, edge roll-off, SLR, n̄, LF** — the elliptical
-  Taylor cell parameters; the read-out shows the S.1503-4 Table 8 GSO minimum
-  elevation for the frequency.
-- **Minimum user elevation ε_min** — gates which beams are *on* (the outer
-  hex extent) and is drawn as a guide on the profile. PFD is still evaluated
-  over the whole disc.
-- **GSO exclusion α_excl** — basic mode: beams whose footprint |α| is below
-  this are switched off. (Superseded by the advanced dialog when enabled.)
-
-### Power mode
-
-- **Constant power per beam** — every beam transmits the same power; the input
-  is that power (dBW in the reference bandwidth).
-- **Constant boresight PFD** — each beam's power is raised by
-  20·log₁₀(boresight slant / altitude) so its *boresight* PFD is the same as a
-  nadir beam's, cancelling spreading loss. The input is then the
-  nadir-reference power. This flattens the per-beam served PFD; the aggregate
-  still ripples with beam overlap.
-
-### Aggregation
-
-How per-beam PFD contributions combine into the mask:
-
-- **Power sum of all beams** — every beam co-frequency (reuse factor 1). The
-  conservative upper bound and the safest regulatory posture.
-- **Co-channel sum, K-colour reuse** — beams are coloured on the hex lattice
-  (K = 3, 4 or 7 — no two adjacent cells share a colour), each colour is
-  power-summed separately, and the worst colour is taken per pixel. The
-  realistic view for a payload with a frequency plan; in this mode the geo
-  map paints on beams by their reuse colour.
-
-Pointwise, co-channel sits between power-sum (higher) and a single beam
-(lower).
-
-### Advanced exclusion (α rings)
-
-Tick **Advanced exclusion** and open **Edit α rings…** for concentric α
-rings from 0° outward. Each ring has an outer α edge and an action:
-
-- **Off** — beams whose footprint |α| falls in the ring are switched off.
-- **Attenuate N dB** — those beams' power is reduced by N dB.
-
-A beam takes the innermost ring it is under; beyond the outermost ring it is
-unaffected. On the heatmap, off rings tint red and attenuate rings tint
-orange; the profile marks each ring's boundary. (Basic single-threshold mode
-is the special case of one off ring at α_excl.)
-
-### Plots (right side)
-
-- **Geo map** (top) — coastlines, horizon, sub-satellite, and beam footprints
-  coloured green/red (or by reuse colour in co-channel mode). Pan with
-  left-drag, zoom with the wheel.
-- **Mask heatmap** (bottom-left) — PFD over the (X, Y) mask grid on an
-  auto-scaled red→green ramp (red = lowest, green = highest). A dashed cursor
-  marks the profile cut; the α exclusion is tinted when *Mark α* is on.
-- **Profile** (bottom-right) — a single slice through the heatmap at the
-  slider-selected cut: PFD vs elevation at an azimuth (Az/El), or PFD vs
-  ΔLongitude at a fixed α, i.e. one mask-table row (α/ΔL). Guides show ES
-  elevation = 0° (horizon, amber) and = ε_min (cyan), and the α-exclusion
-  boundaries (red/orange).
-- **Mask sampling step** sets the grid/compute resolution.
-
-### Generate mask XML / CSV
-
-**Generate mask XML…** opens the export dialog. It exports the currently
-selected mask type over a **latitude table**:
-
-- **Inclination** sets the reachable latitude cap, max |lat| = 90° − |90° − i|
-  (= i for prograde i ≤ 90°). Latitude min/max are editable within that cap,
-  plus a latitude step.
-- **Output resolution** — the b (α or azimuth) and c (ΔLongitude or
-  elevation) axis steps. The compute grid uses the tab's mask step; output
-  nodes are sampled from it, and unreachable nodes are written as −1000.
-- **Metadata** — satellite name, NTC id, mask id, frequency band, refBW.
-- **Format** — XML (S.1503-4 schema), CSV (a flat table: one row per
-  latitude × b, one column per c value), or both.
-
-For each latitude the beam set + exclusion are recomputed and the mask field
-re-sampled, so the table reflects the changing GSO/ES geometry with latitude.
-The run is off the UI thread with a progress bar and Cancel; the live view is
-untouched. The XML matches the reference `maskdata` reader
-(`satellite_system → pfd_mask → by_a[latitude] → by_b[α|azimuth] →
-pfd[ΔLong|elevation]`) and has been round-trip-verified against it.
-
----
-
-## Build / run
+## Getting started
 
 ```
 dotnet build radians.beamlab.slnx
 dotnet run --project src/radians.beamlab.app
 ```
 
-Targets `net8.0` (Core) and `net8.0-windows` (App, WPF).
+For real coastlines, put a Natural Earth GeoJSON named `countries.json` in
+the working directory, next to the executable, or in the project root. The
+status bar tells you which source was loaded; without it a coarse built-in
+outline is used.
+
+---
+
+## Tab 1 — Composite gain map
+
+### Your first map in five steps
+
+1. Set **Altitude** and the **sub-satellite point** — the amber circle on the
+   map is everything the satellite can see.
+2. Pick a **beam pattern**. The default (§1.4 Taylor circular) is a realistic
+   single-beam shape; set its peak gain **Gm** and beamwidth **θb** (or click
+   *Fill θb from Gm* to derive one from the other).
+3. Tick **Auto hex tessellation** to fill the coverage with a honeycomb of
+   beams, and set **Min user-elevation served** — beams stop where a ground
+   user would see the satellite lower than this.
+4. Tick **Render gain heatmap** — every visible ground pixel is coloured by
+   the composite gain.
+5. **Click any beam marker** to switch it off (it turns red and drops out of
+   the sum). Click empty map to probe the exact gain/PFD at that spot; the
+   answer appears in the status bar.
+
+### Map gestures
+
+| Gesture | Action |
+|---|---|
+| Left-click a beam marker | toggle that beam on/off |
+| Left-click elsewhere | probe gain / PFD at that point |
+| Left-drag | pan |
+| Right-drag | move the satellite (live) |
+| Mouse wheel | zoom around the cursor |
+
+### The controls, in brief
+
+- **Beam pattern** — six models from ITU-R S.1528. Use the Taylor §1.4
+  (circular or elliptical) when you want realistic side lobes; the §1.2 /
+  §1.3 envelopes when you want the standard's envelope shapes. The *Show
+  pattern…* button plots the current single-beam pattern so you can sanity-
+  check it before building a constellation of it.
+- **Crossover level** — how far apart neighbouring beams sit: −3 dB is the
+  engineering standard (beams meet at their half-power edge); pull it tighter
+  for more overlap.
+- **Region exclusion** — switch off every beam whose footprint lands in a
+  chosen country or lat/lon box, in one click.
+- **PFD adjustment** — after excluding a country you may still leak side-lobe
+  power into it. This tool reduces the gain of the neighbouring beams (or
+  switches them off if it can't reduce enough) until the aggregate PFD over
+  that country stays under the selected limit. Adjusted beams turn amber.
+- **Heatmap / probe mode** — *power sum* shows the aggregate of all beams;
+  *single-beam max* shows just the strongest beam at each point.
+
+---
+
+## Tab 2 — PFD Mask Generator
+
+This tab answers: *for the beam set I've configured, what PFD arrives at
+every point the satellite can see — expressed in the mask coordinates the
+ITU regime uses?* It always uses the elliptical Taylor pattern on a hex
+lattice (the realistic case for an NTN payload).
+
+### Your first mask in five steps
+
+1. Set **altitude**, **latitude/longitude**, **frequency**, **Gm** and
+   **cell radius** — the top map shows the resulting footprints.
+2. Set the **beam gating**: *minimum user elevation* (how low on the horizon
+   you still serve users) and the *GSO exclusion α_excl* (beams pointing too
+   close to the geostationary arc are switched off — that's the red band you
+   will see in the plots).
+3. Pick a **mask type** (see below), leave power and aggregation at their
+   defaults for now.
+4. Look at the bottom two plots: the **heatmap** is the whole mask at a
+   glance; the **profile** is a single cut through it, chosen with the
+   slider.
+5. Click **Generate mask XML…** to export the mask over a full latitude
+   sweep (see *Exporting*, below).
+
+### Choosing a mask type
+
+- **Azimuth / Elevation** — the mask as seen *from the satellite*: where is
+  it pointing energy? X is azimuth (east–west from nadir), Y is elevation
+  (north–south). The bright oval is the visible Earth; the red band through
+  it is the GSO exclusion.
+- **α / ΔLongitude** — the mask organised around *how close to the GSO arc*
+  each ground point looks from its own sky. Y is α — 0° means an earth
+  station there sees your satellite exactly in line with the GSO arc
+  (maximum interference risk); large |α| means far from the arc. X is the
+  longitude offset to the nearest GSO point. This is the classic filing
+  coordinate system: each horizontal line of the plot is literally one row
+  of the mask table.
+
+Both sample the **whole visible disc**, including ground below your minimum
+served elevation — beams don't point there, but their side lobes still land
+there, and the mask has to show it.
+
+### Power options
+
+- **Constant power per beam** — every beam transmits the same power. Distant
+  (low-elevation) cells then receive less PFD because the signal travels
+  farther.
+- **Constant boresight PFD** — the payload boosts outer beams to compensate
+  for the longer path, so every cell's centre receives the same PFD (typical
+  downlink power control). The power box then means "power of a nadir beam";
+  edge beams get up to a few dB more automatically.
+
+The colour ramp auto-scales to the data, so after switching modes read the
+numbers off the legend rather than comparing colours between screenshots.
+
+### Aggregation — do your beams share spectrum?
+
+- **Power sum of all beams** — assumes every beam transmits in the same
+  channel. It's the worst case and the conservative choice for a filing.
+- **Co-channel sum, K-colour reuse** — assumes a frequency plan: the
+  honeycomb is coloured with K = 3, 4 or 7 colours so neighbouring beams
+  never share a channel, and only same-colour beams add up. Pick this to see
+  the realistic per-channel PFD. In this mode the top map paints each beam
+  with its colour so you can see the plan.
+
+### Advanced exclusion — α rings
+
+The basic GSO protection is a single rule: *beams pointing within α_excl of
+the arc are off*. If you need something graded, tick **Advanced exclusion
+(α rings)** and click **Edit α rings…**:
+
+- Each row is a ring around the GSO arc, given by its **outer α edge**.
+  Rings stack outward from α = 0.
+- Tick **Off** to switch beams in that ring off entirely — the attenuation
+  field greys out, it isn't needed.
+- Untick Off and enter **Atten (dB)** to keep those beams on but quieter.
+- *Add ring* appends a ring outside the current outermost; *Remove selected*
+  deletes the highlighted row.
+
+Example: `0–5° Off, 5–10° −10 dB, 10–15° −3 dB` gives a hard core with a
+graded shoulder. Everything updates live as you edit — the heatmap shows off
+rings in red and attenuated rings in orange.
+
+### Reading the plots
+
+**Heatmap** (bottom-left)
+- Colour = PFD, red (lowest) → green (highest); the legend bar gives the
+  actual dB(W/m²) values. The range auto-fits the data.
+- Blank/dark pixels = no line of sight (beyond the horizon) or, in α/ΔL
+  mode, combinations no ground point produces.
+- The dashed white line is the **profile cursor** — drag the slider above
+  the profile plot to move it.
+- Red / orange tinting = the exclusion rings (toggle with *Mark α*).
+
+**Profile** (bottom-right) — one slice through the heatmap:
+- In Az/El mode: PFD vs elevation at the azimuth you chose.
+- In α/ΔL mode: PFD vs ΔLongitude at the α you chose — one mask-table row.
+  If your α sits inside an exclusion ring, a note tells you whether beams
+  there are off or attenuated.
+- Guide lines: **amber** = the horizon (a ground user would see the
+  satellite at 0° elevation); **cyan** = your minimum served elevation. The
+  region between them is pure side-lobe spill — served users stop at cyan.
+
+**Geo map** (top) — footprints as on Tab 1 (green on / red off, or reuse
+colours), horizon disc, 3-dB rings (toggle above the map). Left-drag pans,
+wheel zooms.
+
+**Mask sampling step** controls resolution: 1° is a good working default;
+0.5° looks better but computes ~4× longer; go coarser while iterating on
+settings and finer for the final picture.
+
+### Exporting a mask (XML / CSV)
+
+**Generate mask XML…** computes the mask not just at the current latitude
+but over the whole **latitude table** an orbit sweeps, and writes it to a
+file:
+
+1. **Inclination** — enter your orbit's inclination; the dialog caps the
+   latitude range at the maximum sub-satellite latitude that inclination can
+   reach (e.g. 53° inclination → ±53°). You can narrow the range or change
+   the latitude step.
+2. **Resolution** — the grid steps for the two mask axes in the output file.
+3. **Metadata** — satellite name, NTC id, mask id, frequency band and
+   reference bandwidth: these go into the XML header.
+4. **Format** — *XML* (the S.1503-4 schema, loadable by EPFD tools),
+   *CSV* (a spreadsheet-friendly table: one row per latitude × α/azimuth,
+   one column per ΔLongitude/elevation value), or both files at once.
+5. **Browse…**, then **Generate**. The sweep runs in the background with a
+   progress bar; *Cancel* stops it. Your on-screen plots are not disturbed.
+
+The exported type follows the mask-type radio on the tab, and the file
+reflects *everything* you configured: power mode, aggregation, exclusion
+rings, gating. Points no geometry can reach are written as −1000, the
+conventional "unreachable" floor.
+
+**Speed tip:** export time ≈ (number of latitudes) × (one heatmap compute).
+Widen the latitude step and/or the mask sampling step for drafts.
+
+---
+
+## Tips & troubleshooting
+
+- **The heatmap looks almost one colour.** The ramp auto-scales; when the
+  data is genuinely flat (e.g. constant-PFD power mode) the whole served area
+  is one shade by design. Check the legend numbers.
+- **The profile curve ends before the plot edge.** It ends at the horizon —
+  the amber guide marks it. Nothing is missing.
+- **A dip in the middle of the profile.** That's the GSO exclusion: beams
+  there are off or attenuated, so only side lobes remain.
+- **Everything recomputes slowly.** Increase the mask sampling step (the α
+  solver runs per pixel), and prefer the α/ΔL mode only when you need it —
+  it samples more densely than Az/El.
+- **Exports:** generate a small draft first (10° latitude step, coarse axis
+  steps) to sanity-check the settings before a fine run.
+
+## Where the maths lives
+
+The beam pattern equations, hex-layout derivations and coordinate
+conventions are documented in the [README](../README.md) and
+[hex-layout.md](hex-layout.md). ITU references: single-beam patterns from
+Rec. ITU-R S.1528; mask coordinates, α angle and the XML schema from
+Rec. ITU-R S.1503-4 (§D6.4.4, §D6.4.5).
