@@ -1,0 +1,122 @@
+<Window x:Class="radians.beamlab.app.MaskXmlExportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Generate PFD mask XML (S.1503-4)"
+        Height="560" Width="520"
+        WindowStartupLocation="CenterOwner"
+        Background="#ffffff" Foreground="#1a1a1a"
+        FontFamily="Segoe UI" FontSize="12">
+    <Window.Resources>
+        <Style TargetType="TextBox"><Setter Property="Margin" Value="0,1,0,4"/><Setter Property="Padding" Value="3"/></Style>
+        <Style TargetType="TextBlock"><Setter Property="Margin" Value="0,2,0,0"/></Style>
+        <Style TargetType="GroupBox"><Setter Property="Margin" Value="0,0,0,8"/><Setter Property="Padding" Value="6"/></Style>
+    </Window.Resources>
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="{Binding MaskKindLabel}" FontWeight="SemiBold" Foreground="#404040" Margin="0,0,0,6"/>
+
+                <GroupBox Header="Metadata">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                        <StackPanel Grid.Column="0" Grid.Row="0" Margin="0,0,6,0">
+                            <TextBlock Text="Satellite name"/>
+                            <TextBox Text="{Binding SatName, UpdateSourceTrigger=LostFocus}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Grid.Row="0">
+                            <TextBlock Text="NTC id"/>
+                            <TextBox Text="{Binding NtcId, UpdateSourceTrigger=LostFocus}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="0" Grid.Row="1" Margin="0,0,6,0">
+                            <TextBlock Text="Mask id"/>
+                            <TextBox Text="{Binding MaskId, UpdateSourceTrigger=LostFocus}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Grid.Row="1">
+                            <TextBlock Text="Ref BW (kHz)"/>
+                            <TextBox Text="{Binding RefBwKHz, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="0" Grid.Row="2" Margin="0,0,6,0">
+                            <TextBlock Text="Low freq (MHz)"/>
+                            <TextBox Text="{Binding LowFreqMhz, UpdateSourceTrigger=LostFocus, StringFormat=F0}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Grid.Row="2">
+                            <TextBlock Text="High freq (MHz)"/>
+                            <TextBox Text="{Binding HighFreqMhz, UpdateSourceTrigger=LostFocus, StringFormat=F0}"/>
+                        </StackPanel>
+                    </Grid>
+                </GroupBox>
+
+                <GroupBox Header="Latitude table (capped by inclination)">
+                    <StackPanel>
+                        <TextBlock Text="Orbit inclination (deg)"/>
+                        <TextBox Text="{Binding InclinationDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                <TextBlock Text="Lat min"/>
+                                <TextBox Text="{Binding LatMinDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="0,0,6,0">
+                                <TextBlock Text="Lat max"/>
+                                <TextBox Text="{Binding LatMaxDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Lat step"/>
+                                <TextBox Text="{Binding LatStepDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="{Binding LatRangeReadout}" Foreground="#666666"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Output resolution">
+                    <StackPanel>
+                        <TextBlock Text="{Binding BAxisLabel}"/>
+                        <TextBox Text="{Binding BStepDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Text="{Binding CAxisLabel}"/>
+                        <TextBox Text="{Binding CStepDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
+                        <TextBlock Foreground="#666666" TextWrapping="Wrap"
+                                   Text="Compute grid uses the tab's mask sampling step; output nodes are sampled from it. Unreachable nodes are written as −1000."/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Output file">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBlock Text="Format:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Width="140" SelectedIndex="{Binding FormatIndex}">
+                                <ComboBoxItem Content="XML (S.1503-4)"/>
+                                <ComboBoxItem Content="CSV table"/>
+                                <ComboBoxItem Content="XML + CSV"/>
+                            </ComboBox>
+                        </StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Text="{Binding OutputPath, UpdateSourceTrigger=PropertyChanged}"/>
+                            <Button Grid.Column="1" Content="Browse…" Click="OnBrowse" Padding="8,2" Margin="6,1,0,4"/>
+                        </Grid>
+                        <TextBlock Foreground="#666666" TextWrapping="Wrap"
+                                   Text="The extension is set from the format (.xml / .csv); 'XML + CSV' writes both with the same base name. CSV = one row per (latitude, b), one column per c value."/>
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <ProgressBar Grid.Row="1" Height="14" Minimum="0" Maximum="100" Value="{Binding ProgressValue}" Margin="0,4,0,4"/>
+        <TextBlock Grid.Row="2" Text="{Binding StatusText}" Foreground="#444444"/>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Content="Generate" Command="{Binding GenerateCommand}" Padding="14,4" Margin="0,0,6,0" IsDefault="True"/>
+            <Button Content="Cancel" Command="{Binding CancelCommand}" IsEnabled="{Binding IsGenerating}" Padding="10,4" Margin="0,0,6,0"/>
+            <Button Content="Close" Click="OnClose" Padding="14,4" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

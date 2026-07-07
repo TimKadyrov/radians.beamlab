@@ -268,6 +268,8 @@ public sealed class SceneModel
             {
                 OffNadirDeg = 0.0,
                 RadialAxisEcef = RadialAxisFor(cEcef),
+                LatticeI = 0,
+                LatticeJ = 0,
             });
         }
 
@@ -315,6 +317,8 @@ public sealed class SceneModel
                         {
                             OffNadirDeg = off,
                             RadialAxisEcef = RadialAxisFor(ecef),
+                            LatticeI = i,
+                            LatticeJ = j,
                         });
                     }
                 }
@@ -373,6 +377,8 @@ public sealed class SceneModel
                     {
                         OffNadirDeg = offNadirDeg,
                         RadialAxisEcef = RadialAxisFor(look),
+                        LatticeI = i,
+                        LatticeJ = j,
                     });
                 }
             }

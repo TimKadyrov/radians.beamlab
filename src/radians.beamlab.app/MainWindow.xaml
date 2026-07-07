@@ -245,7 +245,7 @@
             </Grid>
         </TabItem>
 
-        <TabItem Header="PFD mask (Az / El)">
+        <TabItem Header="PFD Mask Generator">
             <app:PfdMaskView />
         </TabItem>
     </TabControl>

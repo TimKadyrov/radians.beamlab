@@ -4,15 +4,16 @@ using static radians.beamlab.GeoMath;
 namespace radians.beamlab;
 
 /// <summary>
-/// GSO-arc geometry helpers used by the PFD-mask exclusion pass. Sphere of
-/// radius <see cref="GeoMath.EarthRadiusKm"/>; GSO taken as a circle of radius
-/// <see cref="GsoRadiusKm"/> in the ECEF equatorial plane.
+/// GSO-arc geometry helpers used by the PFD-mask exclusion pass and the
+/// α/ΔLongitude mask plot. Sphere of radius <see cref="GeoMath.EarthRadiusKm"/>;
+/// GSO taken as a circle of radius <see cref="GsoRadiusKm"/> in the ECEF
+/// equatorial plane.
 ///
-/// The α angle here is the S.1503-4 §D6 avoidance angle: the angle, measured
-/// at an earth station, between the line ES→NGSO and the ES→(nearest visible
-/// GSO satellite) line. Only the magnitude is needed for the on/off gating and
-/// for drawing the exclusion contour, so the sign machinery of §D6.4.4.1 is
-/// not implemented here.
+/// The α angle is the S.1503-4 §D6 avoidance angle: the angle, measured at an
+/// earth station, between the line ES→NGSO and the ES→(nearest visible GSO
+/// satellite) line, signed per §D6.4.4.1 (positive when the ES→NGSO ray
+/// crosses the equatorial plane inside the GSO radius, northern-hemisphere
+/// convention; sign flipped in the southern hemisphere).
 /// </summary>
 public static class GsoGeometry
 {
@@ -29,31 +30,46 @@ public static class GsoGeometry
 
     /// <summary>
     /// Minimum magnitude of α (deg) between the ES→NGSO line and the
-    /// ES→(any visible GSO satellite) line.
-    ///
-    /// Uses the analytic method of S.1503-4 §D6.4.4.4 (preferred method per
-    /// §D1.4): setting d/dθ[cos α] = 0 with x = sin θ reduces to a quartic;
-    /// Newton–Raphson from x = ±1 yields four candidate θ, augmented by the
-    /// two visible-arc endpoints ±θ_max where cos θ_max = R_earth / (R_gso ·
-    /// cos φ_ES). The returned α is the minimum |α| over the visible
-    /// candidates.
-    ///
-    /// Returns 180° when the visible GSO arc is empty (ES too close to a
-    /// pole, i.e. R_earth / (R_gso · cos φ_ES) ≥ 1).
+    /// ES→(any visible GSO satellite) line. 180° when the visible GSO arc is
+    /// empty (ES too close to a pole). Unsigned convenience wrapper over
+    /// <see cref="AlphaSignedDeg"/>.
     /// </summary>
     public static double AlphaMinAbsDeg(Vec3 esEcef, Vec3 ngsoEcef)
+        => AlphaSignedDeg(esEcef, ngsoEcef) is { } r ? Math.Abs(r.alphaDeg) : 180.0;
+
+    /// <summary>
+    /// Signed α (deg, S.1503-4 §D6.4.4.1) between the ES→NGSO line and the
+    /// nearest visible GSO arc point, plus the ECEF longitude (deg) of that
+    /// arc point — the two quantities the α/ΔLongitude PFD mask is keyed on
+    /// (ΔLongitude = NGSO sub-sat longitude − returned GSO longitude, wrapped).
+    ///
+    /// Analytic method of §D6.4.4.4 (preferred per §D1.4): setting
+    /// d/dθ[cos α] = 0 with x = sin θ reduces to a quartic; Newton–Raphson from
+    /// x = ±1 yields four candidate θ, augmented by the two visible-arc
+    /// endpoints ±θ_max where cos θ_max = R_earth / (R_gso · cos φ_ES). The
+    /// minimum |α| over the visible candidates wins.
+    ///
+    /// Sign per §D6.4.4.1: extend the ES→NGSO ray to the equatorial plane; a
+    /// crossing inside the GSO radius (with positive ray parameter) is
+    /// positive in the northern hemisphere, negative outside or backwards;
+    /// the sign flips in the southern hemisphere. At the equator the sign is
+    /// −sign(ΔZ of the ray).
+    ///
+    /// Returns null when no GSO satellite is visible from the ES.
+    /// </summary>
+    public static (double alphaDeg, double gsoLonDeg)? AlphaSignedDeg(Vec3 esEcef, Vec3 ngsoEcef)
     {
         double esMag = esEcef.Length;
-        if (esMag < 1e-6) return 180.0;
+        if (esMag < 1e-6) return null;
 
         double esLatRad = Math.Asin(Math.Clamp(esEcef.Z / esMag, -1.0, 1.0));
         double esLonRad = Math.Atan2(esEcef.Y, esEcef.X);
         double cosLat = Math.Cos(esLatRad);
-        if (cosLat <= 1e-9) return 180.0;
+        if (cosLat <= 1e-9) return null;
 
         // Visible-arc limit: cos θ_max = R / (R_gso · cos φ_ES).
         double kOverCos = EarthRadiusKm / (GsoRadiusKm * cosLat);
-        if (kOverCos >= 1.0) return 180.0;      // whole GSO arc below the ES horizon
+        if (kOverCos >= 1.0) return null;       // whole GSO arc below the ES horizon
         double thMax = Math.Acos(kOverCos);
 
         // Vector ES→NGSO.
@@ -116,7 +132,7 @@ public static class GsoGeometry
         double th5 = esLonRad + thMax;
 
         double minAlpha = double.PositiveInfinity;
-        double esToNgsoX = dx, esToNgsoY = dy, esToNgsoZ = dz;
+        double minTheta = 0.0;
 
         for (int i = 0; i < 6; i++)
         {
@@ -137,15 +153,43 @@ public static class GsoGeometry
             double vy = gsoY - esEcef.Y;
             double vz = -esEcef.Z;   // GSO Z = 0
 
-            double dot = esToNgsoX * vx + esToNgsoY * vy + esToNgsoZ * vz;
-            double magP = Math.Sqrt(esToNgsoX * esToNgsoX + esToNgsoY * esToNgsoY + esToNgsoZ * esToNgsoZ);
+            double dot = dx * vx + dy * vy + dz * vz;
+            double magP = Math.Sqrt(dx * dx + dy * dy + dz * dz);
             double magV = Math.Sqrt(vx * vx + vy * vy + vz * vz);
             if (magP < 1e-12 || magV < 1e-12) continue;
 
             double alpha = Math.Acos(Math.Clamp(dot / (magP * magV), -1.0, 1.0));
-            if (alpha < minAlpha) minAlpha = alpha;
+            if (alpha < minAlpha) { minAlpha = alpha; minTheta = th; }
         }
 
-        return double.IsPositiveInfinity(minAlpha) ? 180.0 : minAlpha * 180.0 / Math.PI;
+        if (double.IsPositiveInfinity(minAlpha)) return null;
+
+        // Sign per S.1503-4 §D6.4.4.1 — port of the reference implementation.
+        double alphaSign;
+        if (Math.Abs(esEcef.Z) < 1e-6)
+        {
+            // ES at the equator: α sign is the negative of the ray's ΔZ sign.
+            // dz = 0 (both at equator) gives 0 — correct: the ray lies in the
+            // GSO arc plane, so min |α| is 0 for any visible NGSO.
+            alphaSign = -Math.Sign(dz);
+        }
+        else
+        {
+            // Extend R = R_ES + λ·(ES→NGSO) to the equatorial plane Z = 0.
+            double lambdaZ0 = -esEcef.Z / dz;
+            double rxz0 = esEcef.X + lambdaZ0 * dx;
+            double ryz0 = esEcef.Y + lambdaZ0 * dy;
+            double rz0Mag = Math.Sqrt(rxz0 * rxz0 + ryz0 * ryz0);
+
+            // Northern hemisphere: crossing inside the GSO radius (forwards) → positive.
+            alphaSign = (rz0Mag > GsoRadiusKm || lambdaZ0 <= 0.0) ? -1.0
+                      : (rz0Mag != GsoRadiusKm) ? 1.0
+                      : 0.0;
+
+            if (esEcef.Z < 0.0) alphaSign = -alphaSign;
+        }
+
+        double gsoLonDeg = ((minTheta * 180.0 / Math.PI + 540.0) % 360.0) - 180.0;
+        return (alphaSign * minAlpha * 180.0 / Math.PI, gsoLonDeg);
     }
 }
