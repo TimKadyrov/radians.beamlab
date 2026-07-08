@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -84,7 +84,7 @@ public sealed class CountryGeometry
 /// <summary>
 /// Instance-based coastline + country loader. One instance is created at app
 /// startup (held by the ViewModel) and shared with the renderer. Construction
-/// runs the file load — failures fall back to <see cref="HandCoded"/>.
+/// runs the file load -- failures fall back to <see cref="HandCoded"/>.
 /// </summary>
 public sealed class CoastlineDataProvider
 {
@@ -115,7 +115,7 @@ public sealed class CoastlineDataProvider
     {
         sourcePath = null;
         // Some Natural Earth GeoJSON downloads contain stray non-UTF-8 bytes
-        // in country names (CP1252 "ç" / "é" instead of UTF-8 multi-byte). The
+        // in country names (CP1252 "c" / "e" instead of UTF-8 multi-byte). The
         // strict UTF-8 decoder in JsonDocument throws on those, killing the
         // load. Read with a replacement-fallback decoder so one bad name turns
         // into U+FFFD and the rest of the data loads cleanly.
@@ -147,7 +147,7 @@ public sealed class CoastlineDataProvider
 
     private static IEnumerable<string> CandidatePaths()
     {
-        // 1. Application binary directory — the project copies countries.json
+        // 1. Application binary directory -- the project copies countries.json
         //    here at build time, so this is the portable, primary location.
         yield return Path.Combine(AppContext.BaseDirectory, "countries.json");
         // 2. Working directory of the app process (in case the user launched

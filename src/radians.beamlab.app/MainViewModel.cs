@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -11,7 +11,7 @@ namespace radians.beamlab.app;
 /// <summary>
 /// Application-level state + operations, bindable from XAML. The View binds
 /// directly to these properties (TwoWay where editable), so there's no
-/// "read controls into the model" step — every textbox/combo/radio change
+/// "read controls into the model" step -- every textbox/combo/radio change
 /// flows straight into the VM, which mutates the SceneModel and rebuilds
 /// beams, and raises <see cref="SceneChanged"/> so the View can redraw.
 ///
@@ -22,7 +22,7 @@ public sealed class MainViewModel : ObservableObject
 {
     public SceneModel Scene { get; } = new();
 
-    /// <summary>Coastline / country data — loaded once at construction.</summary>
+    /// <summary>Coastline / country data -- loaded once at construction.</summary>
     public CoastlineDataProvider Coastlines { get; }
 
     private CoastlineDataProvider _coastlines => Coastlines;
@@ -32,7 +32,7 @@ public sealed class MainViewModel : ObservableObject
     public event Action? SceneChanged;
 
     /// <summary>
-    /// Raised when the user clicks "Show pattern" — the View opens a plot
+    /// Raised when the user clicks "Show pattern" -- the View opens a plot
     /// window for the supplied <see cref="ISinglePattern"/>. Decoupled via
     /// event rather than a direct WPF reference so the VM stays UI-agnostic.
     /// </summary>
@@ -94,11 +94,11 @@ public sealed class MainViewModel : ObservableObject
     public ICommand ExcludeCountryCommand { get; }
     /// <summary>Switch off every beam whose footprint centre is inside the lat/lon box.</summary>
     public ICommand ExcludeBoxCommand { get; }
-    /// <summary>Stamp θ_b derived from the current G_m into the bound property.</summary>
+    /// <summary>Stamp theta_b derived from the current G_m into the bound property.</summary>
     public ICommand FillThetaCommand { get; }
     /// <summary>Run the PFD adjuster off the UI thread; greys the button while running.</summary>
     public ICommand PfdAdjustCommand { get; }
-    /// <summary>Open a 2-D plot of G(θ) for the current beam-pattern parameters.</summary>
+    /// <summary>Open a 2-D plot of G(theta) for the current beam-pattern parameters.</summary>
     public ICommand ShowPatternCommand { get; }
 
     // ----- Scene-backed input properties (bindable; setters mirror to Scene) -----
@@ -181,7 +181,7 @@ public sealed class MainViewModel : ObservableObject
         set { if (Scene.LnDb != value) { Scene.LnDb = value; OnSceneChanged(rebuild: true); } }
     }
 
-    // ----- §1.4 elliptical inputs (Annex 2 cell parameterisation) -----
+    // ----- Sec. 1.4 elliptical inputs (Annex 2 cell parameterisation) -----
 
     public double EllAlphaDeg
     {
@@ -224,16 +224,16 @@ public sealed class MainViewModel : ObservableObject
         set { if (Scene.CellRadiusKm != value && value > 0) { Scene.CellRadiusKm = value; OnSceneChanged(rebuild: true); } }
     }
 
-    /// <summary>True iff the currently selected pattern kind is the elliptical §1.4 form.</summary>
+    /// <summary>True iff the currently selected pattern kind is the elliptical Sec. 1.4 form.</summary>
     public bool IsEllipticalPattern => Scene.PatternKind == BeamPatternKind.Taylor_1p4_Ell;
 
-    /// <summary>Elliptical pattern + manual α/β (drives the manual α/β input visibility).</summary>
+    /// <summary>Elliptical pattern + manual alpha/beta (drives the manual alpha/beta input visibility).</summary>
     public bool IsEllipticalManualMode => IsEllipticalPattern && !Scene.AutoMode;
 
     /// <summary>Auto layout active. Drives the cell-radius input visibility (which only matters for elliptical patterns).</summary>
     public bool IsAutoMode => Scene.AutoMode;
 
-    /// <summary>Elliptical pattern + auto layout — drives R_cell input visibility (R_cell only used by elliptical auto).</summary>
+    /// <summary>Elliptical pattern + auto layout -- drives R_cell input visibility (R_cell only used by elliptical auto).</summary>
     public bool IsEllipticalAutoMode => IsEllipticalPattern && Scene.AutoMode;
 
     public double LfDbi
@@ -344,8 +344,8 @@ public sealed class MainViewModel : ObservableObject
 
     /// <summary>
     /// Called by Scene-backed property setters. Raises PropertyChanged for the
-    /// calling property (so a programmatic setter — e.g. <see cref="FillThetaBFromGm"/>
-    /// — flows back to the bound textbox), optionally rebuilds the beam set,
+    /// calling property (so a programmatic setter -- e.g. <see cref="FillThetaBFromGm"/>
+    /// -- flows back to the bound textbox), optionally rebuilds the beam set,
     /// refreshes derived read-outs, and raises <see cref="SceneChanged"/>.
     /// </summary>
     private void OnSceneChanged(bool rebuild, bool derived = false,
@@ -371,7 +371,7 @@ public sealed class MainViewModel : ObservableObject
 
     /// <summary>
     /// Set the satellite position from a map-drag without going through public
-    /// setters that each trigger their own rebuild — does one rebuild + one
+    /// setters that each trigger their own rebuild -- does one rebuild + one
     /// SceneChanged for the pair update.
     /// </summary>
     public void SetSatPosition(double latDeg, double lonDeg)
@@ -442,7 +442,7 @@ public sealed class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Run the PFD adjuster off the UI thread (it iterates ~20 000 samples × N
+    /// Run the PFD adjuster off the UI thread (it iterates ~20 000 samples x N
     /// beams in two passes). Status text gets a "running" indicator while the
     /// computation is in flight; the result + redraw fire on completion.
     /// </summary>
@@ -505,7 +505,7 @@ public sealed class MainViewModel : ObservableObject
     public void ReportSatPosition() =>
         StatusText = $"satellite at lat={Scene.SubSatLatDeg:F2}, lon={Scene.SubSatLonDeg:F2}, alt={Scene.AltitudeKm:F0} km";
 
-    /// <summary>Stamp θ_b derived from G_m (≈ 90°·10^(−G_m/20)) into the bound property.</summary>
+    /// <summary>Stamp theta_b derived from G_m (~ 90 deg*10^(-G_m/20)) into the bound property.</summary>
     public void FillThetaBFromGm() => ThetaBDeg = Scene.DerivedHalfBeamwidthDeg;
 
     // ----- Math helpers -----

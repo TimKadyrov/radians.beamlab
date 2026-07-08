@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 
 namespace radians.beamlab.app;
 
 /// <summary>
-/// Piecewise-linear RGB colour ramp over t ∈ [0, 1] defined by anchor stops
+/// Piecewise-linear RGB colour ramp over t in [0, 1] defined by anchor stops
 /// (t, r, g, b) with channel values in [0, 1]. Below the first stop clamps to
 /// the first colour; at/above the last stop clamps to the last. Shared by the
 /// map gain heatmap and the PFD az/el heatmap.
@@ -35,7 +35,7 @@ public sealed class ColorRamp
         r = g = b = 255;
     }
 
-    /// <summary>Viridis-ish: dark blue → teal → green → yellow → white (t: 0 → 1). Map gain heatmap.</summary>
+    /// <summary>Viridis-ish: dark blue -> teal -> green -> yellow -> white (t: 0 -> 1). Map gain heatmap.</summary>
     public static readonly ColorRamp Gain = new(new (double, double, double, double)[]
     {
         (0.00, 0.10, 0.05, 0.30),
@@ -45,7 +45,7 @@ public sealed class ColorRamp
         (1.00, 1.00, 1.00, 0.95),
     });
 
-    /// <summary>Red (lowest PFD) → orange → yellow → chartreuse → green (highest PFD).</summary>
+    /// <summary>Red (lowest PFD) -> orange -> yellow -> chartreuse -> green (highest PFD).</summary>
     public static readonly ColorRamp Pfd = new(new (double, double, double, double)[]
     {
         (0.00, 0.78, 0.16, 0.16),   // deep red

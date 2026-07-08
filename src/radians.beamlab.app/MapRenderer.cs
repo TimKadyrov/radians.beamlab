@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows;
@@ -35,8 +35,8 @@ public sealed class MapRenderer
 
     private const double BeamMarkerRadiusPx = 2.5;
     private const int    HeatmapPixelW = 360, HeatmapPixelH = 180;
-    // Graticule grid: lines every 30° in lat & lon. Lines exactly at ±90° lat
-    // and ±180° lon are excluded (they coincide with the map rect / pole).
+    // Graticule grid: lines every 30 deg in lat & lon. Lines exactly at +/-90 deg lat
+    // and +/-180 deg lon are excluded (they coincide with the map rect / pole).
     private const double GraticuleStepDeg = 30.0;
 
     public MapRenderer(Canvas canvas, MapViewport viewport, MainViewModel vm)
@@ -185,8 +185,8 @@ public sealed class MapRenderer
             if (_vm.FootprintsEnabled)
             {
                 var stroke = new SolidColorBrush(Color.FromArgb(110, rgb.R, rgb.G, rgb.B));
-                // Elliptical patterns: half-angle θ(φ) = asin(sin(θb_rad)·sin(θb_tr)/√…)
-                // — equivalent to sinθ(φ) = u_half·λ / √((Lr·cosφ)² + (Lt·sinφ)²),
+                // Elliptical patterns: half-angle theta(phi) = asin(sin(thetab_rad)*sin(thetab_tr)/sqrt...)
+                // -- equivalent to sintheta(phi) = u_half*lambda / sqrt((Lr*cosphi)^2 + (Lt*sinphi)^2),
                 // i.e. ellipse on the unit-sphere boresight cone.
                 Func<double, double> halfAngleAt;
                 if (beam.Pattern is Rec1528_1p4_Ell ell)
@@ -197,7 +197,7 @@ public sealed class MapRenderer
                     {
                         double cp = Math.Cos(phiDeg * Math.PI / 180.0);
                         double sp = Math.Sin(phiDeg * Math.PI / 180.0);
-                        // 1/sin²θ = cos²φ/sin²θ_r + sin²φ/sin²θ_t  (ellipse in sinθ-space)
+                        // 1/sin^2theta = cos^2phi/sin^2theta_r + sin^2phi/sin^2theta_t  (ellipse in sintheta-space)
                         double inv = (cp * cp) / (sinR * sinR) + (sp * sp) / (sinT * sinT);
                         double sinTheta = 1.0 / Math.Sqrt(inv);
                         return Math.Asin(Math.Min(1.0, sinTheta)) * 180.0 / Math.PI;
@@ -205,7 +205,7 @@ public sealed class MapRenderer
                 }
                 else
                 {
-                    // Use the *beam's* pattern θ_b — in auto-mode this is auto-derived
+                    // Use the *beam's* pattern theta_b -- in auto-mode this is auto-derived
                     // per-beam from CellRadiusKm + slant range, so contours match the
                     // intended ground cell. Outside auto-mode it equals the user's input.
                     double thetaB = beam.Pattern.ThetaB;
@@ -242,8 +242,8 @@ public sealed class MapRenderer
             int W = HeatmapPixelW, H = HeatmapPixelH;
 
             // Each row is independent: composite-gain queries are read-only on
-            // SceneModel + per-beam state. ~65 k pixels × ~120 beams; parallel
-            // over rows brings the per-frame cost down ~3-4× on a quad-core.
+            // SceneModel + per-beam state. ~65 k pixels x ~120 beams; parallel
+            // over rows brings the per-frame cost down ~3-4x on a quad-core.
             byte* basePtrLocal = basePtr;
             int strideLocal = stride;
             Parallel.For(0, H, j =>
@@ -274,7 +274,7 @@ public sealed class MapRenderer
         bmp.AddDirtyRect(new Int32Rect(0, 0, HeatmapPixelW, HeatmapPixelH));
         bmp.Unlock();
 
-        // Place the full-Earth bitmap in viewport coordinates: lon=±180 maps to
+        // Place the full-Earth bitmap in viewport coordinates: lon=+/-180 maps to
         // two canvas-x values that may be far outside the map rect when zoomed.
         // The Canvas.Clip set in Redraw crops the image to the visible region.
         double lonRange = _vp.ViewLonMax - _vp.ViewLonMin;
@@ -308,9 +308,9 @@ public sealed class MapRenderer
         // width. Catches both real antimeridian crossings AND parasitic
         // edges produced by polygon-clipping artifacts in source GeoJSON
         // (e.g. polygons that span the antimeridian via one long edge).
-        // Threshold scales with zoom: at full earth view it's mapW/2 = 180°
+        // Threshold scales with zoom: at full earth view it's mapW/2 = 180 deg
         // of lon; at higher zoom it's tighter, but normal coastline edges
-        // are < 1° lon so they always pass.
+        // are < 1 deg lon so they always pass.
         double maxSegPx = _vp.MapW * 0.5;
 
         var first = _vp.ToCanvas(poly[0].lat, poly[0].lon);

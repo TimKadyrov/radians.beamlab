@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace radians.beamlab;
@@ -10,6 +10,13 @@ namespace radians.beamlab;
 ///   ECEF       : Earth-centred Earth-fixed (X axis through 0N 0E, Z through North pole).
 ///   SatNED     : at the satellite's sub-point, axes (North, East, Down). +Down = -nadir.
 /// All angles in degrees on the public surface.
+///
+/// Reference for the satellite viewing geometry (off-nadir / elevation /
+/// central-angle relations, horizon) and the spherical-trigonometry identities
+/// (great-circle and small-circle formulas): Capderou, "Handbook of Satellite
+/// Orbits: From Kepler to GPS" (Springer, 2014), Ch. 12 and Sec. 6.13. Note
+/// the spherical-Earth simplification: geodetic vs geocentric latitude differs
+/// by up to ~0.15 deg (~13 km) -- quantified in Capderou Sec. 8.2.2.
 /// </summary>
 public static class GeoMath
 {
@@ -135,7 +142,7 @@ public static class GeoMath
     /// Off-nadir cone angle (deg) at the satellite toward a ground point where the
     /// satellite is seen at user elevation <paramref name="esElevDeg"/> above the
     /// local horizon. From the law of sines in the (Earth-centre, sat, ground)
-    /// triangle: sin θ = (R / (R + h))·cos ε. Clamped at the horizon (ε = 0), where
+    /// triangle: sin theta = (R / (R + h))*cos eps. Clamped at the horizon (eps = 0), where
     /// it equals <see cref="HorizonOffNadirDeg"/>.
     /// </summary>
     public static double OffNadirForEsElevationDeg(double esElevDeg, double altKm)
@@ -147,7 +154,7 @@ public static class GeoMath
 
     /// <summary>
     /// User elevation (deg above the horizontal plane at the ground point) of
-    /// the satellite as seen from <paramref name="groundEcef"/>. Returns 90°
+    /// the satellite as seen from <paramref name="groundEcef"/>. Returns 90 deg
     /// when the points coincide.
     /// </summary>
     public static double ElevationAngleDeg(Vec3 satEcef, Vec3 groundEcef)
@@ -177,7 +184,7 @@ public static class GeoMath
     /// <summary>
     /// Sample <paramref name="n"/> points (plus a closing duplicate) on a small
     /// circle of Earth-central radius <paramref name="radiusCentralDeg"/> around
-    /// (centreLat, centreLon). Longitudes are wrapped to [−180°, 180°]. Used for
+    /// (centreLat, centreLon). Longitudes are wrapped to [-180 deg, 180 deg]. Used for
     /// horizon discs and beam footprint rings on the equirectangular maps.
     /// </summary>
     public static List<(double lat, double lon)> SampleSmallCircle(

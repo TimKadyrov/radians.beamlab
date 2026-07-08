@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -36,7 +36,7 @@ public enum PfdAdjustStatus
 
 /// <summary>
 /// Per-beam G_m adjustment to keep aggregate (or single-beam) PFD over a
-/// protected country at or below an elevation-dependent mask. Pure logic — no
+/// protected country at or below an elevation-dependent mask. Pure logic -- no
 /// UI or VM dependencies.
 /// </summary>
 public static class PfdAdjuster
@@ -52,7 +52,7 @@ public static class PfdAdjuster
         /// <summary>
         /// Absolute peak-gain floor (dBi). A beam is switched off (instead of
         /// having G_m reduced further) once the reduction would push the new
-        /// G_m below this value. Independent of pattern type and LF — set as a
+        /// G_m below this value. Independent of pattern type and LF -- set as a
         /// single project-wide value.
         /// </summary>
         public double MinGmDbi { get; init; } = 5.0;
@@ -158,7 +158,7 @@ public static class PfdAdjuster
             adjusted++;
         }
 
-        // Post-adjust: max (PFD − limit) over the country, in the active mode.
+        // Post-adjust: max (PFD - limit) over the country, in the active mode.
         // Per-sample work is independent and read-only; parallelise across samples.
         var perSampleMargin = new double[M];
         var beamsArray = scene.Beams;

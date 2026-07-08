@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows;
@@ -13,14 +13,14 @@ namespace radians.beamlab.app;
 
 /// <summary>
 /// Renders aggregate PFD as a heatmap in satellite-frame azimuth-elevation
-/// coordinates (S.1503-4 §D6.4.5) for the "PFD mask (Az/El)" tab. The data —
-/// PFD and α grids, auto-scaled ramp bounds — lives in the shared
+/// coordinates (S.1503-4 Sec. D6.4.5) for the "PFD mask (Az/El)" tab. The data --
+/// PFD and alpha grids, auto-scaled ramp bounds -- lives in the shared
 /// <see cref="PfdMaskField"/>; this class rebuilds the field when dirty, blits
-/// it to a WriteableBitmap (α exclusion tinted red when the overlay is on),
+/// it to a WriteableBitmap (alpha exclusion tinted red when the overlay is on),
 /// and draws axes, azimuth cursor and colour legend.
 ///
 /// The rasterised bitmap is cached on the instance and only recomputed when
-/// <see cref="Invalidate"/> is called — this keeps canvas-resize and
+/// <see cref="Invalidate"/> is called -- this keeps canvas-resize and
 /// azimuth-cursor redraws snappy (Redraw just re-stretches the cached image).
 /// </summary>
 public sealed class PfdHeatmapRenderer
@@ -44,7 +44,7 @@ public sealed class PfdHeatmapRenderer
         _field = field;
     }
 
-    /// <summary>Flag the cached heatmap bitmap as stale — the next <see cref="Redraw"/> will recompute it.</summary>
+    /// <summary>Flag the cached heatmap bitmap as stale -- the next <see cref="Redraw"/> will recompute it.</summary>
     public void Invalidate() { _dirty = true; }
 
     public void Redraw()
@@ -61,7 +61,7 @@ public sealed class PfdHeatmapRenderer
         if (plotR - plotL < 10 || plotB - plotT < 10) return;
 
         ChartPrimitives.AddBackground(_canvas, plotL, plotR, plotT, plotB);
-        // DrawHeatmap rebuilds the field when dirty — axes / cursor read the
+        // DrawHeatmap rebuilds the field when dirty -- axes / cursor read the
         // field's axis metadata afterwards, so they always match the grids.
         DrawHeatmap(plotL, plotR, plotT, plotB);
         DrawAxes(plotL, plotR, plotT, plotB);
@@ -71,7 +71,7 @@ public sealed class PfdHeatmapRenderer
 
     /// <summary>
     /// Line marking the cut the companion profile plot is slicing: vertical at
-    /// X = azimuth (AzEl) or horizontal at Y = α (α/ΔLongitude — one mask row).
+    /// X = azimuth (AzEl) or horizontal at Y = alpha (alpha/deltaLongitude -- one mask row).
     /// </summary>
     private void DrawCutCursor(double l, double r, double t, double b)
     {
@@ -128,7 +128,7 @@ public sealed class PfdHeatmapRenderer
         }
         if (_bmp is null) return;
 
-        // The bitmap covers the full ±90° square. Stretch to the plot rect.
+        // The bitmap covers the full +/-90 deg square. Stretch to the plot rect.
         var img = new Image
         {
             Source = _bmp,
@@ -145,7 +145,7 @@ public sealed class PfdHeatmapRenderer
 
     /// <summary>
     /// Rasterise the field's PFD grid into the cached WriteableBitmap: colour by
-    /// the auto-scaled ramp, tint pixels inside the α exclusion when the overlay
+    /// the auto-scaled ramp, tint pixels inside the alpha exclusion when the overlay
     /// is on, leave no-data pixels transparent. Called only when the cache is
     /// dirty (after <see cref="PfdMaskField.Rebuild"/>).
     /// </summary>
@@ -159,8 +159,8 @@ public sealed class PfdHeatmapRenderer
         double floor = _field.PfdFloor;
         double range = Math.Max(1e-6, _field.PfdCeil - _field.PfdFloor);
         bool showAlpha = _vm.ShowAlphaContour;
-        // Exclusion bands (sorted) snapshot once — off bands tint red, attenuate
-        // bands tint orange. Basic mode reduces to a single off band at α_excl.
+        // Exclusion bands (sorted) snapshot once -- off bands tint red, attenuate
+        // bands tint orange. Basic mode reduces to a single off band at alpha_excl.
         var bands = _vm.ExclusionBandsSorted();
 
         var bmp = new WriteableBitmap(pixW, pixH, 96, 96, PixelFormats.Pbgra32, null);
@@ -194,7 +194,7 @@ public sealed class PfdHeatmapRenderer
                         }
                         else
                         {
-                            // Attenuate band — lighter orange wash, deeper with more dB.
+                            // Attenuate band -- lighter orange wash, deeper with more dB.
                             double f = Math.Clamp(band.AttenDb / 20.0, 0.15, 0.6);
                             rr = (byte)Math.Min(255, rr + (int)(50 * f));
                             gg = (byte)Math.Min(255, gg + (int)(25 * f));

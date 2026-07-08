@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -11,11 +11,11 @@ namespace radians.beamlab.app;
 /// the small drag-state machine local so MainWindow stays a thin composer.
 ///
 /// Gestures:
-///   - Left-click on a beam dot   → handled by <see cref="MapRenderer"/>
-///   - Left-click empty map       → probe gain / PFD at point
-///   - Left-button drag           → pan the view
-///   - Right-button drag          → move sub-satellite point (live recompute)
-///   - Mouse wheel                → zoom around the cursor
+///   - Left-click on a beam dot   -> handled by <see cref="MapRenderer"/>
+///   - Left-click empty map       -> probe gain / PFD at point
+///   - Left-button drag           -> pan the view
+///   - Right-button drag          -> move sub-satellite point (live recompute)
+///   - Mouse wheel                -> zoom around the cursor
 /// </summary>
 public sealed class MapInteractionHandler
 {
@@ -135,7 +135,7 @@ public sealed class MapInteractionHandler
             return;
         }
 
-        // No drag → probe at the click point.
+        // No drag -> probe at the click point.
         var pos = e.GetPosition(_canvas);
         var ll = _vp.FromCanvas(pos.X, pos.Y);
         if (ll is null) return;

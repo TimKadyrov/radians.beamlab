@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Windows;
@@ -10,7 +10,7 @@ using radians.beamlab;
 namespace radians.beamlab.app;
 
 /// <summary>
-/// 2-D plot of a single-beam pattern G(θ) vs θ. Re-rasterises on size change.
+/// 2-D plot of a single-beam pattern G(theta) vs theta. Re-rasterises on size change.
 /// </summary>
 public partial class PatternPlotWindow : Window
 {
@@ -28,9 +28,9 @@ public partial class PatternPlotWindow : Window
         _pattern = pattern;
         HeaderText.Text = headerLine;
 
-        // Plot the full forward + back hemisphere. Beyond 90° the §1.4 Taylor
+        // Plot the full forward + back hemisphere. Beyond 90 deg the Sec. 1.4 Taylor
         // pattern is clamped to LF in our implementation, so the curve will be
-        // a flat floor from ~90° onward — visible and unambiguous.
+        // a flat floor from ~90 deg onward -- visible and unambiguous.
         _thetaMaxDeg = 180.0;
 
         Loaded += (_, _) => Draw();
@@ -52,12 +52,12 @@ public partial class PatternPlotWindow : Window
         if (plotW < 10 || plotH < 10) return;
 
         // Y range: from min gain (somewhere near LF) up to peak Gm, padded.
-        // We use LF − 1 as the floor on the plot to give the LF clamp a tiny gap
+        // We use LF - 1 as the floor on the plot to give the LF clamp a tiny gap
         // from the axis, and Gm + 3 on top so the peak isn't right at the edge.
         // Sample the pattern first to find the actual min for a tight range.
         const int N = 1000;
-        var samples    = new double[N + 1];           // radial cut (φ = 0)
-        var samplesTr  = new double[N + 1];           // transverse cut (φ = 90°), populated only for elliptical
+        var samples    = new double[N + 1];           // radial cut (phi = 0)
+        var samplesTr  = new double[N + 1];           // transverse cut (phi = 90 deg), populated only for elliptical
         bool isEll = _pattern is Rec1528_1p4_Ell;
         double minG = double.PositiveInfinity;
         for (int i = 0; i <= N; i++)
@@ -73,7 +73,7 @@ public partial class PatternPlotWindow : Window
         }
 
         double yMax = _pattern.Gm + 3.0;
-        double yMin = Math.Min(minG - 1.0, _pattern.Gm - 3.0 - 30.0); // ensure ≥ ~30 dB dynamic range
+        double yMin = Math.Min(minG - 1.0, _pattern.Gm - 3.0 - 30.0); // ensure >= ~30 dB dynamic range
         // Always keep the LF reference line on-canvas, even if the sampled
         // pattern minimum sits well above it.
         yMin = Math.Min(yMin, _pattern.LF - 2.0);
@@ -125,7 +125,7 @@ public partial class PatternPlotWindow : Window
             PlotCanvas.Children.Add(lbl);
         }
 
-        // ---- Reference lines: LF floor + θb 3-dB edge ----
+        // ---- Reference lines: LF floor + thetab 3-dB edge ----
         DrawHorizontalReferenceLine(plotX, plotY, plotW, plotH, YAt, _pattern.LF,
             label: $"LF = {_pattern.LF:F1} dBi",
             colour: Color.FromRgb(0xb8, 0x40, 0x40));
@@ -191,7 +191,7 @@ public partial class PatternPlotWindow : Window
             PlotCanvas.Children.Add(legR);
             PlotCanvas.Children.Add(legT);
 
-            // Add transverse θb dashed reference too.
+            // Add transverse thetab dashed reference too.
             if (_pattern is Rec1528_1p4_Ell ell)
             {
                 double xThetaBTr = XAt(ell.ThetaBTransverseDeg);
@@ -263,7 +263,7 @@ public partial class PatternPlotWindow : Window
         PlotCanvas.Children.Add(lbl);
     }
 
-    /// <summary>Round a tick step to a "nice" 1/2/5×10^k value given the desired range and target tick count.</summary>
+    /// <summary>Round a tick step to a "nice" 1/2/5x10^k value given the desired range and target tick count.</summary>
     private static double ChooseTickStep(double range, int targetTicks)
     {
         double raw = range / Math.Max(1, targetTicks);

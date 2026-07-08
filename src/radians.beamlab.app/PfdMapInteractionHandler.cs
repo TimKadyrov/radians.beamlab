@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
@@ -7,7 +7,7 @@ namespace radians.beamlab.app;
 /// <summary>
 /// Pan / zoom mouse input for the PFD-tab geo map: left-drag pans, mouse
 /// wheel zooms around the cursor. A trimmed-down sibling of
-/// <see cref="MapInteractionHandler"/> — the PFD map is read-only, so there
+/// <see cref="MapInteractionHandler"/> -- the PFD map is read-only, so there
 /// is no probe, beam toggle or satellite drag. Same gesture feel as tab 1
 /// (4 px drag threshold, 0.8 / 1.25 wheel factors).
 /// </summary>

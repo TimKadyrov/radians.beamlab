@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -9,11 +9,11 @@ namespace radians.beamlab.app;
 /// <summary>
 /// Single-curve PFD profile through the mask heatmap at the slider-selected
 /// cut (<see cref="PfdMaskViewModel.ProfileCutDeg"/>):
-///   AzEl — vertical cut at an azimuth → PFD vs sat-frame elevation;
-///   α/ΔLongitude — horizontal cut at a signed α → PFD vs ΔLongitude,
+///   AzEl -- vertical cut at an azimuth -> PFD vs sat-frame elevation;
+///   alpha/deltaLongitude -- horizontal cut at a signed alpha -> PFD vs deltaLongitude,
 ///   i.e. one row of the ITU mask table.
 ///
-/// Data is not recomputed here — the slice is read from the shared
+/// Data is not recomputed here -- the slice is read from the shared
 /// <see cref="PfdMaskField"/> (<see cref="PfdMaskField.ProfileAtX"/> /
 /// <see cref="PfdMaskField.ProfileAtY"/>). The heatmap renderer rebuilds that
 /// field when dirty, so redrawing this plot after the heatmap renderer is enough.
@@ -47,9 +47,9 @@ public sealed class PfdProfileRenderer
         double t = TopMargin, b = H - BottomMargin;
         if (r - l < 10 || b - t < 10) return;
 
-        // Profile X axis: AzEl slices vertically at an azimuth → X = the field's
-        // Y (mask elevation, ±90°); α/ΔLongitude slices horizontally at an α →
-        // X = the field's X (ΔLongitude, ±180°) — one row of the mask table.
+        // Profile X axis: AzEl slices vertically at an azimuth -> X = the field's
+        // Y (mask elevation, +/-90 deg); alpha/deltaLongitude slices horizontally at an alpha ->
+        // X = the field's X (deltaLongitude, +/-180 deg) -- one row of the mask table.
         bool alphaDelta = _field.Kind == MaskPlotKind.AlphaDeltaLong;
         double xMin = alphaDelta ? _field.XMin : _field.YMin;
         double xMax = alphaDelta ? _field.XMax : _field.YMax;
@@ -85,9 +85,9 @@ public sealed class PfdProfileRenderer
     }
 
     /// <summary>
-    /// α/ΔLongitude mode: the cut sits at a fixed α, so the exclusion is a whole
-    /// state, not a line — classify the cut |α| against the bands and note it
-    /// (off → red "side lobes only"; attenuate → orange "beams −N dB").
+    /// alpha/deltaLongitude mode: the cut sits at a fixed alpha, so the exclusion is a whole
+    /// state, not a line -- classify the cut |alpha| against the bands and note it
+    /// (off -> red "side lobes only"; attenuate -> orange "beams -N dB").
     /// </summary>
     private void DrawExclusionNote(double l, double t)
     {
@@ -107,11 +107,11 @@ public sealed class PfdProfileRenderer
     }
 
     /// <summary>
-    /// α/ΔLongitude mode: ES-elevation guides derived from the sampled data
-    /// (no closed form in these coordinates), along the ΔLongitude axis at the
-    /// cut α. Cyan verticals where the slice's ES elevation crosses ε_min;
-    /// amber verticals at the slice's data edges — the visible-disc boundary,
-    /// where ES elevation reaches ≈ 0°.
+    /// alpha/deltaLongitude mode: ES-elevation guides derived from the sampled data
+    /// (no closed form in these coordinates), along the deltaLongitude axis at the
+    /// cut alpha. Cyan verticals where the slice's ES elevation crosses eps_min;
+    /// amber verticals at the slice's data edges -- the visible-disc boundary,
+    /// where ES elevation reaches ~ 0 deg.
     /// </summary>
     private void DrawEsElevationGuidesAlphaDelta(double l, double r, double t, double b, double xMin, double xMax)
     {
@@ -146,14 +146,14 @@ public sealed class PfdProfileRenderer
             _canvas.Children.Add(lbl);
         }
 
-        // Horizon (ES ε ≈ 0°): the data edges of the slice ARE the visible-disc
-        // boundary — mark the outermost samples in amber.
+        // Horizon (ES eps ~ 0 deg): the data edges of the slice ARE the visible-disc
+        // boundary -- mark the outermost samples in amber.
         var amber = new SolidColorBrush(Color.FromArgb(200, 0xff, 0xc8, 0x66));
         Vertical(slice[0].xDeg, amber);
         Vertical(slice[^1].xDeg, amber);
         Label("ES ε≈0°", amber, slice[^1].xDeg, b - 40);
 
-        // ε_min: crossing detection along the slice, skipping pairs that span a
+        // eps_min: crossing detection along the slice, skipping pairs that span a
         // data gap (a jump much larger than the bin width means a discontinuity).
         var cyan = new SolidColorBrush(Color.FromArgb(200, 0x5a, 0xd0, 0xe0));
         double target = _vm.MinElevDeg;
@@ -179,11 +179,11 @@ public sealed class PfdProfileRenderer
     }
 
     /// <summary>
-    /// Vertical guide lines where the GSO avoidance angle |α| crosses each
-    /// exclusion-band outer edge along the current azimuth slice — the mask-el
+    /// Vertical guide lines where the GSO avoidance angle |alpha| crosses each
+    /// exclusion-band outer edge along the current azimuth slice -- the mask-el
     /// boundaries of the exclusion zone on this cut. Off bands red, attenuate
     /// bands orange, to match the heatmap tint. Always drawn (independent of the
-    /// heatmap's "Mark α" toggle).
+    /// heatmap's "Mark alpha" toggle).
     /// </summary>
     private void DrawAlphaGuides(double l, double r, double t, double b, double xMin, double xMax)
     {
@@ -208,7 +208,7 @@ public sealed class PfdProfileRenderer
                 if (d0 == 0.0) d0 = -1e-9;                 // treat exact hits as just-below
                 if (d0 * d1 >= 0.0) continue;              // no crossing between these samples
 
-                // Linear interpolation of the elevation where |α| == the band edge.
+                // Linear interpolation of the elevation where |alpha| == the band edge.
                 double frac = d0 / (d0 - d1);
                 double elCross = e0 + frac * (e1 - e0);
                 if (elCross < xMin || elCross > xMax) continue;
@@ -237,10 +237,10 @@ public sealed class PfdProfileRenderer
     /// <summary>
     /// Vertical guide lines translating the mask-elevation X axis into physical
     /// earth-station elevation, for the current slice azimuth:
-    ///   * ES ε = 0° (the geometric horizon), amber;
-    ///   * ES ε = ε_min (the user's <see cref="PfdMaskViewModel.MinElevDeg"/>), cyan.
+    ///   * ES eps = 0 deg (the geometric horizon), amber;
+    ///   * ES eps = eps_min (the user's <see cref="PfdMaskViewModel.MinElevDeg"/>), cyan.
     /// Along a fixed azimuth the ES elevation is symmetric in mask-el sign, so
-    /// each target draws a ± pair. Lines that fall off-plot (target unreachable
+    /// each target draws a +/- pair. Lines that fall off-plot (target unreachable
     /// at this azimuth) are skipped.
     /// </summary>
     private void DrawEsElevationGuides(double l, double r, double t, double b, double xMin, double xMax)
@@ -285,15 +285,15 @@ public sealed class PfdProfileRenderer
     /// Magnitude of the mask (sat-frame) elevation at which a ground point on the
     /// given azimuth cut has earth-station elevation <paramref name="esElevDeg"/>.
     /// Uses the law of sines in the (Earth-centre, sat, ground) triangle:
-    ///   sin θ = (R/(R+h))·cos ε   (off-nadir for ES elevation ε), and
-    ///   cos θ = cos(az)·cos(el)   (sat-frame decomposition), so
-    ///   |el| = arccos( cos θ / cos az ).
-    /// Returns NaN if the target is unreachable at this azimuth (cos θ / cos az &gt; 1).
+    ///   sin theta = (R/(R+h))*cos eps   (off-nadir for ES elevation eps), and
+    ///   cos theta = cos(az)*cos(el)   (sat-frame decomposition), so
+    ///   |el| = arccos( cos theta / cos az ).
+    /// Returns NaN if the target is unreachable at this azimuth (cos theta / cos az &gt; 1).
     /// </summary>
     private static double MaskElevForEsElevation(double esElevDeg, double azDeg, double altKm)
     {
-        // Off-nadir θ for this ES elevation (law of sines, shared with GeoMath),
-        // then split by the sat-frame identity cos θ = cos(az)·cos(el).
+        // Off-nadir theta for this ES elevation (law of sines, shared with GeoMath),
+        // then split by the sat-frame identity cos theta = cos(az)*cos(el).
         double thetaRad = GeoMath.OffNadirForEsElevationDeg(esElevDeg, altKm) * Math.PI / 180.0;
         double cosTheta = Math.Cos(thetaRad);
 
@@ -310,7 +310,7 @@ public sealed class PfdProfileRenderer
         var gridStroke = new SolidColorBrush(Color.FromArgb(50, 0xff, 0xff, 0xff));
         var labelBrush = new SolidColorBrush(Color.FromRgb(0x1a, 0x1a, 0x1a));
 
-        // X ticks every 30° across the range (el/α: ±90°; ΔLongitude: ±180°).
+        // X ticks every 30 deg across the range (el/alpha: +/-90 deg; deltaLongitude: +/-180 deg).
         for (double x = xMin; x <= xMax + 1e-6; x += 30.0)
         {
             double px = l + (x - xMin) / (xMax - xMin) * (r - l);
@@ -354,7 +354,7 @@ public sealed class PfdProfileRenderer
                            double xMin, double xMax, double yMin, double yMax)
     {
         // Single PFD slice through the heatmap at the selected cut: a column
-        // (AzEl, cut = azimuth) or a row (α/ΔLongitude, cut = α).
+        // (AzEl, cut = azimuth) or a row (alpha/deltaLongitude, cut = alpha).
         var slice = _field.Kind == MaskPlotKind.AlphaDeltaLong
             ? _field.ProfileAtY(_vm.ProfileCutDeg)
             : _field.ProfileAtX(_vm.ProfileCutDeg);
@@ -378,7 +378,7 @@ public sealed class PfdProfileRenderer
         foreach (var (elDeg, pfd) in slice)
         {
             if (elDeg < xMin || elDeg > xMax) { cur = null; prevEl = double.NaN; continue; }
-            // A jump larger than a few degrees means an occluded stretch → break.
+            // A jump larger than a few degrees means an occluded stretch -> break.
             if (!double.IsNaN(prevEl) && elDeg - prevEl > 3.0) cur = null;
             if (cur is null)
             {

@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -33,7 +33,7 @@ public static class ChartPrimitives
     }
 
     /// <summary>
-    /// A −90°-rotated (vertical) text label whose rotated height is centred on
+    /// A -90 deg-rotated (vertical) text label whose rotated height is centred on
     /// <paramref name="yCenter"/>, left edge at <paramref name="x"/>. Used for
     /// y-axis titles and the vertical colour-bar caption.
     /// </summary>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using static radians.beamlab.GeoMath;
 
 namespace radians.beamlab;
@@ -20,12 +20,12 @@ public sealed class Beam
 
     /// <summary>
     /// Single-beam pattern. Mutable so the PFD adjuster can swap in a new
-    /// pattern with a reduced peak gain — that automatically shifts the
+    /// pattern with a reduced peak gain -- that automatically shifts the
     /// off-axis pattern (and side-lobe contributions to PFD) accordingly.
     /// </summary>
     public ISinglePattern Pattern { get; set; }
 
-    /// <summary>The peak gain this beam was originally built with — used as
+    /// <summary>The peak gain this beam was originally built with -- used as
     /// the reference when the PFD adjuster reduces <see cref="Pattern"/>.Gm
     /// or when "All beams ON" restores the unadjusted state.</summary>
     public double OriginalGmDbi { get; }
@@ -44,16 +44,16 @@ public sealed class Beam
 
     /// <summary>
     /// Optional hex-lattice axial index i from the auto-tessellation (basis
-    /// e1 = (s, 0), e2 = (s/2, s·√3/2)). Null for manual ring layouts. Used
+    /// e1 = (s, 0), e2 = (s/2, s*sqrt3/2)). Null for manual ring layouts. Used
     /// for K-colour frequency-reuse colouring.
     /// </summary>
     public int? LatticeI { get; init; }
 
-    /// <summary>Optional hex-lattice axial index j — see <see cref="LatticeI"/>.</summary>
+    /// <summary>Optional hex-lattice axial index j -- see <see cref="LatticeI"/>.</summary>
     public int? LatticeJ { get; init; }
 
     /// <summary>
-    /// Unit vector ⊥ <see cref="Boresight"/> defining φ = 0 (the radial / Lr direction)
+    /// Unit vector perp <see cref="Boresight"/> defining phi = 0 (the radial / Lr direction)
     /// for elliptical patterns. For circular patterns this is unused. Conventionally the
     /// projection of the satellite-to-nadir direction onto the plane perpendicular to
     /// boresight, so radial = along the off-nadir tilt and transverse = cross-track.
@@ -90,16 +90,16 @@ public sealed class Beam
 
     /// <summary>
     /// Azimuth (deg) of <paramref name="test"/> around <see cref="Boresight"/>, measured
-    /// from <paramref name="radialRef"/> (φ = 0). Stable for test ≈ boresight (returns 0).
+    /// from <paramref name="radialRef"/> (phi = 0). Stable for test ~ boresight (returns 0).
     /// </summary>
     public double AzimuthAroundBoresightDeg(Vec3 test, Vec3 radialRef)
     {
-        // Project test onto plane ⊥ boresight, then resolve into (radialRef, transverse) basis.
+        // Project test onto plane perp boresight, then resolve into (radialRef, transverse) basis.
         double cos = Vec3.Dot(Boresight, test);
         Vec3 perp = test - Boresight * cos;
         double pl = perp.Length;
         if (pl < 1e-12) return 0.0;
-        Vec3 transverse = Vec3.Cross(Boresight, radialRef); // already unit length if inputs are unit & ⊥
+        Vec3 transverse = Vec3.Cross(Boresight, radialRef); // already unit length if inputs are unit & perp
         double rComp = Vec3.Dot(perp, radialRef);
         double tComp = Vec3.Dot(perp, transverse);
         return Math.Atan2(tComp, rComp) * 180.0 / Math.PI;

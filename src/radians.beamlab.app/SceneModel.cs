@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using radians.beamlab;
 using static radians.beamlab.GeoMath;
@@ -8,7 +8,7 @@ namespace radians.beamlab.app;
 /// <summary>
 /// Model object that owns the satellite state and beam set. The MainWindow
 /// rebuilds this whenever the user edits a control. Per-beam pattern is the
-/// S.1528-1 §1.4 Taylor circular illumination pattern.
+/// S.1528-1 Sec. 1.4 Taylor circular illumination pattern.
 /// </summary>
 public sealed class SceneModel
 {
@@ -20,44 +20,44 @@ public sealed class SceneModel
     /// <summary>Half the 3 dB beamwidth in the plane of interest, deg.</summary>
     public double ThetaBDeg { get; set; } = 4.0;
 
-    /// <summary>Centre frequency, GHz. Informational metadata; not used by the §1.4 pattern.</summary>
+    /// <summary>Centre frequency, GHz. Informational metadata; not used by the Sec. 1.4 pattern.</summary>
     public double FrequencyGHz { get; set; } = 1.5;
 
-    /// <summary>Far-out side-lobe floor, dBi (also the §1.4 noise floor).</summary>
+    /// <summary>Far-out side-lobe floor, dBi (also the Sec. 1.4 noise floor).</summary>
     public double LfDbi { get; set; } = 0.0;
 
-    /// <summary>Side-lobe ratio (dB) for the §1.4 Taylor pattern. Positive.</summary>
+    /// <summary>Side-lobe ratio (dB) for the Sec. 1.4 Taylor pattern. Positive.</summary>
     public double TaylorSlrDb { get; set; } = 20.0;
 
-    /// <summary>Number of secondary lobes (n̄) for the §1.4 Taylor pattern, 2..6.</summary>
+    /// <summary>Number of secondary lobes (n_bar) for the Sec. 1.4 Taylor pattern, 2..6.</summary>
     public int TaylorNbar { get; set; } = 4;
 
-    /// <summary>Which §1.x pattern model to construct for each beam.</summary>
+    /// <summary>Which Sec. 1.x pattern model to construct for each beam.</summary>
     public BeamPatternKind PatternKind { get; set; } = BeamPatternKind.Taylor_1p4;
 
-    /// <summary>Near-in side-lobe level (dB rel. peak) for the §1.2 envelope; ignored otherwise. APL uses −15 dB.</summary>
+    /// <summary>Near-in side-lobe level (dB rel. peak) for the Sec. 1.2 envelope; ignored otherwise. APL uses -15 dB.</summary>
     public double LnDb { get; set; } = -15.0;
 
-    /// <summary>§1.4 elliptical: half-radial cell axis subtended at the satellite, deg (Annex 2 α).</summary>
+    /// <summary>Sec. 1.4 elliptical: half-radial cell axis subtended at the satellite, deg (Annex 2 alpha).</summary>
     public double EllAlphaDeg { get; set; } = 13.4;
 
-    /// <summary>§1.4 elliptical: half-transverse cell axis subtended at the satellite, deg (Annex 2 β).</summary>
+    /// <summary>Sec. 1.4 elliptical: half-transverse cell axis subtended at the satellite, deg (Annex 2 beta).</summary>
     public double EllBetaDeg { get; set; } = 13.4;
 
-    /// <summary>§1.4 elliptical: edge-of-cell roll-off in dB (Annex 2 Table 2: 3 / 5 / 7 dB).</summary>
+    /// <summary>Sec. 1.4 elliptical: edge-of-cell roll-off in dB (Annex 2 Table 2: 3 / 5 / 7 dB).</summary>
     public double EllRollOffDb { get; set; } = 3.0;
 
     /// <summary>
     /// Auto layout mode: when true, beam centres are placed on a tangent-plane hex lattice
     /// at the sub-satellite point with constant <see cref="CellRadiusKm"/> spacing. Works
-    /// for any pattern kind. When pattern is §1.4 elliptical, each beam's α/β are also
+    /// for any pattern kind. When pattern is Sec. 1.4 elliptical, each beam's alpha/beta are also
     /// derived per-beam from <see cref="CellRadiusKm"/> + slant geometry so the ground
     /// footprint stays circular at <see cref="CellRadiusKm"/>; for other pattern kinds the
     /// pattern stays fixed and only the layout uses the cell-radius parameter.
     /// </summary>
     public bool AutoMode { get; set; } = false;
 
-    /// <summary>Auto-mode: target ground-cell radius (km). Drives lattice constant s = R·√3 (full-coverage hex).</summary>
+    /// <summary>Auto-mode: target ground-cell radius (km). Drives lattice constant s = R*sqrt3 (full-coverage hex).</summary>
     public double CellRadiusKm { get; set; } = 350.0;
 
     /// <summary>Heatmap / probe aggregation mode.</summary>
@@ -75,7 +75,7 @@ public sealed class SceneModel
     /// <summary>
     /// Minimum user-elevation served by the outermost beam ring (deg, ground
     /// elevation angle from the local horizon). The outer ring's beams point
-    /// at off-nadir = arcsin(R·cos(elev)/(R+h)). Default 25° = typical FSS
+    /// at off-nadir = arcsin(R*cos(elev)/(R+h)). Default 25 deg = typical FSS
     /// service-edge elevation.
     /// </summary>
     public double MinElevDeg { get; set; } = 10.0;
@@ -83,8 +83,8 @@ public sealed class SceneModel
     /// <summary>
     /// Crossover level (dB, negative) at which two adjacent beams meet. Drives
     /// the centre-to-centre angular spacing via the parabolic main-beam
-    /// approximation G/G_m ≈ −3·(Δ/(2·θ_b))² → Δ = 2·θ_b·√(−L/3).
-    /// −3 dB is the engineering-standard cross-over (default); the heatmap
+    /// approximation G/G_m ~ -3*(delta/(2*theta_b))^2 -> delta = 2*theta_b*sqrt(-L/3).
+    /// -3 dB is the engineering-standard cross-over (default); the heatmap
     /// shows the composite power, which fills any vertex gaps.
     /// </summary>
     public double CrossoverDb { get; set; } = -3.0;
@@ -97,7 +97,7 @@ public sealed class SceneModel
 
     /// <summary>
     /// Per-cut half-3-dB beamwidths for a beam at the given off-nadir angle. In manual elliptical mode this
-    /// is the same for every beam; in auto mode α/β (and hence θb) vary per off-nadir.
+    /// is the same for every beam; in auto mode alpha/beta (and hence thetab) vary per off-nadir.
     /// </summary>
     public (double radialDeg, double transverseDeg) HalfBeamwidthsForBeam(double offNadirDeg)
     {
@@ -110,7 +110,7 @@ public sealed class SceneModel
     }
 
     /// <summary>
-    /// In auto mode: half-axes (α, β, deg subtended at the satellite) of a circular ground cell of radius
+    /// In auto mode: half-axes (alpha, beta, deg subtended at the satellite) of a circular ground cell of radius
     /// <see cref="CellRadiusKm"/> for a beam at off-nadir angle <paramref name="offNadirDeg"/>.
     /// In manual mode: returns (<see cref="EllAlphaDeg"/>, <see cref="EllBetaDeg"/>) regardless of off-nadir.
     /// </summary>
@@ -127,27 +127,27 @@ public sealed class SceneModel
         double disc = R * R - r * r * sinOff * sinOff;
         if (disc < 0) return (EllAlphaDeg, EllBetaDeg);              // beam misses Earth
         double D = r * cosOff - Math.Sqrt(disc);
-        // Elevation ε at ground point: cos(ε) = (r/R)·sin(θ_off).
+        // Elevation eps at ground point: cos(eps) = (r/R)*sin(theta_off).
         double cosE = r * sinOff / R;
         cosE = Math.Min(1.0, Math.Max(0.0, cosE));
         double sinE = Math.Sqrt(1.0 - cosE * cosE);
         // Half-angles subtended at the satellite by a ground disc of radius R_cell:
-        //   transverse (cross-track): β = atan(R_cell / D)
-        //   radial (in SP-plane):     α = atan(R_cell · sin(ε) / D)   ← foreshortened by sin(ε)
+        //   transverse (cross-track): beta = atan(R_cell / D)
+        //   radial (in SP-plane):     alpha = atan(R_cell * sin(eps) / D)   <- foreshortened by sin(eps)
         double beta  = Math.Atan(CellRadiusKm / D) * 180.0 / Math.PI;
         double alpha = Math.Atan(CellRadiusKm * sinE / D) * 180.0 / Math.PI;
-        // Clamp α from going to zero near the horizon — keeps Lr finite.
+        // Clamp alpha from going to zero near the horizon -- keeps Lr finite.
         if (alpha < 0.5) alpha = 0.5;
         return (alpha, beta);
     }
 
-    /// <summary>Inter-ring radial spacing (deg) — radial neighbours sit along the φ=0 cut, so this scales with θb_radial.</summary>
+    /// <summary>Inter-ring radial spacing (deg) -- radial neighbours sit along the phi=0 cut, so this scales with thetab_radial.</summary>
     public double SpacingRadialDeg
     {
         get { var (r, _) = HalfBeamwidthsDeg; return 2.0 * r * Math.Sqrt(Math.Max(0.0, -CrossoverDb) / 3.0); }
     }
 
-    /// <summary>Within-ring azimuthal arc target (deg) — within-ring neighbours sit along the φ=90° cut, so this scales with θb_transverse.</summary>
+    /// <summary>Within-ring azimuthal arc target (deg) -- within-ring neighbours sit along the phi=90 deg cut, so this scales with thetab_transverse.</summary>
     public double SpacingTransverseDeg
     {
         get { var (_, t) = HalfBeamwidthsDeg; return 2.0 * t * Math.Sqrt(Math.Max(0.0, -CrossoverDb) / 3.0); }
@@ -161,14 +161,14 @@ public sealed class SceneModel
 
     /// <summary>
     /// Half 3-dB beamwidth (deg) derived from <see cref="GmDbi"/> using the
-    /// textbook gain–beamwidth relation G ≈ 10·log10(K/(2θ_b)²) with K ≈ 32 400
-    /// (typical taper). Solved: θ_b ≈ 90°·10^(−G/20).
+    /// textbook gain-beamwidth relation G ~ 10*log10(K/(2theta_b)^2) with K ~ 32 400
+    /// (typical taper). Solved: theta_b ~ 90 deg*10^(-G/20).
     /// </summary>
     public double DerivedHalfBeamwidthDeg => 90.0 * Math.Pow(10.0, -GmDbi / 20.0);
 
     private readonly List<Beam> _beams = new();
 
-    /// <summary>Read-only view of the currently built beam set (mutable per-beam state — Weight, Pattern — is fine to change in place).</summary>
+    /// <summary>Read-only view of the currently built beam set (mutable per-beam state -- Weight, Pattern -- is fine to change in place).</summary>
     public IReadOnlyList<Beam> Beams => _beams;
 
     public Vec3 SatEcef =>
@@ -177,7 +177,7 @@ public sealed class SceneModel
     /// <summary>
     /// Build a fresh single-beam pattern instance for the given peak gain,
     /// using the currently selected <see cref="PatternKind"/> and all the
-    /// shared parameters (θ_b, LF, plus pattern-specific LN / Ls / SLR / n̄).
+    /// shared parameters (theta_b, LF, plus pattern-specific LN / Ls / SLR / n_bar).
     /// Used by the rebuilder, by the PFD adjuster (to reduce G_m), and by the
     /// "Show pattern" plot.
     /// </summary>
@@ -185,11 +185,11 @@ public sealed class SceneModel
 
     /// <summary>
     /// Build a fresh single-beam pattern for a beam at the given off-nadir angle. Most pattern kinds
-    /// don't depend on off-nadir; the elliptical §1.4 in auto mode uses it to derive per-beam α, β.
+    /// don't depend on off-nadir; the elliptical Sec. 1.4 in auto mode uses it to derive per-beam alpha, beta.
     /// </summary>
     public ISinglePattern BuildPatternFor(double gmDbi, double offNadirDeg)
     {
-        // Circular patterns: in auto-mode the user's manual θ_b drives both the antenna
+        // Circular patterns: in auto-mode the user's manual theta_b drives both the antenna
         // pattern and the UV-plane hex lattice spacing (single parameter for circular
         // antennas). In manual mode same value also applies. R_cell only affects the
         // elliptical pattern (where each beam adapts per-beam to match it).
@@ -218,8 +218,8 @@ public sealed class SceneModel
     /// inward. The outer ring sits at off-nadir = <see cref="OuterOffNadirDeg"/>
     /// (derived from <see cref="MinElevDeg"/> + altitude) and contains as many
     /// beams as fit at angular spacing <see cref="SpacingDeg"/> around its
-    /// circle. Each successive inner ring steps the off-nadir down by Δ and
-    /// uses fewer beams (so within-ring spacing stays ≈ Δ). Adjacent rings are
+    /// circle. Each successive inner ring steps the off-nadir down by delta and
+    /// uses fewer beams (so within-ring spacing stays ~ delta). Adjacent rings are
     /// rotated by half their azimuth step so radial neighbours interlock like
     /// a hex.
     /// </summary>
@@ -232,9 +232,9 @@ public sealed class SceneModel
         // Nadir direction in ECEF (used to define the radial axis for elliptical beams).
         Vec3 nadir = down;
 
-        // Radial reference axis ⊥ boresight, in the plane containing boresight & nadir.
-        // Convention: radial points "away from nadir, projected onto ⊥boresight" — i.e.
-        // along the off-nadir tilt direction, so radial = α-direction at the cell edge.
+        // Radial reference axis perp boresight, in the plane containing boresight & nadir.
+        // Convention: radial points "away from nadir, projected onto perpboresight" -- i.e.
+        // along the off-nadir tilt direction, so radial = alpha-direction at the cell edge.
         Vec3? RadialAxisFor(Vec3 boresight)
         {
             if (!elliptical) return null;
@@ -242,20 +242,20 @@ public sealed class SceneModel
             if (Math.Abs(1.0 - Math.Abs(cos)) < 1e-9)
             {
                 // Centre beam: no preferred radial direction. Use sat-North projected
-                // onto ⊥boresight as a stable, consistent fallback.
+                // onto perpboresight as a stable, consistent fallback.
                 Vec3 nb = (north - boresight * Vec3.Dot(boresight, north));
                 double l = nb.Length;
                 return l < 1e-12 ? boresight /* will be ignored */ : nb * (1.0 / l);
             }
-            // radial = -(nadir − cos·boresight) / |…|  → points outward (away from nadir).
+            // radial = -(nadir - cos*boresight) / |...|  -> points outward (away from nadir).
             Vec3 r = (nadir - boresight * cos).Normalized();
             return r * -1.0;
         }
 
         double offOuter = OuterOffNadirDeg;
         // Auto-mode = hex tessellation. For elliptical: ground-plane hex with per-beam
-        // α/β adaptation. For circular patterns (§1.4 circular, §1.2, §1.3 LEO/MEO/HEO):
-        // 3GPP-NTN UV-plane hex with uniform θ_b across all beams.
+        // alpha/beta adaptation. For circular patterns (Sec. 1.4 circular, Sec. 1.2, Sec. 1.3 LEO/MEO/HEO):
+        // 3GPP-NTN UV-plane hex with uniform theta_b across all beams.
         bool autoTessellate = AutoMode;
 
         // Centre beam (always added first; auto-mode rings then expand outward, manual
@@ -275,13 +275,13 @@ public sealed class SceneModel
 
         if (autoTessellate && !elliptical)
         {
-            // 3GPP NTN (TR 38.821) UV-plane hex — natural for circular patterns. Beam
-            // centres form a regular hex lattice on the unit-disc UV-plane ⊥ nadir;
-            // every beam shares the user's θ_b.
+            // 3GPP NTN (TR 38.821) UV-plane hex -- natural for circular patterns. Beam
+            // centres form a regular hex lattice on the unit-disc UV-plane perp nadir;
+            // every beam shares the user's theta_b.
             //
-            // Lattice constant ABS = √3·sin(θ_b·√(−L/3)). The base 3GPP convention
-            // "ABS = √3·sin(θ_b)" corresponds to L = −3 dB (parabolic main beam at θ_b
-            // is at −3 dB). CrossoverDb pulls the lattice tighter (more overlap, deeper
+            // Lattice constant ABS = sqrt3*sin(theta_b*sqrt(-L/3)). The base 3GPP convention
+            // "ABS = sqrt3*sin(theta_b)" corresponds to L = -3 dB (parabolic main beam at theta_b
+            // is at -3 dB). CrossoverDb pulls the lattice tighter (more overlap, deeper
             // visual coverage) when |L| < 3 dB, looser when |L| > 3 dB.
             double crossFac = Math.Sqrt(Math.Max(0.0, -CrossoverDb) / 3.0);
             double sinTb = Math.Sin(ThetaBDeg * crossFac * Math.PI / 180.0);
@@ -329,9 +329,9 @@ public sealed class SceneModel
 
         if (autoTessellate)
         {
-            // Tangent-plane hex lattice for elliptical pattern. Each beam's α/β are
+            // Tangent-plane hex lattice for elliptical pattern. Each beam's alpha/beta are
             // derived from R_cell + slant geometry so its ground footprint stays
-            // circular at R_cell. Lattice constant s = √3·R_cell on the ground.
+            // circular at R_cell. Lattice constant s = sqrt3*R_cell on the ground.
             double s = Math.Sqrt(3.0) * CellRadiusKm;
             double horizonRad = HorizonHalfAngleDeg(AltitudeKm) * Math.PI / 180.0;
             double horizonGroundKm = EarthRadiusKm * horizonRad;
@@ -339,7 +339,7 @@ public sealed class SceneModel
             double lat0 = SubSatLatDeg * Math.PI / 180.0;
             double lon0 = SubSatLonDeg * Math.PI / 180.0;
             var sat = SatEcef;
-            // Hex basis (x = east km, y = north km): e1 = (s, 0), e2 = (s/2, s·√3/2).
+            // Hex basis (x = east km, y = north km): e1 = (s, 0), e2 = (s/2, s*sqrt3/2).
             double e2x = 0.5 * s;
             double e2y = 0.5 * s * Math.Sqrt(3.0);
             for (int j = -gridHalfExtent; j <= gridHalfExtent; j++)
@@ -398,9 +398,9 @@ public sealed class SceneModel
             if (offIn <= 0.5 * deltaRadial) break;
 
             // Number of beams that fit at this ring with within-ring 3D angular
-            // separation ≈ Δ_t (transverse spacing target):
-            //   cos(Δ_t) = cos²(off) + sin²(off)·cos(δaz)
-            //   => δaz = arccos((cos Δ_t − cos²off) / sin²off)
+            // separation ~ delta_t (transverse spacing target):
+            //   cos(delta_t) = cos^2(off) + sin^2(off)*cos(deltaaz)
+            //   => deltaaz = arccos((cos delta_t - cos^2off) / sin^2off)
             double offRad = offIn * Math.PI / 180.0;
             double dTransRad = deltaTransverse * Math.PI / 180.0;
             double sinOff = Math.Sin(offRad);
@@ -456,7 +456,7 @@ public sealed class SceneModel
     /// Aggregate gain (dBi) towards a ground point at (lat, lon), using the
     /// currently selected <see cref="Mode"/>. Returns
     /// <see cref="double.NegativeInfinity"/> when the point lies below the
-    /// satellite's horizon — there is no line of sight, so the antenna gain
+    /// satellite's horizon -- there is no line of sight, so the antenna gain
     /// in that direction is not defined.
     /// </summary>
     public double GainTowardsGround(double lat, double lon)

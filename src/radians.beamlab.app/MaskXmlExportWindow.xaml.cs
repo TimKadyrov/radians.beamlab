@@ -1,10 +1,10 @@
-using System.Windows;
+﻿using System.Windows;
 using Microsoft.Win32;
 
 namespace radians.beamlab.app;
 
 /// <summary>
-/// Modal dialog driving <see cref="MaskXmlExportViewModel"/> — collects the
+/// Modal dialog driving <see cref="MaskXmlExportViewModel"/> -- collects the
 /// mask metadata / latitude range / resolution and runs the export.
 /// </summary>
 public partial class MaskXmlExportWindow : Window

@@ -1,12 +1,12 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 
 namespace radians.beamlab.app;
 
 /// <summary>
-/// UserControl hosting the PFD-mask tab (az/el or α/ΔLongitude coordinates).
+/// UserControl hosting the PFD-mask tab (az/el or alpha/deltaLongitude coordinates).
 /// Instantiates its own <see cref="PfdMaskViewModel"/>, the shared
-/// <see cref="PfdMaskField"/>, and three renderers — geo map for footprints
+/// <see cref="PfdMaskField"/>, and three renderers -- geo map for footprints
 /// (top), mask heatmap (bottom left) and profile slice (bottom right).
 /// </summary>
 public partial class PfdMaskView : UserControl
@@ -34,7 +34,7 @@ public partial class PfdMaskView : UserControl
         _plotRenderer    = new PfdHeatmapRenderer(PlotCanvas, _vm, _field);
         _profileRenderer = new PfdProfileRenderer(ProfileCanvas, _vm, _field);
 
-        // Pan / zoom moves the viewport — redraw just the map.
+        // Pan / zoom moves the viewport -- redraw just the map.
         _mapViewport.Changed += _mapRenderer.Redraw;
 
         // Open the advanced-exclusion dialog on request.

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace radians.beamlab.app;
 
@@ -7,7 +7,7 @@ namespace radians.beamlab.app;
 ///
 /// The viewport is parameterised by (centre lat, centre lon, latHalf): the
 /// visible region is always 2:1 lon:lat in degrees, with longitude half-extent
-/// = 2·latHalf. The map rectangle (mapX, mapY, mapW, mapH) is the inscribed
+/// = 2*latHalf. The map rectangle (mapX, mapY, mapW, mapH) is the inscribed
 /// 2:1 rectangle inside the canvas; <see cref="TryRecomputePlacement"/> sets it
 /// from the canvas's current size.
 ///
@@ -48,7 +48,7 @@ public sealed class MapViewport
         return true;
     }
 
-    /// <summary>(lat, lon) → canvas pixel. Longitudes are wrapped to be near the view centre.</summary>
+    /// <summary>(lat, lon) -> canvas pixel. Longitudes are wrapped to be near the view centre.</summary>
     public (double x, double y) ToCanvas(double latDeg, double lonDeg)
     {
         double dlon = ((lonDeg - ViewCenterLon + 540.0) % 360.0) - 180.0;
@@ -58,7 +58,7 @@ public sealed class MapViewport
         return (x, y);
     }
 
-    /// <summary>Canvas pixel → (lat, lon), or null if outside the map rect or past a pole.</summary>
+    /// <summary>Canvas pixel -> (lat, lon), or null if outside the map rect or past a pole.</summary>
     public (double latDeg, double lonDeg)? FromCanvas(double x, double y)
     {
         if (MapW <= 0) return null;
@@ -84,7 +84,7 @@ public sealed class MapViewport
 
     /// <summary>
     /// Zoom around a canvas pixel. If <paramref name="zoomIn"/> is true, the
-    /// view shrinks (lat-half ÷ <paramref name="factor"/>); otherwise it grows.
+    /// view shrinks (lat-half / <paramref name="factor"/>); otherwise it grows.
     /// The world point under the cursor stays fixed.
     /// </summary>
     public bool ZoomAround(double cursorX, double cursorY, double factor)

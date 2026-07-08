@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -14,7 +14,7 @@ public enum MaskExportFormat
 {
     /// <summary>S.1503-4 PFD-mask XML only.</summary>
     Xml,
-    /// <summary>Tabular CSV only (rows = latitude × b, columns = c values).</summary>
+    /// <summary>Tabular CSV only (rows = latitude x b, columns = c values).</summary>
     Csv,
     /// <summary>Both XML and CSV (companion files, same base name).</summary>
     Both,
@@ -30,12 +30,12 @@ public sealed class MaskXmlExportOptions
     public double HighFreqMhz = 12_750.0;
     public double RefBwKHz = 40.0;
 
-    /// <summary>Latitude table bounds (deg) — already clamped to ±maxLat(inclination) by the caller.</summary>
+    /// <summary>Latitude table bounds (deg) -- already clamped to +/-maxLat(inclination) by the caller.</summary>
     public double LatMinDeg = -60.0;
     public double LatMaxDeg = 60.0;
     public double LatStepDeg = 5.0;
 
-    /// <summary>Output axis steps (deg): b = α (α/ΔLong) or azimuth (Az/El); c = ΔLongitude or elevation.</summary>
+    /// <summary>Output axis steps (deg): b = alpha (alpha/deltaLong) or azimuth (Az/El); c = deltaLongitude or elevation.</summary>
     public double BStepDeg = 2.0;
     public double CStepDeg = 5.0;
 
@@ -46,19 +46,25 @@ public sealed class MaskXmlExportOptions
 
 /// <summary>
 /// Generates a S.1503-4 PFD-mask export. The XML matches the reference
-/// <c>maskdata.xml_PFD</c> schema (satellite_system → pfd_mask →
-/// by_a[latitude] → by_b[α|azimuth] → pfd[ΔLong|elevation]); the CSV is a flat
+/// <c>maskdata.xml_PFD</c> schema (satellite_system -> pfd_mask ->
+/// by_a[latitude] -> by_b[alpha|azimuth] -> pfd[deltaLong|elevation]); the CSV is a flat
 /// table with one row per (latitude, b) and one column per c value.
 ///
 /// For each latitude the generation VM is moved there, beams + exclusion are
 /// rebuilt, the mask field is recomputed, and PFD is read at each (b, c) output
-/// node — unreachable nodes get the −1000 dB(W/m²) floor used by the reference.
+/// node -- unreachable nodes get the -1000 dB(W/m^2) floor used by the reference.
 /// Runs on its own <see cref="PfdMaskViewModel"/> / <see cref="PfdMaskField"/>
 /// so the live view is untouched; the whole sweep is off the UI thread.
 /// </summary>
 public static class MaskXmlExport
 {
-    /// <summary>Maximum sub-satellite latitude (deg) reachable at the given orbital inclination.</summary>
+    /// <summary>
+    /// Maximum sub-satellite latitude (deg) reachable at the given orbital
+    /// inclination: sin(psi_max) = +/- sin(i), i.e. psi_max = i for prograde
+    /// and 180 deg - i for retrograde orbits. Reference: Capderou, "Handbook
+    /// of Satellite Orbits: From Kepler to GPS" (Springer, 2014), Sec. 8.2.2
+    /// "Maximum Attained Latitude".
+    /// </summary>
     public static double MaxLatitudeForInclination(double inclinationDeg)
         => 90.0 - Math.Abs(90.0 - inclinationDeg);
 
@@ -73,7 +79,7 @@ public static class MaskXmlExport
         var lats = Nodes(o.LatMinDeg, o.LatMaxDeg, o.LatStepDeg);
 
         bool alphaDelta = o.Kind == MaskPlotKind.AlphaDeltaLong;
-        // b axis: α (±90) or azimuth (±90). c axis: ΔLongitude (±180) or elevation (±90).
+        // b axis: alpha (+/-90) or azimuth (+/-90). c axis: deltaLongitude (+/-180) or elevation (+/-90).
         var bNodes = Nodes(-90.0, 90.0, o.BStepDeg);
         var cNodes = alphaDelta ? Nodes(-180.0, 180.0, o.CStepDeg) : Nodes(-90.0, 90.0, o.CStepDeg);
 
@@ -138,7 +144,7 @@ public static class MaskXmlExport
 
                         foreach (double c in cNodes)
                         {
-                            // Map (b, c) → field (X, Y). α/ΔLong: X=ΔLong=c, Y=α=b.
+                            // Map (b, c) -> field (X, Y). alpha/deltaLong: X=deltaLong=c, Y=alpha=b.
                             // Az/El: X=azimuth=b, Y=elevation=c.
                             double x = alphaDelta ? c : b;
                             double y = alphaDelta ? b : c;

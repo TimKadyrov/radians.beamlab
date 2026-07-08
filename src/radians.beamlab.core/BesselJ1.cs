@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 
 namespace radians.beamlab;
 
 /// <summary>
 /// Bessel function J1, polynomial approximation from Abramowitz &amp; Stegun
-/// 9.4.4 (|x| ≤ 3) and 9.4.6 (x ≥ 3). Accuracy ≈ 1.3e-8. Sufficient for the
-/// Taylor-illumination pattern in S.1528 §1.4.
+/// 9.4.4 (|x| <= 3) and 9.4.6 (x >= 3). Accuracy ~ 1.3e-8. Sufficient for the
+/// Taylor-illumination pattern in S.1528 Sec. 1.4.
 /// </summary>
 internal static class BesselJ1
 {
@@ -19,7 +19,7 @@ internal static class BesselJ1
         {
             double y = abs / 3.0;
             double y2 = y * y;
-            // J1(x) = x · {0.5 - 0.5625·(x/3)² + ... }
+            // J1(x) = x * {0.5 - 0.5625*(x/3)^2 + ... }
             double poly =
                 0.5
                 + y2 * (-0.56249985
@@ -33,7 +33,7 @@ internal static class BesselJ1
         else
         {
             double t = 3.0 / abs;
-            // f1(3/x), θ1(3/x) per A&S 9.4.6
+            // f1(3/x), theta1(3/x) per A&S 9.4.6
             double f1 =
                 0.79788456
                 + t * (0.00000156

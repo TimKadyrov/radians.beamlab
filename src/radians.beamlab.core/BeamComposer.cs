@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using static radians.beamlab.GeoMath;
 
@@ -59,6 +59,13 @@ public static class BeamComposer
     /// separately, and the strongest colour is returned (dBW). The realistic
     /// middle ground between the all-co-frequency power sum and the
     /// perfect-isolation single-beam view.
+    ///
+    /// Regulatory grounding: Rec. ITU-R S.1503-4 (Annex 1 Part C) makes the
+    /// PFD mask an operator-declared envelope of the system's actual
+    /// co-frequency operation -- aggregating only co-channel beams mirrors the
+    /// notified "number of co-frequency operations" (Nco) concept used by the
+    /// EPFD algorithms. The reuse factor K itself is a system design choice,
+    /// not a value prescribed by S.1503.
     /// <paramref name="reuseColors"/> is index-aligned with <paramref name="beams"/>;
     /// values are clamped into [0, numColors).
     /// </summary>
@@ -90,6 +97,15 @@ public static class BeamComposer
     /// For K = 3, 4 and 7 (the standard hex cluster sizes) no two adjacent
     /// cells share a colour; other K fall back to a diagonal-stripe colouring
     /// without that guarantee.
+    ///
+    /// References: the valid hexagonal cluster sizes N = i^2 + ij + j^2
+    /// (N = 1, 3, 4, 7, 9, 12, ...) come from classical cellular reuse theory --
+    /// V. H. MacDonald, "Advanced Mobile Phone Service: The Cellular Concept",
+    /// Bell Syst. Tech. J. 58(1), 1979; multibeam-satellite treatment in
+    /// Maral &amp; Bousquet, "Satellite Communications Systems" (frequency-reuse
+    /// chapters). For NTN payloads specifically, 3GPP TR 38.821 studies
+    /// FRF = 1 (all beams co-frequency) and FRF = 3 -- the same two options
+    /// exposed as PowerSum and CoChannelSum with K = 3.
     /// </summary>
     public static int HexReuseColor(int i, int j, int k) => k switch
     {
@@ -102,7 +118,7 @@ public static class BeamComposer
     /// <summary>
     /// Maximum single-beam contribution at the test direction:
     /// max_k ( G_k(test) + 10*log10(w_k) ) in dBi. The dominant beam's
-    /// (weight-effective) gain — useful when adjacent-beam aggregation is
+    /// (weight-effective) gain -- useful when adjacent-beam aggregation is
     /// not the right metric (e.g. single-carrier link budget, dominant-beam
     /// interference analyses).
     /// </summary>

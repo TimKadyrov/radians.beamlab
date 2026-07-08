@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -12,13 +12,13 @@ namespace radians.beamlab.app;
 /// <summary>
 /// Equirectangular map for the PFD-mask tab: coastlines, graticule, horizon
 /// disc, sub-satellite marker, and one small marker per beam. Markers and
-/// footprint rings are coloured by on/off status (green/red) — or, when
+/// footprint rings are coloured by on/off status (green/red) -- or, when
 /// co-channel aggregation is selected, ON beams are painted by their K-colour
 /// frequency-reuse assignment so the plan is visible. Pan / zoom via the
 /// shared <see cref="MapViewport"/> (input wired by
 /// <see cref="PfdMapInteractionHandler"/>); unlike tab 1's
 /// <see cref="MapRenderer"/> there is no probe, beam toggle or satellite drag
-/// — the PFD map stays a read-only situational picture.
+/// -- the PFD map stays a read-only situational picture.
 /// </summary>
 public sealed class PfdMapRenderer
 {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using static radians.beamlab.GeoMath;
 
@@ -6,24 +6,24 @@ namespace radians.beamlab;
 
 /// <summary>
 /// Projects a beam's cone onto the spherical Earth. Pure geometry (no UI), so
-/// both the composite-gain map and the PFD-tab map — and any future test — can
+/// both the composite-gain map and the PFD-tab map -- and any future test -- can
 /// share one implementation.
 /// </summary>
 public static class BeamFootprint
 {
     /// <summary>
-    /// Sample the beam's cone at half-angle θ(φ) around its boresight in 3D and
+    /// Sample the beam's cone at half-angle theta(phi) around its boresight in 3D and
     /// project each sample to ground via ray-Earth intersection. Returns
-    /// connected (lat, lon) segments — when the cone partially overshoots the
+    /// connected (lat, lon) segments -- when the cone partially overshoots the
     /// horizon, missed samples split the contour into open arcs (no spurious
     /// chord across the gap).
     /// </summary>
     /// <param name="sat">Satellite position, ECEF km.</param>
     /// <param name="boresight">Beam boresight unit vector, ECEF.</param>
     /// <param name="radialAxis">
-    /// φ = 0 axis ⊥ boresight (elliptical patterns). Null → pick any ⊥ axis.
+    /// phi = 0 axis perp boresight (elliptical patterns). Null -> pick any perp axis.
     /// </param>
-    /// <param name="halfAngleAtPhiDeg">Cone half-angle (deg) as a function of φ (deg).</param>
+    /// <param name="halfAngleAtPhiDeg">Cone half-angle (deg) as a function of phi (deg).</param>
     /// <param name="samples">Number of azimuthal samples around the cone.</param>
     public static List<List<(double lat, double lon)>> SampleConeOnGround(
         Vec3 sat, Vec3 boresight, Vec3? radialAxis, Func<double, double> halfAngleAtPhiDeg, int samples)
