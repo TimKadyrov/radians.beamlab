@@ -76,6 +76,12 @@ public static class MaskXmlExport
         live.CopySettingsTo(gen);
         gen.MaskKind = o.Kind;
 
+        // Envelope binning wants >= ~2 field cells per output bin; if the
+        // dialog's axis steps are finer than the tab's compute step allows,
+        // tighten the compute grid for the generation VM only.
+        double finestHalf = 0.5 * Math.Min(o.BStepDeg, o.CStepDeg);
+        if (gen.MaskStepDeg > finestHalf) gen.MaskStepDeg = Math.Max(0.1, finestHalf);
+
         var lats = Nodes(o.LatMinDeg, o.LatMaxDeg, o.LatStepDeg);
 
         bool alphaDelta = o.Kind == MaskPlotKind.AlphaDeltaLong;
@@ -148,7 +154,11 @@ public static class MaskXmlExport
                             // Az/El: X=azimuth=b, Y=elevation=c.
                             double x = alphaDelta ? c : b;
                             double y = alphaDelta ? b : c;
-                            double pfd = field.SampleAt(x, y);
+                            // Each node takes the max over its bin (envelope
+                            // semantics) so beam peaks survive any output step.
+                            double halfX = 0.5 * (alphaDelta ? o.CStepDeg : o.BStepDeg);
+                            double halfY = 0.5 * (alphaDelta ? o.BStepDeg : o.CStepDeg);
+                            double pfd = field.SampleMaxIn(x, y, halfX, halfY);
                             string cell = double.IsNegativeInfinity(pfd)
                                 ? "-1000"
                                 : pfd.ToString("F1", CultureInfo.InvariantCulture);
@@ -186,10 +196,17 @@ public static class MaskXmlExport
 
     private static List<double> Nodes(double min, double max, double step)
     {
+        // Grid anchored at 0 (nodes are multiples of step) so a range that
+        // spans the origin always samples it exactly -- e.g. the latitude
+        // table crosses lat = 0, where the GSO exclusion geometry peaks.
+        // The exact range endpoints are pinned as extra nodes when the grid
+        // does not land on them.
         var list = new List<double>();
         step = Math.Max(1e-6, Math.Abs(step));
-        int n = (int)Math.Floor((max - min) / step + 1e-9);
-        for (int i = 0; i <= n; i++) list.Add(min + i * step);
+        int i0 = (int)Math.Ceiling(min / step - 1e-9);
+        int i1 = (int)Math.Floor(max / step + 1e-9);
+        if (i0 > i1 || min < i0 * step - 1e-6) list.Add(min);
+        for (int i = i0; i <= i1; i++) list.Add(i * step);
         if (list.Count == 0 || Math.Abs(list[^1] - max) > 1e-6) list.Add(max);
         return list;
     }

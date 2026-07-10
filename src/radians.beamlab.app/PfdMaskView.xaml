@@ -114,6 +114,7 @@
                         <TextBox Text="{Binding RefBwKHz, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
                         <TextBlock Text="Mask sampling step (deg)  — az &amp; el resolution"/>
                         <TextBox Text="{Binding MaskStepDeg, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
+                        <TextBlock Foreground="#666666" TextWrapping="Wrap" Text="{Binding MaskStepHint}"/>
                         <TextBlock Foreground="#666666" Text="Colour ramp auto-scales to the data (min / max PFD)."/>
                     </StackPanel>
                 </GroupBox>

@@ -461,6 +461,47 @@ public sealed class PfdMaskViewModel : ObservableObject
         set { if (value > 0.05 && value <= 5.0 && SetField(ref _maskStepDeg, value)) SceneChanged?.Invoke(); }
     }
 
+    /// <summary>
+    /// Sampling guidance shown under the mask-step input: near boresight the
+    /// main lobe is ~parabolic in dB, so a grid node at most step/sqrt(2) off
+    /// a peak under-reads by ~3*(2d/theta3dB)^2 dB. A step of a quarter of the
+    /// narrowest 3 dB beamwidth keeps that under ~0.4 dB. Beam boresights
+    /// themselves are always sampled exactly (peak injection in
+    /// <see cref="PfdMaskField"/>), so this bounds the error between peaks.
+    /// </summary>
+    public string MaskStepHint
+    {
+        get
+        {
+            double rec = RecommendedStepDeg;
+            if (rec <= 0.0) return "";
+            return $"Narrowest 3 dB beamwidth ≈ {4.0 * rec:F1}° → step ≤ {rec:F2}° recommended. " +
+                   "Beam peaks are always sampled exactly regardless of step.";
+        }
+    }
+
+    /// <summary>
+    /// Quarter of the narrowest active 3 dB beamwidth (deg) -- the sampling
+    /// step that keeps the field within ~0.4 dB of the true pattern between
+    /// the exactly-sampled boresights. 0 when no active beams.
+    /// </summary>
+    public double RecommendedStepDeg
+    {
+        get
+        {
+            double minWidthDeg = double.PositiveInfinity;
+            foreach (var beam in Scene.Beams)
+            {
+                if (beam.Weight <= 0.0) continue;
+                double w = beam.Pattern is Rec1528_1p4_Ell ell
+                    ? 2.0 * Math.Min(ell.ThetaB, ell.ThetaBTransverseDeg)
+                    : 2.0 * beam.Pattern.ThetaB;
+                if (w < minWidthDeg) minWidthDeg = w;
+            }
+            return double.IsPositiveInfinity(minWidthDeg) ? 0.0 : 0.25 * minWidthDeg;
+        }
+    }
+
     private bool _showAlphaContour = true;
     public bool ShowAlphaContour
     {
@@ -543,6 +584,7 @@ public sealed class PfdMaskViewModel : ObservableObject
         StatusText = $"rebuilt: {ActiveBeamCount}/{Scene.Beams.Count} beams active";
         OnPropertyChanged(nameof(LayoutReadout));
         OnPropertyChanged(nameof(ActiveBeamCount));
+        OnPropertyChanged(nameof(MaskStepHint));
         SceneChanged?.Invoke();
     }
 

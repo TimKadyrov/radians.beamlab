@@ -84,7 +84,8 @@
                         <TextBlock Text="{Binding CAxisLabel}"/>
                         <TextBox Text="{Binding CStepDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
                         <TextBlock Foreground="#666666" TextWrapping="Wrap"
-                                   Text="Compute grid uses the tab's mask sampling step; output nodes are sampled from it. Unreachable nodes are written as −1000."/>
+                                   Text="Each output node takes the maximum PFD over its surrounding bin (envelope), so beam peaks are captured at any step. Unreachable nodes are written as −1000."/>
+                        <TextBlock Foreground="#666666" TextWrapping="Wrap" Text="{Binding StepHint}"/>
                     </StackPanel>
                 </GroupBox>
 

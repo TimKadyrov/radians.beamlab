@@ -206,6 +206,19 @@ wheel zooms.
 0.5° looks better but computes ~4× longer; go coarser while iterating on
 settings and finer for the final picture.
 
+Two things keep coarse grids honest:
+
+- **Beam peaks are always sampled exactly.** Every active beam's boresight
+  is evaluated at its true direction and max-binned into its grid cell, so
+  the mask maximum never depends on where the grid happens to fall — even a
+  5° draft grid carries the exact peaks.
+- **Between peaks, follow the on-screen hint.** The narrowest beams set the
+  resolution requirement: a step of about a quarter of the narrowest 3 dB
+  beamwidth keeps the sampled field within ~0.4 dB of the true pattern
+  (an eighth gets ~0.1 dB). The hint under the step input computes this for
+  the current beam set — note it tightens as you raise the edge roll-off,
+  because deeper roll-off means narrower beams.
+
 ### Exporting a mask (XML / CSV)
 
 **Generate mask XML…** computes the mask not just at the current latitude
@@ -215,8 +228,18 @@ file:
 1. **Inclination** — enter your orbit's inclination; the dialog caps the
    latitude range at the maximum sub-satellite latitude that inclination can
    reach (e.g. 53° inclination → ±53°). You can narrow the range or change
-   the latitude step.
+   the latitude step. The table always contains the exact range endpoints
+   and crosses latitude 0 exactly (grid points are multiples of the step),
+   even when the range is not a whole number of steps — so the equator,
+   where the GSO exclusion bites hardest, is never skipped.
 2. **Resolution** — the grid steps for the two mask axes in the output file.
+   Every output node carries the **maximum** PFD over its surrounding bin
+   (±half a step on each axis) rather than a point sample — the mask is an
+   envelope, and this guarantees the exact beam peaks appear in the table at
+   any step. A coarse step therefore makes the mask more *conservative*
+   (peaks spread over wider bins), never under-reported; follow the dialog's
+   ¼-beamwidth hint to keep it tight. The compute grid is automatically
+   refined to at least half the finest axis step.
 3. **Metadata** — satellite name, NTC id, mask id, frequency band and
    reference bandwidth: these go into the XML header.
 4. **Format** — *XML* (the S.1503-4 schema, loadable by EPFD tools),

@@ -110,6 +110,30 @@ public sealed class Rec1528_1p4 : ISinglePattern
     /// <summary>Taylor F(u). Public for diagnostics.</summary>
     public double TaylorF(double u)
     {
+        // Analytically the kernel's J1 zeros cancel the product's mu_i poles
+        // (removable singularities), but BesselJ1.J1 is a rational fit whose
+        // zeros sit ~1e-7 off the true ones, so within ~1e-5 of a mu_i the
+        // cancellation fails and |F| can spike by orders of magnitude
+        // (observed as +21 dB single-pixel PFD spikes). Bridge a small band
+        // around each mu_i by interpolating clean edge evaluations -- F is
+        // smooth there, so the interpolation error is negligible.
+        for (int i = 0; i < Nbar - 1; i++)
+        {
+            double d = u - _mu[i];
+            if (Math.Abs(d) < MuGuardBandU)
+            {
+                double lo = TaylorFRaw(_mu[i] - MuGuardBandU);
+                double hi = TaylorFRaw(_mu[i] + MuGuardBandU);
+                return lo + (hi - lo) * (d + MuGuardBandU) / (2.0 * MuGuardBandU);
+            }
+        }
+        return TaylorFRaw(u);
+    }
+
+    private const double MuGuardBandU = 1e-4;
+
+    private double TaylorFRaw(double u)
+    {
         if (u == 0.0) return 1.0;
         double pu = Math.PI * u;
         double kernel = 2.0 * BesselJ1.J1(pu) / pu;
@@ -118,9 +142,7 @@ public sealed class Rec1528_1p4 : ISinglePattern
         {
             double num = 1.0 - u * u / (_uN[i] * _uN[i]);
             double den = 1.0 - u * u / (_mu[i] * _mu[i]);
-            // Near u = mu_n the kernel and the denominator share a simple zero
-            // and their ratio is finite. Floor |denominator| so that the limit
-            // is approximated rather than NaN -- exact-null sampling is rare.
+            // Backstop only -- TaylorF's guard band keeps u away from here.
             const double eps = 1e-9;
             if (Math.Abs(den) < eps) den = den >= 0 ? eps : -eps;
             prod *= num / den;
@@ -245,6 +267,25 @@ public sealed class Rec1528_1p4_Ell : ISinglePattern
     /// <summary>Taylor F(u). Identical to the circular pattern's kernel.</summary>
     public double TaylorF(double u)
     {
+        // Same guard band as Rec1528_1p4.TaylorF: the mu_i poles are removable
+        // but the rational J1 fit breaks the cancellation near them.
+        for (int i = 0; i < Nbar - 1; i++)
+        {
+            double d = u - _mu[i];
+            if (Math.Abs(d) < MuGuardBandU)
+            {
+                double lo = TaylorFRaw(_mu[i] - MuGuardBandU);
+                double hi = TaylorFRaw(_mu[i] + MuGuardBandU);
+                return lo + (hi - lo) * (d + MuGuardBandU) / (2.0 * MuGuardBandU);
+            }
+        }
+        return TaylorFRaw(u);
+    }
+
+    private const double MuGuardBandU = 1e-4;
+
+    private double TaylorFRaw(double u)
+    {
         if (u == 0.0) return 1.0;
         double pu = Math.PI * u;
         double kernel = 2.0 * BesselJ1.J1(pu) / pu;
@@ -253,6 +294,7 @@ public sealed class Rec1528_1p4_Ell : ISinglePattern
         {
             double num = 1.0 - u * u / (_uN[i] * _uN[i]);
             double den = 1.0 - u * u / (_mu[i] * _mu[i]);
+            // Backstop only -- TaylorF's guard band keeps u away from here.
             const double eps = 1e-9;
             if (Math.Abs(den) < eps) den = den >= 0 ? eps : -eps;
             prod *= num / den;

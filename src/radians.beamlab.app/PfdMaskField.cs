@@ -161,6 +161,26 @@ public sealed class PfdMaskField
             }
         });
 
+        // Peak injection: a pixel grid can straddle a narrow main lobe and clip
+        // the mask maximum. Each active beam's exact boresight is evaluated and
+        // max-binned into its containing pixel -- the mask is an envelope, so
+        // taking the in-cell max is the conservative (correct) reading.
+        foreach (var (look, ground, pfd) in BoresightPeakSamples(vm, powers, colors, clusterN))
+        {
+            double azDeg = Math.Atan2(Vec3.Dot(look, east), Vec3.Dot(look, down)) * 180.0 / Math.PI;
+            double elDeg = Math.Asin(Math.Clamp(Vec3.Dot(look, north), -1.0, 1.0)) * 180.0 / Math.PI;
+            int px = (int)((azDeg - XMin) / (XMax - XMin) * pixW);
+            if (px < 0) px = 0; else if (px >= pixW) px = pixW - 1;
+            int py = (int)((YMax - elDeg) / (YMax - YMin) * pixH);
+            if (py < 0) py = 0; else if (py >= pixH) py = pixH - 1;
+            int idx = py * pixW + px;
+            if (pfd > pfdBuf[idx])
+            {
+                pfdBuf[idx] = pfd;
+                alphaBuf[idx] = GsoGeometry.AlphaMinAbsDeg(ground, sat);
+            }
+        }
+
         AutoScale(pfdBuf);
         PixW = pixW;
         PixH = pixH;
@@ -262,6 +282,26 @@ public sealed class PfdMaskField
             }
         });
 
+        // Peak injection -- same rationale as in RebuildAzEl: the source sweep
+        // can straddle a narrow main lobe, so each active beam's exact boresight
+        // is max-binned into its (dL, alpha) cell.
+        foreach (var (look, ground, pfd) in BoresightPeakSamples(vm, powers, colors, clusterN))
+        {
+            var ad = GsoGeometry.AlphaSignedDeg(ground, sat);
+            if (ad is null) continue;
+            double dLon = ((subLonDeg - ad.Value.gsoLonDeg + 540.0) % 360.0) - 180.0;
+            int px = (int)((dLon - XMin) / xRange * pixW);
+            if (px < 0) px = 0; else if (px >= pixW) px = pixW - 1;
+            int py = (int)((YMax - ad.Value.alphaDeg) / yRange * pixH);
+            if (py < 0) py = 0; else if (py >= pixH) py = pixH - 1;
+            int idx = py * pixW + px;
+            if (pfd > pfdBuf[idx])
+            {
+                pfdBuf[idx] = pfd;
+                esElevBuf[idx] = ElevationAngleDeg(sat, ground);
+            }
+        }
+
         // In this coordinate system alpha is the pixel's own Y coordinate -- fill the
         // alpha grid row-wise so the heatmap's |alpha| < alpha_excl tint works unchanged.
         var alphaBuf = new double[pixW * pixH];
@@ -279,6 +319,36 @@ public sealed class PfdMaskField
         PfdGrid = pfdBuf;
         AlphaGrid = alphaBuf;
         EsElevGrid = esElevBuf;
+    }
+
+    /// <summary>
+    /// Exact-boresight PFD samples, one per active beam (Weight &gt; 0): the
+    /// aggregate PFD evaluated at the beam's own boresight look direction --
+    /// the local peak a finite grid can otherwise miss. Callers max-bin each
+    /// sample into the containing cell of their coordinate system.
+    /// </summary>
+    private static List<(Vec3 look, Vec3 ground, double pfd)> BoresightPeakSamples(
+        PfdMaskViewModel vm, double[] powers, int[] colors, int clusterN)
+    {
+        var scene = vm.Scene;
+        var sat = scene.SatEcef;
+        var agg = vm.Aggregation;
+        var result = new List<(Vec3, Vec3, double)>();
+        foreach (var beam in scene.Beams)
+        {
+            if (beam.Weight <= 0.0) continue;
+            var look = beam.Boresight.Normalized();
+            var hit = RaySphereHit(sat, look);
+            if (hit is null) continue;
+            double e = agg == PfdAggregation.CoChannelSum
+                ? BeamComposer.MaxCoChannelEirpDbw(scene.Beams, look, powers, colors, clusterN)
+                : BeamComposer.CompositeEirpDbw(scene.Beams, look, powers);
+            if (double.IsNegativeInfinity(e)) continue;
+            double slantM = (hit.Value - sat).Length * 1000.0;
+            double pfd = e - 10.0 * Math.Log10(4.0 * Math.PI * slantM * slantM);
+            result.Add((look, hit.Value, pfd));
+        }
+        return result;
     }
 
     /// <summary>
@@ -468,6 +538,38 @@ public sealed class PfdMaskField
         int row = (int)((YMax - yDeg) / (YMax - YMin) * PixH);
         if (row < 0) row = 0; else if (row >= PixH) row = PixH - 1;
         return PfdGrid[row * PixW + col];
+    }
+
+    /// <summary>
+    /// Envelope read for the mask exporter: maximum PFD over all grid cells
+    /// whose centres fall inside [x-halfW, x+halfW] x [y-halfH, y+halfH] (the
+    /// output node's bin). With bins tiling the axes, every field cell --
+    /// including the injected boresight peaks -- is read by at least one
+    /// output node regardless of the output step; a coarse step makes the
+    /// mask conservative, never under-reporting. Falls back to the nearest
+    /// cell when the bin is narrower than the grid pitch.
+    /// </summary>
+    public double SampleMaxIn(double xDeg, double yDeg, double halfW, double halfH)
+    {
+        if (PfdGrid is null || PixW == 0 || PixH == 0) return double.NegativeInfinity;
+        double dx = (XMax - XMin) / PixW;
+        double dy = (YMax - YMin) / PixH;
+        int px0 = (int)Math.Ceiling((xDeg - halfW - XMin) / dx - 0.5);
+        int px1 = (int)Math.Floor((xDeg + halfW - XMin) / dx - 0.5);
+        int py0 = (int)Math.Ceiling((YMax - (yDeg + halfH)) / dy - 0.5);
+        int py1 = (int)Math.Floor((YMax - (yDeg - halfH)) / dy - 0.5);
+        if (px0 < 0) px0 = 0; if (px1 >= PixW) px1 = PixW - 1;
+        if (py0 < 0) py0 = 0; if (py1 >= PixH) py1 = PixH - 1;
+        if (px0 > px1 || py0 > py1) return SampleAt(xDeg, yDeg);
+
+        double max = double.NegativeInfinity;
+        for (int py = py0; py <= py1; py++)
+        {
+            int rowBase = py * PixW;
+            for (int px = px0; px <= px1; px++)
+                if (PfdGrid[rowBase + px] > max) max = PfdGrid[rowBase + px];
+        }
+        return max;
     }
 
     private int ColumnForX(double xDeg)

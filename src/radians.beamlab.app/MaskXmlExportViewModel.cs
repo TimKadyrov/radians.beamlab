@@ -93,10 +93,28 @@ public sealed class MaskXmlExportViewModel : ObservableObject
 
     // --- Output resolution (labels depend on the tab's mask kind) ---
     private double _bStepDeg = 2.0;
-    public double BStepDeg { get => _bStepDeg; set { if (value > 0) SetField(ref _bStepDeg, value); } }
+    public double BStepDeg { get => _bStepDeg; set { if (value > 0 && SetField(ref _bStepDeg, value)) OnPropertyChanged(nameof(StepHint)); } }
 
     private double _cStepDeg = 5.0;
-    public double CStepDeg { get => _cStepDeg; set { if (value > 0) SetField(ref _cStepDeg, value); } }
+    public double CStepDeg { get => _cStepDeg; set { if (value > 0 && SetField(ref _cStepDeg, value)) OnPropertyChanged(nameof(StepHint)); } }
+
+    /// <summary>
+    /// Guidance under the step inputs: the tab's quarter-beamwidth
+    /// recommendation, plus a conservatism note when the chosen steps are
+    /// coarser. Peaks are never lost either way (envelope binning).
+    /// </summary>
+    public string StepHint
+    {
+        get
+        {
+            double rec = _live.RecommendedStepDeg;
+            if (rec <= 0.0) return "";
+            string basis = $"Recommended step ≤ {rec:F2}° (¼ of the narrowest 3 dB beamwidth).";
+            return Math.Max(_bStepDeg, _cStepDeg) > rec + 1e-9
+                ? basis + " Coarser steps keep the exact peaks but make the mask more conservative between nodes."
+                : basis;
+        }
+    }
 
     private static readonly MaskExportFormat[] Formats = { MaskExportFormat.Xml, MaskExportFormat.Csv, MaskExportFormat.Both };
     private int _formatIndex;
