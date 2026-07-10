@@ -53,19 +53,21 @@ public static class BeamComposer
     }
 
     /// <summary>
-    /// Worst-colour co-channel EIRP density under a K-colour frequency-reuse
+    /// Worst-colour co-channel EIRP density under an N-colour frequency-reuse
     /// plan: beams are partitioned by <paramref name="reuseColors"/> (only
     /// same-colour beams share a channel), each colour is power-summed
     /// separately, and the strongest colour is returned (dBW). The realistic
     /// middle ground between the all-co-frequency power sum and the
     /// perfect-isolation single-beam view.
     ///
-    /// Regulatory grounding: Rec. ITU-R S.1503-4 (Annex 1 Part C) makes the
-    /// PFD mask an operator-declared envelope of the system's actual
-    /// co-frequency operation -- aggregating only co-channel beams mirrors the
-    /// notified "number of co-frequency operations" (Nco) concept used by the
-    /// EPFD algorithms. The reuse factor K itself is a system design choice,
-    /// not a value prescribed by S.1503.
+    /// Regulatory grounding (Rec. ITU-R S.1503-4):
+    /// Sec. C2.3.1 -- "the pfd radiated by a non-GSO space station at any point
+    /// on the Earth's surface is the sum of the pfd produced by all
+    /// illuminating beams in the co-frequency band"; Sec. C2.4.1 -- the mask
+    /// depends on "the maximum number of co-frequency beams which can be
+    /// illuminated simultaneously". The cluster size N itself is a system
+    /// design choice declared by the operator, not a value prescribed by
+    /// S.1503.
     /// <paramref name="reuseColors"/> is index-aligned with <paramref name="beams"/>;
     /// values are clamped into [0, numColors).
     /// </summary>
@@ -93,26 +95,33 @@ public static class BeamComposer
     }
 
     /// <summary>
-    /// Frequency-reuse colour of a hex-lattice cell at axial indices (i, j).
-    /// For K = 3, 4 and 7 (the standard hex cluster sizes) no two adjacent
-    /// cells share a colour; other K fall back to a diagonal-stripe colouring
-    /// without that guarantee.
+    /// Frequency-reuse colour of a hex-lattice cell at axial indices (i, j),
+    /// for a reuse cluster of size <paramref name="n"/>. For N = 3, 4 and 7
+    /// (the standard hex cluster sizes) no two adjacent cells share a colour;
+    /// other N fall back to a diagonal-stripe colouring without that
+    /// guarantee.
     ///
-    /// References: the valid hexagonal cluster sizes N = i^2 + ij + j^2
-    /// (N = 1, 3, 4, 7, 9, 12, ...) come from classical cellular reuse theory --
-    /// V. H. MacDonald, "Advanced Mobile Phone Service: The Cellular Concept",
-    /// Bell Syst. Tech. J. 58(1), 1979; multibeam-satellite treatment in
-    /// Maral &amp; Bousquet, "Satellite Communications Systems" (frequency-reuse
-    /// chapters). For NTN payloads specifically, 3GPP TR 38.821 studies
-    /// FRF = 1 (all beams co-frequency) and FRF = 3 -- the same two options
-    /// exposed as PowerSum and CoChannelSum with K = 3.
+    /// References: Maral, Bousquet &amp; Sun, "Satellite Communications
+    /// Systems", 6th ed. (Wiley): Sec. 5.11.1.2 "Frequency reuse" (reuse via
+    /// beam isolation, p. 261) and Sec. 9.8.7.3 "Beam lattice" (cluster of
+    /// beams repeated over the service zone; Fig. 9.40 shows the
+    /// three-frequency and seven-frequency patterns implemented here as
+    /// N = 3 / N = 7, p. 556). N = 3, 4, 7 are the classical hexagonal
+    /// cluster sizes (N = i^2 + ij + j^2). Terminology: N is the CLUSTER SIZE
+    /// (number of colours); Maral's "frequency reuse factor" is a different
+    /// quantity -- the number of times the band is used across the coverage,
+    /// roughly M beams / N colours (his worked example: 4.3 for 13 beams in a
+    /// 3-colour lattice, p. 263). 3GPP TR 38.821 calls the cluster size
+    /// "frequency reuse factor" and studies FRF = 1 (all beams co-frequency)
+    /// and FRF = 3 -- the same two options exposed as PowerSum and
+    /// CoChannelSum with N = 3.
     /// </summary>
-    public static int HexReuseColor(int i, int j, int k) => k switch
+    public static int HexReuseColor(int i, int j, int n) => n switch
     {
         3 => (((i - j) % 3) + 3) % 3,
         4 => (((i % 2) + 2) % 2) + 2 * (((j % 2) + 2) % 2),
         7 => (((i + 3 * j) % 7) + 7) % 7,
-        _ => (((i - j) % k) + k) % k,
+        _ => (((i - j) % n) + n) % n,
     };
 
     /// <summary>

@@ -13,7 +13,7 @@ namespace radians.beamlab.app;
 /// Equirectangular map for the PFD-mask tab: coastlines, graticule, horizon
 /// disc, sub-satellite marker, and one small marker per beam. Markers and
 /// footprint rings are coloured by on/off status (green/red) -- or, when
-/// co-channel aggregation is selected, ON beams are painted by their K-colour
+/// co-channel aggregation is selected, ON beams are painted by their N-colour
 /// frequency-reuse assignment so the plan is visible. Pan / zoom via the
 /// shared <see cref="MapViewport"/> (input wired by
 /// <see cref="PfdMapInteractionHandler"/>); unlike tab 1's
@@ -31,7 +31,7 @@ public sealed class PfdMapRenderer
     private const double BeamMarkerRadiusPx = 2.5;
 
     // Distinguishable palette for frequency-reuse colours 0..6 (red is reserved
-    // for OFF beams). Index = BeamComposer.HexReuseColor(i, j, K).
+    // for OFF beams). Index = BeamComposer.HexReuseColor(i, j, N).
     private static readonly Color[] ReusePalette =
     {
         Color.FromRgb(0x4c, 0xc6, 0x76),   // green
@@ -142,7 +142,7 @@ public sealed class PfdMapRenderer
         // In co-channel mode, paint ON beams by their reuse colour so the
         // frequency plan is visible; OFF beams stay red in every mode.
         bool showReuse = _vm.Aggregation == PfdAggregation.CoChannelSum;
-        int k = _vm.ReuseColorsK;
+        int n = _vm.ReuseClusterSize;
 
         foreach (var beam in _vm.Scene.Beams)
         {
@@ -159,7 +159,7 @@ public sealed class PfdMapRenderer
             else if (showReuse)
             {
                 int colour = beam.LatticeI is int li && beam.LatticeJ is int lj
-                    ? BeamComposer.HexReuseColor(li, lj, k)
+                    ? BeamComposer.HexReuseColor(li, lj, n)
                     : 0;
                 c = ReusePalette[colour % ReusePalette.Length];
             }

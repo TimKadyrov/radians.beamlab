@@ -105,7 +105,7 @@ Builds a downlink PFD mask for the current beam set. Left panel selects the
 parameters, **beam gating** (served min-elevation and GSO exclusion), the
 per-beam **power mode** (constant power, or constant-boresight-PFD spreading-
 loss compensation), the **aggregation** (all-co-frequency power sum, or
-K-colour frequency-reuse worst-colour sum), and the **advanced α-ring
+N-colour frequency-reuse worst-colour sum), and the **advanced α-ring
 exclusion** dialog (concentric α rings, each switching beams off or
 attenuating them). The right side shows a small footprint map, the mask
 heatmap, and a profile slice with ES-elevation and α guides. **Generate mask

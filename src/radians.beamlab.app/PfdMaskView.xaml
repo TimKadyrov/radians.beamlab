@@ -1,4 +1,4 @@
-<UserControl x:Class="radians.beamlab.app.PfdMaskView"
+﻿<UserControl x:Class="radians.beamlab.app.PfdMaskView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:app="clr-namespace:radians.beamlab.app"
@@ -100,11 +100,11 @@
                                      Content="Power sum of all beams (aggregate mask)"
                                      IsChecked="{Binding IsPowerSumMode}"/>
                         <RadioButton GroupName="PfdAggMode"
-                                     Content="Co-channel sum, K-colour reuse (worst colour)"
+                                     Content="Co-channel sum, N-colour reuse (worst colour)"
                                      IsChecked="{Binding IsCoChannelMode}"/>
                         <StackPanel Orientation="Horizontal" Margin="18,2,0,0">
-                            <TextBlock Text="Reuse colours K:" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <ComboBox Width="60" SelectedIndex="{Binding ReuseKIndex}">
+                            <TextBlock Text="Reuse cluster size N:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Width="60" SelectedIndex="{Binding ReuseClusterIndex}">
                                 <ComboBoxItem Content="3"/>
                                 <ComboBoxItem Content="4"/>
                                 <ComboBoxItem Content="7"/>

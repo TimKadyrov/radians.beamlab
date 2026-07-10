@@ -93,8 +93,8 @@ public sealed class PfdMaskField
 
         var powers = BeamPowersDbw(vm);
         var agg = vm.Aggregation;
-        int kColors = vm.ReuseColorsK;
-        var colors = agg == PfdAggregation.CoChannelSum ? BeamReuseColors(scene.Beams, kColors) : Array.Empty<int>();
+        int clusterN = vm.ReuseClusterSize;
+        var colors = agg == PfdAggregation.CoChannelSum ? BeamReuseColors(scene.Beams, clusterN) : Array.Empty<int>();
 
         // Visibility cap: look rays past the horizon miss the Earth. Off-nadir at
         // the horizon = asin(R/(R+h)); we skip pixels with cos(az)*cos(el) < that.
@@ -145,7 +145,7 @@ public sealed class PfdMaskField
                 // show that. eps_min only gates which beams are ON (SceneModel /
                 // PfdMaskViewModel), not where PFD is evaluated.
                 double e = agg == PfdAggregation.CoChannelSum
-                    ? BeamComposer.MaxCoChannelEirpDbw(scene.Beams, look, powers, colors, kColors)
+                    ? BeamComposer.MaxCoChannelEirpDbw(scene.Beams, look, powers, colors, clusterN)
                     : BeamComposer.CompositeEirpDbw(scene.Beams, look, powers);
                 if (double.IsNegativeInfinity(e)) continue;
 
@@ -182,8 +182,8 @@ public sealed class PfdMaskField
 
         var powers = BeamPowersDbw(vm);
         var agg = vm.Aggregation;
-        int kColors = vm.ReuseColorsK;
-        var colors = agg == PfdAggregation.CoChannelSum ? BeamReuseColors(scene.Beams, kColors) : Array.Empty<int>();
+        int clusterN = vm.ReuseClusterSize;
+        var colors = agg == PfdAggregation.CoChannelSum ? BeamReuseColors(scene.Beams, clusterN) : Array.Empty<int>();
         double subLonDeg = scene.SubSatLonDeg;
         double cosOffNadirHorizon = Math.Cos(Math.Asin(R / rSat));
 
@@ -230,7 +230,7 @@ public sealed class PfdMaskField
                 var ground = hit.Value;
 
                 double e = agg == PfdAggregation.CoChannelSum
-                    ? BeamComposer.MaxCoChannelEirpDbw(scene.Beams, look, powers, colors, kColors)
+                    ? BeamComposer.MaxCoChannelEirpDbw(scene.Beams, look, powers, colors, clusterN)
                     : BeamComposer.CompositeEirpDbw(scene.Beams, look, powers);
                 if (double.IsNegativeInfinity(e)) continue;
 
@@ -315,16 +315,16 @@ public sealed class PfdMaskField
     /// Hex-lattice beams are coloured from their axial indices via
     /// <see cref="BeamComposer.HexReuseColor"/>; beams without lattice
     /// coordinates (manual ring layouts -- not reachable from this tab) fall
-    /// back to index % K.
+    /// back to index % N.
     /// </summary>
-    private static int[] BeamReuseColors(IReadOnlyList<Beam> beams, int k)
+    private static int[] BeamReuseColors(IReadOnlyList<Beam> beams, int n)
     {
         var colors = new int[beams.Count];
         for (int i = 0; i < beams.Count; i++)
         {
             colors[i] = beams[i].LatticeI is int li && beams[i].LatticeJ is int lj
-                ? BeamComposer.HexReuseColor(li, lj, k)
-                : i % k;
+                ? BeamComposer.HexReuseColor(li, lj, n)
+                : i % n;
         }
         return colors;
     }

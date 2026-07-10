@@ -108,7 +108,7 @@ public sealed class PfdMaskViewModel : ObservableObject
         d._maskStepDeg         = _maskStepDeg;
         d._powerMode           = _powerMode;
         d._aggregation         = _aggregation;
-        d._reuseKIndex         = _reuseKIndex;
+        d._reuseClusterIndex         = _reuseClusterIndex;
         d._maskKind            = _maskKind;
         d._useAdvancedExclusion = _useAdvancedExclusion;
 
@@ -380,25 +380,25 @@ public sealed class PfdMaskViewModel : ObservableObject
         set { if (value) Aggregation = PfdAggregation.CoChannelSum; }
     }
 
-    private static readonly int[] ReuseKValues = { 3, 4, 7 };
-    private int _reuseKIndex;
+    private static readonly int[] ReuseClusterSizes = { 3, 4, 7 };
+    private int _reuseClusterIndex;
     /// <summary>ComboBox index into the standard hex reuse cluster sizes {3, 4, 7}.</summary>
-    public int ReuseKIndex
+    public int ReuseClusterIndex
     {
-        get => _reuseKIndex;
+        get => _reuseClusterIndex;
         set
         {
-            if (value < 0 || value >= ReuseKValues.Length) return;
-            if (SetField(ref _reuseKIndex, value))
+            if (value < 0 || value >= ReuseClusterSizes.Length) return;
+            if (SetField(ref _reuseClusterIndex, value))
             {
-                OnPropertyChanged(nameof(ReuseColorsK));
+                OnPropertyChanged(nameof(ReuseClusterSize));
                 SceneChanged?.Invoke();
             }
         }
     }
 
-    /// <summary>Number of frequency-reuse colours K for <see cref="PfdAggregation.CoChannelSum"/>.</summary>
-    public int ReuseColorsK => ReuseKValues[_reuseKIndex];
+    /// <summary>Hex reuse cluster size N (= number of co-frequency colours) for <see cref="PfdAggregation.CoChannelSum"/>.</summary>
+    public int ReuseClusterSize => ReuseClusterSizes[_reuseClusterIndex];
 
     private double _refBwKHz = 40.0;
     /// <summary>Reference bandwidth (kHz) used to interpret the EIRP. Purely informational for the plot legend.</summary>
@@ -552,6 +552,13 @@ public sealed class PfdMaskViewModel : ObservableObject
     /// alpha_excl; advanced mode applies the ring the footprint alpha falls in (off, or
     /// attenuate by N dB via the beam weight). Elevation gating already happened
     /// inside <see cref="SceneModel.RebuildBeams"/> (elliptical auto).
+    ///
+    /// This is the "cell-centre observance of a non-operating zone" mitigation
+    /// of Rec. ITU-R S.1503-4 Sec. C2.2: "a beam ... is switched off when the
+    /// centre of the cell sees this non-GSO space station at less than alpha_0
+    /// from the GSO arc". The graded attenuation rings fall under the same
+    /// section's "other mitigation techniques ... provided by the non-GSO
+    /// administration".
     /// </summary>
     private void ApplyAlphaExclusion()
     {
@@ -605,10 +612,10 @@ public enum BeamPowerMode
 /// <summary>How per-beam PFD contributions are aggregated into the mask.</summary>
 public enum PfdAggregation
 {
-    /// <summary>All beams co-frequency (reuse factor 1) -- the conservative upper bound.</summary>
+    /// <summary>All beams co-frequency (cluster size 1) -- the conservative upper bound.</summary>
     PowerSum,
     /// <summary>
-    /// K-colour frequency reuse: only same-colour lattice beams share a channel;
+    /// N-colour frequency reuse: only same-colour lattice beams share a channel;
     /// each colour is power-summed and the worst colour is taken per pixel.
     /// The realistic view for hex-lattice payloads with a frequency plan.
     /// </summary>

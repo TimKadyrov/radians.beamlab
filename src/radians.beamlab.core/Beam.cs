@@ -45,7 +45,7 @@ public sealed class Beam
     /// <summary>
     /// Optional hex-lattice axial index i from the auto-tessellation (basis
     /// e1 = (s, 0), e2 = (s/2, s*sqrt3/2)). Null for manual ring layouts. Used
-    /// for K-colour frequency-reuse colouring.
+    /// for N-colour frequency-reuse colouring.
     /// </summary>
     public int? LatticeI { get; init; }
 
