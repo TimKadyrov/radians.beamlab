@@ -174,19 +174,27 @@ public static class SrsMdbWriter
             int status;
             if (m.FMask == 'R')
             {
-                StoreRMask(outMasksPath, ntcId, satName, m);
+                StoreCustom(outMasksPath, ntcId, satName, m);
                 status = 0;
             }
             else
             {
                 status = EPFD_Masks_Store((uint)ntcId, (uint)m.MaskId, outMasksPath, m.XmlPath);
+                if (status != 0)
+                {
+                    // Forms newer than the native validator (e.g. the 4-D
+                    // format="A" ES mask) are stored in the same container
+                    // format directly; the native extractor reads them back.
+                    StoreCustom(outMasksPath, ntcId, satName, m);
+                    status = 0;
+                }
             }
             results.Add((m.MaskId, status));
         }
         return results;
     }
 
-    private static void StoreRMask(string masksPath, int ntcId, string satName, MaskContent m)
+    private static void StoreCustom(string masksPath, int ntcId, string satName, MaskContent m)
     {
         string entryName =
             $"mask ntc_id {ntcId} mask_id {m.MaskId} " +
@@ -204,11 +212,12 @@ public static class SrsMdbWriter
 
         using var conn = new OleDbConnection($"Provider={Provider};Data Source={masksPath}");
         conn.Open();
-        // f_mask_type carries no meaning for R masks; the column refuses
-        // zero-length strings, and the worked donors hold a single space.
+        // f_mask_type is written by the native store when it parses the XML;
+        // custom-stored rows carry a single space (the column refuses
+        // zero-length strings, and the worked donors' R rows hold a blank).
         Exec(conn,
             "INSERT INTO masks (ntc_id, mask_id, sat_name, f_mask, f_mask_type, mask) VALUES (?,?,?,?,?,?)",
-            ntcId, m.MaskId, satName, "R", " ", ms.ToArray());
+            ntcId, m.MaskId, satName, m.FMask.ToString(), " ", ms.ToArray());
     }
 
     /// <summary>Round-trip helper for verification: extract one mask back out to an XML file.</summary>

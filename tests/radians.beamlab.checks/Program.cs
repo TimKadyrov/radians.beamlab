@@ -1917,5 +1917,105 @@ var looks = RandomLooks(300);
     }
 }
 
+// ---- R: dataset gap 2 -- the 4-D A-format ES eirp mask ----
+{
+    string outDirR = Path.Combine(AppContext.BaseDirectory, "exp");
+    Directory.CreateDirectory(outDirR);
+
+    EirpMask4D Make4D()
+    {
+        var m = new EirpMask4D
+        {
+            SatName = "BEAMLAB1", NtcId = 900123456, MaskId = 10,
+            LowFreqMhz = 27500, HighFreqMhz = 30000, RefBwKHz = 40, MinElevDeg = 10, EsId = -1,
+        };
+        foreach (double lat in new[] { -30.0, 0.0, 30.0 })
+        {
+            var blk = new Eirp4DLatBlock { LatDeg = lat };
+            foreach (double az in new[] { 0.0, 90.0, 180.0, 270.0 })
+                foreach (double el in new[] { 10.0, 45.0, 90.0 })
+                {
+                    var pt = new Eirp4DPointing { AzDeg = az, ElDeg = el };
+                    foreach (var (dl, e) in new[] { (0.0, 30.0), (1.0, 20.0), (5.0, 2.5), (20.0, -12.5), (180.0, -18.9) })
+                        pt.ByDeltaLong.Add((dl, e - 0.05 * Math.Abs(lat) + 0.01 * el));
+                    blk.Pointings.Add(pt);
+                }
+            m.Blocks.Add(blk);
+        }
+        return m;
+    }
+
+    // R1: structure per the Rec C4.3 format-"A" example.
+    var m4 = Make4D();
+    string p4 = Path.Combine(outDirR, "beamlab_es4d_mask10.xml");
+    var w4 = EirpMaskXmlWriter.WriteEs4D(p4, m4);
+
+    var d4 = new XmlDocument();
+    d4.Load(p4);
+    var head4 = (XmlElement)d4.SelectSingleNode("//eirp_mask_es")!;
+    bool okR1 = head4.GetAttribute("format") == "A"
+             && head4.GetAttribute("a_name") == "latitude"
+             && head4.GetAttribute("c_name") == "azimuth angle"
+             && head4.GetAttribute("d_name") == "elevation angle"
+             && head4.GetAttribute("e_name") == "DeltaLongES"
+             && head4.GetAttribute("ES_ID") == "-1"
+             && d4.SelectNodes("//by_a")!.Count == 3
+             && d4.SelectNodes("//by_a/by_c")!.Count == 12
+             && d4.SelectNodes("//by_a/by_c/by_d")!.Count == 36
+             && d4.SelectNodes("//by_a/by_c/by_d/eirp")!.Count == 180
+             && d4.SelectSingleNode("//by_a[@a='0']/by_c[@c='90.0']/by_d[@d='45.0']/eirp[@e='5.0']")!.InnerText == "2.95"
+             && w4.Count == 0;
+    Check("R1 4-D A-format structure per Rec C4.3", okR1,
+        $"by_a={d4.SelectNodes("//by_a")!.Count} by_c={d4.SelectNodes("//by_a/by_c")!.Count} by_d={d4.SelectNodes("//by_a/by_c/by_d")!.Count} eirp={d4.SelectNodes("//by_a/by_c/by_d/eirp")!.Count} warn={w4.Count}");
+
+    // R2: should-rule warnings along DeltaLongES; empty pointing rejected.
+    var bad4 = Make4D();
+    bad4.Blocks[0].Pointings[0].ByDeltaLong.Add((2.0, 35.0));   // rises after 1.0 -> warning
+    string pBad = Path.Combine(outDirR, "beamlab_es4d_warn.xml");
+    var wBad = EirpMaskXmlWriter.WriteEs4D(pBad, bad4);
+    bool threwR2 = false;
+    try
+    {
+        var empty4 = new EirpMask4D { SatName = "T", NtcId = 1, LowFreqMhz = 1, HighFreqMhz = 2 };
+        empty4.Blocks.Add(new Eirp4DLatBlock { LatDeg = 0 });
+        empty4.Blocks[0].Pointings.Add(new Eirp4DPointing { AzDeg = 0, ElDeg = 0 });
+        EirpMaskXmlWriter.WriteEs4D(Path.Combine(outDirR, "x.xml"), empty4);
+    }
+    catch (ArgumentException) { threwR2 = true; }
+    Check("R2 4-D warnings reported, empty pointing rejected", wBad.Count == 1 && threwR2,
+        $"warnings={wBad.Count} threw={threwR2}");
+
+    // R3: container interop -- the native store does not know format "A", so
+    // the writer falls back to the custom container, and the BR native
+    // extractor must still read it back identically.
+    string donorR = @"C:\Projects\_EPFD\epfd-reference\Cases\S.1503-4\127520101 Masks.MDB";
+    string[] dllDirsR =
+    {
+        @"C:\Projects\_EPFD\radians\radians\dlls",
+        @"C:\Projects\_EPFD\radians\radians\bin\Debug\net10.0-windows7.0",
+    };
+    string dllDirR = dllDirsR.FirstOrDefault(d => File.Exists(Path.Combine(d, "EpfdMasksApi64.dll")));
+    if (File.Exists(donorR) && dllDirR is not null)
+    {
+        SrsMdbWriter.EpfdMasksDllDirectory = dllDirR;
+        string outMasksR = Path.Combine(outDirR, "BEAMLAB1 Es4dMasks.MDB");
+        var storedR = SrsMdbWriter.WriteMasks(donorR, outMasksR, 900123456, "BEAMLAB1", new[]
+        {
+            new SrsMdbWriter.MaskContent(10, p4, 'E', 27500, 30000),
+        });
+        string exR4 = Path.Combine(outDirR, "extract_es4d.xml");
+        int rx = SrsMdbWriter.ExtractMask(outMasksR, 900123456, 10, exR4);
+        var da5 = new XmlDocument(); da5.Load(p4);
+        var db5 = new XmlDocument(); db5.Load(exR4);
+        bool okR3 = storedR[0].Status == 0 && rx == 0 && da5.OuterXml == db5.OuterXml;
+        Check("R3 4-D mask stored (custom fallback) and BR-extracted identical", okR3,
+            $"store={storedR[0].Status} extract={rx}");
+    }
+    else
+    {
+        Check("R3 4-D mask container interop", true, "donor Masks.MDB or DLL not present, skipped");
+    }
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
