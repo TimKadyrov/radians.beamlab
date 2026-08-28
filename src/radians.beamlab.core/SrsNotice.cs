@@ -5,7 +5,7 @@ using Radians.Orbits.Core.Utilities;
 
 namespace radians.beamlab;
 
-/// <summary>One SRS orbit row (v10 `orbit` table, circular milestone subset).</summary>
+/// <summary>One SRS orbit row (v10 `orbit` table).</summary>
 public sealed class SrsOrbitRow
 {
     public int OrbId { get; init; }
@@ -13,14 +13,26 @@ public sealed class SrsOrbitRow
     /// <summary>LAN (deg). Written to both right_asc and long_asc, as the worked notices do.</summary>
     public double LanDeg { get; init; }
     public double InclinationDeg { get; init; }
-    /// <summary>Circular orbit altitude (km): apog_km = perig_km = op_ht_km.</summary>
-    public double AltitudeKm { get; init; }
+    /// <summary>Apogee altitude (km); equals perigee for circular orbits.</summary>
+    public double ApogeeKm { get; init; }
+    /// <summary>Perigee altitude (km).</summary>
+    public double PerigeeKm { get; init; }
+    /// <summary>Argument of perigee (deg).</summary>
+    public double PerigArgDeg { get; init; }
+    /// <summary>Minimum operating height op_ht_km (EPS 6.8.2.3: perig_km &lt;= op_ht &lt;= apog_km).</summary>
+    public double OpHtKm { get; init; }
     /// <summary>Keplerian period, split into the SRS ddd/hh/mm fields.</summary>
     public (int Days, int Hours, int Minutes) Period { get; init; }
     /// <summary>false = free drift (orbit case 1: the examination adds artificial precession).</summary>
     public bool StationKeeping { get; init; }
     /// <summary>W_delta tolerance (deg), written only when station keeping.</summary>
     public double? KeepRangeDeg { get; init; }
+    /// <summary>Case 3: administration-supplied precession declared.</summary>
+    public bool PrecessionSupplied { get; init; }
+    /// <summary>Case 3 precession rate (deg/s).</summary>
+    public double PrecessionRateDegPerSec { get; init; }
+    /// <summary>Declared repeating ground-track period (rpt_prd_dd/hh/mm/ss).</summary>
+    public (int Days, int Hours, int Minutes, int Seconds)? RepeatPeriod { get; init; }
 }
 
 /// <summary>One SRS phase row: in-plane angle from the ascending node (deg).</summary>
@@ -100,6 +112,8 @@ public sealed class SrsNotice
         double periodSec = 2.0 * Math.PI * Math.Sqrt(Math.Pow(a, 3.0) / OrbitalConstants.MuEarth);
         int totalMin = (int)Math.Round(periodSec / 60.0);
         var period = (totalMin / 1440, totalMin % 1440 / 60, totalMin % 60);
+        double apogKm = a * (1.0 + shell.Eccentricity) - OrbitalConstants.EarthRadiusKm;
+        double perigKm = a * (1.0 - shell.Eccentricity) - OrbitalConstants.EarthRadiusKm;
 
         int orb0 = Orbits.Count;
         for (int p = 0; p < shell.PlaneCount; p++)
@@ -111,16 +125,27 @@ public sealed class SrsNotice
                 NbrSatPl = shell.SatsPerPlane,
                 LanDeg = Norm360(shell.Lan0Deg + shell.LanSpreadDeg * p / shell.PlaneCount),
                 InclinationDeg = shell.InclinationDeg,
-                AltitudeKm = shell.AltitudeKm,
+                ApogeeKm = apogKm,
+                PerigeeKm = perigKm,
+                PerigArgDeg = Norm360(shell.ArgumentOfPerigeeDeg),
+                OpHtKm = shell.OperatingHeightKm ?? perigKm,
                 Period = period,
-                StationKeeping = false,
+                StationKeeping = shell.StationKeeping,
+                KeepRangeDeg = shell.StationKeeping ? shell.WDeltaDeg : null,
+                PrecessionSupplied = shell.PrecessionSupplied,
+                PrecessionRateDegPerSec = shell.PrecessionRateDegPerSec,
+                RepeatPeriod = shell.RepeatPeriod,
             });
             for (int s = 0; s < shell.SatsPerPlane; s++)
             {
-                double anomaly = 360.0 * s / shell.SatsPerPlane
-                               + 360.0 * shell.WalkerPhasingF * p / (shell.PlaneCount * shell.SatsPerPlane)
-                               + shell.InPlaneOffsetDeg;
-                Phases.Add(new SrsPhaseRow(orbId, s + 1, Norm360(anomaly)));
+                // phase_ang: angle from the ascending node -- omega + true
+                // anomaly; Constellation applies the inverse, so the declared
+                // rows and the propagated system agree through the
+                // examination's own transform.
+                double phase = 360.0 * s / shell.SatsPerPlane
+                             + 360.0 * shell.WalkerPhasingF * p / (shell.PlaneCount * shell.SatsPerPlane)
+                             + shell.InPlaneOffsetDeg;
+                Phases.Add(new SrsPhaseRow(orbId, s + 1, Norm360(phase)));
             }
         }
     }

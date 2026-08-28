@@ -1772,5 +1772,150 @@ var looks = RandomLooks(300);
         okP4 ? $"mustServe={mustServe} served={servedCells.Count} of {geoP.Cells.Count}" : detP4);
 }
 
+// ---- Q: dataset gap 1 -- station-kept, precessing and elliptical shells ----
+{
+    double simQ = 86400.0;
+
+    // Q1: orbit case 2 -- the W_delta box sweep. At t=0 the LAN sits at the
+    // west edge (-W_delta), at t=T_sim at the east edge (+W_delta), relative
+    // to a free-drift twin with artificial precession off.
+    var kept = new Constellation(new[] { new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1,
+        StationKeeping = true, WDeltaDeg = 0.5,
+    } });
+    var freeTwin = new Constellation(new[] { new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1,
+    } });
+    bool okQ1 = kept.Elements[0].OrbitCase == 2 && freeTwin.Elements[0].OrbitCase == 1;
+    string detQ1 = $"cases={kept.Elements[0].OrbitCase},{freeTwin.Elements[0].OrbitCase}";
+    if (okQ1)
+    {
+        // Case 1 vs case 2 also differ by the J2-vs-unperturbed... no: both
+        // cases 1 and 2 use the J2-corrected mean motion; with artPrec=0 the
+        // only difference is the W_delta term. Compare sub-longitudes.
+        double d0 = AngleDiffQ(kept.StateAt(0, 0.0, simQ).SubSatLonDeg,
+                               freeTwin.StateAt(0, 0.0, simQ).SubSatLonDeg);
+        double d1 = AngleDiffQ(kept.StateAt(0, simQ, simQ).SubSatLonDeg,
+                               freeTwin.StateAt(0, simQ, simQ).SubSatLonDeg);
+        okQ1 = Math.Abs(d0 - -0.5) < 1e-6 && Math.Abs(d1 - 0.5) < 1e-6;
+        detQ1 = $"t=0: {d0:F6} (want -0.5)  t=Tsim: {d1:F6} (want +0.5)";
+    }
+    Check("Q1 case 2 station keeping sweeps the W_delta box", okQ1, detQ1);
+
+    static double AngleDiffQ(double a, double b)
+    {
+        double d = (a - b) % 360.0;
+        if (d > 180) d -= 360; else if (d < -180) d += 360;
+        return d;
+    }
+
+    // Q2: case 3 -- supplied precession drives the LAN drift; compare two
+    // case-3 twins whose declared rates differ by a known amount.
+    double ratePlus = 1e-4;   // deg/s
+    Constellation Case3(double rate) => new Constellation(new[] { new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1,
+        StationKeeping = true, WDeltaDeg = 0.0, PrecessionSupplied = true,
+        PrecessionRateDegPerSec = rate,
+    } });
+    var c3a = Case3(0.0);
+    var c3b = Case3(ratePlus);
+    double t3 = 5000.0;
+    double dLon = AngleDiffQ(c3b.StateAt(0, t3, simQ).SubSatLonDeg,
+                             c3a.StateAt(0, t3, simQ).SubSatLonDeg);
+    bool okQ2 = c3a.Elements[0].OrbitCase == 3
+             && Math.Abs(dLon - ratePlus * t3) < 1e-6;
+    Check("Q2 case 3 supplied precession shifts LAN by rate*t", okQ2,
+        $"dLon={dLon:F6} want={ratePlus * t3:F6}");
+
+    // Q3: elliptical shell -- radius range spans a(1-e)..a(1+e), the phase
+    // convention round-trips through the examination's phase - omega
+    // transform, and op_ht defaults to the perigee altitude.
+    var ell = new ConstellationShell
+    {
+        AltitudeKm = 8062.0, InclinationDeg = 63.4, PlaneCount = 1, SatsPerPlane = 4,
+        Eccentricity = 0.25, ArgumentOfPerigeeDeg = 270.0,
+    };
+    var conE = new Constellation(new[] { ell });
+    double aE = Radians.Orbits.Core.Utilities.OrbitalConstants.EarthRadiusKm + ell.AltitudeKm;
+    double rMin = double.MaxValue, rMax = double.MinValue;
+    for (double t = 0; t < 20000; t += 100)
+    {
+        double r = conE.StateAt(0, t, simQ).RadiusKm;
+        rMin = Math.Min(rMin, r); rMax = Math.Max(rMax, r);
+    }
+    var elE = conE.Elements[1];   // second satellite: phase 90
+    double phaseBack = ((elE.TrueAnomalyDeg + elE.ArgumentOfPerigeeDeg) % 360.0 + 360.0) % 360.0;
+    bool okQ3 = Math.Abs(rMin - aE * (1 - ell.Eccentricity)) < 1.0
+             && Math.Abs(rMax - aE * (1 + ell.Eccentricity)) < 1.0
+             && Math.Abs(phaseBack - 90.0) < 1e-9
+             && Math.Abs(elE.OperatingHeightKm - (aE * (1 - ell.Eccentricity) - Radians.Orbits.Core.Utilities.OrbitalConstants.EarthRadiusKm)) < 1e-9;
+    Check("Q3 elliptical shell: radius span, phase-omega round-trip, op_ht default", okQ3,
+        $"r=[{rMin:F1},{rMax:F1}] want=[{aE * (1 - ell.Eccentricity):F1},{aE * (1 + ell.Eccentricity):F1}] phase={phaseBack:F3}");
+
+    // Q4: the three-shell A/B/C notice (dataset brief Sec. 4) writes into the
+    // cloned donor SRS with per-plane orbit models intact.
+    string donorQ = @"C:\Projects\_EPFD\epfd-reference\Cases\S.1503-4\127520101 SRS.MDB";
+    if (File.Exists(donorQ))
+    {
+        var shellA = new ConstellationShell
+        {
+            AltitudeKm = 1000.0, InclinationDeg = 53.0, PlaneCount = 2, SatsPerPlane = 4,
+            StationKeeping = true, WDeltaDeg = 0.1, RepeatPeriod = (0, 23, 56, 4),
+        };
+        var shellB = new ConstellationShell
+        {
+            AltitudeKm = 1200.0, InclinationDeg = 90.0, PlaneCount = 2, SatsPerPlane = 4, NOrbits = 288,
+        };
+        var shellC = ell;
+        var noticeQ = new SrsNotice { NtcId = 900123457, SatName = "BEAMLAB2", Adm = "LUX" };
+        noticeQ.AddShell(shellA);
+        noticeQ.AddShell(shellB);
+        noticeQ.AddShell(shellC);
+        noticeQ.MaskInfo.Add(new SrsMaskInfo(1, 19700, 20200, 'P', 'A'));
+        var scQ = new SrsScenario { ScenId = 1, ScenName = "coverage" };
+        scQ.Frequencies.Add(new SrsFreqRange(1, 'E', 19700, 20200));
+        scQ.PfdMaskLinks.Add(new SrsMaskLink(1, MaskId: 1));
+        noticeQ.Scenarios.Add(scQ);
+
+        string outQ = Path.Combine(AppContext.BaseDirectory, "exp", "BEAMLAB2 SRS.MDB");
+        Directory.CreateDirectory(Path.GetDirectoryName(outQ));
+        SrsMdbWriter.WriteSrs(donorQ, outQ, noticeQ);
+
+        using var connQ = new System.Data.OleDb.OleDbConnection(
+            $"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={outQ}");
+        connQ.Open();
+        object Sc(string sql)
+        {
+            using var cmd = new System.Data.OleDb.OleDbCommand(sql, connQ);
+            return cmd.ExecuteScalar();
+        }
+        string fskA = (string)Sc("SELECT f_stn_keep FROM orbit WHERE ntc_id=900123457 AND orb_id=1");
+        string fskB = (string)Sc("SELECT f_stn_keep FROM orbit WHERE ntc_id=900123457 AND orb_id=3");
+        double keepA = Convert.ToDouble(Sc("SELECT keep_rnge FROM orbit WHERE ntc_id=900123457 AND orb_id=1"));
+        int rptHh = Convert.ToInt32(Sc("SELECT rpt_prd_hh FROM orbit WHERE ntc_id=900123457 AND orb_id=1"));
+        double apoC = Convert.ToDouble(Sc("SELECT apog_km FROM orbit WHERE ntc_id=900123457 AND orb_id=5"));
+        double perC = Convert.ToDouble(Sc("SELECT perig_km FROM orbit WHERE ntc_id=900123457 AND orb_id=5"));
+        double pargC = Convert.ToDouble(Sc("SELECT perig_arg FROM orbit WHERE ntc_id=900123457 AND orb_id=5"));
+        double ophtC = Convert.ToDouble(Sc("SELECT op_ht_km FROM orbit WHERE ntc_id=900123457 AND orb_id=5"));
+        int orbits3 = Convert.ToInt32(Sc("SELECT COUNT(*) FROM orbit WHERE ntc_id=900123457"));
+
+        double aC = Radians.Orbits.Core.Utilities.OrbitalConstants.EarthRadiusKm + shellC.AltitudeKm;
+        bool okQ4 = fskA == "Y" && fskB == "N" && Math.Abs(keepA - 0.1) < 1e-6 && rptHh == 23   // keep_rnge is a float column
+                 && Math.Abs(apoC - (aC * 1.25 - Radians.Orbits.Core.Utilities.OrbitalConstants.EarthRadiusKm)) < 1e-6
+                 && Math.Abs(perC - (aC * 0.75 - Radians.Orbits.Core.Utilities.OrbitalConstants.EarthRadiusKm)) < 1e-6
+                 && Math.Abs(pargC - 270.0) < 1e-9 && Math.Abs(ophtC - perC) < 1e-6
+                 && orbits3 == 5;
+        Check("Q4 A/B/C mixed-model notice round-trips through the donor SRS", okQ4,
+            $"fsk={fskA}/{fskB} keep={keepA} rpt_hh={rptHh} apo/per/parg/opht={apoC:F1}/{perC:F1}/{pargC:F0}/{ophtC:F1} orbits={orbits3}");
+    }
+    else
+    {
+        Check("Q4 mixed-model notice", true, "donor SRS not present, skipped");
+    }
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;

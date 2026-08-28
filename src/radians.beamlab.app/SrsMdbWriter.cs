@@ -64,14 +64,21 @@ public static class SrsMdbWriter
             Exec(conn,
                 @"INSERT INTO orbit (ntc_id, orb_id, nbr_sat_pl, right_asc, inclin_ang,
                     prd_ddd, prd_hh, prd_mm, apog_km, perig_km, perig_arg, op_ht_km,
-                    f_stn_keep, keep_rnge, f_precess, long_asc, f_sunsynch)
-                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    f_stn_keep, keep_rnge, f_precess, precession, long_asc, f_sunsynch,
+                    rpt_prd_dd, rpt_prd_hh, rpt_prd_mm, rpt_prd_ss)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 n.NtcId, o.OrbId, o.NbrSatPl, o.LanDeg, o.InclinationDeg,
                 o.Period.Days, o.Period.Hours, o.Period.Minutes,
-                o.AltitudeKm, o.AltitudeKm, 0.0, o.AltitudeKm,
+                o.ApogeeKm, o.PerigeeKm, o.PerigArgDeg, o.OpHtKm,
                 o.StationKeeping ? "Y" : "N",
                 o.StationKeeping ? (object?)o.KeepRangeDeg : null,
-                "N", o.LanDeg, "N");
+                o.PrecessionSupplied ? "Y" : "N",
+                o.PrecessionSupplied ? (object?)o.PrecessionRateDegPerSec : null,
+                o.LanDeg, "N",
+                o.RepeatPeriod is { } rp ? (object)rp.Days : DBNull.Value,
+                o.RepeatPeriod is { } rp2 ? (object)rp2.Hours : DBNull.Value,
+                o.RepeatPeriod is { } rp3 ? (object)rp3.Minutes : DBNull.Value,
+                o.RepeatPeriod is { } rp4 ? (object)rp4.Seconds : DBNull.Value);
         }
 
         foreach (var ph in n.Phases)

@@ -66,12 +66,17 @@ public static class ArtificialPrecession
 }
 
 /// <summary>
-/// One Walker-style shell of a constellation (simulation spec Sec. 4.2,
-/// first-milestone subset: circular orbits, free drift / orbit case 1).
+/// One Walker-style shell of a constellation (simulation spec Sec. 4.2).
+/// Circular free drift is the default; station keeping (orbit case 2, with
+/// an optional declared repeat period), a supplied precession rate (case 3)
+/// and elliptical geometry are declared per shell -- the EPS places the
+/// orbit-model flags per plane (Sec. 6.4.1.1), so shells with different
+/// models may share one notice (dataset brief Sec. 5.3; note the S.1503-4
+/// Sec. B5.1 all-repeating-or-all-not text this deliberately exercises).
 /// </summary>
 public sealed record ConstellationShell
 {
-    /// <summary>Orbit altitude above the S.1503 Earth radius (km); a = Re + this.</summary>
+    /// <summary>Mean orbit altitude above the S.1503 Earth radius (km); a = Re + this.</summary>
     public required double AltitudeKm { get; init; }
     public required double InclinationDeg { get; init; }
     public required int PlaneCount { get; init; }
@@ -83,14 +88,35 @@ public sealed record ConstellationShell
     public double Lan0Deg { get; init; }
     /// <summary>LAN span the planes divide (deg): 360 = Walker delta, 180 = Walker star.</summary>
     public double LanSpreadDeg { get; init; } = 360.0;
-    /// <summary>Extra in-plane anomaly offset applied to every satellite (deg).</summary>
+    /// <summary>Extra in-plane phase offset applied to every satellite (deg).</summary>
     public double InPlaneOffsetDeg { get; init; }
 
     /// <summary>
     /// Case-1 artificial-precession track count (S.1503-4 Sec. D6.3.2);
-    /// 0 disables artificial precession. See <see cref="ArtificialPrecession"/>.
+    /// 0 disables artificial precession. Ignored for station-kept shells.
     /// </summary>
     public int NOrbits { get; init; }
+
+    /// <summary>Orbit eccentricity; 0 = circular.</summary>
+    public double Eccentricity { get; init; }
+    /// <summary>Argument of perigee (deg); meaningful when eccentric.</summary>
+    public double ArgumentOfPerigeeDeg { get; init; }
+    /// <summary>
+    /// Minimum operating height (km, EPS op_ht_km / H_MIN): satellites below
+    /// it do not transmit. Defaults to the perigee altitude.
+    /// </summary>
+    public double? OperatingHeightKm { get; init; }
+
+    /// <summary>Station keeping (orbit case 2; case 3 when a precession rate is supplied).</summary>
+    public bool StationKeeping { get; init; }
+    /// <summary>Longitudinal tolerance half-width W_delta (deg, keep_rnge).</summary>
+    public double WDeltaDeg { get; init; }
+    /// <summary>Case 3: an administration-supplied precession rate is declared.</summary>
+    public bool PrecessionSupplied { get; init; }
+    /// <summary>Case 3 precession rate (deg/s).</summary>
+    public double PrecessionRateDegPerSec { get; init; }
+    /// <summary>Declared repeating ground-track period (station-kept shells), for the SRS rpt_prd fields.</summary>
+    public (int Days, int Hours, int Minutes, int Seconds)? RepeatPeriod { get; init; }
 }
 
 /// <summary>
@@ -150,28 +176,39 @@ public sealed class Constellation
         {
             var shell = shells[sh];
             double a = OrbitalConstants.EarthRadiusKm + shell.AltitudeKm;
-            double artPrec = ArtificialPrecession.RadPerSec(a, 0.0, shell.InclinationDeg, shell.NOrbits);
+            double perigAltKm = a * (1.0 - shell.Eccentricity) - OrbitalConstants.EarthRadiusKm;
+            double artPrec = !shell.StationKeeping && shell.NOrbits > 0
+                ? ArtificialPrecession.RadPerSec(a, shell.Eccentricity, shell.InclinationDeg, shell.NOrbits)
+                : 0.0;
             for (int p = 0; p < shell.PlaneCount; p++)
             {
                 double lan = shell.Lan0Deg + shell.LanSpreadDeg * p / shell.PlaneCount;
                 for (int s = 0; s < shell.SatsPerPlane; s++)
                 {
-                    double anomaly = 360.0 * s / shell.SatsPerPlane
-                                   + 360.0 * shell.WalkerPhasingF * p / (shell.PlaneCount * shell.SatsPerPlane)
-                                   + shell.InPlaneOffsetDeg;
+                    // Walker spacing is declared in PHASE (angle from the
+                    // ascending node, the SRS phase_ang); the examination
+                    // recovers the true anomaly as phase - omega, so the same
+                    // transform is applied here (declared == simulated).
+                    double phase = 360.0 * s / shell.SatsPerPlane
+                                 + 360.0 * shell.WalkerPhasingF * p / (shell.PlaneCount * shell.SatsPerPlane)
+                                 + shell.InPlaneOffsetDeg;
                     var el = new OrbitalElements(
                         semiMajorAxisKm: a,
-                        eccentricity: 0.0,
+                        eccentricity: shell.Eccentricity,
                         inclinationDeg: shell.InclinationDeg,
                         lanDeg: lan,
-                        argumentOfPerigeeDeg: 0.0,
-                        trueAnomalyDeg: anomaly)
+                        argumentOfPerigeeDeg: shell.ArgumentOfPerigeeDeg,
+                        trueAnomalyDeg: Norm360(phase - shell.ArgumentOfPerigeeDeg),
+                        stationKeeping: shell.StationKeeping,
+                        wDeltaDeg: shell.WDeltaDeg,
+                        precessionMechanismSupplied: shell.PrecessionSupplied,
+                        precessionRateDeg: shell.PrecessionRateDegPerSec)
                     {
                         ArtificialPrecessionRad = artPrec,
                         SatelliteNumber = satNumber,
                         OrbitId = sh + 1,
                         SatelliteOrbitId = s + 1,
-                        OperatingHeightKm = shell.AltitudeKm,
+                        OperatingHeightKm = shell.OperatingHeightKm ?? perigAltKm,
                     };
                     _elements.Add(el);
                     _propagators.Add(new OrbitPropagator(el));
@@ -180,6 +217,12 @@ public sealed class Constellation
                 }
             }
         }
+    }
+
+    private static double Norm360(double v)
+    {
+        double r = v % 360.0;
+        return r < 0 ? r + 360.0 : r;
     }
 
     public int SatelliteCount => _propagators.Count;
