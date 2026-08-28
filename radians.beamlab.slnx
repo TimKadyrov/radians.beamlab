@@ -3,4 +3,7 @@
     <Project Path="src/radians.beamlab.app/radians.beamlab.app.csproj" />
     <Project Path="src/radians.beamlab.core/radians.beamlab.core.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/radians.beamlab.checks/radians.beamlab.checks.csproj" />
+  </Folder>
 </Solution>
