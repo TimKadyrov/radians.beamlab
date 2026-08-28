@@ -1627,5 +1627,150 @@ var looks = RandomLooks(300);
         okO3 ? "4 earth stations bounded" : detO3);
 }
 
+// ---- P: WP2 scheduler -- the declared parameters are its true bounds ----
+{
+    var shellP = new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0,
+        PlaneCount = 3, SatsPerPlane = 4, WalkerPhasingF = 1, NOrbits = 288,
+    };
+    var conP = new Constellation(new[] { shellP });
+    var geoP = ServiceGeography.Grid(-20, 20, -20, 20, 800.0);
+    double simP = 86400.0;
+    var vmP2 = new PfdMaskViewModel();   // scene defaults: eps_min 10, alpha_excl 10 -- matching the declaration
+
+    var declaredP = new OperatingParamsSet
+    {
+        SatName = "T", NtcId = 1, ParamId = 1, LowFreqMhz = 19700, HighFreqMhz = 20200,
+        EsDensityPerKm2 = 0.0001, EsDistanceKm = 200,
+        MaxCoFreqHeader = 1, ElevAngleHeaderDeg = 10.0, MinDurationSecHeader = 300,
+    };
+    declaredP.MinExclude.Add(new MinExcludeByOrbit { OrbId = 0, ByLat = { (0.0, 10.0) } });
+
+    // P1: run the schedule and check every granted link against the declared
+    // set at every step; verify link bookkeeping and step accounting.
+    var schedP = new Scheduler(conP, geoP, declaredP, new ScenePointing(vmP2), simP);
+    bool okP1 = true; string detP1 = "";
+    long linksTotal = 0; int volTotal = 0, forcedTotal = 0;
+    var lastSat = new Dictionary<int, (int sat, double start)>();
+    for (int k = 0; k < 40 && okP1; k++)
+    {
+        double t = k * 60.0;
+        var st = schedP.Step(t);
+        volTotal += st.VoluntaryHandovers; forcedTotal += st.ForcedHandovers;
+        linksTotal += st.Links.Count;
+        if (st.Links.Count + st.UnservedCellLinks != geoP.Cells.Count)
+        { okP1 = false; detP1 = $"t={t}: {st.Links.Count}+{st.UnservedCellLinks} != {geoP.Cells.Count}"; break; }
+
+        var perCell = new Dictionary<int, int>();
+        foreach (var l in st.Links)
+        {
+            var cell = geoP.Cells.First(c => c.CellId == l.CellId);
+            if (l.ElevationDeg < 10.0 - 1e-9) { okP1 = false; detP1 = $"t={t} cell {l.CellId}: elev {l.ElevationDeg:F2} < 10"; break; }
+            if (l.AlphaDeg < 10.0 - 1e-9) { okP1 = false; detP1 = $"t={t} cell {l.CellId}: alpha {l.AlphaDeg:F2} < 10"; break; }
+            perCell[l.CellId] = perCell.GetValueOrDefault(l.CellId) + 1;
+            if (perCell[l.CellId] > 1) { okP1 = false; detP1 = $"t={t} cell {l.CellId}: Nco violated"; break; }
+            if (lastSat.TryGetValue(l.CellId, out var prev) && prev.sat == l.SatelliteNumber
+                && Math.Abs(prev.start - l.StartTimeSec) > 1e-9)
+            { okP1 = false; detP1 = $"t={t} cell {l.CellId}: dwell start drifted"; break; }
+            lastSat[l.CellId] = (l.SatelliteNumber, l.StartTimeSec);
+        }
+        // A dropped link legitimately restarts its dwell on re-acquisition:
+        // forget cells that were not served this step.
+        var servedNow = st.Links.Select(l => l.CellId).ToHashSet();
+        foreach (var cid in lastSat.Keys.Where(c => !servedNow.Contains(c)).ToList())
+            lastSat.Remove(cid);
+    }
+    Check("P1 scheduled links honour the declared bounds at every step", okP1 && linksTotal > 200,
+        okP1 ? $"links={linksTotal} voluntary={volTotal} forced={forcedTotal}" : detP1);
+
+    // P2: dwell semantics. One plane of 15 satellites (24 deg spacing) over a
+    // single equatorial cell: with a huge declared min_duration no voluntary
+    // handover ever happens; with min_duration absent the highest-elevation
+    // policy switches voluntarily as satellites pass over.
+    var conP2 = new Constellation(new[] { new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 15,
+    } });
+    var geo1 = new ServiceGeography(new[] { new ServiceCell(1, 0.0, 0.0) }, 800.0);
+
+    OperatingParamsSet DeclP2(int? minDur) => new OperatingParamsSet
+    {
+        SatName = "T", NtcId = 1, ParamId = 2, LowFreqMhz = 19700, HighFreqMhz = 20200,
+        EsDensityPerKm2 = 0.0001, EsDistanceKm = 200,
+        ElevAngleHeaderDeg = 10.0, MinDurationSecHeader = minDur,
+    };
+    int Voluntary(OperatingParamsSet d)
+    {
+        var sc = new Scheduler(conP2, geo1, d, new ScenePointing(vmP2), simP);
+        int v = 0;
+        for (int k = 0; k <= 40; k++) v += sc.Step(k * 60.0).VoluntaryHandovers;
+        return v;
+    }
+    int volFree = Voluntary(DeclP2(null));
+    int volHeld = Voluntary(DeclP2(100000));
+    Check("P2 min_duration: absent switches voluntarily, huge dwell never does",
+        volFree > 0 && volHeld == 0, $"voluntary: absent={volFree} held={volHeld}");
+
+    // P3: occurring is a per-step subset of reachable -- gated weights only
+    // ever shrink, and the epfd statistics can only fall.
+    var declaredP3 = DeclP2(null);
+    var occPoint = new ScheduledPointing(conP, geoP, declaredP3, vmP2, simP);
+    var reachPoint = new ScenePointing(vmP2);
+
+    var st1 = conP.StateAt(2, 3600.0, simP);
+    var occSet = occPoint.Resolve(st1);
+    var reachSet = reachPoint.Resolve(st1);
+    bool subset = occSet.Beams.Count == reachSet.Beams.Count;
+    int gatedOff = 0;
+    for (int i = 0; i < occSet.Beams.Count && subset; i++)
+    {
+        double wo = occSet.Beams[i].Weight, wr = reachSet.Beams[i].Weight;
+        if (wo > wr + 1e-12) subset = false;
+        if (wo < wr - 1e-12) gatedOff++;
+    }
+
+    var antP = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 12000.0, 0.6);
+    var victimP = new EpfdDownVictim { EsLatDeg = 0, EsLonDeg = 0, GsoLonDeg = 0, Antenna = antP };
+    var limitsP = new List<radlimits.LimitPoint>
+    {
+        new radlimits.LimitPoint { EPFD = -300.0, Perc = 0.001 },
+        new radlimits.LimitPoint { EPFD = 0.0, Perc = 100.0 },
+    };
+    var occRes = EpfdDown.Run(conP, new ScheduledPointing(conP, geoP, declaredP3, vmP2, simP),
+        victimP, 60.0, 50, limitsP, simP);
+    var reachRes = EpfdDown.Run(conP, new ScenePointing(vmP2), victimP, 60.0, 50, limitsP, simP);
+    bool okP3 = subset && gatedOff > 0
+             && occRes.MaxEpfdDb <= reachRes.MaxEpfdDb + 1e-9
+             && occRes.Accumulator.TotalSamples == reachRes.Accumulator.TotalSamples;
+    Check("P3 occurring subset of reachable; epfd(occurring) <= epfd(reachable)", okP3,
+        $"gatedOff={gatedOff} occMax={occRes.MaxEpfdDb:F2} reachMax={reachRes.MaxEpfdDb:F2}");
+
+    // P4: coverage -- with only the elevation bound declared, every cell that
+    // any satellite sees clearly above the threshold is served.
+    var schedP4 = new Scheduler(conP, geoP, DeclP2(null), new ScenePointing(vmP2), simP);
+    var stP4 = schedP4.Step(0.0);
+    var servedCells = stP4.Links.Select(l => l.CellId).ToHashSet();
+    bool okP4 = true; string detP4 = ""; int mustServe = 0;
+    foreach (var cell in geoP.Cells)
+    {
+        var es = GeodeticToEcef(cell.LatDeg, cell.LonDeg, 0);
+        double bestElev = double.NegativeInfinity;
+        for (int i = 0; i < conP.SatelliteCount; i++)
+        {
+            double e = ElevationAngleDeg(conP.StateAt(i, 0.0, simP).PositionEcefKm, es);
+            if (e > bestElev) bestElev = e;
+        }
+        if (bestElev >= 12.0)
+        {
+            mustServe++;
+            if (!servedCells.Contains(cell.CellId))
+            { okP4 = false; detP4 = $"cell {cell.CellId} ({cell.LatDeg:F1},{cell.LonDeg:F1}) best elev {bestElev:F1} unserved"; break; }
+        }
+    }
+    Check("P4 every clearly-visible cell is served when only elevation binds", okP4 && mustServe > 5,
+        okP4 ? $"mustServe={mustServe} served={servedCells.Count} of {geoP.Cells.Count}" : detP4);
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;

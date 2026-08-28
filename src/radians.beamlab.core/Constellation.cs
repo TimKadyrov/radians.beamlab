@@ -103,7 +103,7 @@ public sealed record ConstellationShell
 public sealed record SatelliteState(
     int SatelliteNumber, int ShellIndex, int PlaneIndex, int IndexInPlane,
     Vec3 PositionEcefKm, double SubSatLatDeg, double SubSatLonDeg,
-    double AltitudeKm, double RadiusKm, double HeadingDeg);
+    double AltitudeKm, double RadiusKm, double HeadingDeg, double TimeSeconds);
 
 /// <summary>A satellite's beam set with per-beam powers, resolved at one instant.</summary>
 public sealed record ResolvedBeamSet(IReadOnlyList<Beam> Beams, IReadOnlyList<double> PowersDbw);
@@ -218,7 +218,8 @@ public sealed class Constellation
             pos, latDeg, lonDeg,
             AltitudeKm: r - EarthRadiusKm,
             RadiusKm: r,
-            HeadingDeg: headingDeg);
+            HeadingDeg: headingDeg,
+            TimeSeconds: timeSeconds);
     }
 
     /// <summary>
