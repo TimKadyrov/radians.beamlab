@@ -93,11 +93,17 @@ public sealed record ConstellationShell
     public int NOrbits { get; init; }
 }
 
-/// <summary>Position and identity of one satellite at one instant (ECF).</summary>
+/// <summary>
+/// Position and identity of one satellite at one instant (ECF).
+/// <paramref name="HeadingDeg"/> is the inertial ground-track heading (deg
+/// from north toward east) -- the direction a body-stabilised layout flies
+/// (finite-differenced from the propagator's ECI velocity, the same
+/// convention <see cref="GroundTrack.HeadingsAtLatitude"/> describes).
+/// </summary>
 public sealed record SatelliteState(
     int SatelliteNumber, int ShellIndex, int PlaneIndex, int IndexInPlane,
     Vec3 PositionEcefKm, double SubSatLatDeg, double SubSatLonDeg,
-    double AltitudeKm, double RadiusKm);
+    double AltitudeKm, double RadiusKm, double HeadingDeg);
 
 /// <summary>A satellite's beam set with per-beam powers, resolved at one instant.</summary>
 public sealed record ResolvedBeamSet(IReadOnlyList<Beam> Beams, IReadOnlyList<double> PowersDbw);
@@ -181,10 +187,26 @@ public sealed class Constellation
     /// <summary>Per-satellite elements, in satellite-number order (for tests / SRS authoring).</summary>
     public IReadOnlyList<OrbitalElements> Elements => _elements;
 
+    /// <summary>Finite-difference step for the inertial heading (s).</summary>
+    private const double HeadingDtSec = 0.1;
+
     /// <summary>State of one satellite at time t, in the given frame's coordinates.</summary>
     public SatelliteState StateAt(int index, double timeSeconds, double simulationDurationSeconds,
                                   CoordinateFrame frame = CoordinateFrame.ECF)
     {
+        // Heading from the ECI velocity (finite difference), evaluated in the
+        // local NED of the inertial position -- frame-internal and identical
+        // to the convention test L1 validates against GroundTrack.
+        var e0 = _propagators[index].Propagate(timeSeconds, simulationDurationSeconds, CoordinateFrame.ECI);
+        var e1 = _propagators[index].Propagate(timeSeconds + HeadingDtSec, simulationDurationSeconds, CoordinateFrame.ECI);
+        var p0 = new Vec3(e0.Position.X, e0.Position.Y, e0.Position.Z);
+        var p1 = new Vec3(e1.Position.X, e1.Position.Y, e1.Position.Z);
+        var v = (p1 - p0) * (1.0 / HeadingDtSec);
+        double lat0 = Math.Asin(Math.Clamp(p0.Z / p0.Length, -1.0, 1.0)) * 180.0 / Math.PI;
+        double lon0 = Math.Atan2(p0.Y, p0.X) * 180.0 / Math.PI;
+        var (nB, eB, dB) = SatNedBasis(lat0, lon0);
+        double headingDeg = Math.Atan2(Vec3.Dot(v, eB), Vec3.Dot(v, nB)) * 180.0 / Math.PI;
+
         var sv = _propagators[index].Propagate(timeSeconds, simulationDurationSeconds, frame);
         var pos = new Vec3(sv.Position.X, sv.Position.Y, sv.Position.Z);
         double r = pos.Length;
@@ -195,7 +217,8 @@ public sealed class Constellation
             _elements[index].SatelliteNumber, sh, p, s,
             pos, latDeg, lonDeg,
             AltitudeKm: r - EarthRadiusKm,
-            RadiusKm: r);
+            RadiusKm: r,
+            HeadingDeg: headingDeg);
     }
 
     /// <summary>

@@ -31,6 +31,10 @@ public sealed class ScenePointing : IBeamPointing
         _gen.Scene.SubSatLatDeg = state.SubSatLatDeg;
         _gen.Scene.SubSatLonDeg = state.SubSatLonDeg;
         _gen.Scene.AltitudeKm = state.AltitudeKm;
+        // Fly the fixed body-frame layout at the pass heading (WP4/WP8): the
+        // resolved set is then one of the configurations the derived mask
+        // envelopes, so mask >= live composition holds by construction.
+        _gen.Scene.BodyYawDeg = state.HeadingDeg;
         _gen.RebuildForCompute();
         // Beams are recreated on every rebuild; snapshot the list so the
         // resolved set stays stable when this pointing moves to the next state.

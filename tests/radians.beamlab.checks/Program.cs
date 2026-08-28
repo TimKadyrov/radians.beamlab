@@ -856,48 +856,57 @@ var looks = RandomLooks(300);
 
 // ---- J: WP1 time + constellation (vendored S.1503-4 propagator) ----
 {
-    // J0: drift guard -- the vendored propagator sources must stay
-    // byte-identical to the radians working copy when it is present.
-    string radiansRoot = @"C:\Projects\_EPFD\radians\radians\radians.orbits.core";
-    // Locate the repo's vendored dir robustly: walk up from the run
-    // directory to the solution marker, falling back to the standard path
-    // (the harness may run from an out-of-tree output directory).
-    string vendored = null;
+    // J0: drift guard -- every vendored radians source (orbits/ propagator,
+    // epfdshare/ statistics components) must stay byte-identical to the
+    // radians working copy when it is present.
+    string radiansRoot = @"C:\Projects\_EPFD\radians\radians";
+    // Locate the repo's core dir robustly: walk up from the run directory to
+    // the solution marker, falling back to the standard path (the harness
+    // may run from an out-of-tree output directory).
+    string coreDir = null;
     for (var d = new DirectoryInfo(AppContext.BaseDirectory); d != null; d = d.Parent)
     {
         if (File.Exists(Path.Combine(d.FullName, "radians.beamlab.slnx")))
         {
-            vendored = Path.Combine(d.FullName, "src", "radians.beamlab.core", "orbits");
+            coreDir = Path.Combine(d.FullName, "src", "radians.beamlab.core");
             break;
         }
     }
-    vendored ??= @"C:\Projects\radians.beamlab\src\radians.beamlab.core\orbits";
-    string[] relFiles =
+    coreDir ??= Path.Combine("C:" + Path.DirectorySeparatorChar + "Projects",
+        "radians.beamlab", "src", "radians.beamlab.core");
+    (string local, string source)[] vendoredPairs =
     {
-        @"Propagation\OrbitPropagator.cs", @"Propagation\OrbitalElements.cs",
-        @"Propagation\StateVector.cs", @"Propagation\CoordinateFrame.cs",
-        @"Utilities\AngleUtilities.cs", @"Utilities\OrbitalConstants.cs",
-        @"Utilities\VectorOperations.cs", @"Models\Vector3D.cs",
-        @"Models\GeocentricCoordinate.cs",
+        (@"orbits\Propagation\OrbitPropagator.cs", @"radians.orbits.core\Propagation\OrbitPropagator.cs"),
+        (@"orbits\Propagation\OrbitalElements.cs", @"radians.orbits.core\Propagation\OrbitalElements.cs"),
+        (@"orbits\Propagation\StateVector.cs", @"radians.orbits.core\Propagation\StateVector.cs"),
+        (@"orbits\Propagation\CoordinateFrame.cs", @"radians.orbits.core\Propagation\CoordinateFrame.cs"),
+        (@"orbits\Utilities\AngleUtilities.cs", @"radians.orbits.core\Utilities\AngleUtilities.cs"),
+        (@"orbits\Utilities\OrbitalConstants.cs", @"radians.orbits.core\Utilities\OrbitalConstants.cs"),
+        (@"orbits\Utilities\VectorOperations.cs", @"radians.orbits.core\Utilities\VectorOperations.cs"),
+        (@"orbits\Models\Vector3D.cs", @"radians.orbits.core\Models\Vector3D.cs"),
+        (@"orbits\Models\GeocentricCoordinate.cs", @"radians.orbits.core\Models\GeocentricCoordinate.cs"),
+        (@"epfdshare\radlimits.cs", @"radlimits\radlimits.cs"),
+        (@"epfdshare\EpfdAccumulator.cs", @"radcompute1503-2\EpfdAccumulator.cs"),
+        (@"epfdshare\ApLib.cs", @"radantenna\ApLib.cs"),
     };
     if (Directory.Exists(radiansRoot))
     {
-        bool okDrift = true; string detDrift = $"files={relFiles.Length}";
-        foreach (var rel in relFiles)
+        bool okDrift = true; string detDrift = $"files={vendoredPairs.Length}";
+        foreach (var (local, source) in vendoredPairs)
         {
-            string a = Path.Combine(vendored, rel);
-            string b = Path.Combine(radiansRoot, rel);
+            string a = Path.Combine(coreDir, local);
+            string b = Path.Combine(radiansRoot, source);
             if (!File.Exists(a) || !File.Exists(b) ||
                 !File.ReadAllBytes(a).AsSpan().SequenceEqual(File.ReadAllBytes(b)))
             {
-                okDrift = false; detDrift = $"drift: {rel}"; break;
+                okDrift = false; detDrift = $"drift: {local}"; break;
             }
         }
-        Check("J0 vendored propagator byte-identical to radians source", okDrift, detDrift);
+        Check("J0 vendored radians sources byte-identical", okDrift, detDrift);
     }
     else
     {
-        Check("J0 vendored propagator drift guard", true, "radians working copy not present, skipped");
+        Check("J0 vendored source drift guard", true, "radians working copy not present, skipped");
     }
 
     // Shared test shell: 1200 km / 53 deg, 3 planes x 4 sats, Walker F=1.
@@ -1360,6 +1369,262 @@ var looks = RandomLooks(300);
     {
         Check("M1/M2 SNS v10 notice writing", true, "donor MDBs or EpfdMasksApi64.dll not present, skipped");
     }
+}
+
+// ---- N: WP5/WP6 e.i.r.p. mask writers and SS-mask generation ----
+{
+    string donorMasksN = @"C:\Projects\_EPFD\epfd-reference\Cases\S.1503-4\127520101 Masks.MDB";
+    string[] dllDirsN =
+    {
+        @"C:\Projects\_EPFD\radians\radians\dlls",
+        @"C:\Projects\_EPFD\radians\radians\bin\Debug\net10.0-windows7.0",
+    };
+    string dllDirN = dllDirsN.FirstOrDefault(d => File.Exists(Path.Combine(d, "EpfdMasksApi64.dll")));
+    string outDirN = Path.Combine(AppContext.BaseDirectory, "exp");
+    Directory.CreateDirectory(outDirN);
+
+    EirpMaskTable ParseEirp(string path, bool es)
+    {
+        var doc = new XmlDocument();
+        doc.Load(path);
+        var sys2 = (XmlElement)doc.SelectSingleNode("/satellite_system")!;
+        var head = (XmlElement)doc.SelectSingleNode(es ? "//eirp_mask_es" : "//eirp_mask_ss")!;
+        var t = new EirpMaskTable
+        {
+            NtcId = int.Parse(sys2.GetAttribute("ntc_id")),
+            SatName = sys2.GetAttribute("sat_name"),
+            MaskId = int.Parse(head.GetAttribute("mask_id")),
+            LowFreqMhz = double.Parse(head.GetAttribute("low_freq_mhz"), CultureInfo.InvariantCulture),
+            HighFreqMhz = double.Parse(head.GetAttribute("high_freq_mhz"), CultureInfo.InvariantCulture),
+            RefBwKHz = head.HasAttribute("refbw_khz")
+                ? double.Parse(head.GetAttribute("refbw_khz"), CultureInfo.InvariantCulture) : null,
+            MinElevDeg = head.HasAttribute("min_elev")
+                ? double.Parse(head.GetAttribute("min_elev"), CultureInfo.InvariantCulture) : null,
+            EsId = head.HasAttribute("ES_ID") ? int.Parse(head.GetAttribute("ES_ID")) : -1,
+        };
+        foreach (XmlElement byA in head.SelectNodes("by_a")!)
+        {
+            var blk = new EirpLatBlock { LatDeg = double.Parse(byA.GetAttribute("a"), CultureInfo.InvariantCulture) };
+            foreach (XmlElement e in byA.SelectNodes("eirp")!)
+                blk.ByAngle.Add((double.Parse(e.GetAttribute("d"), CultureInfo.InvariantCulture),
+                                 double.Parse(e.InnerText, CultureInfo.InvariantCulture)));
+            t.Blocks.Add(blk);
+        }
+        return t;
+    }
+
+    bool SameDoc(string a, string b)
+    {
+        var da4 = new XmlDocument(); da4.Load(a);
+        var db4 = new XmlDocument(); db4.Load(b);
+        return da4.OuterXml == db4.OuterXml;
+    }
+
+    if (File.Exists(donorMasksN) && dllDirN is not null)
+    {
+        SrsMdbWriter.EpfdMasksDllDirectory = dllDirN;
+        try
+        {
+        // N1: SS worked mask -> parse -> rewrite -> canonically identical.
+        string ssRef = Path.Combine(outDirN, "ref_ss_mask3.xml");
+        string esRef = Path.Combine(outDirN, "ref_es_mask6.xml");
+        int x3 = SrsMdbWriter.ExtractMask(donorMasksN, 127520101, 3, ssRef);
+        int x6 = SrsMdbWriter.ExtractMask(donorMasksN, 127520101, 6, esRef);
+
+        string ssOut = Path.Combine(outDirN, "rt_ss_mask3.xml");
+        var ssT = ParseEirp(ssRef, es: false);
+        var wSs = EirpMaskXmlWriter.WriteSs(ssOut, ssT);
+        Check("N1 SS eirp mask round-trips the worked file canonically",
+            x3 == 0 && SameDoc(ssRef, ssOut), $"extract={x3} warnings={wSs.Count}");
+
+        // N2: ES worked mask -- same, and its monotonicity bend is reported.
+        string esOut = Path.Combine(outDirN, "rt_es_mask6.xml");
+        var esT = ParseEirp(esRef, es: true);
+        var wEs = EirpMaskXmlWriter.WriteEs(esOut, esT);
+        Check("N2 ES eirp mask round-trips; should-rule violations reported",
+            x6 == 0 && SameDoc(esRef, esOut) && wEs.Count > 0, $"extract={x6} warnings={wEs.Count}");
+
+        // N3: WP6 generation physics -- at theta 0 the mask equals the nadir
+        // composite; every row envelopes a directly sampled azimuth sweep.
+        var vmN = new PfdMaskViewModel();
+        double[] latsN = { 0.0, 35.0 };
+        double[] angsN = { 0.0, 10.0, 30.0, 60.0, 90.0, 120.0, 180.0 };
+        var gen = SatEirpMaskBuilder.Build(vmN, 53.0, latsN, angsN, azimuthSamples: 90);
+
+        var genChk = new PfdMaskViewModel();
+        vmN.CopySettingsTo(genChk);
+        genChk.Scene.SubSatLatDeg = 0.0;
+        genChk.Scene.BodyYawDeg = GroundTrack.HeadingsAtLatitude(53.0, 0.0)!.Value.AscendingDeg;
+        genChk.RebuildForCompute();
+        var powersN = PfdMaskField.BeamPowersDbw(genChk);
+        var (nN, eN, dN) = SatNedBasis(0.0, 0.0);
+        double nadirE = BeamComposer.CompositeEirpDbw(genChk.Scene.Beams,
+            NedToEcef(BeamDirNed(0.0, 0.0), nN, eN, dN).Normalized(), powersN);
+        double mask0 = gen.Blocks[0].ByAngle.First(r => r.AngleDeg == 0.0).EirpDbw;
+
+        bool okN3 = Math.Abs(mask0 - nadirE) < 1e-9;
+        string detN3 = $"mask(0)={mask0:F3} nadir={nadirE:F3}";
+        foreach (var (ang, eirp) in gen.Blocks[0].ByAngle)
+        {
+            for (int k = 0; k < 30 && okN3; k++)
+            {
+                double az = 360.0 * k / 30.0;
+                double e = BeamComposer.CompositeEirpDbw(genChk.Scene.Beams,
+                    NedToEcef(BeamDirNed(ang, az), nN, eN, dN).Normalized(), powersN);
+                if (e > eirp + 1e-9) { okN3 = false; detN3 = $"theta={ang} az={az}: sample {e:F3} > mask {eirp:F3}"; }
+            }
+        }
+        Check("N3 generated SS mask: nadir-exact, envelopes az sweep", okN3, detN3);
+
+        // N4: generated S and E masks store via the BR native API and
+        // round-trip through its extractor.
+        gen.SatName = "BEAMLAB1"; gen.NtcId = 900123456; gen.MaskId = 3;
+        gen.LowFreqMhz = 17800; gen.HighFreqMhz = 18600;
+        string genSs = Path.Combine(outDirN, "beamlab_ss_mask3.xml");
+        EirpMaskXmlWriter.WriteSs(genSs, gen);
+
+        var esDecl = new EirpMaskTable
+        {
+            SatName = "BEAMLAB1", NtcId = 900123456, MaskId = 6,
+            LowFreqMhz = 27500, HighFreqMhz = 30000, RefBwKHz = 40, MinElevDeg = 10, EsId = -1,
+        };
+        var esBlk = new EirpLatBlock { LatDeg = 0.0 };
+        foreach (var (ang, g) in new[] { (0.0, 34.0), (5.0, 10.0), (20.0, -5.0), (180.0, -10.0) })
+            esBlk.ByAngle.Add((ang, g));
+        esDecl.Blocks.Add(esBlk);
+        string genEs = Path.Combine(outDirN, "beamlab_es_mask6.xml");
+        EirpMaskXmlWriter.WriteEs(genEs, esDecl);
+
+        string outMasksN = Path.Combine(outDirN, "BEAMLAB1 EirpMasks.MDB");
+        var storedN = SrsMdbWriter.WriteMasks(donorMasksN, outMasksN, 900123456, "BEAMLAB1", new[]
+        {
+            new SrsMdbWriter.MaskContent(3, genSs, 'S', 17800, 18600),
+            new SrsMdbWriter.MaskContent(6, genEs, 'E', 27500, 30000),
+        });
+        string exS = Path.Combine(outDirN, "extract_ss3.xml");
+        string exE = Path.Combine(outDirN, "extract_es6.xml");
+        int rS = SrsMdbWriter.ExtractMask(outMasksN, 900123456, 3, exS);
+        int rE = SrsMdbWriter.ExtractMask(outMasksN, 900123456, 6, exE);
+        bool okN4 = storedN.All(r => r.Status == 0) && rS == 0 && rE == 0
+                 && SameDoc(genSs, exS) && SameDoc(genEs, exE);
+        Check("N4 generated S+E masks: BR native store + extract identical", okN4,
+            $"store=[{string.Join(",", storedN.Select(r => r.MaskId + ":" + r.Status))}] extract={rS},{rE}");
+        }
+        catch (Exception ex)
+        {
+            Check("N eirp mask checks", false, "exception: " + ex.Message);
+        }
+    }
+    else
+    {
+        Check("N eirp mask checks", true, "donor Masks.MDB or EpfdMasksApi64.dll not present, skipped");
+    }
+}
+
+// ---- O: WP8 epfd(down) statistics over the simulated system ----
+{
+    // Shared victim: GSO ES at (0, 0) tracking the GSO satellite at lon 0,
+    // Rec. S.1428 receive antenna (the epfd(down) reference), 12 GHz, 60 cm.
+    var ant = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 12000.0, 0.6);
+    var victimO = new EpfdDownVictim { EsLatDeg = 0, EsLonDeg = 0, GsoLonDeg = 0, Antenna = ant };
+    var limitsO = new List<radlimits.LimitPoint>
+    {
+        new radlimits.LimitPoint { EPFD = -300.0, Perc = 0.001 },   // impossible: must fail
+        new radlimits.LimitPoint { EPFD = 0.0, Perc = 100.0 },      // generous: must pass
+    };
+
+    // O1: analytic single-satellite case -- sat directly over the ES at t=0,
+    // so phi = 0, Grx = Gmax, and epfd equals the hand-computed pfd.
+    var oneSat = new Constellation(new[] { new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1,
+    } });
+    var vmO = new PfdMaskViewModel();
+    var res1 = EpfdDown.Run(oneSat, new ScenePointing(vmO), victimO, 1.0, 1, limitsO);
+
+    // Independent hand value: rebuild the scene at the satellite's state and
+    // compose toward the ES directly.
+    var st0 = oneSat.StateAt(0, 0.0, 1.0);
+    var genO = new PfdMaskViewModel();
+    vmO.CopySettingsTo(genO);
+    genO.Scene.SubSatLatDeg = st0.SubSatLatDeg;
+    genO.Scene.SubSatLonDeg = st0.SubSatLonDeg;
+    genO.Scene.AltitudeKm = st0.AltitudeKm;
+    genO.Scene.BodyYawDeg = st0.HeadingDeg;
+    genO.RebuildForCompute();
+    var powO = PfdMaskField.BeamPowersDbw(genO);
+    var esO = GeodeticToEcef(0, 0, 0);
+    var toEsO = (esO - st0.PositionEcefKm).Normalized();
+    double eirpO = BeamComposer.CompositeEirpDbw(genO.Scene.Beams, toEsO, powO);
+    double dMO = (esO - st0.PositionEcefKm).Length * 1000.0;
+    double pfdO = eirpO - 10.0 * Math.Log10(4.0 * Math.PI * dMO * dMO);
+
+    bool okO1 = res1.Steps == 1 && res1.QuietSteps == 0
+             && Math.Abs(res1.MaxEpfdDb - pfdO) < 1e-9
+             && Math.Abs(st0.SubSatLatDeg) < 1e-6 && Math.Abs(st0.SubSatLonDeg) < 1e-6;
+    Check("O1 single-sat overhead: epfd == pfd (phi=0, Grx=Gmax)", okO1,
+        $"epfd={res1.MaxEpfdDb:F4} pfd={pfdO:F4} satLat={st0.SubSatLatDeg:F4} satLon={st0.SubSatLonDeg:F4}");
+
+    // O2: constellation run -- totals, CDF shape, and the D7.1.3 comparison.
+    var conO = new Constellation(new[] { new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0,
+        PlaneCount = 3, SatsPerPlane = 4, WalkerPhasingF = 1, NOrbits = 288,
+    } });
+    var resN = EpfdDown.Run(conO, new ScenePointing(vmO), victimO, 30.0, 200, limitsO);
+    var (epfdVals, percents) = resN.Accumulator.BuildCdf();
+    bool cdfMono = true;
+    for (int i = 1; i < percents.Length; i++)
+        if (percents[i] > percents[i - 1] + 1e-9) { cdfMono = false; break; }
+    var (passes, _) = resN.Accumulator.CompareWithLimits(limitsO);
+    bool okO2 = resN.Accumulator.TotalSamples == 200 && cdfMono
+             && passes.Length == 2 && !passes[0] && passes[1]
+             && resN.MaxEpfdDb > -200 && resN.MaxEpfdDb < 0;
+    Check("O2 constellation run: totals, monotone CDF, D7.1.3 verdicts", okO2,
+        $"samples={resN.Accumulator.TotalSamples} quiet={resN.QuietSteps} max={resN.MaxEpfdDb:F2} pass=[{string.Join(",", passes)}]");
+
+    // O3: the acceptance direction in miniature (spec Sec. 8) -- at t=0 the
+    // satellite sits exactly on the lat=0 mask block at an enveloped pass
+    // heading, so the derived mask must bound the live pfd toward any ES.
+    string outDirO = Path.Combine(AppContext.BaseDirectory, "exp");
+    Directory.CreateDirectory(outDirO);
+    string maskO = Path.Combine(outDirO, "wp8_mask.xml");
+    var optsO = new MaskXmlExportOptions
+    {
+        SatName = "T", NtcId = 7, MaskId = 1, RefBwKHz = 40,
+        LatMinDeg = -10, LatMaxDeg = 10, LatStepDeg = 10,
+        BStepDeg = 5, CStepDeg = 5,
+        Kind = MaskPlotKind.AzEl, Format = MaskExportFormat.Xml, OutputPath = maskO,
+    };
+    MaskXmlExport.GenerateAsync(new ReachableEnvelopeSampler(vmO, optsO, 53.0),
+        optsO, null, CancellationToken.None).GetAwaiter().GetResult();
+
+    var loadedO = MaskXmlImport.Load(maskO);
+    var blk0 = loadedO.Blocks.First(b => Math.Abs(b.LatDeg) < 1e-9);
+    var fieldO = new PfdMaskField();
+    MaskXmlImport.ApplyBlockToField(loadedO, blk0, fieldO);
+
+    var (nO, eO2, dO2) = SatNedBasis(st0.SubSatLatDeg, st0.SubSatLonDeg);
+    bool okO3 = true; string detO3 = "";
+    foreach (var (esLat, esLon) in new[] { (0.0, 0.0), (5.0, 3.0), (-8.0, 10.0), (15.0, -6.0) })
+    {
+        var esP = GeodeticToEcef(esLat, esLon, 0);
+        var dirP = (esP - st0.PositionEcefKm).Normalized();
+        double eP = BeamComposer.CompositeEirpDbw(genO.Scene.Beams, dirP, powO);
+        double dPm = (esP - st0.PositionEcefKm).Length * 1000.0;
+        double pfdP = eP - 10.0 * Math.Log10(4.0 * Math.PI * dPm * dPm);
+        double azP = Math.Atan2(Vec3.Dot(dirP, eO2), Vec3.Dot(dirP, dO2)) * 180.0 / Math.PI;
+        double elP = Math.Asin(Math.Clamp(Vec3.Dot(dirP, nO), -1.0, 1.0)) * 180.0 / Math.PI;
+        double maskV = fieldO.MaskReadRaw(azP, elP);
+        if (maskV < pfdP - 0.05001)
+        {
+            okO3 = false;
+            detO3 = $"ES({esLat},{esLon}): mask={maskV:F2} < live={pfdP:F2} at az={azP:F1} el={elP:F1}";
+            break;
+        }
+    }
+    Check("O3 derived mask bounds the live composition (examination >= simulation)", okO3,
+        okO3 ? "4 earth stations bounded" : detO3);
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

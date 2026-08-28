@@ -1,10 +1,12 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <!-- vendored radlimits (epfdshare/) carries unsafe GPU-layout structs -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>radians.beamlab</RootNamespace>
     <AssemblyName>radians.beamlab.core</AssemblyName>
     <InvariantGlobalization>true</InvariantGlobalization>

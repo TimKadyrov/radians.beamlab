@@ -1,3 +1,4 @@
 # Vendored radians propagator sources must stay byte-identical to their
 # upstream (tests check J0 compares them verbatim) - no EOL normalization.
 src/radians.beamlab.core/orbits/** -text
+src/radians.beamlab.core/epfdshare/** -text
