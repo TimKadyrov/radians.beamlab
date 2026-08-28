@@ -19,6 +19,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- SNS v10 notice writing into Access databases (WP7); Windows-only, needs the ACE OLEDB provider at runtime. -->
+    <PackageReference Include="System.Data.OleDb" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="radians.ico" />
   </ItemGroup>
 

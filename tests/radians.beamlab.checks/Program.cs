@@ -859,9 +859,19 @@ var looks = RandomLooks(300);
     // J0: drift guard -- the vendored propagator sources must stay
     // byte-identical to the radians working copy when it is present.
     string radiansRoot = @"C:\Projects\_EPFD\radians\radians\radians.orbits.core";
-    string vendored = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-        "src", "radians.beamlab.core", "orbits");
-    vendored = Path.GetFullPath(vendored);
+    // Locate the repo's vendored dir robustly: walk up from the run
+    // directory to the solution marker, falling back to the standard path
+    // (the harness may run from an out-of-tree output directory).
+    string vendored = null;
+    for (var d = new DirectoryInfo(AppContext.BaseDirectory); d != null; d = d.Parent)
+    {
+        if (File.Exists(Path.Combine(d.FullName, "radians.beamlab.slnx")))
+        {
+            vendored = Path.Combine(d.FullName, "src", "radians.beamlab.core", "orbits");
+            break;
+        }
+    }
+    vendored ??= @"C:\Projects\radians.beamlab\src\radians.beamlab.core\orbits";
     string[] relFiles =
     {
         @"Propagation\OrbitPropagator.cs", @"Propagation\OrbitalElements.cs",
@@ -1219,6 +1229,137 @@ var looks = RandomLooks(300);
     }
     Check("L3 envelope == max over pass-heading fields; headings differ", okL3 && differ > 0,
         okL3 ? $"probes={probes} cells-where-headings-differ={differ}" : detL3);
+}
+
+// ---- M: WP7 SNS v10 notice written into real BR databases ----
+{
+    string donorSrs = @"C:\Projects\_EPFD\epfd-reference\Cases\S.1503-4\127520101 SRS.MDB";
+    string donorMasks = @"C:\Projects\_EPFD\epfd-reference\Cases\S.1503-4\127520101 Masks.MDB";
+    string[] dllDirs =
+    {
+        @"C:\Projects\_EPFD\radians\radians\dlls",
+        @"C:\Projects\_EPFD\radians\radians\bin\Debug\net10.0-windows7.0",
+    };
+    string dllDir = dllDirs.FirstOrDefault(d => File.Exists(Path.Combine(d, "EpfdMasksApi64.dll")));
+
+    if (File.Exists(donorSrs) && File.Exists(donorMasks) && dllDir is not null)
+    {
+        // Crash-proof: an escaping exception here leaves a wedged process
+        // holding the BR native DLL; fail the checks instead.
+        try
+        {
+        string outDir = Path.Combine(AppContext.BaseDirectory, "exp");
+        Directory.CreateDirectory(outDir);
+        const int ntc = 900123456;
+        const string sat = "BEAMLAB1";
+
+        // The notice describes the same Walker shell the J-section propagates.
+        var shellM = new ConstellationShell
+        {
+            AltitudeKm = 1200.0, InclinationDeg = 53.0,
+            PlaneCount = 3, SatsPerPlane = 4, WalkerPhasingF = 1, NOrbits = 288,
+        };
+        var notice = new SrsNotice { NtcId = ntc, SatName = sat, Adm = "LUX" };
+        notice.AddShell(shellM);
+        notice.MaskInfo.Add(new SrsMaskInfo(1, 19700, 20200, 'P', 'Z'));
+        notice.MaskInfo.Add(new SrsMaskInfo(7, 19700, 20200, 'R', null));
+        var scen = new SrsScenario { ScenId = 1, ScenName = "Downlink 19.7-20.2 GHz" };
+        scen.Frequencies.Add(new SrsFreqRange(1, 'E', 19700, 20200));
+        scen.PfdMaskLinks.Add(new SrsMaskLink(1, MaskId: 1));
+        notice.Scenarios.Add(scen);
+        notice.OperatingParamIds.Add(7);
+
+        // M1: SRS content round-trips through the cloned donor database.
+        string outSrs = Path.Combine(outDir, "BEAMLAB1 SRS.MDB");
+        SrsMdbWriter.WriteSrs(donorSrs, outSrs, notice);
+
+        using (var conn = new System.Data.OleDb.OleDbConnection(
+            $"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={outSrs}"))
+        {
+            conn.Open();
+            object Scalar(string sql)
+            {
+                using var cmd = new System.Data.OleDb.OleDbCommand(sql, conn);
+                return cmd.ExecuteScalar();
+            }
+            int orbits = Convert.ToInt32(Scalar($"SELECT COUNT(*) FROM orbit WHERE ntc_id={ntc}"));
+            int phases = Convert.ToInt32(Scalar($"SELECT COUNT(*) FROM phase WHERE ntc_id={ntc}"));
+            double lan2 = Convert.ToDouble(Scalar($"SELECT right_asc FROM orbit WHERE ntc_id={ntc} AND orb_id=2"));
+            double ph21 = Convert.ToDouble(Scalar($"SELECT phase_ang FROM phase WHERE ntc_id={ntc} AND orb_id=2 AND orb_sat_id=1"));
+            string satRb = (string)Scalar($"SELECT sat_name FROM com_el WHERE ntc_id={ntc}");
+            int lnk3 = Convert.ToInt32(Scalar($"SELECT COUNT(*) FROM mask_lnk3 WHERE ntc_id={ntc} AND param_id=7"));
+            int freqs = Convert.ToInt32(Scalar($"SELECT COUNT(*) FROM epfd_freq WHERE ntc_id={ntc} AND scen_id=1"));
+            int leftovers = Convert.ToInt32(Scalar("SELECT COUNT(*) FROM orbit WHERE ntc_id=127520101"));
+            string fsk = (string)Scalar($"SELECT f_stn_keep FROM orbit WHERE ntc_id={ntc} AND orb_id=1");
+
+            bool okM1 = orbits == 3 && phases == 12 && Math.Abs(lan2 - 120.0) < 1e-9
+                     && Math.Abs(ph21 - 30.0) < 1e-9 && satRb == sat && lnk3 == 1
+                     && freqs == 1 && leftovers == 0 && fsk == "N";
+            Check("M1 SRS v10 notice round-trips through cloned donor", okM1,
+                $"orbits={orbits} phases={phases} lan2={lan2} ph21={ph21} sat={satRb} lnk3={lnk3} freqs={freqs} leftovers={leftovers} fsk={fsk}");
+        }
+
+        // Generate the two mask contents with matching identity: WP4 pfd XML
+        // and WP3 operating-parameter XML.
+        string pfdXml = Path.Combine(outDir, "beamlab_pfd_mask1.xml");
+        var vmM = new PfdMaskViewModel();
+        var optsM = new MaskXmlExportOptions
+        {
+            SatName = sat, NtcId = ntc, MaskId = 1, RefBwKHz = 40,
+            LowFreqMhz = 19700, HighFreqMhz = 20200,
+            LatMinDeg = -10, LatMaxDeg = 10, LatStepDeg = 10,
+            BStepDeg = 30, CStepDeg = 60,
+            Kind = MaskPlotKind.AzEl, Format = MaskExportFormat.Xml, OutputPath = pfdXml,
+        };
+        MaskXmlExport.GenerateAsync(new ReachableEnvelopeSampler(vmM, optsM, shellM.InclinationDeg),
+            optsM, null, CancellationToken.None).GetAwaiter().GetResult();
+
+        string opXml = Path.Combine(outDir, "beamlab_op_param7.xml");
+        var opSet = new OperatingParamsSet
+        {
+            SatName = sat, NtcId = ntc, ParamId = 7,
+            LowFreqMhz = 19700, HighFreqMhz = 20200,
+            EsDensityPerKm2 = 0.0001, EsDistanceKm = 200,
+        };
+        opSet.MinExclude.Add(new MinExcludeByOrbit { OrbId = 0, ByLat = { (0.0, 10.0) } });
+        opSet.MaxCoFreqByLat.Add((0.0, 1));
+        opSet.MinElev.Add(new MinElevByLat { LatDeg = 0.0, ByAz = { (0.0, 10.0) } });
+        OperParamsXmlWriter.Write(opXml, opSet);
+
+        // M2: masks stored through the BR native API and extracted back.
+        SrsMdbWriter.EpfdMasksDllDirectory = dllDir;
+        string outMasks = Path.Combine(outDir, "BEAMLAB1 Masks.MDB");
+        var stored = SrsMdbWriter.WriteMasks(donorMasks, outMasks, ntc, sat, new[]
+        {
+            new SrsMdbWriter.MaskContent(1, pfdXml, 'P', 19700, 20200),
+            new SrsMdbWriter.MaskContent(7, opXml, 'R', 19700, 20200),
+        });
+
+        bool okStore = stored.All(r => r.Status == 0);
+        string extP = Path.Combine(outDir, "extract_mask1.xml");
+        string extR = Path.Combine(outDir, "extract_param7.xml");
+        int exP = SrsMdbWriter.ExtractMask(outMasks, ntc, 1, extP);
+        int exR = SrsMdbWriter.ExtractMask(outMasks, ntc, 7, extR);
+
+        bool SameXml(string a, string b)
+        {
+            var da2 = new XmlDocument(); da2.Load(a);
+            var db3 = new XmlDocument(); db3.Load(b);
+            return da2.OuterXml == db3.OuterXml;
+        }
+        bool okM2 = okStore && exP == 0 && exR == 0 && SameXml(pfdXml, extP) && SameXml(opXml, extR);
+        Check("M2 masks stored via BR native API, extracted back identical", okM2,
+            $"store=[{string.Join(",", stored.Select(r => r.MaskId + ":" + r.Status))}] extract={exP},{exR}");
+        }
+        catch (Exception ex)
+        {
+            Check("M1/M2 SNS v10 notice writing", false, "exception: " + ex.Message);
+        }
+    }
+    else
+    {
+        Check("M1/M2 SNS v10 notice writing", true, "donor MDBs or EpfdMasksApi64.dll not present, skipped");
+    }
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
