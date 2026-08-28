@@ -58,8 +58,32 @@ public sealed class SrsScenario
     public List<(double LatFr, double LatTo, int NbrOpSat)> SatOper { get; } = new();
 }
 
-/// <summary>A mask_info registry row. FMask: P/S/E/R; FMaskType letter code (A/X/Z/O) or null for R.</summary>
+/// <summary>A mask_info registry row. FMask: P/S/E/R; FMaskType letter code (A/X/Z/O/D) or null for R.</summary>
 public sealed record SrsMaskInfo(int MaskId, double FreqMinMhz, double FreqMaxMhz, char FMask, char? FMaskType);
+
+/// <summary>
+/// A declared earth station (e_as_stn, EPS Sec. 6.4.3). Specific stations
+/// (StnType 'S') carry coordinates -- the columns the examination reads when
+/// mask_lnk2 names an e_as_id; typical stations ('T') describe a class and
+/// leave the coordinates null, as the worked notices do.
+/// </summary>
+public sealed record SrsEarthStation
+{
+    public required int EAsId { get; init; }
+    public required string StnName { get; init; }
+    /// <summary>'S' = specific (named, located), 'T' = typical.</summary>
+    public char StnType { get; init; } = 'S';
+    public double? LonDeg { get; init; }
+    public double? LatDeg { get; init; }
+    public double? NoiseT { get; init; }
+    public double? GainDbi { get; init; }
+    public double? AntDiamM { get; init; }
+    public double? BeamwidthDeg { get; init; }
+    public int? PatternId { get; init; }
+    public int SeqNo { get; init; } = 1;
+    /// <summary>BR group linkage; null for generated notices (no grp rows exist).</summary>
+    public int? GrpId { get; init; }
+}
 
 /// <summary>
 /// A single-notice SNS v10 content set: exactly the tables the S.1503-4
@@ -93,6 +117,8 @@ public sealed class SrsNotice
     public List<SrsMaskInfo> MaskInfo { get; } = new();
     /// <summary>Operating-parameter set ids (mask_lnk3) -- WP3's param_id values.</summary>
     public List<int> OperatingParamIds { get; } = new();
+    /// <summary>Declared earth stations (e_as_stn); required by mask_lnk2 rows that name an e_as_id.</summary>
+    public List<SrsEarthStation> EarthStations { get; } = new();
 
     /// <summary>Total number of planes across shells (non_geo nbr_plane).</summary>
     public int PlaneCount => Orbits.Count;
@@ -172,6 +198,16 @@ public sealed class SrsNotice
         foreach (int pid in OperatingParamIds)
             if (!ids.Contains(pid))
                 throw new InvalidOperationException($"mask_lnk3 references param_id {pid} not present in mask_info (f_mask=R row expected)");
+
+        var esIds = EarthStations.Select(e => e.EAsId).ToHashSet();
+        foreach (var sc in Scenarios)
+            foreach (var l in sc.EsMaskLinks)
+                if (l.EAsId is int ea && ea != -1 && !esIds.Contains(ea))
+                    throw new InvalidOperationException($"scenario {sc.ScenId}: mask_lnk2 names e_as_id {ea} with no e_as_stn row");
+        foreach (var es in EarthStations)
+            if (es.StnType == 'S' && (es.LonDeg is null || es.LatDeg is null))
+                throw new InvalidOperationException($"specific earth station {es.StnName} (e_as_id {es.EAsId}) needs coordinates");
+
         if (Orbits.Count == 0) throw new InvalidOperationException("notice has no orbit rows");
         foreach (var ph in Phases)
             if (Orbits.All(o => o.OrbId != ph.OrbId))

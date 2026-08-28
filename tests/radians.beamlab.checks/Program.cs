@@ -2017,5 +2017,99 @@ var looks = RandomLooks(300);
     }
 }
 
+// ---- S: dataset gap 3 -- specific earth stations (e_as_stn) ----
+{
+    SrsNotice MakeEsNotice()
+    {
+        var n = new SrsNotice { NtcId = 900123458, SatName = "BEAMLAB3", Adm = "LUX" };
+        n.AddShell(new ConstellationShell
+        {
+            AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 2, SatsPerPlane = 4, NOrbits = 288,
+        });
+        n.MaskInfo.Add(new SrsMaskInfo(6, 27500, 30000, 'E', 'O'));
+        n.EarthStations.Add(new SrsEarthStation
+        {
+            EAsId = 5001, StnName = "GW-NORTH", StnType = 'S',
+            LonDeg = 12.5, LatDeg = 48.2, GainDbi = 53.4, AntDiamM = 2.4, NoiseT = 150,
+        });
+        n.EarthStations.Add(new SrsEarthStation
+        {
+            EAsId = 5002, StnName = "GW-SOUTH", StnType = 'S',
+            LonDeg = -3.7, LatDeg = -33.9, GainDbi = 53.4, AntDiamM = 2.4, NoiseT = 150,
+        });
+        n.EarthStations.Add(new SrsEarthStation
+        {
+            EAsId = 5003, StnName = "TYP-KA", StnType = 'T',
+            GainDbi = 40.4, AntDiamM = 0.45, BeamwidthDeg = 2.31, PatternId = 33,
+        });
+        var sc = new SrsScenario { ScenId = 1, ScenName = "Uplink specific gateways" };
+        sc.Frequencies.Add(new SrsFreqRange(1, 'R', 27500, 30000));
+        sc.EsMaskLinks.Add(new SrsMaskLink(1, MaskId: 6, EAsId: 5001));
+        sc.EsMaskLinks.Add(new SrsMaskLink(2, MaskId: 6, EAsId: 5002));
+        n.Scenarios.Add(sc);
+        return n;
+    }
+
+    // S1: validation -- consistent notice passes; dangling e_as_id and a
+    // specific station without coordinates are rejected.
+    var okNotice = MakeEsNotice();
+    bool okS1 = true; string detS1 = "";
+    try { okNotice.Validate(); } catch (Exception ex) { okS1 = false; detS1 = ex.Message; }
+
+    bool threwDangling = false, threwNoCoords = false;
+    var dangling = MakeEsNotice();
+    dangling.Scenarios[0].EsMaskLinks.Add(new SrsMaskLink(3, MaskId: 6, EAsId: 9999));
+    try { dangling.Validate(); } catch (InvalidOperationException) { threwDangling = true; }
+    var noCoords = MakeEsNotice();
+    noCoords.EarthStations.Add(new SrsEarthStation { EAsId = 5004, StnName = "BAD", StnType = 'S' });
+    try { noCoords.Validate(); } catch (InvalidOperationException) { threwNoCoords = true; }
+    Check("S1 e_as_stn validation: consistent passes, dangling/uncoordinated rejected",
+        okS1 && threwDangling && threwNoCoords,
+        okS1 ? $"dangling={threwDangling} noCoords={threwNoCoords}" : detS1);
+
+    // S2: round-trip through the cloned donor SRS -- stations, coordinates
+    // and the named mask_lnk2 rows, with the donor's 114 typical rows gone.
+    string donorS = @"C:\Projects\_EPFD\epfd-reference\Cases\S.1503-4\127520101 SRS.MDB";
+    if (File.Exists(donorS))
+    {
+        try
+        {
+        string outS = Path.Combine(AppContext.BaseDirectory, "exp", "BEAMLAB3 SRS.MDB");
+        Directory.CreateDirectory(Path.GetDirectoryName(outS));
+        SrsMdbWriter.WriteSrs(donorS, outS, okNotice);
+
+        using var connS = new System.Data.OleDb.OleDbConnection(
+            $"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={outS}");
+        connS.Open();
+        object Sc2(string sql)
+        {
+            using var cmd = new System.Data.OleDb.OleDbCommand(sql, connS);
+            return cmd.ExecuteScalar();
+        }
+        int esCount = Convert.ToInt32(Sc2("SELECT COUNT(*) FROM e_as_stn"));
+        string t5001 = (string)Sc2("SELECT stn_type FROM e_as_stn WHERE e_as_id=5001");
+        double lon5001 = Convert.ToDouble(Sc2("SELECT long_dec FROM e_as_stn WHERE e_as_id=5001"));
+        double lat5002 = Convert.ToDouble(Sc2("SELECT lat_dec FROM e_as_stn WHERE e_as_id=5002"));
+        string t5003 = (string)Sc2("SELECT stn_type FROM e_as_stn WHERE e_as_id=5003");
+        object coord5003 = Sc2("SELECT long_dec FROM e_as_stn WHERE e_as_id=5003");
+        int lnk2 = Convert.ToInt32(Sc2("SELECT COUNT(*) FROM mask_lnk2 WHERE ntc_id=900123458 AND e_as_id IN (5001,5002)"));
+
+        bool okS2 = esCount == 3 && t5001 == "S" && Math.Abs(lon5001 - 12.5) < 1e-4
+                 && Math.Abs(lat5002 - -33.9) < 1e-4 && t5003 == "T"   // long/lat_dec are float columns
+                 && coord5003 is DBNull && lnk2 == 2;
+        Check("S2 specific earth stations round-trip through the donor SRS", okS2,
+            $"rows={esCount} t5001={t5001} lon={lon5001} lat={lat5002} typ={t5003} coordNull={coord5003 is DBNull} lnk2={lnk2}");
+        }
+        catch (Exception ex)
+        {
+            Check("S2 specific earth stations", false, "exception: " + ex.Message);
+        }
+    }
+    else
+    {
+        Check("S2 specific earth stations", true, "donor SRS not present, skipped");
+    }
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;

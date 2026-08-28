@@ -33,6 +33,7 @@ public static class SrsMdbWriter
         "notice", "com_el", "non_geo", "orbit", "phase", "orbit_set",
         "epfd_param", "epfd_freq", "sat_oper",
         "mask_info", "mask_lnk1", "mask_lnk2", "mask_lnk3",
+        "e_as_stn",   // grp-keyed, not ntc-keyed: fully cleared and rewritten
     };
 
     public static void WriteSrs(string donorSrsPath, string outSrsPath, SrsNotice n)
@@ -110,6 +111,23 @@ public static class SrsMdbWriter
 
         foreach (int pid in n.OperatingParamIds)
             Exec(conn, "INSERT INTO mask_lnk3 (ntc_id, param_id) VALUES (?,?)", n.NtcId, pid);
+
+        for (int i = 0; i < n.EarthStations.Count; i++)
+        {
+            var es = n.EarthStations[i];
+            Exec(conn,
+                @"INSERT INTO e_as_stn (grp_id, seq_no, e_as_id, stn_name, stn_type,
+                    long_dec, lat_dec, noise_t, gain, ant_diam, bmwdth, pattern_id)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                // grp_id is NOT NULL and (grp_id, seq_no) must be unique; the
+                // worked notices give each station its own group, so generated
+                // notices synthesize distinct groups off the notice id.
+                (object?)es.GrpId ?? n.NtcId + i, es.SeqNo, es.EAsId, es.StnName, es.StnType.ToString(),
+                (object?)es.LonDeg ?? DBNull.Value, (object?)es.LatDeg ?? DBNull.Value,
+                (object?)es.NoiseT ?? DBNull.Value, (object?)es.GainDbi ?? DBNull.Value,
+                (object?)es.AntDiamM ?? DBNull.Value, (object?)es.BeamwidthDeg ?? DBNull.Value,
+                (object?)es.PatternId ?? DBNull.Value);
+        }
     }
 
     private static void Exec(OleDbConnection conn, string sql, params object?[] args)
