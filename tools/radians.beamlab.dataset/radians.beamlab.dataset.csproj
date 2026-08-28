@@ -9,6 +9,5 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\radians.beamlab.app\radians.beamlab.app.csproj" />
-    <ProjectReference Include="..\..\tools\radians.beamlab.dataset\radians.beamlab.dataset.csproj" />
   </ItemGroup>
 </Project>

@@ -20,3 +20,6 @@ obj/
 Thumbs.db
 .DS_Store
 desktop.ini
+
+# Generated validation dataset (rebuild: dotnet run --project tools/radians.beamlab.dataset)
+dataset/

@@ -2111,5 +2111,149 @@ var looks = RandomLooks(300);
     }
 }
 
+// ---- T: dataset gap 5 -- the BL-* case generator ----
+{
+    // T1: notice content invariants (no database needed): the three shells
+    // project into the declared orbit rows -- Case 2 keep_rnge/repeat on
+    // shell A, Case 3 negative declared precession and the elliptical
+    // geometry on shell C, and the family's scenario/mask/e_as structure.
+    try
+    {
+        var nAll = radians.beamlab.dataset.DatasetGenerator.BuildNotice("BL-ALL");
+        var orbA = nAll.Orbits.First(r => r.OrbId == 1);
+        var orbC = nAll.Orbits.First(r => r.OrbId == 11);
+        bool okT1 = nAll.Orbits.Count == 12 && nAll.Phases.Count == 76
+                 && nAll.Scenarios.Count == 2 && nAll.EarthStations.Count == 3
+                 && nAll.MaskInfo.Count == 14
+                 && Math.Abs(orbC.ApogeeKm - 4000.0) < 0.5 && Math.Abs(orbC.PerigeeKm - 800.0) < 0.5
+                 && Math.Abs(orbC.OpHtKm - 1000.0) < 1e-9 && orbC.PrecessionSupplied
+                 && orbC.PrecessionRateDegPerSec < 0
+                 && orbA.StationKeeping && orbA.KeepRangeDeg == 0.5 && orbA.RepeatPeriod.HasValue;
+        Check("T1 dataset notice: shells project into declared orbit rows", okT1,
+            $"orbits={nAll.Orbits.Count} phases={nAll.Phases.Count} scen={nAll.Scenarios.Count} " +
+            $"es={nAll.EarthStations.Count} mi={nAll.MaskInfo.Count} apog={orbC.ApogeeKm:F1} " +
+            $"perig={orbC.PerigeeKm:F1} prec={orbC.PrecessionRateDegPerSec:E2}");
+    }
+    catch (Exception ex) { Check("T1 dataset notice", false, "exception: " + ex.Message); }
+
+    string donorSrsT = @"C:\Projects\_EPFD\epfd-reference\Cases\S.1503-4\127520101 SRS.MDB";
+    string donorMasksT = @"C:\Projects\_EPFD\epfd-reference\Cases\S.1503-4\127520101 Masks.MDB";
+    string[] dllDirsT =
+    {
+        @"C:\Projects\_EPFD\radians\radians\dlls",
+        @"C:\Projects\_EPFD\radians\radians\bin\Debug\net10.0-windows7.0",
+    };
+    string dllDirT = dllDirsT.FirstOrDefault(d => File.Exists(Path.Combine(d, "EpfdMasksApi64.dll")));
+    if (File.Exists(donorSrsT) && File.Exists(donorMasksT) && dllDirT is not null)
+    {
+        // Crash-proof: the BR native DLL is involved; an escaping exception
+        // would leave a wedged process holding it. Fail the checks instead.
+        try
+        {
+        string outDs = Path.Combine(AppContext.BaseDirectory, "exp", "ds");
+        if (Directory.Exists(outDs)) Directory.Delete(outDs, recursive: true);
+        radians.beamlab.dataset.DatasetGenerator.Generate(new radians.beamlab.dataset.DatasetOptions
+        {
+            DonorSrsPath = donorSrsT, DonorMasksPath = donorMasksT,
+            EpfdMasksDllDir = dllDirT, OutDir = outDs, Quick = true,
+        });
+
+        // T2: every case emitted; the BL-ALL SRS carries the full structure.
+        bool filesOk = radians.beamlab.dataset.DatasetGenerator.CaseNames.All(c =>
+        {
+            int ntcC = radians.beamlab.dataset.DatasetGenerator.NtcIdFor(c);
+            string d = Path.Combine(outDs, c);
+            return File.Exists(Path.Combine(d, $"{ntcC} SRS.MDB"))
+                && File.Exists(Path.Combine(d, $"{ntcC} Masks.MDB"))
+                && File.Exists(Path.Combine(d, "README.md"));
+        });
+        string srsAll = Path.Combine(outDs, "BL-ALL", "900123476 SRS.MDB");
+        using (var connT = new System.Data.OleDb.OleDbConnection(
+            $"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={srsAll}"))
+        {
+            connT.Open();
+            int CountT(string sql)
+            {
+                using var cmd = new System.Data.OleDb.OleDbCommand(sql, connT);
+                return Convert.ToInt32(cmd.ExecuteScalar());
+            }
+            int orbitsT = CountT("SELECT COUNT(*) FROM orbit WHERE ntc_id=900123476");
+            int phasesT = CountT("SELECT COUNT(*) FROM phase WHERE ntc_id=900123476");
+            int scensT = CountT("SELECT COUNT(*) FROM epfd_param WHERE ntc_id=900123476");
+            int freqsT = CountT("SELECT COUNT(*) FROM epfd_freq WHERE ntc_id=900123476");
+            // e_as_stn is grp-keyed (no ntc_id column); the writer clears it wholesale.
+            int esT = CountT("SELECT COUNT(*) FROM e_as_stn");
+            int miT = CountT("SELECT COUNT(*) FROM mask_info WHERE ntc_id=900123476");
+            int l1T = CountT("SELECT COUNT(*) FROM mask_lnk1 WHERE ntc_id=900123476");
+            int l2T = CountT("SELECT COUNT(*) FROM mask_lnk2 WHERE ntc_id=900123476");
+            int l3T = CountT("SELECT COUNT(*) FROM mask_lnk3 WHERE ntc_id=900123476");
+            bool okT2 = filesOk && orbitsT == 12 && phasesT == 76 && scensT == 2 && freqsT == 4
+                     && esT == 3 && miT == 14 && l1T == 15 && l2T == 4 && l3T == 4;
+            Check("T2 all six cases emitted; BL-ALL SRS structure", okT2,
+                $"files={filesOk} orbit={orbitsT} phase={phasesT} scen={scensT} freq={freqsT} " +
+                $"es={esT} mi={miT} lnk1={l1T} lnk2={l2T} lnk3={l3T}");
+        }
+
+        // T3: the BL-ALL Masks database round-trips through the BR native
+        // extractor -- mask 1 (native-stored P) and mask 8 (container-stored
+        // 4-D format "A") both come back identical to the xml/ sources.
+        string masksAll = Path.Combine(outDs, "BL-ALL", "900123476 Masks.MDB");
+        int rowsT;
+        using (var connM = new System.Data.OleDb.OleDbConnection(
+            $"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={masksAll}"))
+        {
+            connM.Open();
+            using var cmd = new System.Data.OleDb.OleDbCommand("SELECT COUNT(*) FROM masks", connM);
+            rowsT = Convert.ToInt32(cmd.ExecuteScalar());
+        }
+        string exT1 = Path.Combine(outDs, "extract_t_mask1.xml");
+        string exT8 = Path.Combine(outDs, "extract_t_mask8.xml");
+        int rT1 = SrsMdbWriter.ExtractMask(masksAll, 900123476, 1, exT1);
+        int rT8 = SrsMdbWriter.ExtractMask(masksAll, 900123476, 8, exT8);
+        bool SameXmlT(string a, string b)
+        {
+            var daT = new XmlDocument(); daT.Load(a);
+            var dbT = new XmlDocument(); dbT.Load(b);
+            return daT.OuterXml == dbT.OuterXml;
+        }
+        bool okT3 = rowsT == 14 && rT1 == 0 && rT8 == 0
+                 && SameXmlT(exT1, Path.Combine(outDs, "BL-ALL", "xml", "mask1_pfd_alpha.xml"))
+                 && SameXmlT(exT8, Path.Combine(outDs, "BL-ALL", "xml", "mask8_es_eirp_4d_gw5001.xml"));
+        Check("T3 BL-ALL masks: 14 rows, native + container extract identical", okT3,
+            $"rows={rowsT} extract={rT1},{rT8}");
+
+        // T4: expectation CDFs exist for the downlink cases, parse, and are
+        // monotone non-increasing in percent-exceeded.
+        bool okT4 = true; string detT4 = "";
+        foreach (string c in new[] { "BL-D1", "BL-D2", "BL-ALL" })
+        {
+            string csv = Path.Combine(outDs, c, "expected", "epfd_down_cdf.csv");
+            if (!File.Exists(csv)) { okT4 = false; detT4 = c + " missing"; break; }
+            var rows = File.ReadAllLines(csv)
+                .Where(l => l.Length > 0 && l[0] != '#' && char.IsDigit(l[0]) || l.StartsWith("-"))
+                .Select(l => l.Split(','))
+                .Where(pr => pr.Length == 2 && double.TryParse(pr[0], NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+                .Select(pr => (E: double.Parse(pr[0], CultureInfo.InvariantCulture),
+                               P: double.Parse(pr[1], CultureInfo.InvariantCulture)))
+                .ToList();
+            if (rows.Count < 3) { okT4 = false; detT4 = c + " too few rows"; break; }
+            for (int i = 1; i < rows.Count && okT4; i++)
+                if (rows[i].P > rows[i - 1].P + 1e-12) { okT4 = false; detT4 = c + " pct not monotone"; }
+            if (okT4 && (rows[0].P > 100.0 || rows[^1].P < 0.0)) { okT4 = false; detT4 = c + " pct range"; }
+            if (okT4) detT4 += $"{c}:{rows.Count} ";
+        }
+        Check("T4 expectation CDFs present, parse, monotone", okT4, detT4.Trim());
+        }
+        catch (Exception ex)
+        {
+            Check("T2-T4 dataset generation", false, "exception: " + ex.Message);
+        }
+    }
+    else
+    {
+        Check("T2-T4 dataset generation", true, "donor MDBs or EpfdMasksApi64.dll not present, skipped");
+    }
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
