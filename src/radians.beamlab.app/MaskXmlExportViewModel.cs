@@ -116,6 +116,19 @@ public sealed class MaskXmlExportViewModel : ObservableObject
         }
     }
 
+    private bool _envelopeOverHeadings = true;
+    /// <summary>
+    /// WP4 derivation (default): per latitude the mask envelopes the
+    /// ascending- and descending-pass headings of the body-stabilised
+    /// layout. Off = the single north-aligned configuration the live
+    /// plots show.
+    /// </summary>
+    public bool EnvelopeOverHeadings
+    {
+        get => _envelopeOverHeadings;
+        set => SetField(ref _envelopeOverHeadings, value);
+    }
+
     private static readonly MaskExportFormat[] Formats = { MaskExportFormat.Xml, MaskExportFormat.Csv, MaskExportFormat.Both };
     private int _formatIndex;
     /// <summary>ComboBox index into {XML, CSV, XML+CSV}.</summary>
@@ -184,7 +197,10 @@ public sealed class MaskXmlExportViewModel : ObservableObject
                 ProgressValue = p * 100.0;
                 StatusText = $"generating… {p * 100.0:F0}%";
             });
-            await MaskXmlExport.GenerateAsync(new MaskExportSampler(_live, opts), opts, progress, _cts.Token);
+            IPfdMaskSampler sampler = _envelopeOverHeadings
+                ? new ReachableEnvelopeSampler(_live, opts, _inclinationDeg)
+                : new MaskExportSampler(_live, opts);
+            await MaskXmlExport.GenerateAsync(sampler, opts, progress, _cts.Token);
             ProgressValue = 100.0;
             string exts = Format switch
             {

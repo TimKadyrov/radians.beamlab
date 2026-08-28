@@ -245,6 +245,14 @@ file:
    and crosses latitude 0 exactly (grid points are multiples of the step),
    even when the range is not a whole number of steps — so the equator,
    where the GSO exclusion bites hardest, is never skipped.
+
+   **Envelope over pass headings** (on by default): a body-stabilised
+   layout flies at the orbit's ground heading — ascending and descending
+   passes cross each latitude at mirrored headings (sin ψ = cos i / cos φ)
+   while the mask's az/el frame stays Earth-referenced. The export computes
+   the field at both headings and takes the per-node maximum, which is what
+   a filed mask must envelope. Untick to export the single north-aligned
+   configuration the live plots show.
 2. **Resolution** — the grid steps for the two mask axes in the output file.
    Every output node carries the **maximum** PFD over its surrounding bin
    (±half a step on each axis) rather than a point sample — the mask is an

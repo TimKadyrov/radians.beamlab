@@ -110,7 +110,8 @@ exclusion** dialog (concentric α rings, each switching beams off or
 attenuating them). The right side shows a small footprint map, the mask
 heatmap, and a profile slice with ES-elevation and α guides. **Generate mask
 XML…** exports an S.1503-4 mask (XML and/or CSV) over a latitude table capped
-by the orbital inclination.
+by the orbital inclination, enveloping the ascending/descending pass headings
+of the body-stabilised layout.
 
 ### Mask Viewer
 

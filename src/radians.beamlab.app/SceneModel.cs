@@ -73,6 +73,15 @@ public sealed class SceneModel
     public double SubSatLonDeg { get; set; } = -75.0;
 
     /// <summary>
+    /// Heading of the body-frame layout's north axis, deg from geographic
+    /// north toward east (0 = the tabs' static north-aligned convention).
+    /// A body-stabilised satellite flies its fixed layout at the orbit's
+    /// ground heading, so mask derivation sweeps this over the reachable
+    /// pass headings (WP4); the interactive tabs leave it at 0.
+    /// </summary>
+    public double BodyYawDeg { get; set; }
+
+    /// <summary>
     /// Minimum user-elevation served by the outermost beam ring (deg, ground
     /// elevation angle from the local horizon). The outer ring's beams point
     /// at off-nadir = arcsin(R*cos(elev)/(R+h)). Default 25 deg = typical FSS
@@ -239,6 +248,20 @@ public sealed class SceneModel
         _beams.Clear();
         var (north, east, down) = SatNedBasis(SubSatLatDeg, SubSatLonDeg);
 
+        // Body yaw: rotate the layout's (north, east) reference about nadir so
+        // the whole fixed body-frame layout turns with the direction of
+        // flight. The UV / ring / centre construction flows through this
+        // basis; the elliptical ground lattice adds the yaw to its bearings.
+        double yawRad = BodyYawDeg * Math.PI / 180.0;
+        if (BodyYawDeg != 0.0)
+        {
+            double cy = Math.Cos(yawRad), sy = Math.Sin(yawRad);
+            var bodyNorth = north * cy + east * sy;
+            var bodyEast = east * cy - north * sy;
+            north = bodyNorth;
+            east = bodyEast;
+        }
+
         bool elliptical = PatternKind == BeamPatternKind.Taylor_1p4_Ell;
         // Array-steered UV beams are radially broadened ellipticals built from
         // the circular Taylor's theta_b -- they also need a radial axis.
@@ -385,7 +408,7 @@ public sealed class SceneModel
 
                     // Great-circle destination on a sphere of radius R_earth, distance d, bearing brg from north.
                     double centralAngle = d / EarthRadiusKm;
-                    double brg = Math.Atan2(x, y);
+                    double brg = Math.Atan2(x, y) + yawRad;
                     double sinLat = Math.Sin(lat0) * Math.Cos(centralAngle)
                                   + Math.Cos(lat0) * Math.Sin(centralAngle) * Math.Cos(brg);
                     sinLat = Math.Clamp(sinLat, -1.0, 1.0);

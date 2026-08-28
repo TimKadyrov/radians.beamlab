@@ -1131,5 +1131,95 @@ var looks = RandomLooks(300);
         $"zero={threw0} esAngle={threwEs} pop={threwPop} classic={classicOmits}");
 }
 
+// ---- L: WP4 mask derivation over the reachable configuration set ----
+{
+    // L1: the analytic pass-heading formula matches the vendored
+    // propagator's inertial velocity direction on both pass branches.
+    var shellL = new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1,
+    };
+    var conL = new Constellation(new[] { shellL });
+    double simL = 86400.0;
+    bool okL1 = true; string detL1 = "";
+    foreach (double t in new[] { 300.0, 900.0, 1500.0, 2500.0, 3200.0 })
+    {
+        var s0 = conL.StateAt(0, t, simL, Radians.Orbits.Core.Propagation.CoordinateFrame.ECI);
+        var s1 = conL.StateAt(0, t + 0.1, simL, Radians.Orbits.Core.Propagation.CoordinateFrame.ECI);
+        var v = (s1.PositionEcefKm - s0.PositionEcefKm) * (1.0 / 0.1);
+        var (nB, eB, dB3) = SatNedBasis(s0.SubSatLatDeg, s0.SubSatLonDeg);
+        double headMeas = Math.Atan2(Vec3.Dot(v, eB), Vec3.Dot(v, nB)) * 180.0 / Math.PI;
+        if (GroundTrack.HeadingsAtLatitude(53.0, s0.SubSatLatDeg) is not { } hv)
+        { okL1 = false; detL1 = $"t={t}: latitude {s0.SubSatLatDeg:F2} unreachable?"; break; }
+        double want = Vec3.Dot(v, nB) > 0 ? hv.AscendingDeg : hv.DescendingDeg;
+        double dh = Math.Abs((((headMeas - want) % 360.0) + 540.0) % 360.0 - 180.0);
+        if (dh > 0.05) { okL1 = false; detL1 = $"t={t}: meas={headMeas:F3} want={want:F3}"; break; }
+    }
+    Check("L1 pass headings match propagated inertial velocity", okL1, detL1);
+
+    // L2: BodyYawDeg turns the layout rigidly about nadir -- matching lattice
+    // beam rotates in azimuth by exactly the yaw, off-nadir unchanged.
+    var scL = new SceneModel
+    {
+        PatternKind = BeamPatternKind.Taylor_1p4, AutoMode = true,
+        FrequencyGHz = 12.0, GmDbi = 35.0, ThetaBDeg = 4.0,
+        MinElevDeg = 10.0, AltitudeKm = 1200.0, SubSatLatDeg = 0.0, SubSatLonDeg = 0.0,
+    };
+    scL.RebuildBeams();
+    int countL0 = scL.Beams.Count;
+    var (nL, eL, dL) = SatNedBasis(0.0, 0.0);
+    double AzOf(Beam b) => Math.Atan2(Vec3.Dot(b.Boresight, eL), Vec3.Dot(b.Boresight, nL)) * 180.0 / Math.PI;
+    var b0L = scL.Beams.First(b => b.LatticeI == 2 && b.LatticeJ == 1);
+    double az0L = AzOf(b0L), off0L = b0L.OffNadirDeg;
+    scL.BodyYawDeg = 25.0;
+    scL.RebuildBeams();
+    var b1L = scL.Beams.First(b => b.LatticeI == 2 && b.LatticeJ == 1);
+    double dAzL = ((AzOf(b1L) - az0L - 25.0) % 360.0 + 540.0) % 360.0 - 180.0;
+    bool okL2 = Math.Abs(dAzL) < 1e-9 && Math.Abs(b1L.OffNadirDeg - off0L) < 1e-9
+             && scL.Beams.Count == countL0;
+    Check("L2 BodyYawDeg rotates layout rigidly (az +25 deg, off-nadir kept)", okL2,
+        $"dAz={dAzL:E2} dOff={b1L.OffNadirDeg - off0L:E2} beams {countL0}->{scL.Beams.Count}");
+
+    // L3: the envelope sampler equals the max over the per-heading fields at
+    // every probe, and the two headings genuinely differ somewhere.
+    var vmL = new PfdMaskViewModel();
+    var optsL = new MaskXmlExportOptions { Kind = MaskPlotKind.AzEl, BStepDeg = 30.0, CStepDeg = 30.0 };
+    var sampL = new ReachableEnvelopeSampler(vmL, optsL, 53.0);
+    sampL.PrepareLatitude(35.0);
+
+    var hhL = GroundTrack.HeadingsAtLatitude(53.0, 35.0)!.Value;
+    PfdMaskField FieldAt(double psi)
+    {
+        var gen = new PfdMaskViewModel();
+        vmL.CopySettingsTo(gen);
+        gen.MaskKind = MaskPlotKind.AzEl;
+        gen.Scene.SubSatLatDeg = 35.0;
+        gen.Scene.BodyYawDeg = psi;
+        gen.RebuildForCompute();
+        var f = new PfdMaskField();
+        f.Rebuild(gen);
+        return f;
+    }
+    var fAsc = FieldAt(hhL.AscendingDeg);
+    var fDesc = FieldAt(hhL.DescendingDeg);
+
+    bool okL3 = true; string detL3 = ""; int differ = 0, probes = 0;
+    for (double az = -85; az <= 85 && okL3; az += 10)
+    for (double el = -85; el <= 85 && okL3; el += 10)
+    {
+        double a1 = fAsc.SampleMaxIn(az, el, 15.0, 15.0);
+        double a2 = fDesc.SampleMaxIn(az, el, 15.0, 15.0);
+        double want = Math.Max(a1, a2);
+        double got = sampL.SampleMaxIn(az, el, 15.0, 15.0);
+        probes++;
+        if (Math.Abs(a1 - a2) > 0.1 && !double.IsNegativeInfinity(a1) && !double.IsNegativeInfinity(a2)) differ++;
+        bool same = double.IsNegativeInfinity(want) ? double.IsNegativeInfinity(got)
+                                                    : Math.Abs(got - want) < 1e-9;
+        if (!same) { okL3 = false; detL3 = $"az={az} el={el}: got={got} want={want}"; }
+    }
+    Check("L3 envelope == max over pass-heading fields; headings differ", okL3 && differ > 0,
+        okL3 ? $"probes={probes} cells-where-headings-differ={differ}" : detL3);
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;

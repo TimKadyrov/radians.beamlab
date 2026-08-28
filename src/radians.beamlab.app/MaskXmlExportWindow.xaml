@@ -74,6 +74,10 @@
                             </StackPanel>
                         </Grid>
                         <TextBlock Text="{Binding LatRangeReadout}" Foreground="#666666"/>
+                        <CheckBox IsChecked="{Binding EnvelopeOverHeadings}" Margin="0,6,0,0"
+                                  Content="Envelope over ascending/descending headings"/>
+                        <TextBlock Foreground="#666666" TextWrapping="Wrap"
+                                   Text="A body-stabilised layout flies at the orbit's ground heading while the mask frame stays Earth-referenced; per latitude the export takes the max over both pass headings. Untick to export the single north-aligned configuration the plots show."/>
                     </StackPanel>
                 </GroupBox>
 
