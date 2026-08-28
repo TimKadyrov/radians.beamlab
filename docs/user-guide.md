@@ -11,8 +11,11 @@ non-GSO satellite:
    in the ITU coordinate systems, experiment with power control, frequency
    reuse and GSO-arc protection, and export the result as S.1503-4 mask XML
    or a CSV table.
+3. **"What's inside this mask file?"** — the **Mask Viewer** tab: open any
+   S.1503-4 mask XML (yours or a third party's) and browse its latitude
+   blocks with the same heatmap and profile plots.
 
-The two tabs are independent — each keeps its own satellite, antenna and
+The tabs are independent — each keeps its own satellite, antenna and
 display settings, so you can experiment in one without disturbing the other.
 
 ---
@@ -42,7 +45,17 @@ outline is used.
    *Fill θb from Gm* to derive one from the other).
 3. Tick **Auto hex tessellation** to fill the coverage with a honeycomb of
    beams, and set **Min user-elevation served** — beams stop where a ground
-   user would see the satellite lower than this.
+   user would see the satellite lower than this (the limit applies to beam
+   *centres*; outer footprints spill past it).
+
+   With a circular pattern the honeycomb lives in the 3GPP UV plane
+   (uniform in sin θ), so on the ground it is dense at nadir and sparse at
+   the edge, and fixed-width cones leave radial coverage gaps in the outer
+   rings. Tick **Array-steered UV beams** (§1.4 circular only) to model each
+   beam as a planar-array beam instead: its radial width broadens by
+   1/cos(off-nadir) — as a real steered array does, because the projected
+   aperture shrinks — and the lattice then tiles with a uniform crossover
+   all the way out.
 4. Tick **Render gain heatmap** — every visible ground pixel is coloured by
    the composite gain.
 5. **Click any beam marker** to switch it off (it turns red and drops out of
@@ -255,6 +268,44 @@ conventional "unreachable" floor.
 
 **Speed tip:** export time ≈ (number of latitudes) × (one heatmap compute).
 Widen the latitude step and/or the mask sampling step for drafts.
+
+---
+
+## Tab 3 — Mask Viewer
+
+Opens an existing S.1503-4 mask XML — the schema the Generate dialog writes
+(`satellite_system / pfd_mask / by_a / by_b / pfd`), for either mask type —
+and displays it without recomputing anything:
+
+1. Click **Load mask XML…** and pick the file. The header shows the
+   satellite name, ntc/mask ids, frequency range, reference bandwidth and
+   grid size.
+2. Pick a **latitude block** — one `by_a` entry of the table; the viewer
+   starts at the block closest to the equator. The panel shows the block's
+   **minimum declared PFD**. If that minimum is below −300 dB(W/m²) it
+   cannot be operational PFD — it's the mask's "off" floor (some filings
+   use −999 instead of the spec's −1000 null) and **Treat min as
+   unreachable cut-off** ticks itself, blanking that level and rescaling
+   the ramp; untick it to see the raw table. Minima above −300 may be real
+   PFD, so they are never treated as a cut-off.
+3. Read the plots exactly as on the generator tab: the profile plot slices
+   the mask at the cut slider's azimuth (az/el masks) or α (α/ΔLongitude
+   masks).
+
+The loaded table is kept **exact** in memory — the plots merely sample it,
+at screen resolution, whenever they redraw. Every sampled value is the read
+an EPFD tool would make: **bilinear interpolation between the bracketing
+nodes, clamped at the table edges** (Rec. ITU-R S.1503-4 §D5.1.5). Real
+filings usually compress plateau rows, so each row can carry its own node
+list; interpolation follows each row's own grid, exactly as the EPFD
+software does. Resizing the window re-samples the exact table — nothing is
+ever baked into a fixed-resolution intermediate. Reads at or below the
+current cut-off — the S.1503-4 null of −1000 dBW by default, or the block
+minimum when the checkbox is ticked — are blank; where real data borders
+the cut-off, the interpolation ramp is clipped at the colour scale's floor
+so the ramp stays scaled to the declared data. Scene-derived overlays
+(footprint map, ES-elevation guides, exclusion tint) don't apply to an
+imported table and are omitted.
 
 ---
 

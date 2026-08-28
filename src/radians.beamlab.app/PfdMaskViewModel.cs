@@ -207,6 +207,14 @@ public sealed class PfdMaskViewModel : ObservableObject
 
     // --- PFD-plot-specific inputs (not shared with SceneModel) ---
 
+    /// <summary>
+    /// True when this VM only carries plot options for an imported (external)
+    /// mask -- the Mask Viewer tab. Scene-derived overlays that presume the
+    /// mask was computed from this scene (ES-elevation guides from altitude /
+    /// min-elevation) are suppressed in the renderers.
+    /// </summary>
+    public bool IsExternalMask { get; init; }
+
     private double _alphaExclDeg = 10.0;
     /// <summary>GSO avoidance angle alpha_excl (deg, S.1503-4 Sec. D6). Basic mode: beams whose footprint sits inside |alpha| &lt; this get switched off.</summary>
     public double AlphaExclDeg
@@ -623,19 +631,6 @@ public sealed class PfdMaskViewModel : ObservableObject
         if (rebuild) Rebuild();
         else SceneChanged?.Invoke();
     }
-}
-
-/// <summary>
-/// PFD-mask coordinate system, mirroring the S.1503-4 mask types the tool can
-/// visualise (radians MaskPFDType AzEl / AlphaDelta; the X/deltaLong variant is
-/// not implemented).
-/// </summary>
-public enum MaskPlotKind
-{
-    /// <summary>Satellite-frame azimuth / elevation (Sec. D6.4.5).</summary>
-    AzEl,
-    /// <summary>Signed alpha / deltaLongitude (Sec. D6.4.4).</summary>
-    AlphaDeltaLong,
 }
 
 /// <summary>Per-beam transmit power policy for the PFD-mask computation.</summary>

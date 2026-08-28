@@ -89,6 +89,17 @@ public sealed class SceneModel
     /// </summary>
     public double CrossoverDb { get; set; } = -3.0;
 
+    /// <summary>
+    /// Auto UV lattice with the Sec. 1.4 circular Taylor only: model each beam
+    /// as an array-steered (UV shift-invariant) beam instead of a fixed cone.
+    /// A planar array's projected aperture shrinks by cos(off-nadir) in the
+    /// steering plane, so the radial 3 dB width broadens by ~1/cos(off-nadir)
+    /// while the transverse width stays <see cref="ThetaBDeg"/> -- the UV hex
+    /// lattice then tiles with a uniform crossover out to the last ring.
+    /// No effect in other layouts / pattern kinds.
+    /// </summary>
+    public bool UvArrayBeams { get; set; }
+
     /// <summary>Centre-to-centre angular spacing (deg) from <see cref="CrossoverDb"/> and <see cref="ThetaBDeg"/>. Circular case.</summary>
     public double SpacingDeg => 2.0 * ThetaBDeg * Math.Sqrt(Math.Max(0.0, -CrossoverDb) / 3.0);
 
@@ -229,6 +240,9 @@ public sealed class SceneModel
         var (north, east, down) = SatNedBasis(SubSatLatDeg, SubSatLonDeg);
 
         bool elliptical = PatternKind == BeamPatternKind.Taylor_1p4_Ell;
+        // Array-steered UV beams are radially broadened ellipticals built from
+        // the circular Taylor's theta_b -- they also need a radial axis.
+        bool uvArray = AutoMode && UvArrayBeams && PatternKind == BeamPatternKind.Taylor_1p4;
         // Nadir direction in ECEF (used to define the radial axis for elliptical beams).
         Vec3 nadir = down;
 
@@ -237,7 +251,7 @@ public sealed class SceneModel
         // along the off-nadir tilt direction, so radial = alpha-direction at the cell edge.
         Vec3? RadialAxisFor(Vec3 boresight)
         {
-            if (!elliptical) return null;
+            if (!elliptical && !uvArray) return null;
             double cos = Vec3.Dot(boresight, nadir);
             if (Math.Abs(1.0 - Math.Abs(cos)) < 1e-9)
             {
@@ -293,6 +307,18 @@ public sealed class SceneModel
             // the visible-disc edge.
             int Nrings = Math.Max(1, (int)Math.Round(sinOffOuter / Math.Max(1e-9, sUvBase)));
             double sUv = sinOffOuter / Nrings;
+
+            // Array-steered variant: one shift-invariant beam family in UV
+            // space. Lt fixed from the user's theta_b; Lr shrunk by
+            // cos(off-nadir) per beam (projected aperture), which broadens the
+            // radial 3 dB width by ~1/cos(off-nadir).
+            double ltArrayM = 0.0;
+            if (uvArray)
+            {
+                var refCirc = new Rec1528_1p4(GmDbi, ThetaBDeg, TaylorSlrDb, TaylorNbar, LfDbi);
+                ltArrayM = refCirc.UEdge * WavelengthM / Math.Sin(ThetaBDeg * Math.PI / 180.0);
+            }
+
             if (sUv > 1e-6)
             {
                 int n = Nrings + 1;
@@ -313,7 +339,12 @@ public sealed class SceneModel
                         double azFromNorth = Math.Atan2(v, u) * 180.0 / Math.PI;
                         var ned = BeamDirNed(off, azFromNorth);
                         var ecef = NedToEcef(ned, north, east, down).Normalized();
-                        _beams.Add(new Beam($"uv{i}_{j}", ecef, BuildPatternFor(GmDbi, off))
+                        ISinglePattern pattern = uvArray
+                            ? new Rec1528_1p4_Ell(GmDbi, WavelengthM,
+                                ltArrayM * Math.Sqrt(Math.Max(0.0, 1.0 - r2)), ltArrayM,
+                                TaylorSlrDb, TaylorNbar, LfDbi)
+                            : BuildPatternFor(GmDbi, off);
+                        _beams.Add(new Beam($"uv{i}_{j}", ecef, pattern)
                         {
                             OffNadirDeg = off,
                             RadialAxisEcef = RadialAxisFor(ecef),

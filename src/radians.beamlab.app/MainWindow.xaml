@@ -121,6 +121,8 @@
 
                                 <TextBlock Text="Layout:" Margin="0,6,0,0" Foreground="#666666"/>
                                 <CheckBox IsChecked="{Binding AutoMode}" Content="Auto hex tessellation (3GPP NTN UV-plane / Annex 2 ground-plane)"/>
+                                <CheckBox IsChecked="{Binding UvArrayBeams}" Margin="18,2,0,0"
+                                          Content="Array-steered UV beams (§1.4 circular: radial width ×1/cos θ)"/>
                                 <StackPanel Visibility="{Binding IsEllipticalAutoMode, Converter={StaticResource BoolToVis}}">
                                     <TextBlock Text="Target ground-cell radius (km)  — elliptical only"/>
                                     <TextBox Text="{Binding CellRadiusKm, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
@@ -247,6 +249,10 @@
 
         <TabItem Header="PFD Mask Generator">
             <app:PfdMaskView />
+        </TabItem>
+
+        <TabItem Header="Mask Viewer">
+            <app:MaskViewerView />
         </TabItem>
     </TabControl>
 </Window>

@@ -218,6 +218,13 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>Array-steered UV beams (Sec. 1.4 circular + auto lattice only).</summary>
+    public bool UvArrayBeams
+    {
+        get => Scene.UvArrayBeams;
+        set { if (Scene.UvArrayBeams != value) { Scene.UvArrayBeams = value; OnSceneChanged(rebuild: true); } }
+    }
+
     public double CellRadiusKm
     {
         get => Scene.CellRadiusKm;

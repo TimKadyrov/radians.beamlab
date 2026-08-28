@@ -73,7 +73,9 @@ public sealed class PfdProfileRenderer
         if (!alphaDelta)
         {
             // Closed-form geometric guides in the az/el frame.
-            DrawEsElevationGuides(l, r, t, b, xMin, xMax);
+            // ES-elevation guides derive from the scene's altitude / eps_min --
+            // meaningless for an imported mask, so the viewer suppresses them.
+            if (!_vm.IsExternalMask) DrawEsElevationGuides(l, r, t, b, xMin, xMax);
             DrawAlphaGuides(l, r, t, b, xMin, xMax);
         }
         else

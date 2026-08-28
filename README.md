@@ -112,6 +112,13 @@ heatmap, and a profile slice with ES-elevation and α guides. **Generate mask
 XML…** exports an S.1503-4 mask (XML and/or CSV) over a latitude table capped
 by the orbital inclination.
 
+### Mask Viewer
+
+Opens an existing S.1503-4 mask XML (either mask type) and displays its
+latitude blocks with the same heatmap and profile plots. Values are read the
+way EPFD tools read a mask — §D5.1.5 bilinear interpolation, clamped at the
+table edges — with fully unreachable regions blank.
+
 Full details and the maths for every control are in the
 **[user guide](docs/user-guide.md)**.
 
@@ -131,6 +138,19 @@ dotnet run --project src/radians.beamlab.app
 
 Targets `net8.0` (Core) and `net8.0-windows` (App, WPF). Tested with the
 .NET 10 SDK.
+
+### Verification harness
+
+```
+dotnet run --project tests/radians.beamlab.checks
+```
+
+Headless business-logic checks against independent invariants — the α
+solver vs brute force, frame round-trips, reuse colourings, aggregation
+ordering, export round-trips and envelope binning, peak retention on coarse
+grids, Taylor-kernel bounds, array-steered beams, and the mask-viewer's
+§D5.1.5 reads. Prints PASS/FAIL per check; exit code 0 iff all pass. A few
+checks use a local ITU reference filing and skip cleanly when it is absent.
 
 `countries.json` is searched in the working directory, the application
 binary directory, and the project root — drop a Natural Earth GeoJSON

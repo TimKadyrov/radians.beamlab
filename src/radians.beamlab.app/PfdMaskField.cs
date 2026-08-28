@@ -72,9 +72,199 @@ public sealed class PfdMaskField
     /// <summary>True iff the last rebuild produced any valid PFD samples.</summary>
     public bool HasValidRange { get; private set; }
 
-    /// <summary>Re-sample the whole grid from the current view-model state.</summary>
+    // --- Imported-mask source (Mask Viewer): the table IS the data model ---
+
+    private MaskLatBlock? _maskBlock;
+    private double[] _maskBVals = Array.Empty<double>();
+
+    /// <summary>
+    /// True for a viewer field: <see cref="Rebuild"/> never computes from the
+    /// scene -- it re-rasterises the attached mask source, or clears the grids
+    /// when nothing is loaded yet.
+    /// </summary>
+    public bool ExternalOnly { get; set; }
+
+    /// <summary>
+    /// Display threshold for the mask source: reads at or below this are
+    /// treated as the unreachable floor (blank, excluded from the colour
+    /// range). Defaults to the spec's -1000 null (S.1503-4 Sec. C1) -- no
+    /// inference; the viewer can raise it to the block's own minimum when the
+    /// user asks for that explicitly. Set BEFORE
+    /// <see cref="SetMaskSource"/> so the colour range follows.
+    /// </summary>
+    public double UnreachableCutoffDb { get; set; } = MaskLatBlock.UnreachableDb;
+
+    /// <summary>Raster width for mask-source display, set from the canvas by the view (plot-time rasterisation).</summary>
+    public int TargetRasterW { get; set; } = 720;
+    /// <summary>Raster height for mask-source display, set from the canvas by the view.</summary>
+    public int TargetRasterH { get; set; } = 720;
+
+    /// <summary>
+    /// Attach an imported S.1503-4 mask latitude block as this field's data
+    /// source. The table is kept EXACT -- the model of record, as in the
+    /// reference implementation; grids are only a display raster, regenerated
+    /// at <see cref="TargetRasterW"/> x <see cref="TargetRasterH"/> on the
+    /// next <see cref="Rebuild"/> / <see cref="RasterizeMaskSource"/>.
+    /// The colour range comes from the reachable node values only.
+    /// </summary>
+    public void SetMaskSource(MaskPlotKind kind, MaskLatBlock blk)
+    {
+        _maskBlock = blk;
+        _maskBVals = new double[blk.Rows.Count];
+        for (int i = 0; i < blk.Rows.Count; i++) _maskBVals[i] = blk.Rows[i].B;
+
+        Kind = kind;
+        bool alphaDelta = kind == MaskPlotKind.AlphaDeltaLong;
+        XMin = alphaDelta ? -180.0 : -90.0;
+        XMax = -XMin;
+        YMin = -90.0; YMax = 90.0;
+
+        var nodeVals = new List<double>();
+        foreach (var row in blk.Rows)
+            foreach (double v in row.Values)
+                nodeVals.Add(v <= UnreachableCutoffDb ? double.NegativeInfinity : v);
+        AutoScale(nodeVals.ToArray());
+
+        PixW = 0; PixH = 0;
+        PfdGrid = null; AlphaGrid = null; EsElevGrid = null;
+    }
+
+    /// <summary>
+    /// Exact S.1503-4 Sec. D5.1.5 mask read at field coordinates (x, y) --
+    /// transcribed from the reference maskdata GetPFD: bracket the b rows,
+    /// interpolate along each bracketing row's OWN c grid (real filings are
+    /// ragged), then linearly across b; outside the table range the read
+    /// clamps to the edge node. Raw dB -- the -1000 unreachable floor
+    /// participates as a plain number, exactly as in the reference.
+    /// </summary>
+    public double MaskReadRaw(double xDeg, double yDeg)
+    {
+        var blk = _maskBlock ?? throw new InvalidOperationException("No mask source attached.");
+        bool alphaDelta = Kind == MaskPlotKind.AlphaDeltaLong;
+        double bC = alphaDelta ? yDeg : xDeg;
+        double cC = alphaDelta ? xDeg : yDeg;
+        var (rLo, rHi) = Bracket(_maskBVals, bC);
+        return ClampedLinear(bC,
+            _maskBVals[rLo], MaskRowValue(blk.Rows[rLo], cC),
+            _maskBVals[rHi], MaskRowValue(blk.Rows[rHi], cC));
+    }
+
+    private static double MaskRowValue(MaskRow row, double c)
+    {
+        var (lo, hi) = Bracket(row.CNodes, c);
+        return ClampedLinear(c, row.CNodes[lo], row.Values[lo], row.CNodes[hi], row.Values[hi]);
+    }
+
+    /// <summary>
+    /// Regenerate the display raster from the exact mask source at the target
+    /// resolution: one Sec. D5.1.5 read per pixel. For display, reads at the
+    /// unreachable floor are blanked, and the ramp between real data and the
+    /// floor is clipped at the colour-scale floor so the plots stay scaled to
+    /// the declared data.
+    /// </summary>
+    public void RasterizeMaskSource()
+    {
+        if (_maskBlock is null) return;
+        bool alphaDelta = Kind == MaskPlotKind.AlphaDeltaLong;
+        int pixW = Math.Clamp(TargetRasterW, 64, 2048);
+        int pixH = Math.Clamp(TargetRasterH, 64, 2048);
+
+        var pfdBuf = new double[pixW * pixH];
+        var alphaBuf = new double[pixW * pixH];
+        double dX = (XMax - XMin) / pixW;
+        double dY = (YMax - YMin) / pixH;
+
+        for (int py = 0; py < pixH; py++)
+        {
+            double y = YMax - (py + 0.5) * dY;
+            double alphaRow = alphaDelta ? Math.Abs(y) : 180.0;
+            int rowBase = py * pixW;
+            for (int px = 0; px < pixW; px++)
+            {
+                double v = MaskReadRaw(XMin + (px + 0.5) * dX, y);
+                pfdBuf[rowBase + px] = v <= UnreachableCutoffDb
+                    ? double.NegativeInfinity
+                    : Math.Max(v, PfdFloor);
+                alphaBuf[rowBase + px] = alphaRow;
+            }
+        }
+
+        PixW = pixW;
+        PixH = pixH;
+        PfdGrid = pfdBuf;
+        AlphaGrid = alphaBuf;
+        EsElevGrid = null;
+    }
+
+    /// <summary>
+    /// Exact profile through the mask source: Sec. D5.1.5 reads at dense
+    /// positions along one axis with the other fixed. Floor reads become
+    /// gaps; values are clipped at the colour-scale floor like the raster.
+    /// </summary>
+    private List<(double pos, double pfd)> MaskProfile(double fixedCoord, bool alongY)
+    {
+        const int N = 1441;
+        var result = new List<(double, double)>(N);
+        double lo = alongY ? YMin : XMin;
+        double hi = alongY ? YMax : XMax;
+        for (int i = 0; i < N; i++)
+        {
+            double p = lo + (hi - lo) * i / (N - 1);
+            double v = alongY ? MaskReadRaw(fixedCoord, p) : MaskReadRaw(p, fixedCoord);
+            if (v <= UnreachableCutoffDb) continue;
+            result.Add((p, Math.Max(v, PfdFloor)));
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Bracketing node indices for v (nodes ascending); lo == hi at and
+    /// beyond the table edges, which makes the interpolation clamp there.
+    /// </summary>
+    private static (int lo, int hi) Bracket(IReadOnlyList<double> nodes, double v)
+    {
+        int last = nodes.Count - 1;
+        if (v <= nodes[0]) return (0, 0);
+        if (v >= nodes[last]) return (last, last);
+        int lo = 0, hi = last;
+        while (hi - lo > 1)
+        {
+            int mid = (lo + hi) / 2;
+            if (nodes[mid] <= v) lo = mid; else hi = mid;
+        }
+        return (lo, hi);
+    }
+
+    /// <summary>
+    /// Linear interpolation clamped outside [x1, x2] -- transcribed from the
+    /// reference maskdata Helper.ClampedLinear (S.1503-4 Sec. D5.1.5 /
+    /// Sec. D5.2.7).
+    /// </summary>
+    private static double ClampedLinear(double x, double x1, double y1, double x2, double y2)
+    {
+        if (x < x1) return y1;
+        if (x > x2) return y2;
+        if (x1 - x2 == 0.0) return y1;
+        double f1 = (y1 - y2) / (x1 - x2);
+        double f2 = (x1 * y2 - x2 * y1) / (x1 - x2);
+        return f1 * x + f2;
+    }
+
+    /// <summary>
+    /// Re-generate the grids. A field with a mask source re-rasterises the
+    /// exact table (plot-time rasterisation); an external-only field with no
+    /// source yet clears; otherwise the grids are computed from the scene.
+    /// </summary>
     public void Rebuild(PfdMaskViewModel vm)
     {
+        if (_maskBlock != null) { RasterizeMaskSource(); return; }
+        if (ExternalOnly)
+        {
+            PixW = 0; PixH = 0;
+            PfdGrid = null; AlphaGrid = null; EsElevGrid = null;
+            HasValidRange = false;
+            return;
+        }
         Kind = vm.MaskKind;
         if (Kind == MaskPlotKind.AlphaDeltaLong) RebuildAlphaDelta(vm);
         else RebuildAzEl(vm);
@@ -437,6 +627,9 @@ public sealed class PfdMaskField
     /// </summary>
     public List<(double yDeg, double pfd)> ProfileAtX(double xDeg)
     {
+        if (_maskBlock != null && Kind == MaskPlotKind.AzEl)
+            return MaskProfile(xDeg, alongY: true);      // exact table read
+
         var result = new List<(double, double)>();
         if (PfdGrid is null || PixW == 0 || PixH == 0) return result;
 
@@ -484,6 +677,9 @@ public sealed class PfdMaskField
     /// </summary>
     public List<(double xDeg, double pfd)> ProfileAtY(double yDeg)
     {
+        if (_maskBlock != null && Kind == MaskPlotKind.AlphaDeltaLong)
+            return MaskProfile(yDeg, alongY: false);     // exact table read
+
         var result = new List<(double, double)>();
         if (PfdGrid is null || PixW == 0 || PixH == 0) return result;
 
@@ -533,6 +729,11 @@ public sealed class PfdMaskField
     /// </summary>
     public double SampleAt(double xDeg, double yDeg)
     {
+        if (_maskBlock != null)
+        {
+            double v = MaskReadRaw(xDeg, yDeg);          // exact table read
+            return v <= UnreachableCutoffDb ? double.NegativeInfinity : v;
+        }
         if (PfdGrid is null || PixW == 0 || PixH == 0) return double.NegativeInfinity;
         int col = ColumnForX(xDeg);
         int row = (int)((YMax - yDeg) / (YMax - YMin) * PixH);

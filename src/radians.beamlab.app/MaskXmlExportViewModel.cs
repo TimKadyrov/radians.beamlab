@@ -184,7 +184,7 @@ public sealed class MaskXmlExportViewModel : ObservableObject
                 ProgressValue = p * 100.0;
                 StatusText = $"generating… {p * 100.0:F0}%";
             });
-            await MaskXmlExport.GenerateAsync(_live, opts, progress, _cts.Token);
+            await MaskXmlExport.GenerateAsync(new MaskExportSampler(_live, opts), opts, progress, _cts.Token);
             ProgressValue = 100.0;
             string exts = Format switch
             {
