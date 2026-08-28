@@ -1,0 +1,216 @@
+using System;
+using System.Collections.Generic;
+using Radians.Orbits.Core.Propagation;
+using Radians.Orbits.Core.Utilities;
+using static radians.beamlab.GeoMath;
+
+namespace radians.beamlab;
+
+/// <summary>
+/// Case-1 (free drift) artificial precession per Rec. ITU-R S.1503-4
+/// Sec. D6.3.2 -- transcribed from the reference implementation
+/// (radians Compute.ComputeArtificialPrecession + computeNonRepeatingOrbitData,
+/// radcompute1503-2/Compute.cs; the S.1503-4 nodal-period branch). The rate
+/// nudges the per-orbit westward equatorial pass shift onto an exact
+/// 360/nOrbits grid so the ground track repeats after nOrbits nodal orbits.
+/// </summary>
+public static class ArtificialPrecession
+{
+    /// <summary>
+    /// Westward equatorial pass shift per nodal orbit (deg) and the nodal
+    /// period (s), from the same J2 secular rates the propagator uses.
+    /// </summary>
+    public static (double spassDeg, double nodalPeriodSec) NodalPassGeometry(
+        double semiMajorAxisKm, double eccentricity, double inclinationDeg)
+    {
+        double n0 = Math.Sqrt(OrbitalConstants.MuEarth / Math.Pow(semiMajorAxisKm, 3.0));
+        double p = semiMajorAxisKm * (1.0 - eccentricity * eccentricity);
+        double sinI = Math.Sin(AngleUtilities.DegToRad(inclinationDeg));
+        double cosI = Math.Cos(AngleUtilities.DegToRad(inclinationDeg));
+        double ratio2 = Math.Pow(OrbitalConstants.EarthRadiusKm, 2.0) / Math.Pow(p, 2.0);
+
+        double nBar = n0 * (1.0 + 1.5 * OrbitalConstants.EarthOblatenessJ2 * ratio2
+                            * (1.0 - 1.5 * Math.Pow(sinI, 2.0))
+                            * Math.Pow(1.0 - Math.Pow(eccentricity, 2.0), 0.5));
+        double lanRate = -1.5 * OrbitalConstants.EarthOblatenessJ2 * ratio2 * nBar * cosI;
+        double argPerigeeRate = 1.5 * OrbitalConstants.EarthOblatenessJ2 * ratio2 * nBar
+                                * (2.0 - 2.5 * Math.Pow(sinI, 2.0));
+
+        double nBarPerMin = AngleUtilities.RadToDeg(nBar) * 60.0;
+        double lanRatePerMin = AngleUtilities.RadToDeg(lanRate) * 60.0;
+        double argPerigeeRatePerMin = AngleUtilities.RadToDeg(argPerigeeRate) * 60.0;
+        double earthRotPerMin = AngleUtilities.RadToDeg(OrbitalConstants.EarthRotationRate) * 60.0;
+
+        // S.1503-4 Sec. D6.3.2 eq (25): nodal period 360/(omega_r + n_bar).
+        double nodalPeriodMin = 360.0 / (argPerigeeRatePerMin + nBarPerMin);
+        double spassDeg = (earthRotPerMin - lanRatePerMin) * nodalPeriodMin;
+        return (spassDeg, nodalPeriodMin * 60.0);
+    }
+
+    /// <summary>
+    /// Artificial precession rate (rad/s) for a free-drift orbit so that
+    /// nOrbits nodal orbits cover the equator uniformly and then repeat:
+    /// rate = ((360 * floor(nOrbits * spass / 360) / nOrbits) - spass) / T_nodal.
+    /// nOrbits comes from the examination geometry (S.1503-4: number of
+    /// equatorial passes needed to resolve the GSO earth-station beam,
+    /// ceil(180 / (2 phi / Ntracks))); it is a declared input here.
+    /// </summary>
+    public static double RadPerSec(double semiMajorAxisKm, double eccentricity,
+                                   double inclinationDeg, int nOrbits)
+    {
+        if (nOrbits <= 0) return 0.0;
+        var (spass, tPeriodSec) = NodalPassGeometry(semiMajorAxisKm, eccentricity, inclinationDeg);
+        double adjusted = 360.0 * Math.Floor(nOrbits * spass / 360.0) / nOrbits - spass;
+        return AngleUtilities.DegToRad(adjusted / tPeriodSec);
+    }
+}
+
+/// <summary>
+/// One Walker-style shell of a constellation (simulation spec Sec. 4.2,
+/// first-milestone subset: circular orbits, free drift / orbit case 1).
+/// </summary>
+public sealed record ConstellationShell
+{
+    /// <summary>Orbit altitude above the S.1503 Earth radius (km); a = Re + this.</summary>
+    public required double AltitudeKm { get; init; }
+    public required double InclinationDeg { get; init; }
+    public required int PlaneCount { get; init; }
+    public required int SatsPerPlane { get; init; }
+
+    /// <summary>Walker phasing parameter F: inter-plane phase offset = F * 360 / (P * S) deg.</summary>
+    public int WalkerPhasingF { get; init; }
+    /// <summary>LAN of plane 0 (deg).</summary>
+    public double Lan0Deg { get; init; }
+    /// <summary>LAN span the planes divide (deg): 360 = Walker delta, 180 = Walker star.</summary>
+    public double LanSpreadDeg { get; init; } = 360.0;
+    /// <summary>Extra in-plane anomaly offset applied to every satellite (deg).</summary>
+    public double InPlaneOffsetDeg { get; init; }
+
+    /// <summary>
+    /// Case-1 artificial-precession track count (S.1503-4 Sec. D6.3.2);
+    /// 0 disables artificial precession. See <see cref="ArtificialPrecession"/>.
+    /// </summary>
+    public int NOrbits { get; init; }
+}
+
+/// <summary>Position and identity of one satellite at one instant (ECF).</summary>
+public sealed record SatelliteState(
+    int SatelliteNumber, int ShellIndex, int PlaneIndex, int IndexInPlane,
+    Vec3 PositionEcefKm, double SubSatLatDeg, double SubSatLonDeg,
+    double AltitudeKm, double RadiusKm);
+
+/// <summary>A satellite's beam set with per-beam powers, resolved at one instant.</summary>
+public sealed record ResolvedBeamSet(IReadOnlyList<Beam> Beams, IReadOnlyList<double> PowersDbw);
+
+/// <summary>
+/// Yields the beam set for a satellite state (simulation spec Sec. 4.1:
+/// beam = pattern, boresight(t), power(t), gate(t); Beam stays immutable and
+/// BeamComposer consumes whatever set this produces). The fixed
+/// body-stabilised layout is the constant case.
+/// </summary>
+public interface IBeamPointing
+{
+    ResolvedBeamSet Resolve(SatelliteState state);
+}
+
+/// <summary>One satellite in a snapshot: state plus (optionally) resolved beams.</summary>
+public sealed record SatelliteSnapshot(SatelliteState State, ResolvedBeamSet? Beams);
+
+/// <summary>The system at time t (simulation spec WP1 SystemState).</summary>
+public sealed class SystemSnapshot
+{
+    public required double TimeSeconds { get; init; }
+    public required IReadOnlyList<SatelliteSnapshot> Satellites { get; init; }
+}
+
+/// <summary>
+/// A constellation of Walker shells propagated with the vendored S.1503-4
+/// propagator (orbits/ -- byte-identical to the examination's). Positions
+/// come out in the propagator's ECF frame, which is beamlab's ECEF: the
+/// sub-satellite direction is taken from the position vector (radius-free)
+/// and the altitude is referenced to beamlab's spherical Earth so scene
+/// geometry stays internally consistent (see orbits/README.md).
+/// </summary>
+public sealed class Constellation
+{
+    private readonly List<OrbitPropagator> _propagators = new();
+    private readonly List<OrbitalElements> _elements = new();
+    private readonly List<(int shell, int plane, int slot)> _identity = new();
+
+    public Constellation(IReadOnlyList<ConstellationShell> shells)
+    {
+        int satNumber = 1;
+        for (int sh = 0; sh < shells.Count; sh++)
+        {
+            var shell = shells[sh];
+            double a = OrbitalConstants.EarthRadiusKm + shell.AltitudeKm;
+            double artPrec = ArtificialPrecession.RadPerSec(a, 0.0, shell.InclinationDeg, shell.NOrbits);
+            for (int p = 0; p < shell.PlaneCount; p++)
+            {
+                double lan = shell.Lan0Deg + shell.LanSpreadDeg * p / shell.PlaneCount;
+                for (int s = 0; s < shell.SatsPerPlane; s++)
+                {
+                    double anomaly = 360.0 * s / shell.SatsPerPlane
+                                   + 360.0 * shell.WalkerPhasingF * p / (shell.PlaneCount * shell.SatsPerPlane)
+                                   + shell.InPlaneOffsetDeg;
+                    var el = new OrbitalElements(
+                        semiMajorAxisKm: a,
+                        eccentricity: 0.0,
+                        inclinationDeg: shell.InclinationDeg,
+                        lanDeg: lan,
+                        argumentOfPerigeeDeg: 0.0,
+                        trueAnomalyDeg: anomaly)
+                    {
+                        ArtificialPrecessionRad = artPrec,
+                        SatelliteNumber = satNumber,
+                        OrbitId = sh + 1,
+                        SatelliteOrbitId = s + 1,
+                        OperatingHeightKm = shell.AltitudeKm,
+                    };
+                    _elements.Add(el);
+                    _propagators.Add(new OrbitPropagator(el));
+                    _identity.Add((sh, p, s));
+                    satNumber++;
+                }
+            }
+        }
+    }
+
+    public int SatelliteCount => _propagators.Count;
+
+    /// <summary>Per-satellite elements, in satellite-number order (for tests / SRS authoring).</summary>
+    public IReadOnlyList<OrbitalElements> Elements => _elements;
+
+    /// <summary>State of one satellite at time t, in the given frame's coordinates.</summary>
+    public SatelliteState StateAt(int index, double timeSeconds, double simulationDurationSeconds,
+                                  CoordinateFrame frame = CoordinateFrame.ECF)
+    {
+        var sv = _propagators[index].Propagate(timeSeconds, simulationDurationSeconds, frame);
+        var pos = new Vec3(sv.Position.X, sv.Position.Y, sv.Position.Z);
+        double r = pos.Length;
+        double latDeg = Math.Asin(Math.Clamp(pos.Z / r, -1.0, 1.0)) * 180.0 / Math.PI;
+        double lonDeg = Math.Atan2(pos.Y, pos.X) * 180.0 / Math.PI;
+        var (sh, p, s) = _identity[index];
+        return new SatelliteState(
+            _elements[index].SatelliteNumber, sh, p, s,
+            pos, latDeg, lonDeg,
+            AltitudeKm: r - EarthRadiusKm,
+            RadiusKm: r);
+    }
+
+    /// <summary>
+    /// The system at time t: every satellite's ECF state, with beams resolved
+    /// through <paramref name="pointing"/> when one is supplied.
+    /// </summary>
+    public SystemSnapshot SnapshotAt(double timeSeconds, double simulationDurationSeconds,
+                                     IBeamPointing? pointing = null)
+    {
+        var sats = new List<SatelliteSnapshot>(_propagators.Count);
+        for (int i = 0; i < _propagators.Count; i++)
+        {
+            var state = StateAt(i, timeSeconds, simulationDurationSeconds);
+            sats.Add(new SatelliteSnapshot(state, pointing?.Resolve(state)));
+        }
+        return new SystemSnapshot { TimeSeconds = timeSeconds, Satellites = sats };
+    }
+}

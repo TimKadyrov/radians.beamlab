@@ -547,7 +547,7 @@ public sealed class PfdMaskField
     /// TxEirpDbw + 20*log10(boresight slant / altitude) -- spreading-loss
     /// compensation so every beam's boresight PFD matches a nadir beam's.
     /// </summary>
-    private static double[] BeamPowersDbw(PfdMaskViewModel vm)
+    public static double[] BeamPowersDbw(PfdMaskViewModel vm)
     {
         var scene = vm.Scene;
         var beams = scene.Beams;

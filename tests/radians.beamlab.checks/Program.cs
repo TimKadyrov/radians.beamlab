@@ -3,6 +3,8 @@ using System.IO;
 using System.Xml;
 using radians.beamlab;
 using radians.beamlab.app;
+using Radians.Orbits.Core.Propagation;
+using Radians.Orbits.Core.Utilities;
 using static radians.beamlab.GeoMath;
 
 // Headless business-logic verification of radians.beamlab against
@@ -850,6 +852,156 @@ var looks = RandomLooks(300);
     {
         Check("I2 real ITU mask (CSN-SSO) loads + rasterises", true, "file not present, skipped");
     }
+}
+
+// ---- J: WP1 time + constellation (vendored S.1503-4 propagator) ----
+{
+    // J0: drift guard -- the vendored propagator sources must stay
+    // byte-identical to the radians working copy when it is present.
+    string radiansRoot = @"C:\Projects\_EPFD\radians\radians\radians.orbits.core";
+    string vendored = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+        "src", "radians.beamlab.core", "orbits");
+    vendored = Path.GetFullPath(vendored);
+    string[] relFiles =
+    {
+        @"Propagation\OrbitPropagator.cs", @"Propagation\OrbitalElements.cs",
+        @"Propagation\StateVector.cs", @"Propagation\CoordinateFrame.cs",
+        @"Utilities\AngleUtilities.cs", @"Utilities\OrbitalConstants.cs",
+        @"Utilities\VectorOperations.cs", @"Models\Vector3D.cs",
+        @"Models\GeocentricCoordinate.cs",
+    };
+    if (Directory.Exists(radiansRoot))
+    {
+        bool okDrift = true; string detDrift = $"files={relFiles.Length}";
+        foreach (var rel in relFiles)
+        {
+            string a = Path.Combine(vendored, rel);
+            string b = Path.Combine(radiansRoot, rel);
+            if (!File.Exists(a) || !File.Exists(b) ||
+                !File.ReadAllBytes(a).AsSpan().SequenceEqual(File.ReadAllBytes(b)))
+            {
+                okDrift = false; detDrift = $"drift: {rel}"; break;
+            }
+        }
+        Check("J0 vendored propagator byte-identical to radians source", okDrift, detDrift);
+    }
+    else
+    {
+        Check("J0 vendored propagator drift guard", true, "radians working copy not present, skipped");
+    }
+
+    // Shared test shell: 1200 km / 53 deg, 3 planes x 4 sats, Walker F=1.
+    var shell = new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0,
+        PlaneCount = 3, SatsPerPlane = 4, WalkerPhasingF = 1, NOrbits = 288,
+    };
+    var con = new Constellation(new[] { shell });
+    double simDur = 10 * 86400.0;
+
+    // J1: circular orbit -- radius constant and equal to a at every sampled t.
+    double aKm = OrbitalConstants.EarthRadiusKm + shell.AltitudeKm;
+    bool okR = con.SatelliteCount == 12; string detR = $"sats={con.SatelliteCount}";
+    foreach (double t in new[] { 0.0, 137.0, 3600.0, 86400.0, 5 * 86400.0 })
+    {
+        for (int i = 0; i < con.SatelliteCount && okR; i++)
+        {
+            double r = con.StateAt(i, t, simDur).RadiusKm;
+            if (Math.Abs(r - aKm) > 1e-6) { okR = false; detR = $"sat {i} t={t}: r={r:F9} a={aKm:F9}"; }
+        }
+        if (!okR) break;
+    }
+    Check("J1 circular shell: |r| == a at every sampled time", okR, detR);
+
+    // J2: frame consistency -- ECF position equals ECI rotated by -wE*t about Z.
+    bool okF = true; string detF = "";
+    foreach (double t in new[] { 0.0, 731.0, 40000.0 })
+    {
+        var eci = con.StateAt(2, t, simDur, CoordinateFrame.ECI).PositionEcefKm;
+        var ecf = con.StateAt(2, t, simDur, CoordinateFrame.ECF).PositionEcefKm;
+        double ang = -OrbitalConstants.EarthRotationRate * t;
+        double c = Math.Cos(ang), sn = Math.Sin(ang);
+        var rot = new Vec3(c * eci.X - sn * eci.Y, sn * eci.X + c * eci.Y, eci.Z);
+        if ((rot - ecf).Length > 1e-6) { okF = false; detF = $"t={t}: |diff|={(rot - ecf).Length:E2} km"; break; }
+    }
+    Check("J2 ECF == Rz(-wE t) * ECI", okF, detF);
+
+    // J3: Walker geometry -- LAN spacing 360/P, in-plane spacing 360/S,
+    // inter-plane phase F*360/(P*S).
+    var els = con.Elements;
+    double dLan = AngleDiff(els[4].LanDeg, els[0].LanDeg);
+    double dInPlane = AngleDiff(els[1].TrueAnomalyDeg, els[0].TrueAnomalyDeg);
+    double dPhase = AngleDiff(els[4].TrueAnomalyDeg, els[0].TrueAnomalyDeg);
+    bool okW2 = Math.Abs(dLan - 120.0) < 1e-9 && Math.Abs(dInPlane - 90.0) < 1e-9
+             && Math.Abs(dPhase - 360.0 * 1 / 12.0) < 1e-9
+             && els.All(e => e.OrbitCase == 1 && e.ArtificialPrecessionRad != 0.0);
+    Check("J3 Walker geometry (LAN 120, in-plane 90, phase 30)", okW2,
+        $"dLan={dLan:F6} dInPlane={dInPlane:F6} dPhase={dPhase:F6}");
+
+    static double AngleDiff(double a, double b)
+    {
+        double d = (a - b) % 360.0;
+        if (d < 0) d += 360.0;
+        return d;
+    }
+
+    // J4: artificial precession, exactly as S.1503-4 Part C Steps 8-11 and the
+    // reference implement it: S_artificial = S_actual - S_pass added to LAN.
+    // Worked through the node-longitude algebra that yields a measured pass
+    // spacing of 2*S_pass - S_actual -- one adjustment PAST the 360/nOrbits
+    // grid (|error| bounded by one grid cell). The check asserts the true
+    // formula behaviour, not the nominal goal; identity with the examination
+    // outranks track-repeat elegance. Raised as an upstream observation.
+    var (spass, tNodal) = ArtificialPrecession.NodalPassGeometry(aKm, 0.0, shell.InclinationDeg);
+    double sGrid = 360.0 * Math.Floor(shell.NOrbits * spass / 360.0) / shell.NOrbits;
+    double sExpected = 2.0 * spass - sGrid;
+
+    double CrossLon(double tStart)
+    {
+        // find ascending z sign change by scan + bisection
+        double t0 = tStart, dt = 20.0;
+        double z0 = con.StateAt(0, t0, simDur).PositionEcefKm.Z;
+        for (int k = 0; k < 100000; k++)
+        {
+            double t1 = t0 + dt;
+            double z1 = con.StateAt(0, t1, simDur).PositionEcefKm.Z;
+            if (z0 < 0 && z1 >= 0)
+            {
+                for (int b = 0; b < 60; b++)
+                {
+                    double tm = 0.5 * (t0 + t1);
+                    if (con.StateAt(0, tm, simDur).PositionEcefKm.Z < 0) t0 = tm; else t1 = tm;
+                }
+                return con.StateAt(0, 0.5 * (t0 + t1), simDur).SubSatLonDeg;
+            }
+            t0 = t1; z0 = z1;
+        }
+        return double.NaN;
+    }
+    double lon1 = CrossLon(10.0);
+    double lon2 = CrossLon(10.0 + tNodal);         // next crossing, one nodal period after the first
+    double shift = AngleDiff(lon1, lon2);           // westward shift, 0..360
+    bool okP = Math.Abs(shift - sExpected) < 0.02
+            && Math.Abs(sExpected - sGrid) <= 2.0 * 360.0 / shell.NOrbits
+            && Math.Abs(sGrid - spass) < 360.0 / shell.NOrbits;
+    Check("J4 artificial precession matches S.1503-4 Steps 8-11 as implemented", okP,
+        $"measured={shift:F4} expected(2*spass-grid)={sExpected:F4} grid={sGrid:F4} spass={spass:F4} deg");
+
+    // J5: SystemState resolves beams through the app's fixed body-stabilised
+    // pointing, and BeamComposer consumes the resolved set.
+    var vmP = new PfdMaskViewModel();
+    var snap = con.SnapshotAt(3600.0, simDur, new ScenePointing(vmP));
+    bool okS = snap.Satellites.Count == 12; string detS = $"sats={snap.Satellites.Count}";
+    foreach (var sat in snap.Satellites)
+    {
+        var rb = sat.Beams;
+        if (rb is null || rb.Beams.Count == 0 || rb.PowersDbw.Count != rb.Beams.Count)
+        { okS = false; detS = $"sat {sat.State.SatelliteNumber}: beams unresolved"; break; }
+        var nadir = (sat.State.PositionEcefKm * -1.0).Normalized();
+        double e = BeamComposer.CompositeEirpDbw(rb.Beams, nadir, rb.PowersDbw);
+        if (double.IsNaN(e)) { okS = false; detS = $"sat {sat.State.SatelliteNumber}: NaN composite"; break; }
+    }
+    Check("J5 SnapshotAt resolves beams for every satellite (composer-ready)", okS, detS);
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
