@@ -1004,5 +1004,132 @@ var looks = RandomLooks(300);
     Check("J5 SnapshotAt resolves beams for every satellite (composer-ready)", okS, detS);
 }
 
+// ---- K: WP3 operating-parameter (R) XML writer ----
+{
+    string outDir = Path.Combine(AppContext.BaseDirectory, "exp");
+    Directory.CreateDirectory(outDir);
+
+    // K1: reconstruct the reference worked example (NEXT101 param_id 7) and
+    // compare canonically against the actual file from the dataset cases.
+    var next101 = new OperatingParamsSet
+    {
+        SatName = "NEXT101", NtcId = 127520101, ParamId = 7,
+        LowFreqMhz = 19700, HighFreqMhz = 20200,
+        EsDensityPerKm2 = 0.00000028182, EsDistanceKm = 1883,
+    };
+    next101.MinExclude.Add(new MinExcludeByOrbit { OrbId = 0, ByLat = { (0.0, 5.0) } });
+    next101.MaxCoFreqByLat.Add((0.0, 3));
+    next101.MinDurationByLat.Add((0.0, 2400));
+    next101.MinElev.Add(new MinElevByLat { LatDeg = 0.0, ByAz = { (0.0, 10.0) } });
+
+    string k1Path = Path.Combine(outDir, "op_next101_p7.xml");
+    OperParamsXmlWriter.Write(k1Path, next101);
+
+    string refPath = @"C:\Projects\_EPFD\epfd-reference\Cases\S.1503-4\Mask_param_id_7_OP_NEXT101.xml";
+    if (File.Exists(refPath))
+    {
+        var docA = new XmlDocument();
+        var docB = new XmlDocument();
+        docA.Load(k1Path);
+        docB.Load(refPath);
+        bool okK1 = docA.OuterXml == docB.OuterXml;
+        Check("K1 R-XML reconstructs the NEXT101 worked example canonically", okK1,
+            okK1 ? "OuterXml identical" : $"ours={docA.OuterXml[..Math.Min(120, docA.OuterXml.Length)]}...");
+    }
+    else
+    {
+        Check("K1 R-XML vs NEXT101 worked example", true, "reference case not present, skipped");
+    }
+
+    // K2: header-only / array-only / both-with-different-values variants
+    // (EPS 6.7.2.2: the array prevails inside its latitudes, header outside).
+    var headerOnly = new OperatingParamsSet
+    {
+        SatName = "T", NtcId = 1, ParamId = 1, LowFreqMhz = 10700, HighFreqMhz = 12750,
+        EsDensityPerKm2 = 0.0001, EsDistanceKm = 200,
+        MaxCoFreqHeader = 2, ElevAngleHeaderDeg = 5.0, MinDurationSecHeader = 400,
+    };
+    var arrayOnly = new OperatingParamsSet
+    {
+        SatName = "T", NtcId = 1, ParamId = 2, LowFreqMhz = 10700, HighFreqMhz = 12750,
+        EsDensityPerKm2 = 0.0001, EsDistanceKm = 200,
+    };
+    arrayOnly.MaxCoFreqByLat.Add((-30.0, 2));
+    arrayOnly.MaxCoFreqByLat.Add((30.0, 3));
+    arrayOnly.MinElev.Add(new MinElevByLat { LatDeg = 0.0, ByAz = { (0.0, 10.0), (180.0, 15.0) } });
+    var both = new OperatingParamsSet
+    {
+        SatName = "T", NtcId = 1, ParamId = 3, LowFreqMhz = 10700, HighFreqMhz = 12750,
+        EsDensityPerKm2 = 0.0001, EsDistanceKm = 200,
+        MaxCoFreqHeader = 2,
+    };
+    both.MaxCoFreqByLat.Add((0.0, 4));   // different from the header on purpose
+
+    string hPath = Path.Combine(outDir, "op_header.xml");
+    string aPath = Path.Combine(outDir, "op_array.xml");
+    string bPath = Path.Combine(outDir, "op_both.xml");
+    OperParamsXmlWriter.Write(hPath, headerOnly);
+    OperParamsXmlWriter.Write(aPath, arrayOnly);
+    OperParamsXmlWriter.Write(bPath, both);
+
+    var dh = new XmlDocument(); dh.Load(hPath);
+    var da = new XmlDocument(); da.Load(aPath);
+    var db2 = new XmlDocument(); db2.Load(bPath);
+    XmlElement HdrOf(XmlDocument d) => (XmlElement)d.SelectSingleNode("//non_gso_operating_parameters")!;
+
+    bool okH = HdrOf(dh).GetAttribute("max_co_freq") == "2"
+            && HdrOf(dh).GetAttribute("elev_angle") == "5"
+            && HdrOf(dh).GetAttribute("min_duration") == "400"
+            && dh.SelectNodes("//max_co_freq")!.Count == 0
+            && dh.SelectNodes("//min_elev")!.Count == 0
+            && dh.SelectNodes("//min_duration")!.Count == 0;
+    bool okA = HdrOf(da).GetAttribute("max_co_freq") == ""
+            && da.SelectNodes("//max_co_freq")!.Count == 2
+            && da.SelectNodes("//min_elev/elev_angle")!.Count == 2;
+    bool okB = HdrOf(db2).GetAttribute("max_co_freq") == "2"
+            && db2.SelectSingleNode("//max_co_freq")!.InnerText == "4";
+    Check("K2 header-only / array-only / both variants encode correctly",
+        okH && okA && okB, $"header={okH} array={okA} both={okB}");
+
+    // K3: the encoding rules that are easy to get wrong are enforced.
+    bool threw0 = false, threwEs = false, threwPop = false, classicOmits;
+    try
+    {
+        var bad = new OperatingParamsSet { EsDensityPerKm2 = 1, EsDistanceKm = 1 };
+        bad.MinDurationByLat.Add((0.0, 0));
+        OperParamsXmlWriter.Write(Path.Combine(outDir, "op_bad0.xml"), bad);
+    }
+    catch (ArgumentException) { threw0 = true; }
+    try
+    {
+        var bad = new OperatingParamsSet { EsDensityPerKm2 = 1, EsDistanceKm = 1, MinAngleAtEsDeg = 5.0 };
+        bad.MinDurationByLat.Add((0.0, 400));
+        OperParamsXmlWriter.Write(Path.Combine(outDir, "op_badEs.xml"), bad);
+    }
+    catch (ArgumentException) { threwEs = true; }
+    try
+    {
+        var bad = new OperatingParamsSet { EsDensityPerKm2 = 1 };   // distance missing
+        OperParamsXmlWriter.Write(Path.Combine(outDir, "op_badPop.xml"), bad);
+    }
+    catch (ArgumentException) { threwPop = true; }
+
+    // classic algorithm: no min_duration anywhere in the output.
+    var classic = new OperatingParamsSet
+    {
+        SatName = "T", NtcId = 1, ParamId = 4, LowFreqMhz = 17800, HighFreqMhz = 18600,
+        EsDensityPerKm2 = 0.0001, EsDistanceKm = 200, MinAngleAtEsDeg = 5.0,
+    };
+    classic.MinExclude.Add(new MinExcludeByOrbit { OrbId = 0, ByLat = { (0.0, 5.0) } });
+    string cPath = Path.Combine(outDir, "op_classic.xml");
+    OperParamsXmlWriter.Write(cPath, classic);
+    string cText = File.ReadAllText(cPath);
+    classicOmits = !cText.Contains("min_duration") && cText.Contains("min_angle_at_es")
+                && !cText.Contains("max_co_freq_sat");
+    Check("K3 rules: reject zero duration / es-angle conflict / half population; classic omits",
+        threw0 && threwEs && threwPop && classicOmits,
+        $"zero={threw0} esAngle={threwEs} pop={threwPop} classic={classicOmits}");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
