@@ -81,6 +81,12 @@ footprint centre. The horizon (line-of-sight) cap on Earth has half-angle
 
 ## Tabs
 
+### Home
+
+The front door: one card per function with a description and an Open
+button, links to the local user guide and the parameter cards, and the
+version. The functional tabs keep their state while you switch.
+
 ### Composite gain map
 
 The original composer. Inputs (left panel): orbit altitude and sub-satellite

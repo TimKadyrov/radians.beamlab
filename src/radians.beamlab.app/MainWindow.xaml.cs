@@ -26,6 +26,8 @@ public partial class MainWindow : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        HomeTab.OpenTab = i => MainTabs.SelectedIndex = i;
+
         _viewport = new MapViewport();
         _renderer = new MapRenderer(MapCanvas, _viewport, _vm);
         _interaction = new MapInteractionHandler(MapCanvas, _viewport, _vm, _renderer);

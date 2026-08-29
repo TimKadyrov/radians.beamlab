@@ -2817,5 +2817,21 @@ var looks = RandomLooks(300);
         $"invalidCaught={invalidCaught} texts={textsOk}");
 }
 
+// ---- V6: the Home tab view model, headless ----
+{
+    // Running inside the repo tree, the docs walk-up must find the guide
+    // and the parameter cards; the four function cards target tabs 1..4.
+    var vmH = new HomeViewModel(AppContext.BaseDirectory);
+    bool okV6 = vmH.Functions.Count == 4
+        && vmH.Functions.Select(f => f.TabIndex).SequenceEqual(new[] { 1, 2, 3, 4 })
+        && vmH.Functions.All(f => f.Title.Length > 0 && f.Description.Length > 40)
+        && vmH.UserGuidePath is not null && File.Exists(vmH.UserGuidePath)
+        && vmH.ParameterCardsPath is not null && File.Exists(vmH.ParameterCardsPath)
+        && vmH.VersionText.StartsWith("v1.");
+    Check("V6 Home view model: four cards, docs resolved from the repo tree, version", okV6,
+        $"funcs={vmH.Functions.Count} guide={vmH.UserGuidePath is not null} " +
+        $"cards={vmH.ParameterCardsPath is not null} ver={vmH.VersionText}");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;

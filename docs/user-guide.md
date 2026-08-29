@@ -34,6 +34,14 @@ outline is used.
 
 ---
 
+## Home
+
+The app opens on a launcher page: one card per function (the Open button
+activates its tab), links to this guide and to the parameter cards
+(`docs/parameter-cards.html`, per-parameter reference with relations), and
+the version. Switching tabs never resets a function's state — the numbered
+tabs below describe the functions in their card order.
+
 ## Tab 1 — Composite gain map
 
 ### Your first map in five steps

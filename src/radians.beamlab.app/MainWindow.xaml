@@ -50,7 +50,11 @@
         </Style>
     </Window.Resources>
 
-    <TabControl>
+    <TabControl x:Name="MainTabs">
+        <TabItem Header="Home">
+            <app:HomeView x:Name="HomeTab"/>
+        </TabItem>
+
         <TabItem Header="Composite gain map">
             <Grid>
                 <Grid.ColumnDefinitions>
