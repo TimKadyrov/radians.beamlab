@@ -4,7 +4,7 @@
         Title="Generate PFD mask XML (S.1503-4)"
         Height="560" Width="520"
         WindowStartupLocation="CenterOwner"
-        Background="#ffffff" Foreground="#1a1a1a"
+        Background="#ffffff" Foreground="#000000"
         FontFamily="Segoe UI" FontSize="12">
     <Window.Resources>
         <Style TargetType="TextBox"><Setter Property="Margin" Value="0,1,0,4"/><Setter Property="Padding" Value="3"/></Style>
@@ -73,10 +73,10 @@
                                 <TextBox Text="{Binding LatStepDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
                             </StackPanel>
                         </Grid>
-                        <TextBlock Text="{Binding LatRangeReadout}" Foreground="#666666"/>
+                        <TextBlock Text="{Binding LatRangeReadout}" Foreground="#698089"/>
                         <CheckBox IsChecked="{Binding EnvelopeOverHeadings}" Margin="0,6,0,0"
                                   Content="Envelope over ascending/descending headings"/>
-                        <TextBlock Foreground="#666666" TextWrapping="Wrap"
+                        <TextBlock Foreground="#698089" TextWrapping="Wrap"
                                    Text="A body-stabilised layout flies at the orbit's ground heading while the mask frame stays Earth-referenced; per latitude the export takes the max over both pass headings. Untick to export the single north-aligned configuration the plots show."/>
                     </StackPanel>
                 </GroupBox>
@@ -87,9 +87,9 @@
                         <TextBox Text="{Binding BStepDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
                         <TextBlock Text="{Binding CAxisLabel}"/>
                         <TextBox Text="{Binding CStepDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
-                        <TextBlock Foreground="#666666" TextWrapping="Wrap"
+                        <TextBlock Foreground="#698089" TextWrapping="Wrap"
                                    Text="Each output node takes the maximum PFD over its surrounding bin (envelope), so beam peaks are captured at any step. Unreachable nodes are written as −1000."/>
-                        <TextBlock Foreground="#666666" TextWrapping="Wrap" Text="{Binding StepHint}"/>
+                        <TextBlock Foreground="#698089" TextWrapping="Wrap" Text="{Binding StepHint}"/>
                     </StackPanel>
                 </GroupBox>
 
@@ -108,7 +108,7 @@
                             <TextBox Grid.Column="0" Text="{Binding OutputPath, UpdateSourceTrigger=PropertyChanged}"/>
                             <Button Grid.Column="1" Content="Browse…" Click="OnBrowse" Padding="8,2" Margin="6,1,0,4"/>
                         </Grid>
-                        <TextBlock Foreground="#666666" TextWrapping="Wrap"
+                        <TextBlock Foreground="#698089" TextWrapping="Wrap"
                                    Text="The extension is set from the format (.xml / .csv); 'XML + CSV' writes both with the same base name. CSV = one row per (latitude, b), one column per c value."/>
                     </StackPanel>
                 </GroupBox>

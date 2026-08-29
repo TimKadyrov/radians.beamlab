@@ -12,13 +12,13 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <ScrollViewer Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" VerticalScrollBarVisibility="Auto" Background="#f3f3f3">
+        <ScrollViewer Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" VerticalScrollBarVisibility="Auto" Background="#ffffff">
             <StackPanel Margin="10">
                 <GroupBox Header="Mask file">
                     <StackPanel>
                         <Button Content="Load mask XML…" Command="{Binding LoadCommand}" Padding="8,3" HorizontalAlignment="Left"/>
                         <TextBlock Text="{Binding InfoReadout}" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#333333"/>
-                        <TextBlock Foreground="#666666" TextWrapping="Wrap" Margin="0,8,0,0"
+                        <TextBlock Foreground="#698089" TextWrapping="Wrap" Margin="0,8,0,0"
                                    Text="Reads the S.1503-4 pfd_mask schema (the format the Generate dialog exports): azimuth_elevation or alpha_deltaLongitude."/>
                     </StackPanel>
                 </GroupBox>
@@ -30,7 +30,7 @@
                         <TextBlock Text="{Binding MinPfdReadout}" Margin="0,8,0,0" Foreground="#333333"/>
                         <CheckBox IsChecked="{Binding TreatMinAsCutoff}" IsEnabled="{Binding CanTreatMinAsCutoff}" Margin="0,4,0,0"
                                   Content="Treat min as unreachable cut-off"/>
-                        <TextBlock Foreground="#666666" TextWrapping="Wrap" Margin="0,6,0,0"
+                        <TextBlock Foreground="#698089" TextWrapping="Wrap" Margin="0,6,0,0"
                                    Text="The −1000 dBW null of S.1503-4 is always blanked. If the block minimum is below −300 dB(W/m²) it cannot be operational PFD — it is the mask's 'off' floor (e.g. −999) and the box ticks itself; untick to see it raw. Minima above −300 may be real PFD and are never treated as cut-off."/>
                     </StackPanel>
                 </GroupBox>
@@ -48,17 +48,17 @@
             </Grid.RowDefinitions>
 
             <!-- Heatmap -->
-            <Border Grid.Column="0" Grid.Row="0" Background="#f3f3f3" BorderBrush="#cccccc" BorderThickness="1,0,0,0" Padding="6,3">
-                <TextBlock Text="Mask heatmap" Foreground="#666666"/>
+            <Border Grid.Column="0" Grid.Row="0" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,0,0,0" Padding="6,3">
+                <TextBlock Text="Mask heatmap" Foreground="#698089"/>
             </Border>
-            <Border Grid.Column="0" Grid.Row="1" Background="#ffffff" BorderBrush="#cccccc" BorderThickness="1,1,0,0">
+            <Border Grid.Column="0" Grid.Row="1" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,1,0,0">
                 <app:SquarePanel>
                     <Canvas x:Name="PlotCanvas" Background="#ffffff"/>
                 </app:SquarePanel>
             </Border>
 
             <!-- Profile: cut slider + canvas -->
-            <Border Grid.Column="1" Grid.Row="0" Background="#f3f3f3" BorderBrush="#cccccc" BorderThickness="1,0,0,0" Padding="6,3">
+            <Border Grid.Column="1" Grid.Row="0" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,0,0,0" Padding="6,3">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -74,15 +74,15 @@
                     <TextBlock Grid.Column="2" Text="{Binding Plot.ProfileCutReadout}" VerticalAlignment="Center" Margin="6,0,0,0"/>
                 </Grid>
             </Border>
-            <Border Grid.Column="1" Grid.Row="1" Background="#ffffff" BorderBrush="#cccccc" BorderThickness="1,1,0,0">
+            <Border Grid.Column="1" Grid.Row="1" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,1,0,0">
                 <app:SquarePanel>
                     <Canvas x:Name="ProfileCanvas" Background="#ffffff"/>
                 </app:SquarePanel>
             </Border>
         </Grid>
 
-        <Border Grid.Column="1" Grid.Row="1" Background="#f3f3f3" BorderBrush="#cccccc" BorderThickness="1,1,0,0" Padding="10,4">
-            <TextBlock Text="{Binding StatusText}" Foreground="#1a1a1a"/>
+        <Border Grid.Column="1" Grid.Row="1" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,1,0,0" Padding="10,4">
+            <TextBlock Text="{Binding StatusText}" Foreground="#000000"/>
         </Border>
     </Grid>
 </UserControl>

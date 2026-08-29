@@ -2834,5 +2834,94 @@ var looks = RandomLooks(300);
         $"cards={vmH.ParameterCardsPath is not null} ver={vmH.VersionText}");
 }
 
+// ---- V7: Case-1 run length from the victim beam ----
+{
+    // Hand transcription of Part D eq (3) and D4.6.2 Steps 5-7 (N_tracks 16).
+    double bwV = 4.0, altV = 1200.0;
+    double halfRad = bwV * Math.PI / 360.0;
+    double kV = OrbitalConstants.EarthRadiusKm / (OrbitalConstants.EarthRadiusKm + altV);
+    double phiHand = (halfRad - Math.Asin(kV * Math.Sin(halfRad))) * 180.0 / Math.PI;
+    int nHand = (int)Math.Ceiling(180.0 / (2.0 * phiHand / 16.0));
+    bool formulaOk = Math.Abs(OrbitDesign.BeamCrossingHalfAngleDeg(bwV, altV) - phiHand) < 1e-12
+        && OrbitDesign.SuggestedNOrbits(bwV, altV) == nHand
+        && OrbitDesign.SuggestedNOrbits(2.0 * bwV, altV) < nHand      // wider beam -> fewer orbits
+        && OrbitDesign.SuggestedNOrbits(bwV, 4000.0) < nHand;         // higher shell -> larger phi
+
+    // VM wiring: the beamwidth drives NOrbits at the selected candidate's
+    // altitude; clearing it returns NOrbits to manual control.
+    var vmB = new OrbitDesignViewModel();
+    vmB.VictimBeamwidthText = "4";
+    int expN = OrbitDesign.SuggestedNOrbits(4.0, vmB.SelectedSolution!.Solution.AltitudeKm);
+    bool wiredOk = vmB.NOrbits == expN && vmB.Case1Text.Contains("orbits");
+    vmB.VictimBeamwidthText = "";
+    vmB.NOrbits = 288;
+    bool manualOk = vmB.NOrbits == 288;
+
+    Check("V7 NOrbits from the victim beam: eq (3) chain exact, VM wiring",
+        formulaOk && wiredOk && manualOk,
+        $"phi={phiHand:F4} n={nHand} vmN={expN} manual={manualOk}");
+}
+
+// ---- V8: parameter catalog locked to the card deck ----
+{
+    // The catalog is the app-facing twin of docs/parameter-cards.html; both
+    // must carry the same text. Normalise the page the way the catalog was
+    // ported (strip tags, decode entities, collapse whitespace) and require
+    // every entry's name and description verbatim.
+    string cardsPath = Path.Combine(
+        radians.beamlab.app.HomeViewModel.FindDocsDir(AppContext.BaseDirectory)!,
+        "parameter-cards.html");
+    string norm = System.Text.RegularExpressions.Regex.Replace(
+        System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(
+            File.ReadAllText(cardsPath), "<[^>]+>", "")), @"\s+", " ");
+    var missing = ParameterCatalog.All
+        .Where(e => !norm.Contains(e.Name) || !norm.Contains(e.Description))
+        .Select(e => e.Name).ToList();
+    bool okV8 = ParameterCatalog.All.Count == 24
+        && ParameterCatalog.All.Count(e => e.Group == ParameterGroup.Declared) == 11
+        && ParameterCatalog.All.Count(e => e.Group == ParameterGroup.Truth) == 9
+        && ParameterCatalog.All.Count(e => e.Group == ParameterGroup.Orbit) == 4
+        && missing.Count == 0
+        && ParameterCatalog.Find("MIN_EXCLUDE") is { } me && me.ToolTipText.Contains("- ");
+    Check("V8 parameter catalog: 24 entries locked verbatim to the card deck", okV8,
+        missing.Count > 0 ? "drifted: " + string.Join(", ", missing.Take(3))
+                          : $"entries={ParameterCatalog.All.Count}");
+}
+
+// ---- V9: constellation construction and the design file ----
+{
+    var vmC = new OrbitDesignViewModel();
+    vmC.PlaneCount = 3; vmC.SatsPerPlane = 5; vmC.LanSpreadDeg = 360.0;
+    vmC.CaseChoice = 1;   // Case 2 station-kept, selected candidate present
+    var sol = vmC.SelectedSolution!.Solution;
+    bool tablesOk = vmC.OrbitRows.Count == 3 && vmC.PhaseRows.Count == 15
+        && vmC.OrbitRows[0].StationKeeping
+        && vmC.OrbitRows[0].KeepRangeDeg == vmC.KeepRangeDeg
+        && vmC.OrbitRows[0].RepeatPeriod == sol.RptPrd
+        && Math.Abs(vmC.OrbitRows[1].LanDeg - vmC.OrbitRows[0].LanDeg - 120.0) < 1e-9
+        && Math.Abs(vmC.PhaseRows[1].PhaseAngDeg - 72.0) < 1e-9;
+
+    vmC.CaseChoice = 2;
+    bool case3Ok = vmC.OrbitRows[0].PrecessionSupplied
+        && vmC.OrbitRows[0].PrecessionRateDegPerSec < 0
+        && !vmC.OrbitRows[0].StationKeeping;
+    vmC.CaseChoice = 0;
+    bool case1Ok = !vmC.OrbitRows[0].StationKeeping && !vmC.OrbitRows[0].PrecessionSupplied;
+
+    var notice = vmC.BuildNotice();
+    bool noticeOk = notice.NtcId == vmC.NtcId && notice.SatName == vmC.SatNameText
+        && notice.Orbits.Count == 3 && notice.Phases.Count == 15;
+
+    string j1 = vmC.BuildDesignJson();
+    var vmD = new OrbitDesignViewModel();
+    vmD.LoadDesignJson(j1);
+    bool jsonOk = vmD.BuildDesignJson() == j1 && vmD.OrbitRows.Count == 3
+        && vmD.PhaseRows.Count == 15;
+
+    Check("V9 constellation tables, case fields, notice and design-file round-trip",
+        tablesOk && case3Ok && case1Ok && noticeOk && jsonOk,
+        $"orb={vmC.OrbitRows.Count} ph={vmC.PhaseRows.Count} json={jsonOk} notice={noticeOk}");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;

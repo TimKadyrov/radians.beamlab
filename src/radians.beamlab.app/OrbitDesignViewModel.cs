@@ -82,6 +82,28 @@ public sealed class OrbitDesignViewModel : ObservableObject
         set { if (SetField(ref _nOrbits, value)) RecomputeDetails(); }
     }
 
+    private string _victimBeamwidthText = "";
+    /// <summary>
+    /// Victim 3 dB beamwidth (deg); when parseable, NOrbits is derived per
+    /// the Recommendation's run rules (eq (3) + D4.6.2, N_tracks = 16) at
+    /// the selected candidate's altitude. Empty keeps NOrbits manual.
+    /// </summary>
+    public string VictimBeamwidthText
+    {
+        get => _victimBeamwidthText;
+        set { if (SetField(ref _victimBeamwidthText, value)) { ApplyBeamwidth(); RecomputeDetails(); } }
+    }
+
+    private void ApplyBeamwidth()
+    {
+        if (!double.TryParse(_victimBeamwidthText, NumberStyles.Float,
+                CultureInfo.InvariantCulture, out double bw) || bw <= 0.0)
+            return;
+        double alt = _selectedSolution?.Solution.AltitudeKm ?? _targetAltitudeKm;
+        int n = OrbitDesign.SuggestedNOrbits(bw, alt);
+        if (n != _nOrbits) { _nOrbits = n; OnPropertyChanged(nameof(NOrbits)); }
+    }
+
     private double _keepRangeDeg = 0.5;
     public double KeepRangeDeg
     {
@@ -102,7 +124,7 @@ public sealed class OrbitDesignViewModel : ObservableObject
     public OrbitSolutionRow? SelectedSolution
     {
         get => _selectedSolution;
-        set { if (SetField(ref _selectedSolution, value)) { RecomputeDetails(); RecomputeTrack(); } }
+        set { if (SetField(ref _selectedSolution, value)) { ApplyBeamwidth(); RecomputeDetails(); RecomputeTrack(); } }
     }
 
     private string _statusText = "";
@@ -152,6 +174,7 @@ public sealed class OrbitDesignViewModel : ObservableObject
             ? "no repeat inside the search band"
             : $"{sols.Count} candidate(s); nearest {sols[0].AltitudeDeltaKm:+0.00;-0.00} km from target";
         SelectedSolution = Solutions.FirstOrDefault();
+        RecomputeConstellation();
     }
 
     private void RecomputeDetails()
@@ -161,6 +184,7 @@ public sealed class OrbitDesignViewModel : ObservableObject
         {
             Case1Text = Case2Text = Case3Text = "";
             KeepRangeValid = true;
+            RecomputeConstellation();
             return;
         }
         var s = row.Solution;
@@ -200,6 +224,7 @@ public sealed class OrbitDesignViewModel : ObservableObject
         Case3Text = string.Create(inv,
             $"f_precess='Y'   precession = {rate3:E4} deg/s\n" +
             $"(the plain-J2 declaration rate at {s.AltitudeKm:F1} km / i={_inclinationDeg:F1})");
+        RecomputeConstellation();
     }
 
     private void RecomputeTrack()
@@ -256,6 +281,137 @@ public sealed class OrbitDesignViewModel : ObservableObject
         ? ""
         : string.Create(CultureInfo.InvariantCulture,
             $"track closure after one cycle: {TrackClosureDeg:F4} deg");
+
+    // ---- constellation construction (Walker shell -> SNS tables) -------
+
+    private int _planeCount = 4;
+    public int PlaneCount { get => _planeCount; set { if (SetField(ref _planeCount, value)) RecomputeConstellation(); } }
+
+    private int _satsPerPlane = 8;
+    public int SatsPerPlane { get => _satsPerPlane; set { if (SetField(ref _satsPerPlane, value)) RecomputeConstellation(); } }
+
+    private int _walkerPhasingF = 1;
+    public int WalkerPhasingF { get => _walkerPhasingF; set { if (SetField(ref _walkerPhasingF, value)) RecomputeConstellation(); } }
+
+    private double _lan0Deg;
+    public double Lan0Deg { get => _lan0Deg; set { if (SetField(ref _lan0Deg, value)) RecomputeConstellation(); } }
+
+    private double _lanSpreadDeg = 360.0;
+    public double LanSpreadDeg { get => _lanSpreadDeg; set { if (SetField(ref _lanSpreadDeg, value)) RecomputeConstellation(); } }
+
+    private double _inPlaneOffsetDeg;
+    public double InPlaneOffsetDeg { get => _inPlaneOffsetDeg; set { if (SetField(ref _inPlaneOffsetDeg, value)) RecomputeConstellation(); } }
+
+    private double _argPerigeeDeg;
+    public double ArgPerigeeDeg { get => _argPerigeeDeg; set { if (SetField(ref _argPerigeeDeg, value)) RecomputeConstellation(); } }
+
+    private string _opHeightText = "";
+    /// <summary>Minimum operating height (km); empty = the perigee altitude.</summary>
+    public string OpHeightText { get => _opHeightText; set { if (SetField(ref _opHeightText, value)) RecomputeConstellation(); } }
+
+    private int _caseChoice = 1;
+    /// <summary>0 = Case 1 free drift, 1 = Case 2 station-kept, 2 = Case 3 declared.</summary>
+    public int CaseChoice { get => _caseChoice; set { if (SetField(ref _caseChoice, value)) RecomputeConstellation(); } }
+
+    private int _ntcId = 900000001;
+    public int NtcId { get => _ntcId; set => SetField(ref _ntcId, value); }
+
+    private string _satNameText = "DESIGN";
+    public string SatNameText { get => _satNameText; set => SetField(ref _satNameText, value); }
+
+    private IReadOnlyList<SrsOrbitRow> _orbitRows = Array.Empty<SrsOrbitRow>();
+    public IReadOnlyList<SrsOrbitRow> OrbitRows { get => _orbitRows; private set => SetField(ref _orbitRows, value); }
+
+    private IReadOnlyList<SrsPhaseRow> _phaseRows = Array.Empty<SrsPhaseRow>();
+    public IReadOnlyList<SrsPhaseRow> PhaseRows { get => _phaseRows; private set => SetField(ref _phaseRows, value); }
+
+    private string _snsStatusText = "";
+    public string SnsStatusText { get => _snsStatusText; set => SetField(ref _snsStatusText, value); }
+
+    /// <summary>The designed shell: selected candidate's altitude with the chosen case's fields.</summary>
+    public ConstellationShell BuildShell()
+    {
+        double alt = _selectedSolution?.Solution.AltitudeKm ?? _targetAltitudeKm;
+        double? opHt = double.TryParse(_opHeightText, NumberStyles.Float,
+            CultureInfo.InvariantCulture, out double oh) ? oh : null;
+        var shell = new ConstellationShell
+        {
+            AltitudeKm = alt, InclinationDeg = _inclinationDeg, Eccentricity = _eccentricity,
+            PlaneCount = Math.Max(1, _planeCount), SatsPerPlane = Math.Max(1, _satsPerPlane),
+            WalkerPhasingF = _walkerPhasingF, Lan0Deg = _lan0Deg, LanSpreadDeg = _lanSpreadDeg,
+            InPlaneOffsetDeg = _inPlaneOffsetDeg, ArgumentOfPerigeeDeg = _argPerigeeDeg,
+            OperatingHeightKm = opHt,
+        };
+        return _caseChoice switch
+        {
+            1 when _selectedSolution is not null => shell with
+            {
+                StationKeeping = true, WDeltaDeg = _keepRangeDeg,
+                RepeatPeriod = _selectedSolution.Solution.RptPrd,
+            },
+            2 => shell with
+            {
+                PrecessionSupplied = true,
+                PrecessionRateDegPerSec = OrbitDesign.J2NodalRateDegPerSec(
+                    OrbitalConstants.EarthRadiusKm + alt, _eccentricity, _inclinationDeg),
+            },
+            _ => shell with { NOrbits = Math.Max(1, _nOrbits) },
+        };
+    }
+
+    /// <summary>A single-shell SNS v10 notice from the design (orbit + phase tables).</summary>
+    public SrsNotice BuildNotice()
+    {
+        var n = new SrsNotice { NtcId = _ntcId, SatName = _satNameText, Adm = "XXX" };
+        n.AddShell(BuildShell());
+        return n;
+    }
+
+    private void RecomputeConstellation()
+    {
+        try
+        {
+            var n = BuildNotice();
+            OrbitRows = n.Orbits;
+            PhaseRows = n.Phases;
+            SnsStatusText = $"{n.Orbits.Count} orbit row(s), {n.Phases.Count} phase row(s)"
+                + (_caseChoice == 1 && _selectedSolution is null ? " -- select a repeating candidate for Case 2" : "");
+        }
+        catch (Exception ex)
+        {
+            OrbitRows = Array.Empty<SrsOrbitRow>();
+            PhaseRows = Array.Empty<SrsPhaseRow>();
+            SnsStatusText = ex.Message;
+        }
+    }
+
+    private sealed record OrbitDesignFile(int SchemaVersion, double TargetAltitudeKm,
+        double InclinationDeg, double Eccentricity, int MaxOrbitsPerCycle, double SearchBandKm,
+        int PlaneCount, int SatsPerPlane, int WalkerPhasingF, double Lan0Deg, double LanSpreadDeg,
+        double InPlaneOffsetDeg, double ArgPerigeeDeg, string OpHeightText, int CaseChoice,
+        double KeepRangeDeg, int NOrbits, string VictimBeamwidthText, int NtcId, string SatName);
+
+    /// <summary>The intermediate design file: every input, reloadable and simulation-ready.</summary>
+    public string BuildDesignJson() => System.Text.Json.JsonSerializer.Serialize(
+        new OrbitDesignFile(1, _targetAltitudeKm, _inclinationDeg, _eccentricity,
+            _maxOrbitsPerCycle, _searchBandKm, _planeCount, _satsPerPlane, _walkerPhasingF,
+            _lan0Deg, _lanSpreadDeg, _inPlaneOffsetDeg, _argPerigeeDeg, _opHeightText,
+            _caseChoice, _keepRangeDeg, _nOrbits, _victimBeamwidthText, _ntcId, _satNameText),
+        new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
+    public void LoadDesignJson(string json)
+    {
+        var d = System.Text.Json.JsonSerializer.Deserialize<OrbitDesignFile>(json)
+            ?? throw new InvalidOperationException("empty design file");
+        TargetAltitudeKm = d.TargetAltitudeKm; InclinationDeg = d.InclinationDeg;
+        Eccentricity = d.Eccentricity; MaxOrbitsPerCycle = d.MaxOrbitsPerCycle;
+        SearchBandKm = d.SearchBandKm; PlaneCount = d.PlaneCount; SatsPerPlane = d.SatsPerPlane;
+        WalkerPhasingF = d.WalkerPhasingF; Lan0Deg = d.Lan0Deg; LanSpreadDeg = d.LanSpreadDeg;
+        InPlaneOffsetDeg = d.InPlaneOffsetDeg; ArgPerigeeDeg = d.ArgPerigeeDeg;
+        OpHeightText = d.OpHeightText; CaseChoice = d.CaseChoice; KeepRangeDeg = d.KeepRangeDeg;
+        NOrbits = d.NOrbits; VictimBeamwidthText = d.VictimBeamwidthText;
+        NtcId = d.NtcId; SatNameText = d.SatName;
+    }
 
     /// <summary>The clipboard payload: all three case previews for the selected solution.</summary>
     public string BuildCopyText()

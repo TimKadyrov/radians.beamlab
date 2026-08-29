@@ -4,7 +4,7 @@
         Title="Advanced GSO exclusion — α rings"
         Height="360" Width="460"
         WindowStartupLocation="CenterOwner"
-        Background="#ffffff" Foreground="#1a1a1a"
+        Background="#ffffff" Foreground="#000000"
         FontFamily="Segoe UI" FontSize="12">
     <Grid Margin="10">
         <Grid.RowDefinitions>

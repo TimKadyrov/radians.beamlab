@@ -363,6 +363,27 @@ propagated through the real constellation propagator over the coastline
 map. The filled dot marks the start, the ring the end — coincident when
 the cycle closes; the caption prints the closure angle.
 
+**Constellation (Walker shell).** Grows the designed orbit into a full
+shell: planes, satellites per plane, Walker phasing F, LAN of plane 1 and
+the LAN spread (360 = delta, 180 = star), in-plane offset, argument of
+perigee and operating height. The orbit and phase tables the design
+implies appear in the collapsible *Orbit and phase tables* panel above the
+map — exactly the rows an SNS v10 filing carries, for the station-keeping
+case chosen in the drop-down.
+
+**Save / Load design.** The whole tab state round-trips through a
+`*.orbitdesign.json` file — the intermediate design you can reload later,
+feed to a simulation, or hand to someone else.
+
+**Build SNS v10 SRS.** Writes the designed shell straight into an SNS v10
+SRS database (cloned from a donor schema; the default donor is used when
+present, otherwise you pick one) — no copying of fields by hand. The
+`ntc_id` and satellite name inputs set the notice identity.
+
+Every input carries a tooltip; filing parameters share their help text
+with the parameter cards, so the app and the documentation cannot drift
+apart.
+
 ---
 
 ## Tips & troubleshooting

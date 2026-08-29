@@ -4,7 +4,7 @@
         Title="Beam pattern (S.1528-1 §1.4 Taylor)"
         Height="520" Width="780"
         Background="#ffffff"
-        Foreground="#1a1a1a"
+        Foreground="#000000"
         FontFamily="Segoe UI" FontSize="12">
     <Grid Margin="10">
         <Grid.RowDefinitions>
@@ -13,10 +13,10 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <TextBlock x:Name="HeaderText" Grid.Row="0" FontWeight="SemiBold" Margin="0,0,0,6" TextWrapping="Wrap"/>
-        <Border Grid.Row="1" BorderBrush="#cccccc" BorderThickness="1" Background="#fafafa">
+        <Border Grid.Row="1" BorderBrush="#D1EBF5" BorderThickness="1" Background="#E9F4F8">
             <Canvas x:Name="PlotCanvas" SizeChanged="PlotCanvas_SizeChanged" ClipToBounds="True"/>
         </Border>
-        <TextBlock Grid.Row="2" Margin="0,4,0,0" Foreground="#666666"
+        <TextBlock Grid.Row="2" Margin="0,4,0,0" Foreground="#698089"
                    Text="Y: gain (dBi).  X: off-axis angle θ (degrees).  Dashed line: 3-dB edge θ = θb.  Floor line: LF."/>
     </Grid>
 </Window>

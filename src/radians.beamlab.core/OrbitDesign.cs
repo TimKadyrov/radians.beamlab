@@ -152,6 +152,34 @@ public static class OrbitDesign
                 (int)(total % 3600 / 60), (int)(total % 60));
     }
 
+    /// <summary>
+    /// Geocentric half-angle (deg) of the victim main-beam crossing at the
+    /// non-GSO altitude -- Rec. S.1503-4 Part D eq (3):
+    /// phi = theta3dB/2 - arcsin[Re/(Re+h) * sin(theta3dB/2)].
+    /// </summary>
+    public static double BeamCrossingHalfAngleDeg(double beamwidth3dBDeg, double altitudeKm)
+    {
+        if (beamwidth3dBDeg <= 0.0 || altitudeKm <= 0.0)
+            throw new ArgumentOutOfRangeException(nameof(beamwidth3dBDeg));
+        double halfRad = beamwidth3dBDeg * Math.PI / 360.0;
+        double k = OrbitalConstants.EarthRadiusKm
+                 / (OrbitalConstants.EarthRadiusKm + altitudeKm);
+        return (halfRad - Math.Asin(k * Math.Sin(halfRad))) * 180.0 / Math.PI;
+    }
+
+    /// <summary>
+    /// Case-1 run length from the victim beam (Sec. D4.6.2 Steps 5-7):
+    /// S_req = 2 phi / N_tracks and N_orbits = ceil(180 / S_req), with
+    /// N_tracks = 16 per Sec. D4.5.
+    /// </summary>
+    public static int SuggestedNOrbits(double beamwidth3dBDeg, double altitudeKm, int nTracks = 16)
+    {
+        if (nTracks < 1) throw new ArgumentOutOfRangeException(nameof(nTracks));
+        double phi = BeamCrossingHalfAngleDeg(beamwidth3dBDeg, altitudeKm);
+        double sReq = 2.0 * phi / nTracks;
+        return (int)Math.Ceiling(180.0 / sReq);
+    }
+
     /// <summary>Case 1 (free drift): neither flag; the examination derives its own precession.</summary>
     public static SnsOrbitFieldsPreview Case1Fields() => new('N', null, 'N', null, null);
 

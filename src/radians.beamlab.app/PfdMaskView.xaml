@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:app="clr-namespace:radians.beamlab.app"
              Background="#ffffff"
-             Foreground="#1a1a1a"
+             Foreground="#000000"
              FontFamily="Segoe UI" FontSize="12">
     <UserControl.Resources>
         <app:InverseBooleanConverter x:Key="NotBool"/>
@@ -19,10 +19,10 @@
         </Grid.RowDefinitions>
 
         <ScrollViewer Grid.Column="0" Grid.Row="0" Grid.RowSpan="2"
-                      VerticalScrollBarVisibility="Auto" Background="#fafafa">
+                      VerticalScrollBarVisibility="Auto" Background="#E9F4F8">
             <StackPanel Margin="10">
                 <TextBlock Text="PFD Mask Generator" FontWeight="Bold" FontSize="14"/>
-                <TextBlock Text="Taylor §1.4 elliptical + 3GPP hex" Foreground="#666666" Margin="0,0,0,8"/>
+                <TextBlock Text="Taylor §1.4 elliptical + 3GPP hex" Foreground="#698089" Margin="0,0,0,8"/>
 
                 <GroupBox Header="Orbit">
                     <StackPanel>
@@ -39,7 +39,7 @@
                     <StackPanel>
                         <TextBlock Text="Centre frequency (GHz)"/>
                         <TextBox Text="{Binding FrequencyGHz, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
-                        <TextBlock Text="{Binding FrequencyReadout}" Foreground="#666666" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding FrequencyReadout}" Foreground="#698089" TextWrapping="Wrap"/>
                         <TextBlock Text="Peak gain Gm (dBi)"/>
                         <TextBox Text="{Binding GmDbi, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
                         <TextBlock Text="Cell radius (km)  — drives α/β per beam"/>
@@ -67,8 +67,8 @@
                                   IsChecked="{Binding UseAdvancedExclusion}"/>
                         <Button Content="Edit α rings…" Command="{Binding EditExclusionRingsCommand}"
                                 IsEnabled="{Binding UseAdvancedExclusion}" HorizontalAlignment="Left" Padding="8,2"/>
-                        <TextBlock Text="{Binding ExclusionSummary}" Foreground="#666666"/>
-                        <TextBlock Text="{Binding LayoutReadout}" Foreground="#666666" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding ExclusionSummary}" Foreground="#698089"/>
+                        <TextBlock Text="{Binding LayoutReadout}" Foreground="#698089" TextWrapping="Wrap"/>
                     </StackPanel>
                 </GroupBox>
 
@@ -93,9 +93,9 @@
                         <RadioButton GroupName="PowerMode"
                                      Content="Constant boresight PFD (compensate spreading loss)"
                                      IsChecked="{Binding IsConstantPfdMode}"/>
-                        <TextBlock Foreground="#666666" TextWrapping="Wrap"
+                        <TextBlock Foreground="#698089" TextWrapping="Wrap"
                                    Text="Constant-PFD mode: input = nadir-reference power; beam k gets +20·log10(slant/alt)."/>
-                        <TextBlock Text="Aggregation" Margin="0,6,0,0" Foreground="#666666"/>
+                        <TextBlock Text="Aggregation" Margin="0,6,0,0" Foreground="#698089"/>
                         <RadioButton GroupName="PfdAggMode"
                                      Content="Power sum of all beams (aggregate mask)"
                                      IsChecked="{Binding IsPowerSumMode}"/>
@@ -114,15 +114,15 @@
                         <TextBox Text="{Binding RefBwKHz, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
                         <TextBlock Text="Mask sampling step (deg)  — az &amp; el resolution"/>
                         <TextBox Text="{Binding MaskStepDeg, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
-                        <TextBlock Foreground="#666666" TextWrapping="Wrap" Text="{Binding MaskStepHint}"/>
-                        <TextBlock Foreground="#666666" Text="Colour ramp auto-scales to the data (min / max PFD)."/>
+                        <TextBlock Foreground="#698089" TextWrapping="Wrap" Text="{Binding MaskStepHint}"/>
+                        <TextBlock Foreground="#698089" Text="Colour ramp auto-scales to the data (min / max PFD)."/>
                     </StackPanel>
                 </GroupBox>
 
                 <Button Content="Refresh / rebuild" Command="{Binding RefreshCommand}" Margin="0,8,0,0"/>
                 <Button Content="Generate mask XML…" Command="{Binding GenerateXmlCommand}" Margin="0,2,0,0"/>
 
-                <TextBlock Margin="0,8,0,0" Foreground="#666666" TextWrapping="Wrap"
+                <TextBlock Margin="0,8,0,0" Foreground="#698089" TextWrapping="Wrap"
                            Text="Az/El mask (§D6.4.5): satellite-frame angles — az from nadir toward East, el out of the East-Down plane toward North; each pixel = one look direction, colour = aggregate PFD at its ground intersection. α/ΔLongitude mask (§D6.4.4): signed α to the nearest visible GSO arc point vs ΔLongitude (NGSO sub-long − GSO point long); each cell = max PFD over all ground points sharing (α, ΔL). Both cover the whole visible disc (side-lobe radiation below ε_min included — ε_min only gates which beams are on); unreachable cells stay blank."/>
             </StackPanel>
         </ScrollViewer>
@@ -134,10 +134,10 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="3*"/>
             </Grid.RowDefinitions>
-            <Border Grid.Row="0" Background="#f3f3f3" BorderBrush="#cccccc" BorderThickness="1,0,0,0" Padding="6,3">
+            <Border Grid.Row="0" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,0,0,0" Padding="6,3">
                 <CheckBox Content="Show 3-dB footprint rings" IsChecked="{Binding FootprintsEnabled}"/>
             </Border>
-            <Border Grid.Row="1" Background="#0d1014" BorderBrush="#cccccc" BorderThickness="1,1,0,0">
+            <Border Grid.Row="1" Background="#0d1014" BorderBrush="#D1EBF5" BorderThickness="1,1,0,0">
                 <Canvas x:Name="MapCanvas" Background="#0d1014"/>
             </Border>
 
@@ -157,15 +157,15 @@
                 </Grid.RowDefinitions>
 
                 <!-- Heatmap: toolbar + canvas -->
-                <Border Grid.Column="0" Grid.Row="0" Background="#f3f3f3" BorderBrush="#cccccc" BorderThickness="1,1,0,0" Padding="6,3">
+                <Border Grid.Column="0" Grid.Row="0" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,1,0,0" Padding="6,3">
                     <CheckBox Content="Mark α &lt; α_excl" IsChecked="{Binding ShowAlphaContour}"/>
                 </Border>
-                <Border Grid.Column="0" Grid.Row="1" Background="#ffffff" BorderBrush="#cccccc" BorderThickness="1,1,0,0">
+                <Border Grid.Column="0" Grid.Row="1" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,1,0,0">
                     <Canvas x:Name="PlotCanvas" Background="#ffffff"/>
                 </Border>
 
                 <!-- Elevation profile: azimuth slider + canvas -->
-                <Border Grid.Column="1" Grid.Row="0" Background="#f3f3f3" BorderBrush="#cccccc" BorderThickness="1,1,0,0" Padding="6,3">
+                <Border Grid.Column="1" Grid.Row="0" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,1,0,0" Padding="6,3">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -181,14 +181,14 @@
                         <TextBlock Grid.Column="2" Text="{Binding ProfileCutReadout}" VerticalAlignment="Center" Margin="6,0,0,0"/>
                     </Grid>
                 </Border>
-                <Border Grid.Column="1" Grid.Row="1" Background="#ffffff" BorderBrush="#cccccc" BorderThickness="1,1,0,0">
+                <Border Grid.Column="1" Grid.Row="1" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,1,0,0">
                     <Canvas x:Name="ProfileCanvas" Background="#ffffff"/>
                 </Border>
             </Grid>
         </Grid>
 
-        <Border Grid.Column="1" Grid.Row="1" Background="#f3f3f3" BorderBrush="#cccccc" BorderThickness="1,1,0,0" Padding="10,4">
-            <TextBlock Text="{Binding StatusText}" Foreground="#1a1a1a"/>
+        <Border Grid.Column="1" Grid.Row="1" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,1,0,0" Padding="10,4">
+            <TextBlock Text="{Binding StatusText}" Foreground="#000000"/>
         </Border>
     </Grid>
 </UserControl>

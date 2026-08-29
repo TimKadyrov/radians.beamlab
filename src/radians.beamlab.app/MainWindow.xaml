@@ -6,46 +6,46 @@
         Title="radians beamlab — non-GSO PFD mask analyser"
         Icon="radians.ico"
         Height="720" Width="1280"
-        Background="#ffffff"
-        Foreground="#1a1a1a"
-        FontFamily="Segoe UI" FontSize="12">
+        Background="#E9F4F8"
+        Foreground="#000000"
+        FontFamily="Gibson, Segoe UI" FontSize="12">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <Style TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#1a1a1a"/>
+            <Setter Property="Foreground" Value="#000000"/>
             <Setter Property="Margin" Value="0,2,0,2"/>
         </Style>
         <Style TargetType="TextBox">
             <Setter Property="Background" Value="#ffffff"/>
-            <Setter Property="Foreground" Value="#1a1a1a"/>
-            <Setter Property="BorderBrush" Value="#bdbdbd"/>
+            <Setter Property="Foreground" Value="#000000"/>
+            <Setter Property="BorderBrush" Value="#8BC4CD"/>
             <Setter Property="Padding" Value="3"/>
             <Setter Property="Margin" Value="0,1,0,1"/>
         </Style>
         <Style TargetType="ComboBox">
             <Setter Property="Background" Value="#ffffff"/>
-            <Setter Property="Foreground" Value="#1a1a1a"/>
+            <Setter Property="Foreground" Value="#000000"/>
             <Setter Property="Margin" Value="0,1,0,1"/>
         </Style>
         <Style TargetType="Button">
-            <Setter Property="Background" Value="#f3f3f3"/>
-            <Setter Property="Foreground" Value="#1a1a1a"/>
-            <Setter Property="BorderBrush" Value="#bdbdbd"/>
+            <Setter Property="Background" Value="#ffffff"/>
+            <Setter Property="Foreground" Value="#0076A1"/>
+            <Setter Property="BorderBrush" Value="#0076A1"/>
             <Setter Property="Padding" Value="6,3"/>
             <Setter Property="Margin" Value="0,2,0,2"/>
         </Style>
         <Style TargetType="GroupBox">
-            <Setter Property="Foreground" Value="#404040"/>
-            <Setter Property="BorderBrush" Value="#cccccc"/>
+            <Setter Property="Foreground" Value="#0B516F"/>
+            <Setter Property="BorderBrush" Value="#D1EBF5"/>
             <Setter Property="Margin" Value="0,4,0,4"/>
             <Setter Property="Padding" Value="6"/>
         </Style>
         <Style TargetType="CheckBox">
-            <Setter Property="Foreground" Value="#1a1a1a"/>
+            <Setter Property="Foreground" Value="#000000"/>
             <Setter Property="Margin" Value="0,2,0,2"/>
         </Style>
         <Style TargetType="RadioButton">
-            <Setter Property="Foreground" Value="#1a1a1a"/>
+            <Setter Property="Foreground" Value="#000000"/>
             <Setter Property="Margin" Value="0,2,0,2"/>
         </Style>
     </Window.Resources>
@@ -67,16 +67,16 @@
                 </Grid.RowDefinitions>
 
                 <ScrollViewer Grid.Column="0" Grid.Row="0" Grid.RowSpan="2"
-                              VerticalScrollBarVisibility="Auto" Background="#fafafa">
+                              VerticalScrollBarVisibility="Auto" Background="#E9F4F8">
                     <StackPanel Margin="10">
                         <TextBlock Text="radians beamlab" FontWeight="Bold" FontSize="14"/>
-                        <TextBlock Text="non-GSO PFD mask analyser  ·  ITU-R S.1528" Foreground="#666666" Margin="0,0,0,8"/>
+                        <TextBlock Text="non-GSO PFD mask analyser  ·  ITU-R S.1528" Foreground="#698089" Margin="0,0,0,8"/>
 
                         <GroupBox Header="Orbit">
                             <StackPanel>
                                 <TextBlock Text="Altitude (km)"/>
                                 <TextBox Text="{Binding AltitudeKm, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
-                                <TextBlock Text="{Binding AltReadoutText}" Foreground="#666666"/>
+                                <TextBlock Text="{Binding AltReadoutText}" Foreground="#698089"/>
                             </StackPanel>
                         </GroupBox>
 
@@ -93,7 +93,7 @@
                             <StackPanel>
                                 <TextBlock Text="Centre frequency (GHz)"/>
                                 <TextBox Text="{Binding FrequencyGHz, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
-                                <TextBlock Text="{Binding DerivedReadoutText}" Foreground="#666666" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding DerivedReadoutText}" Foreground="#698089" TextWrapping="Wrap"/>
                                 <Button Content="Fill θb from Gm" Command="{Binding FillThetaCommand}"/>
                             </StackPanel>
                         </GroupBox>
@@ -117,13 +117,13 @@
                                 <TextBlock Text="Far-out / null floor LF (dBi)"/>
                                 <TextBox Text="{Binding LfDbi, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
 
-                                <TextBlock Text="§1.4 Taylor only:" Margin="0,6,0,0" Foreground="#666666"/>
+                                <TextBlock Text="§1.4 Taylor only:" Margin="0,6,0,0" Foreground="#698089"/>
                                 <TextBlock Text="Side-lobe ratio SLR (dB)"/>
                                 <TextBox Text="{Binding TaylorSlrDb, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
                                 <TextBlock Text="n̄ secondary lobes (2..6)"/>
                                 <TextBox Text="{Binding TaylorNbar, UpdateSourceTrigger=LostFocus}"/>
 
-                                <TextBlock Text="Layout:" Margin="0,6,0,0" Foreground="#666666"/>
+                                <TextBlock Text="Layout:" Margin="0,6,0,0" Foreground="#698089"/>
                                 <CheckBox IsChecked="{Binding AutoMode}" Content="Auto hex tessellation (3GPP NTN UV-plane / Annex 2 ground-plane)"/>
                                 <CheckBox IsChecked="{Binding UvArrayBeams}" Margin="18,2,0,0"
                                           Content="Array-steered UV beams (§1.4 circular: radial width ×1/cos θ)"/>
@@ -133,7 +133,7 @@
                                 </StackPanel>
 
                                 <StackPanel Visibility="{Binding IsEllipticalPattern, Converter={StaticResource BoolToVis}}">
-                                    <TextBlock Text="§1.4 elliptical (Annex 2 cell parameterisation):" Margin="0,6,0,0" Foreground="#666666"/>
+                                    <TextBlock Text="§1.4 elliptical (Annex 2 cell parameterisation):" Margin="0,6,0,0" Foreground="#698089"/>
                                     <StackPanel Visibility="{Binding IsEllipticalManualMode, Converter={StaticResource BoolToVis}}">
                                         <TextBlock Text="Half-radial cell axis α (deg subtended at sat)"/>
                                         <TextBox Text="{Binding EllAlphaDeg, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
@@ -144,7 +144,7 @@
                                     <TextBox Text="{Binding EllRollOffDb, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
                                 </StackPanel>
 
-                                <TextBlock Text="§1.2 envelope only:" Margin="0,6,0,0" Foreground="#666666"/>
+                                <TextBlock Text="§1.2 envelope only:" Margin="0,6,0,0" Foreground="#698089"/>
                                 <TextBlock Text="Near-in side-lobe LN (dB rel. peak)"/>
                                 <TextBox Text="{Binding LnDb, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
 
@@ -158,7 +158,7 @@
                                 <TextBox Text="{Binding MinElevDeg, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
                                 <TextBlock Text="Adjacent-beam crossover level (dB, negative)"/>
                                 <TextBox Text="{Binding CrossoverDb, UpdateSourceTrigger=LostFocus, StringFormat=F2}"/>
-                                <TextBlock Text="{Binding LayoutReadoutText}" Foreground="#666666" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding LayoutReadoutText}" Foreground="#698089" TextWrapping="Wrap"/>
                             </StackPanel>
                         </GroupBox>
 
@@ -233,7 +233,7 @@
                             </StackPanel>
                         </GroupBox>
 
-                        <TextBlock Margin="0,8,0,0" Foreground="#666666"
+                        <TextBlock Margin="0,8,0,0" Foreground="#698089"
                                    TextWrapping="Wrap"
                                    Text="Click a beam marker on the map to toggle on/off. Click anywhere else to probe composite gain at that ground location. Right-drag the map to move the satellite, left-drag to pan, mouse wheel to zoom."/>
 
@@ -241,12 +241,12 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <Border Grid.Column="1" Grid.Row="0" Background="#0d1014" BorderBrush="#cccccc" BorderThickness="1,0,0,0">
+                <Border Grid.Column="1" Grid.Row="0" Background="#0d1014" BorderBrush="#D1EBF5" BorderThickness="1,0,0,0">
                     <Canvas x:Name="MapCanvas" Background="#0d1014"/>
                 </Border>
 
-                <Border Grid.Column="1" Grid.Row="1" Background="#f3f3f3" BorderBrush="#cccccc" BorderThickness="1,1,0,0" Padding="10,4">
-                    <TextBlock Text="{Binding StatusText}" Foreground="#1a1a1a"/>
+                <Border Grid.Column="1" Grid.Row="1" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,1,0,0" Padding="10,4">
+                    <TextBlock Text="{Binding StatusText}" Foreground="#000000"/>
                 </Border>
             </Grid>
         </TabItem>
