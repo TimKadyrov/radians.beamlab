@@ -34,9 +34,18 @@
                         Click="OnGuideClick"/>
                 <Button x:Name="CardsButton" Content="Parameter cards" Margin="0,0,8,0" Padding="10,3"
                         Click="OnCardsClick"/>
-                <Button x:Name="OrbitCasesButton" Content="Orbit case guide" Padding="10,3"
+                <Button x:Name="OrbitCasesButton" Content="Orbit case guide" Margin="0,0,8,0" Padding="10,3"
                         Click="OnOrbitCasesClick"/>
+                <Button x:Name="SolverGuideButton" Content="Repeat solver guide" Padding="10,3"
+                        Click="OnSolverGuideClick"/>
             </StackPanel>
+
+            <TextBlock Text="Tools" FontSize="15" FontWeight="SemiBold" Margin="0,10,0,4"/>
+            <StackPanel Orientation="Horizontal">
+                <Button Content="SNS v10 builder" Padding="10,3" Click="OnSnsBuilderClick"/>
+            </StackPanel>
+            <TextBlock Foreground="#698089" FontSize="11" TextWrapping="Wrap"
+                       Text="Assembles complete SNS v10 datasets (SRS + Masks) from orbit designs, mask XMLs and operating-parameter sets."/>
             <TextBlock Text="{Binding VersionText}" Foreground="#698089" Margin="0,16,0,0"/>
         </StackPanel>
     </ScrollViewer>

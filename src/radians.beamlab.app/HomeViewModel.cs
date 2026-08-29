@@ -39,6 +39,7 @@ public sealed class HomeViewModel
     public string? UserGuidePath { get; }
     public string? ParameterCardsPath { get; }
     public string? OrbitCasesPath { get; }
+    public string? RepeatSolverPath { get; }
 
     public string VersionText { get; }
 
@@ -52,6 +53,8 @@ public sealed class HomeViewModel
         ParameterCardsPath = cards is not null && File.Exists(cards) ? cards : null;
         string? cases = docs is null ? null : Path.Combine(docs, "orbit-design-cases.html");
         OrbitCasesPath = cases is not null && File.Exists(cases) ? cases : null;
+        string? solver = docs is null ? null : Path.Combine(docs, "repeat-solver.html");
+        RepeatSolverPath = solver is not null && File.Exists(solver) ? solver : null;
 
         var v = Assembly.GetExecutingAssembly().GetName().Version;
         VersionText = v is null ? "" : $"v{v.Major}.{v.Minor}.{v.Build}";

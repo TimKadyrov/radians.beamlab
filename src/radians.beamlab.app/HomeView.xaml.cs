@@ -23,6 +23,7 @@ public partial class HomeView : UserControl
         GuideButton.IsEnabled = _vm.UserGuidePath is not null;
         CardsButton.IsEnabled = _vm.ParameterCardsPath is not null;
         OrbitCasesButton.IsEnabled = _vm.OrbitCasesPath is not null;
+        SolverGuideButton.IsEnabled = _vm.RepeatSolverPath is not null;
     }
 
     private void OnOpenClick(object sender, RoutedEventArgs e)
@@ -30,9 +31,13 @@ public partial class HomeView : UserControl
         if (sender is Button { Tag: int index }) OpenTab?.Invoke(index);
     }
 
+    private void OnSnsBuilderClick(object sender, RoutedEventArgs e)
+        => new SnsBuilderWindow { Owner = Window.GetWindow(this) }.Show();
+
     private void OnGuideClick(object sender, RoutedEventArgs e) => Shell(_vm.UserGuidePath);
     private void OnCardsClick(object sender, RoutedEventArgs e) => Shell(_vm.ParameterCardsPath);
     private void OnOrbitCasesClick(object sender, RoutedEventArgs e) => Shell(_vm.OrbitCasesPath);
+    private void OnSolverGuideClick(object sender, RoutedEventArgs e) => Shell(_vm.RepeatSolverPath);
 
     private static void Shell(string? path)
     {

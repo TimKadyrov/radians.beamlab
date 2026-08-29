@@ -2,230 +2,435 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid Margin="8">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="300"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-        <!-- left: inputs + case previews -->
-        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="0,0,8,0">
-            <TextBlock TextWrapping="Wrap" Foreground="#698089" Margin="0,0,0,2"
-                       Text="Prototype the SNS v10 orbit declaration: enter a target orbit, pick a repeating-track candidate, and read off the fields for each station-keeping case."/>
-            <Button x:Name="CasesGuideButton" Content="What are the three cases?"
-                    HorizontalAlignment="Left" Padding="8,2" Click="OnCasesGuideClick"/>
-            <GroupBox Header="Target orbit">
-                <Grid>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+            <TextBlock VerticalAlignment="Center" Foreground="#698089" Margin="0,0,10,0"
+                       Text="Prototype the SNS v10 orbit declaration: solve a repeating track, read the station-keeping cases, grow the shell."/>
+            <Button x:Name="CasesGuideButton" Content="What are the three cases?" Padding="8,2"
+                    Click="OnCasesGuideClick"/>
+            <TextBlock VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#0B516F"
+                       Text="{Binding ShellHeaderText}"/>
+        </StackPanel>
+
+        <TabControl Grid.Row="1" x:Name="InnerTabs" DataContext="{Binding SelectedShell}">
+
+            <!-- ============ sub-tab 0: start here ============ -->
+            <TabItem Header="Start here">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="8" MaxWidth="640" HorizontalAlignment="Left">
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,10"
+                               Text="Orbit Design takes each shell from a target orbit to its SNS v10 declaration in four steps, and the document holds every shell of the constellation. Pick or add a shell below, enter its target orbit — every step and every case starts from it — then walk the steps; each feeds the next automatically."/>
+
+                    <GroupBox Header="Shells — the constellation" Margin="0,0,0,8"
+                              DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                        <StackPanel>
+                            <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
+                                       Text="Every sub-tab edits the shell selected here. Design shell 1, add the next, design that — Save design writes the whole document, and the SNS builder takes all its shells at once."/>
+                            <ListBox ItemsSource="{Binding Shells}" SelectedItem="{Binding SelectedShell, Mode=TwoWay}"
+                                     MaxHeight="110" BorderBrush="#D1EBF5" Background="#ffffff">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding ShellSummary}"/>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <Button Content="Add shell" Margin="0,0,6,0" Click="OnAddShellClick"/>
+                                <Button Content="Duplicate" Margin="0,0,6,0" Click="OnDuplicateShellClick"/>
+                                <Button Content="Remove" Click="OnRemoveShellClick"
+                                        ToolTip="Removes the selected shell; a document always keeps at least one."/>
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Header="Target orbit of the selected shell — shared by every case" Margin="0,0,0,8">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="160"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/><RowDefinition/><RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Text="Altitude (km)"/>
+                                <TextBox   x:Name="AltBox" Grid.Row="0" Grid.Column="1" Text="{Binding TargetAltitudeKm, UpdateSourceTrigger=LostFocus}"/>
+                                <TextBlock Grid.Row="1" Text="Inclination (deg)"/>
+                                <TextBox   x:Name="IncBox" Grid.Row="1" Grid.Column="1" Text="{Binding InclinationDeg, UpdateSourceTrigger=LostFocus}"/>
+                                <TextBlock Grid.Row="2" Text="Eccentricity"/>
+                                <TextBox   x:Name="EccBox" Grid.Row="2" Grid.Column="1" Text="{Binding Eccentricity, UpdateSourceTrigger=LostFocus}"/>
+                            </Grid>
+                            <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,4,0,0"
+                                       Text="Free drift (Case 1) and declared precession (Case 3) fly this orbit exactly as entered; only a station-kept repeating design (Case 2) replaces the altitude with a solved candidate."/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <Border Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1" CornerRadius="4" Padding="12,8" Margin="0,0,0,4">
+                        <StackPanel>
+                            <TextBlock FontWeight="SemiBold" Text="1 · Repeat solver — find the orbit"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="#698089" Margin="0,2,0,6"
+                                       Text="The grid lists the altitudes near your target where the ground track truly repeats; select the candidate you want, or enter a repeat of your own (k orbits in m nodal days) and have it validated as the top row. The propagated track below shows the selection closing. Only a station-kept repeating design (Case 2) needs a solved candidate — free drift and declared precession use the target orbit as-is, so you can skip this step."/>
+                            <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#0B516F" Margin="0,0,0,6"
+                                       Text="Feeds forward: the selected candidate — its exact altitude, cycle and rpt_prd fields — drives the cases, the constellation and the saved design."/>
+                            <Button Content="Open Repeat solver" HorizontalAlignment="Left" Click="OnGoSolverClick"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1" CornerRadius="4" Padding="12,8" Margin="0,0,0,4">
+                        <StackPanel>
+                            <TextBlock FontWeight="SemiBold" Text="2 · Station-keeping cases — read the filing variants"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="#698089" Margin="0,2,0,6"
+                                       Text="The three ways the filing can describe the orbit: free drift (informational — how the EPFD calculation will model the target orbit, with NOrbits derivable from a victim beamwidth), station-kept repeating (the selected candidate's cycle, keep_rnge checked against its bound), or a declared precession rate."/>
+                            <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#0B516F" Margin="0,0,0,6"
+                                       Text="Feeds forward: the case you choose, with its keep_rnge or NOrbits, becomes the constellation's orbit-row fields."/>
+                            <Button Content="Open Station-keeping cases" HorizontalAlignment="Left" Click="OnGoCasesClick"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1" CornerRadius="4" Padding="12,8" Margin="0,0,0,4">
+                        <StackPanel>
+                            <TextBlock FontWeight="SemiBold" Text="3 · Constellation — grow the shell, save the design"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="#698089" Margin="0,2,0,6"
+                                       Text="Planes, satellites per plane and Walker phasing grow the orbit into a full shell; the SNS orbit and phase tables preview live — for the selected shell or all shells combined. Save design writes every shell of the document — including selected candidates — to one *.orbitdesign.json file."/>
+                            <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#0B516F" Margin="0,0,0,6"
+                                       Text="Feeds forward: the design file is the hand-off — reload it here, feed a simulation, or give it to the builder."/>
+                            <Button Content="Open Constellation" HorizontalAlignment="Left" Click="OnGoConstellationClick"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1" CornerRadius="4" Padding="12,8" Margin="0,0,0,4">
+                        <StackPanel>
+                            <TextBlock FontWeight="SemiBold" Text="4 · SNS v10 builder — assemble the dataset (window)"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="#698089" Margin="0,2,0,6"
+                                       Text="Load a design document (all its shells at once) or individual files, register mask XMLs and operating-parameter sets, set the scenario frequencies — and build both databases: the SRS and the Masks."/>
+                            <Button Content="Open SNS v10 builder" HorizontalAlignment="Left" Click="OnOpenSnsBuilderClick"/>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,6,0,0"
+                               Text="Background reading: the two guides — the three orbit cases (button above) and the repeat solver — explain the why behind each step."/>
+                </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ============ sub-tab 1: repeat solver ============ -->
+            <TabItem Header="Repeat solver">
+                <Grid Margin="4">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="300"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Altitude (km)"/>
-                    <TextBox   x:Name="AltBox" Grid.Row="0" Grid.Column="1" Text="{Binding TargetAltitudeKm, UpdateSourceTrigger=LostFocus}"/>
-                    <TextBlock Grid.Row="1" Text="Inclination (deg)"/>
-                    <TextBox   x:Name="IncBox" Grid.Row="1" Grid.Column="1" Text="{Binding InclinationDeg, UpdateSourceTrigger=LostFocus}"/>
-                    <TextBlock Grid.Row="2" Text="Eccentricity"/>
-                    <TextBox   x:Name="EccBox" Grid.Row="2" Grid.Column="1" Text="{Binding Eccentricity, UpdateSourceTrigger=LostFocus}"/>
-                    <TextBlock Grid.Row="3" Text="Max orbits / cycle"/>
-                    <TextBox   x:Name="MaxOrbBox" Grid.Row="3" Grid.Column="1" Text="{Binding MaxOrbitsPerCycle, UpdateSourceTrigger=LostFocus}"/>
-                    <TextBlock Grid.Row="4" Text="Search band (km)"/>
-                    <TextBox   x:Name="BandBox" Grid.Row="4" Grid.Column="1" Text="{Binding SearchBandKm, UpdateSourceTrigger=LostFocus}"/>
-                </Grid>
-            </GroupBox>
 
-            <TextBlock Text="{Binding StatusText}" Foreground="#698089" TextWrapping="Wrap"/>
-
-            <GroupBox Header="Case 1 — free drift (artificial precession)">
-                <StackPanel>
-                    <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
-                               Text="No station keeping is filed. The EPFD calculation adds an artificial precession so NOrbits passes tile the equator uniformly; nothing below is declared. Enter the victim 3 dB beamwidth to derive NOrbits per the run rules (N_tracks = 16), or leave it empty and set NOrbits by hand."/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="130"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition/><RowDefinition/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Text="victim beamwidth (deg)" FontSize="11"/>
-                        <TextBox x:Name="BwBox" Grid.Column="1" Text="{Binding VictimBeamwidthText, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="1" Text="NOrbits (run)"/>
-                        <TextBox x:Name="NOrbitsBox" Grid.Row="1" Grid.Column="1" Text="{Binding NOrbits, UpdateSourceTrigger=LostFocus}"/>
-                    </Grid>
-                    <TextBlock Text="{Binding Case1Text}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
-                </StackPanel>
-            </GroupBox>
-
-            <GroupBox Header="Case 2 — station-kept repeating track">
-                <StackPanel>
-                    <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
-                               Text="A committed repeating track: declare the cycle (rpt_prd, from the selected row) and the longitude deadband (keep_rnge) the examination sweeps."/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="130"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="keep_rnge (deg)"/>
-                        <TextBox x:Name="KeepBox" Grid.Column="1" Text="{Binding KeepRangeDeg, UpdateSourceTrigger=LostFocus}"/>
-                    </Grid>
-                    <TextBlock Text="{Binding Case2Text}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="#000000"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding KeepRangeValid}" Value="False">
-                                        <Setter Property="Foreground" Value="#CC3F4D"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </StackPanel>
-            </GroupBox>
-
-            <GroupBox Header="Case 3 — declared precession">
-                <StackPanel>
-                    <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
-                               Text="The administration files its own nodal precession rate and the examination uses it as-is; the J2 rate below is the honest default for an unmanaged node."/>
-                    <TextBlock Text="{Binding Case3Text}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
-                </StackPanel>
-            </GroupBox>
-
-            <Button Content="Copy SNS fields" Click="OnCopyClick"/>
-
-            <GroupBox Header="Constellation (Walker shell)">
-                <StackPanel>
-                    <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
-                               Text="Grow the designed orbit into a full shell: planes and phasing produce the SNS orbit and phase tables for the chosen case (see the tables above the map)."/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="130"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
-                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
-                            <RowDefinition/><RowDefinition/><RowDefinition/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="Planes"/>
-                        <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding PlaneCount, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="1" Text="Sats / plane"/>
-                        <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding SatsPerPlane, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="2" Text="Walker F"/>
-                        <TextBox   x:Name="WalkerFBox" Grid.Row="2" Grid.Column="1" Text="{Binding WalkerPhasingF, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="3" Text="LAN of plane 1 (deg)"/>
-                        <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding Lan0Deg, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="4" Text="LAN spread (deg)"/>
-                        <TextBox   x:Name="LanSpreadBox" Grid.Row="4" Grid.Column="1" Text="{Binding LanSpreadDeg, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="5" Text="In-plane offset (deg)"/>
-                        <TextBox   Grid.Row="5" Grid.Column="1" Text="{Binding InPlaneOffsetDeg, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="6" Text="Arg. of perigee (deg)"/>
-                        <TextBox   Grid.Row="6" Grid.Column="1" Text="{Binding ArgPerigeeDeg, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="7" Text="Op. height (km)"/>
-                        <TextBox   x:Name="OpHeightBox" Grid.Row="7" Grid.Column="1" Text="{Binding OpHeightText, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="8" Text="Station-keeping case"/>
-                        <ComboBox  Grid.Row="8" Grid.Column="1" SelectedIndex="{Binding CaseChoice}">
-                            <ComboBoxItem Content="Case 1 — free drift"/>
-                            <ComboBoxItem Content="Case 2 — station-kept repeating"/>
-                            <ComboBoxItem Content="Case 3 — declared precession"/>
-                        </ComboBox>
-                        <TextBlock Grid.Row="9" Text="ntc_id"/>
-                        <TextBox   Grid.Row="9" Grid.Column="1" Text="{Binding NtcId, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="10" Text="Satellite name"/>
-                        <TextBox   Grid.Row="10" Grid.Column="1" Text="{Binding SatNameText, UpdateSourceTrigger=LostFocus}"/>
-                    </Grid>
-                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                        <Button Content="Save design" Margin="0,0,6,0" Click="OnSaveDesignClick"/>
-                        <Button Content="Load design" Margin="0,0,6,0" Click="OnLoadDesignClick"/>
-                        <Button Content="Build SNS v10 SRS" Click="OnBuildSnsClick"/>
+                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4"
+                                    DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                            <TextBlock Text="Shell:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#698089"/>
+                            <ComboBox MinWidth="200" ItemsSource="{Binding Shells}" SelectedItem="{Binding SelectedShell, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate><TextBlock Text="{Binding ShellSummary}"/></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+                        <GroupBox Header="Repeat search">
+                            <StackPanel>
+                                <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"><Run Text="Searches near the target orbit from the Start tab: "/><Run Text="{Binding TargetAltitudeKm, Mode=OneWay, StringFormat=F1}"/><Run Text=" km, i "/><Run Text="{Binding InclinationDeg, Mode=OneWay, StringFormat=F1}"/><Run Text="°, e "/><Run Text="{Binding Eccentricity, Mode=OneWay, StringFormat=F3}"/><Run Text="."/></TextBlock>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="130"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/><RowDefinition/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="Max orbits / cycle"/>
+                                    <TextBox   x:Name="MaxOrbBox" Grid.Row="0" Grid.Column="1" Text="{Binding MaxOrbitsPerCycle, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Grid.Row="1" Text="Search band (km)"/>
+                                    <TextBox   x:Name="BandBox" Grid.Row="1" Grid.Column="1" Text="{Binding SearchBandKm, UpdateSourceTrigger=LostFocus}"/>
+                                </Grid>
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="Check a period of your own">
+                            <StackPanel>
+                                <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
+                                           Text="Have a repeat in mind? Enter it as whole orbits per whole nodal days; it is validated like any solved candidate and becomes the selectable top row of the grid."/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="130"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/><RowDefinition/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="Orbits (k)"/>
+                                    <TextBox   x:Name="CheckOrbitsBox" Grid.Row="0" Grid.Column="1" Text="{Binding CheckOrbitsText, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Grid.Row="1" Text="Nodal days (m)"/>
+                                    <TextBox   x:Name="CheckDaysBox" Grid.Row="1" Grid.Column="1" Text="{Binding CheckDaysText, UpdateSourceTrigger=LostFocus}"/>
+                                </Grid>
+                                <TextBlock Text="{Binding CheckStatusText}" Foreground="#698089" FontSize="11" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </GroupBox>
+                        <TextBlock Text="{Binding StatusText}" Foreground="#698089" TextWrapping="Wrap"/>
+                        <Button x:Name="SolverGuideButton" Content="How the solver works" HorizontalAlignment="Left"
+                                Padding="8,2" Click="OnSolverGuideClick"/>
+                        <TextBlock Text="{Binding TrackClosureText}" Foreground="#698089"
+                                   FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
                     </StackPanel>
-                    <TextBlock Text="{Binding SnsStatusText}" Foreground="#698089" FontSize="11" TextWrapping="Wrap"/>
+
+                    <Grid Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="235"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Foreground="#698089" Margin="0,0,0,2" TextWrapping="Wrap"
+                                       Text="Repeating-track candidates near the target: a track repeats after k orbits when k · S_pass = m · 360°. Each row is solved to the exact altitude that closes the cycle."/>
+                            <DataGrid ItemsSource="{Binding Solutions}"
+                                      SelectedItem="{Binding SelectedSolution, Mode=TwoWay}"
+                                      AutoGenerateColumns="False" IsReadOnly="True"
+                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                      Background="#ffffff" Foreground="#000000" BorderBrush="#D1EBF5"
+                                      RowBackground="#ffffff" AlternatingRowBackground="#E9F4F8">
+                                <DataGrid.RowStyle>
+                                    <Style TargetType="DataGridRow">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsUserEntry}" Value="True">
+                                                <Setter Property="Background" Value="#D1EBF5"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding WithinBand}" Value="False">
+                                                <Setter Property="Foreground" Value="#CC3F4D"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGrid.RowStyle>
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="orbits k" Binding="{Binding Orbits}" Width="70"/>
+                                    <DataGridTextColumn Header="days m" Binding="{Binding NodalDays}" Width="60"/>
+                                    <DataGridTextColumn Header="exact alt (km)" Binding="{Binding AltitudeText}" Width="100"/>
+                                    <DataGridTextColumn Header="delta (km)" Binding="{Binding DeltaText}" Width="80"/>
+                                    <DataGridTextColumn Header="cycle" Binding="{Binding CycleText}" Width="100"/>
+                                    <DataGridTextColumn Header="drift@target (deg/cyc)" Binding="{Binding DriftText}" Width="140"/>
+                                    <DataGridTextColumn Header="spacing (deg)" Binding="{Binding SpacingText}" Width="95"/>
+                                    <DataGridTextColumn Header="max keep_rnge" Binding="{Binding MaxKeepText}" Width="100"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <TextBlock Foreground="#698089" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
+                                       Text="drift@target: node drift per cycle if flown at your altitude instead · max keep_rnge: half the track spacing — a wider deadband makes adjacent swept tracks overlap."/>
+                        </StackPanel>
+
+                        <Border Grid.Row="1" Margin="0,8,0,0" BorderBrush="#D1EBF5" BorderThickness="1" Background="#ffffff">
+                            <Grid>
+                                <Canvas x:Name="TrackCanvas" ClipToBounds="True"/>
+                                <TextBlock Text="one full propagated cycle of the selected candidate — dot marks the start, ring the end; they coincide when the track closes"
+                                           Margin="8,4" VerticalAlignment="Top" HorizontalAlignment="Left"
+                                           Foreground="#698089" FontSize="11" TextWrapping="Wrap"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- ============ sub-tab 2: the three cases ============ -->
+            <TabItem Header="Station-keeping cases">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="4" MaxWidth="560" HorizontalAlignment="Left">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4"
+                                DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                        <TextBlock Text="Shell:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#698089"/>
+                        <ComboBox MinWidth="200" ItemsSource="{Binding Shells}" SelectedItem="{Binding SelectedShell, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate><TextBlock Text="{Binding ShellSummary}"/></DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <GroupBox Header="Case 1 — free drift (informational)">
+                        <StackPanel>
+                            <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
+                                       Text="Purely informational — nothing here goes into the filing. The panel shows how the EPFD calculation will model a free-drift orbit: it takes the target orbit as entered and adds an artificial precession so NOrbits passes tile the equator uniformly. Enter the victim 3 dB beamwidth to derive NOrbits per the run rules (N_tracks = 16), or set NOrbits by hand."/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/><RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="victim beamwidth (deg)" FontSize="11"/>
+                                <TextBox x:Name="BwBox" Grid.Column="1" Text="{Binding VictimBeamwidthText, UpdateSourceTrigger=LostFocus}"/>
+                                <TextBlock Grid.Row="1" Text="NOrbits (run)"/>
+                                <TextBox x:Name="NOrbitsBox" Grid.Row="1" Grid.Column="1" Text="{Binding NOrbits, UpdateSourceTrigger=LostFocus}"/>
+                            </Grid>
+                            <TextBlock Text="{Binding Case1Text}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Header="Case 2 — station-kept repeating track">
+                        <StackPanel>
+                            <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
+                                       Text="A committed repeating track: declare the cycle (rpt_prd, from the selected row of the Repeat solver) and the longitude deadband (keep_rnge) the EPFD calculation sweeps."/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="keep_rnge (deg)"/>
+                                <TextBox x:Name="KeepBox" Grid.Column="1" Text="{Binding KeepRangeDeg, UpdateSourceTrigger=LostFocus}"/>
+                            </Grid>
+                            <TextBlock Text="{Binding Case2Text}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#000000"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding KeepRangeValid}" Value="False">
+                                                <Setter Property="Foreground" Value="#CC3F4D"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Header="Case 3 — declared precession">
+                        <StackPanel>
+                            <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
+                                       Text="The administration files its own nodal precession rate and the EPFD calculation uses it as-is — no solved repeat is needed. Enter a rate to declare your own (any sign; prograde orbits drift westward, so negative is the normal case); empty declares the J2 default for your target orbit."/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="precession (deg/s)"/>
+                                <TextBox x:Name="PrecessBox" Grid.Column="1" Text="{Binding PrecessionText, UpdateSourceTrigger=LostFocus}"/>
+                            </Grid>
+                            <TextBlock Text="{Binding Case3Text}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <Button Content="Copy case summary (text)" HorizontalAlignment="Left" Click="OnCopyClick"
+                            ToolTip="Puts a plain-text summary of the selected candidate on the clipboard: the three case previews as shown, for pasting into notes or mail. Machine-readable output is the saved design file and the SNS v10 builder."/>
                 </StackPanel>
-            </GroupBox>
-        </StackPanel>
-        </ScrollViewer>
+                </ScrollViewer>
+            </TabItem>
 
-        <!-- right: solutions grid + ground track -->
-        <Grid Grid.Column="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="235"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-
-            <StackPanel Grid.Row="0">
-            <TextBlock Foreground="#698089" Margin="0,0,0,2" TextWrapping="Wrap"
-                       Text="Repeating-track candidates near the target: a track repeats after k orbits when k · S_pass = m · 360°. Each row is solved to the exact altitude that closes the cycle."/>
-            <DataGrid ItemsSource="{Binding Solutions}"
-                      SelectedItem="{Binding SelectedSolution, Mode=TwoWay}"
-                      AutoGenerateColumns="False" IsReadOnly="True"
-                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                      Background="#ffffff" Foreground="#000000" BorderBrush="#D1EBF5"
-                      RowBackground="#ffffff" AlternatingRowBackground="#E9F4F8">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="orbits k" Binding="{Binding Orbits}" Width="70"/>
-                    <DataGridTextColumn Header="days m" Binding="{Binding NodalDays}" Width="60"/>
-                    <DataGridTextColumn Header="exact alt (km)" Binding="{Binding AltitudeText}" Width="100"/>
-                    <DataGridTextColumn Header="delta (km)" Binding="{Binding DeltaText}" Width="80"/>
-                    <DataGridTextColumn Header="cycle" Binding="{Binding CycleText}" Width="100"/>
-                    <DataGridTextColumn Header="drift@target (deg/cyc)" Binding="{Binding DriftText}" Width="140"/>
-                    <DataGridTextColumn Header="spacing (deg)" Binding="{Binding SpacingText}" Width="95"/>
-                    <DataGridTextColumn Header="max keep_rnge" Binding="{Binding MaxKeepText}" Width="100"/>
-                </DataGrid.Columns>
-            </DataGrid>
-            <TextBlock Foreground="#698089" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
-                       Text="drift@target: node drift per cycle if flown at your altitude instead · max keep_rnge: half the track spacing — a wider deadband makes adjacent swept tracks overlap."/>
-            </StackPanel>
-
-            <Expander Grid.Row="1" Header="Orbit and phase tables (SNS v10 preview)" Margin="0,6,0,0" IsExpanded="False">
-                <Grid MaxHeight="190">
+            <!-- ============ sub-tab 3: constellation ============ -->
+            <TabItem Header="Constellation">
+                <Grid Margin="4">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="3*"/>
-                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="300"/>
+                        <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <DataGrid Grid.Column="0" Margin="0,4,4,0" ItemsSource="{Binding OrbitRows}"
-                              AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
-                              Background="#ffffff" Foreground="#000000" BorderBrush="#D1EBF5"
-                              RowBackground="#ffffff" AlternatingRowBackground="#E9F4F8">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="orb" Binding="{Binding OrbId}" Width="40"/>
-                            <DataGridTextColumn Header="LAN" Binding="{Binding LanDeg, StringFormat=F2}" Width="70"/>
-                            <DataGridTextColumn Header="incl" Binding="{Binding InclinationDeg, StringFormat=F1}" Width="55"/>
-                            <DataGridTextColumn Header="apog" Binding="{Binding ApogeeKm, StringFormat=F1}" Width="75"/>
-                            <DataGridTextColumn Header="perig" Binding="{Binding PerigeeKm, StringFormat=F1}" Width="75"/>
-                            <DataGridTextColumn Header="op_ht" Binding="{Binding OpHtKm, StringFormat=F0}" Width="60"/>
-                            <DataGridTextColumn Header="keep" Binding="{Binding StationKeeping}" Width="50"/>
-                            <DataGridTextColumn Header="keep_rnge" Binding="{Binding KeepRangeDeg}" Width="70"/>
-                            <DataGridTextColumn Header="precess" Binding="{Binding PrecessionRateDegPerSec, StringFormat=E2}" Width="80"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                    <DataGrid Grid.Column="1" Margin="4,4,0,0" ItemsSource="{Binding PhaseRows}"
-                              AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
-                              Background="#ffffff" Foreground="#000000" BorderBrush="#D1EBF5"
-                              RowBackground="#ffffff" AlternatingRowBackground="#E9F4F8">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="orb" Binding="{Binding OrbId}" Width="45"/>
-                            <DataGridTextColumn Header="sat" Binding="{Binding OrbSatId}" Width="45"/>
-                            <DataGridTextColumn Header="phase_ang" Binding="{Binding PhaseAngDeg, StringFormat=F3}" Width="90"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Grid>
-            </Expander>
 
-            <Border Grid.Row="2" Margin="0,8,0,0" BorderBrush="#D1EBF5" BorderThickness="1" Background="#ffffff">
-                <Grid>
-                    <Canvas x:Name="TrackCanvas" ClipToBounds="True"/>
-                    <TextBlock Text="{Binding TrackClosureText}" Margin="8,4"
-                               VerticalAlignment="Bottom" HorizontalAlignment="Left"
-                               Foreground="#698089" FontFamily="Consolas" FontSize="11"/>
-                    <TextBlock Text="one full propagated cycle of the selected candidate — dot marks the start, ring the end; they coincide when the track closes"
-                               Margin="8,4" VerticalAlignment="Top" HorizontalAlignment="Left"
-                               Foreground="#698089" FontSize="11" TextWrapping="Wrap"/>
+                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4"
+                                    DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                            <TextBlock Text="Shell:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#698089"/>
+                            <ComboBox MinWidth="200" ItemsSource="{Binding Shells}" SelectedItem="{Binding SelectedShell, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate><TextBlock Text="{Binding ShellSummary}"/></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+                        <GroupBox Header="Walker shell">
+                            <StackPanel>
+                                <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
+                                           Text="Grow the designed orbit into a full shell: planes and phasing produce the SNS orbit and phase tables on the right, for the chosen station-keeping case."/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="130"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                                        <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                                        <RowDefinition/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="Planes"/>
+                                    <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding PlaneCount, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Grid.Row="1" Text="Sats / plane"/>
+                                    <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding SatsPerPlane, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Grid.Row="2" Text="Walker F"/>
+                                    <TextBox   x:Name="WalkerFBox" Grid.Row="2" Grid.Column="1" Text="{Binding WalkerPhasingF, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Grid.Row="3" Text="LAN of plane 1 (deg)"/>
+                                    <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding Lan0Deg, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Grid.Row="4" Text="LAN spread (deg)"/>
+                                    <TextBox   x:Name="LanSpreadBox" Grid.Row="4" Grid.Column="1" Text="{Binding LanSpreadDeg, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Grid.Row="5" Text="In-plane offset (deg)"/>
+                                    <TextBox   Grid.Row="5" Grid.Column="1" Text="{Binding InPlaneOffsetDeg, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Grid.Row="6" Text="Arg. of perigee (deg)"/>
+                                    <TextBox   Grid.Row="6" Grid.Column="1" Text="{Binding ArgPerigeeDeg, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Grid.Row="7" Text="Op. height (km)"/>
+                                    <TextBox   x:Name="OpHeightBox" Grid.Row="7" Grid.Column="1" Text="{Binding OpHeightText, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Grid.Row="8" Text="Station-keeping case"/>
+                                    <ComboBox  Grid.Row="8" Grid.Column="1" SelectedIndex="{Binding CaseChoice}">
+                                        <ComboBoxItem Content="Case 1 — free drift"/>
+                                        <ComboBoxItem Content="Case 2 — station-kept repeating"/>
+                                        <ComboBoxItem Content="Case 3 — declared precession"/>
+                                    </ComboBox>
+                                </Grid>
+                            </StackPanel>
+                        </GroupBox>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Save design" Margin="0,0,6,0" Click="OnSaveDesignClick"/>
+                            <Button Content="Load design" Click="OnLoadDesignClick"/>
+                        </StackPanel>
+                        <Button Content="Open SNS v10 builder…" HorizontalAlignment="Left" Click="OnOpenSnsBuilderClick"/>
+                        <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11"
+                                   Text="The builder assembles whole datasets (SRS + Masks) from saved designs, mask XMLs and operating-parameter sets."/>
+                        <TextBlock Text="{Binding SnsStatusText}" Foreground="#698089" FontSize="11" TextWrapping="Wrap"/>
+                    </StackPanel>
+
+                    <Grid Grid.Column="1" DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <CheckBox Content="preview all shells (combined notice)" IsChecked="{Binding PreviewAllShells}"
+                                      VerticalAlignment="Center"
+                                      ToolTip="Off: the SNS tables of the selected shell. On: every shell of the document combined into one notice — orb_id numbering continues across shells, exactly what the SNS builder emits."/>
+                            <TextBlock Text="{Binding PreviewStatusText}" Foreground="#698089" FontSize="11"
+                                       VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        </StackPanel>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="3*"/>
+                                <ColumnDefinition Width="2*"/>
+                            </Grid.ColumnDefinitions>
+                            <DataGrid Grid.Column="0" Margin="0,0,4,0" ItemsSource="{Binding PreviewOrbitRows}"
+                                      AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+                                      Background="#ffffff" Foreground="#000000" BorderBrush="#D1EBF5"
+                                      RowBackground="#ffffff" AlternatingRowBackground="#E9F4F8">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="orb" Binding="{Binding OrbId}" Width="40"/>
+                                    <DataGridTextColumn Header="LAN" Binding="{Binding LanDeg, StringFormat=F2}" Width="70"/>
+                                    <DataGridTextColumn Header="incl" Binding="{Binding InclinationDeg, StringFormat=F1}" Width="55"/>
+                                    <DataGridTextColumn Header="apog" Binding="{Binding ApogeeKm, StringFormat=F1}" Width="75"/>
+                                    <DataGridTextColumn Header="perig" Binding="{Binding PerigeeKm, StringFormat=F1}" Width="75"/>
+                                    <DataGridTextColumn Header="op_ht" Binding="{Binding OpHtKm, StringFormat=F0}" Width="60"/>
+                                    <DataGridTextColumn Header="keep" Binding="{Binding StationKeeping}" Width="50"/>
+                                    <DataGridTextColumn Header="keep_rnge" Binding="{Binding KeepRangeDeg}" Width="70"/>
+                                    <DataGridTextColumn Header="precess" Binding="{Binding PrecessionRateDegPerSec, StringFormat=E2}" Width="80"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <DataGrid Grid.Column="1" Margin="4,0,0,0" ItemsSource="{Binding PreviewPhaseRows}"
+                                      AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+                                      Background="#ffffff" Foreground="#000000" BorderBrush="#D1EBF5"
+                                      RowBackground="#ffffff" AlternatingRowBackground="#E9F4F8">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="orb" Binding="{Binding OrbId}" Width="45"/>
+                                    <DataGridTextColumn Header="sat" Binding="{Binding OrbSatId}" Width="45"/>
+                                    <DataGridTextColumn Header="phase_ang" Binding="{Binding PhaseAngDeg, StringFormat=F3}" Width="90"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Grid>
                 </Grid>
-            </Border>
-        </Grid>
+            </TabItem>
+        </TabControl>
     </Grid>
 </UserControl>

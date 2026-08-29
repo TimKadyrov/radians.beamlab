@@ -327,11 +327,17 @@ imported table and are omitted.
 
 ## Tab 4 — Orbit Design
 
-Prototypes the three SNS v10 orbit-parameter groups from a target orbit.
+Prototypes the three SNS v10 orbit-parameter groups from a target orbit,
+shell by shell — one document holds every shell of the constellation, and
+every sub-tab edits the shell selected in the **Shells** list on Start
+here (a switcher on each working sub-tab flips shells without going
+back).
 
-**Target orbit (left).** Altitude (km), inclination, eccentricity, the
-largest cycle length to search (orbits per cycle) and the altitude band the
-solver may move within. Everything recomputes as you edit.
+**Target orbit (Start here).** Altitude (km), inclination and
+eccentricity, entered once on the opening sub-tab — every case starts from
+this orbit. The solver's own settings (the largest cycle length to search,
+in orbits per cycle, and the altitude band it may move within) sit on the
+Repeat solver sub-tab. Everything recomputes as you edit.
 
 **Solutions grid (top right).** Repeating-ground-track candidates: a track
 repeats after `k` nodal orbits when `k · S_pass = m · 360°`, with `S_pass`
@@ -342,19 +348,31 @@ the SNS `rpt_prd_dd/hh/mm/ss` split, the residual drift if you fly the
 target altitude instead, the equator spacing `360/k`, and the largest
 `keep_rnge` before adjacent swept deadbands overlap (`180/k`).
 
-**Case previews (left, per selected row).**
+**Check a period of your own.** A repeat you already have in mind enters
+as whole orbits per whole nodal days and is validated like any solved
+candidate: a non-coprime pair is reduced to the true cycle first, the
+exact closing altitude is solved anywhere in 100–30 000 km, and the
+result becomes the selectable, highlighted top row of the grid — flagged
+red when its altitude falls outside the search band.
 
-- *Case 1 — free drift*: for a chosen run length `NOrbits`, the artificial
-  precession numbers the examination derives — `S_pass`, the grid value
-  `S_grid`, the rate, the run duration, and the spacing the run actually
-  measures (`2·S_pass − S_grid`; the Steps 8–11 transcription lands one
-  adjustment past the grid, documented upstream). Nothing is declared:
+**Case previews (left).** Cases 1 and 3 read the target orbit; only
+Case 2 reads the selected candidate row.
+
+- *Case 1 — free drift* (purely informational — it shows how the EPFD
+  calculation will model the orbit; nothing in the panel is filed): for a
+  chosen run length `NOrbits`, the artificial precession numbers the
+  calculation derives — `S_pass`, the grid value `S_grid`, the rate, the
+  run duration, and the spacing the run actually measures
+  (`2·S_pass − S_grid`; the Steps 8–11 transcription lands one adjustment
+  past the grid, documented upstream). The filing itself carries only
   `f_stn_keep='N'`, `f_precess='N'`.
 - *Case 2 — station-kept repeating*: your `keep_rnge` against the row's
   bound (red when the deadbands would overlap), plus the ready
   `f_stn_keep='Y'` / `keep_rnge` / `rpt_prd_*` field set.
-- *Case 3 — declared precession*: the plain-J2 nodal regression rate at the
-  selected geometry, as `f_precess='Y'` / `precession`.
+- *Case 3 — declared precession*: `f_precess='Y'` / `precession`, either
+  the plain-J2 nodal regression rate at the target orbit (the default) or
+  a rate you supply yourself (deg/s, any sign — prograde orbits drift
+  westward, so negative is the normal case), shown against the J2 value.
 
 **Copy SNS fields** puts all three previews on the clipboard.
 
@@ -363,26 +381,65 @@ propagated through the real constellation propagator over the coastline
 map. The filled dot marks the start, the ring the end — coincident when
 the cycle closes; the caption prints the closure angle.
 
-**Constellation (Walker shell).** Grows the designed orbit into a full
-shell: planes, satellites per plane, Walker phasing F, LAN of plane 1 and
-the LAN spread (360 = delta, 180 = star), in-plane offset, argument of
-perigee and operating height. The orbit and phase tables the design
-implies appear in the collapsible *Orbit and phase tables* panel above the
-map — exactly the rows an SNS v10 filing carries, for the station-keeping
-case chosen in the drop-down.
+The tab opens on a **Start here** overview: the shells list (add,
+duplicate, remove — a document always keeps at least one shell), the
+selected shell's target-orbit inputs, plus the four-step workflow with a
+jump button per step and a note on what each step feeds forward (the
+selected candidate drives the cases and the constellation; the saved
+design file is the hand-off to the builder).
+Only a Case-2 repeating design needs a solved candidate — free drift and
+declared precession fly the target orbit as entered, so those designs can
+skip the solver. The working sub-tabs share one state:
 
-**Save / Load design.** The whole tab state round-trips through a
-`*.orbitdesign.json` file — the intermediate design you can reload later,
-feed to a simulation, or hand to someone else.
+- **Repeat solver** — the search settings (max orbits per cycle, altitude
+  band), the own-period check, the candidate grid and the propagated
+  ground track with its closure markers; *How the solver works* opens
+  `docs/repeat-solver.html`, the full explanation with a worked example.
+- **Station-keeping cases** — the three case panels (artificial-precession
+  numbers with the NOrbits derivation from a victim beamwidth, the
+  keep_rnge rule, the declared J2 rate) and the copy-to-clipboard field
+  set.
+- **Constellation** — the Walker shell (planes, satellites per plane,
+  phasing F, LAN of plane 1 and spread — 360 = delta, 180 = star —
+  in-plane offset, argument of perigee, operating height, case choice)
+  with the SNS orbit and phase tables shown live: the selected shell
+  alone, or with *preview all shells* every shell combined into one
+  notice (orb_id continuing across shells) — the exact tables the
+  builder emits.
 
-**Build SNS v10 SRS.** Writes the designed shell straight into an SNS v10
-SRS database (cloned from a donor schema; the default donor is used when
-present, otherwise you pick one) — no copying of fields by hand. The
-`ntc_id` and satellite name inputs set the notice identity.
+**Save / Load design.** The whole document — every shell, each with its
+*selected* repeat candidate — round-trips through one
+`*.orbitdesign.json` file (schema 4; older single-shell files load as a
+one-shell document). The intermediate file a simulation or the SNS
+builder consumes reproduces exactly the constellation you designed, and
+the builder takes all shells from it in one load.
 
 Every input carries a tooltip; filing parameters share their help text
 with the parameter cards, so the app and the documentation cannot drift
 apart.
+
+---
+
+## SNS v10 builder (window)
+
+Opened from the Home page or the Constellation sub-tab, the builder
+assembles a complete SNS v10 dataset from separate elements:
+
+- **Notice identity** — `ntc_id`, satellite name and administration.
+- **Orbits** — the shells of each loaded `*.orbitdesign.json` file: a
+  schema-4 document contributes its whole constellation at once, an older
+  single-shell file contributes one.
+- **Masks and operating-parameter sets** — one row per mask XML with its
+  `mask_id`, `f_mask` (P/E/S/R), type and frequency range; `R` rows
+  register as operating-parameter sets.
+- **Scenario frequencies** — the examined ranges (E = emission,
+  R = reception) of the single built scenario.
+
+**Build dataset** writes both databases — `<ntc_id> SRS.MDB` and
+`<ntc_id> Masks.MDB` — cloned from donor schemas (the reference donors
+are used when present, otherwise you pick them). Version 1 links every
+P/S mask and every E mask into scenario 1 at whole-constellation
+granularity; per-plane and per-satellite linking is a later refinement.
 
 ---
 

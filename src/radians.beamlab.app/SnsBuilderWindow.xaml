@@ -1,0 +1,103 @@
+<Window x:Class="radians.beamlab.app.SnsBuilderWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SNS v10 builder"
+        Height="640" Width="900"
+        Background="#E9F4F8" Foreground="#000000"
+        FontFamily="Gibson, Segoe UI" FontSize="12">
+    <Window.Resources>
+        <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#000000"/><Setter Property="Margin" Value="0,2,0,2"/></Style>
+        <Style TargetType="TextBox"><Setter Property="Background" Value="#ffffff"/><Setter Property="Foreground" Value="#000000"/><Setter Property="BorderBrush" Value="#8BC4CD"/><Setter Property="Padding" Value="3"/><Setter Property="Margin" Value="0,1,0,1"/></Style>
+        <Style TargetType="Button"><Setter Property="Background" Value="#ffffff"/><Setter Property="Foreground" Value="#0076A1"/><Setter Property="BorderBrush" Value="#0076A1"/><Setter Property="Padding" Value="6,3"/><Setter Property="Margin" Value="0,2,4,2"/></Style>
+        <Style TargetType="GroupBox"><Setter Property="Foreground" Value="#0B516F"/><Setter Property="BorderBrush" Value="#D1EBF5"/><Setter Property="Margin" Value="0,4,0,4"/><Setter Property="Padding" Value="6"/></Style>
+        <Style TargetType="DataGrid">
+            <Setter Property="Background" Value="#ffffff"/><Setter Property="Foreground" Value="#000000"/>
+            <Setter Property="BorderBrush" Value="#D1EBF5"/><Setter Property="RowBackground" Value="#ffffff"/>
+            <Setter Property="AlternatingRowBackground" Value="#E9F4F8"/><Setter Property="HeadersVisibility" Value="Column"/>
+        </Style>
+    </Window.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="12">
+        <TextBlock TextWrapping="Wrap" Foreground="#698089"
+                   Text="Assemble a complete SNS v10 dataset from separate elements: orbit designs (shells), mask XMLs and derived operating-parameter sets. Version 1 links every P/S mask and every E mask into one scenario at whole-constellation granularity."/>
+
+        <GroupBox Header="Notice identity">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="ntc_id" VerticalAlignment="Center"/>
+                <TextBox Width="110" Margin="6,0,14,0" Text="{Binding NtcId, UpdateSourceTrigger=LostFocus}"/>
+                <TextBlock Text="Satellite name" VerticalAlignment="Center"/>
+                <TextBox Width="140" Margin="6,0,14,0" Text="{Binding SatName, UpdateSourceTrigger=LostFocus}"/>
+                <TextBlock Text="Adm" VerticalAlignment="Center"/>
+                <TextBox Width="60" Margin="6,0,0,0" Text="{Binding Adm, UpdateSourceTrigger=LostFocus}"/>
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox Header="Orbits — shells from orbit-design files">
+            <StackPanel>
+                <DataGrid x:Name="ShellsGrid" ItemsSource="{Binding Shells}" AutoGenerateColumns="False"
+                          IsReadOnly="True" MaxHeight="120">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="file" Binding="{Binding FileName}" Width="220"/>
+                        <DataGridTextColumn Header="design" Binding="{Binding Summary}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Add design file…" Click="OnAddShellClick"/>
+                    <Button Content="Remove selected" Click="OnRemoveShellClick"/>
+                </StackPanel>
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox Header="Masks and operating-parameter sets (f_mask R)">
+            <StackPanel>
+                <DataGrid x:Name="MasksGrid" ItemsSource="{Binding Masks}" AutoGenerateColumns="False"
+                          CanUserAddRows="False" MaxHeight="150">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="mask_id" Binding="{Binding MaskId}" Width="60"/>
+                        <DataGridTextColumn Header="f_mask" Binding="{Binding FMask}" Width="55"/>
+                        <DataGridTextColumn Header="type" Binding="{Binding FMaskType}" Width="45"/>
+                        <DataGridTextColumn Header="f_min (MHz)" Binding="{Binding FreqMinMhz}" Width="85"/>
+                        <DataGridTextColumn Header="f_max (MHz)" Binding="{Binding FreqMaxMhz}" Width="85"/>
+                        <DataGridTextColumn Header="xml" Binding="{Binding FilePath}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Add mask XML…" Click="OnAddMaskClick"/>
+                    <Button Content="Remove selected" Click="OnRemoveMaskClick"/>
+                </StackPanel>
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox Header="Scenario frequencies (E = emission, R = reception)">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Scenario name" VerticalAlignment="Center"/>
+                    <TextBox Width="240" Margin="6,0,0,0" Text="{Binding ScenarioName, UpdateSourceTrigger=LostFocus}"/>
+                </StackPanel>
+                <DataGrid x:Name="FreqGrid" ItemsSource="{Binding Frequencies}" AutoGenerateColumns="False"
+                          CanUserAddRows="False" MaxHeight="100">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="emi_rcp" Binding="{Binding EmiRcp}" Width="60"/>
+                        <DataGridTextColumn Header="f_min (MHz)" Binding="{Binding FreqMinMhz}" Width="95"/>
+                        <DataGridTextColumn Header="f_max (MHz)" Binding="{Binding FreqMaxMhz}" Width="95"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Add range" Click="OnAddFreqClick"/>
+                    <Button Content="Remove selected" Click="OnRemoveFreqClick"/>
+                </StackPanel>
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox Header="Build">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Preview notice" Click="OnPreviewClick"/>
+                    <Button Content="Build dataset (SRS + Masks)…" Click="OnBuildClick"/>
+                </StackPanel>
+                <TextBlock Text="{Binding StatusText}" Foreground="#698089" TextWrapping="Wrap"/>
+            </StackPanel>
+        </GroupBox>
+    </StackPanel>
+    </ScrollViewer>
+</Window>

@@ -1,0 +1,114 @@
+using System;
+using System.Globalization;
+using System.Text.Json;
+using radians.beamlab;
+using Radians.Orbits.Core.Utilities;
+
+namespace radians.beamlab.app;
+
+/// <summary>
+/// The intermediate orbit-design file (*.orbitdesign.json): every Orbit
+/// Design input plus the SELECTED repeat candidate, so a consumer (the SNS
+/// builder, a simulation) reproduces exactly the chosen design without
+/// re-running the solver. SchemaVersion 2 added the selected-candidate
+/// fields; version 3 added the Case-3 admin-supplied precession rate.
+/// Older files load with the newer fields empty (precession empty means
+/// the plain-J2 default).
+/// </summary>
+public sealed record OrbitDesignData(
+    int SchemaVersion, double TargetAltitudeKm, double InclinationDeg, double Eccentricity,
+    int MaxOrbitsPerCycle, double SearchBandKm,
+    int PlaneCount, int SatsPerPlane, int WalkerPhasingF, double Lan0Deg, double LanSpreadDeg,
+    double InPlaneOffsetDeg, double ArgPerigeeDeg, string OpHeightText, int CaseChoice,
+    double KeepRangeDeg, int NOrbits, string VictimBeamwidthText,
+    double? SelectedAltitudeKm = null, int? SelectedOrbits = null, int? SelectedNodalDays = null,
+    int? RptDays = null, int? RptHours = null, int? RptMinutes = null, int? RptSeconds = null,
+    double? PrecessionDegPerSec = null)
+{
+    /// <summary>One-line summary for list displays.</summary>
+    public string Summary
+    {
+        get
+        {
+            string s = FormattableString.Invariant(
+                $"{PlaneCount}x{SatsPerPlane} @ {SelectedAltitudeKm ?? TargetAltitudeKm:F1} km / i {InclinationDeg:F1}, case {CaseChoice + 1}");
+            return SelectedOrbits is int k
+                ? s + FormattableString.Invariant($", repeat {k}/{SelectedNodalDays}")
+                : s;
+        }
+    }
+}
+
+/// <summary>
+/// Schema-4 design document: the whole constellation as an ordered list of
+/// single-shell designs. Version-2/3 files (one bare shell record) load as
+/// a one-shell document.
+/// </summary>
+public sealed record OrbitDesignDocument(int SchemaVersion, IReadOnlyList<OrbitDesignData> Shells);
+
+public static class OrbitDesignFileCodec
+{
+    private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
+
+    public static string Save(OrbitDesignData d) => JsonSerializer.Serialize(d, Options);
+
+    public static OrbitDesignData Load(string json)
+        => JsonSerializer.Deserialize<OrbitDesignData>(json)
+           ?? throw new InvalidOperationException("empty design file");
+
+    public static string SaveDocument(OrbitDesignDocument doc)
+        => JsonSerializer.Serialize(doc, Options);
+
+    /// <summary>
+    /// Loads any design-file version: a schema-4 document as-is, an older
+    /// single-shell file wrapped as a one-shell document.
+    /// </summary>
+    public static OrbitDesignDocument LoadDocument(string json)
+    {
+        var doc = JsonSerializer.Deserialize<OrbitDesignDocument>(json);
+        if (doc?.Shells is { Count: > 0 }) return doc;
+        return new OrbitDesignDocument(4, new[] { Load(json) });
+    }
+
+    /// <summary>
+    /// The shell the design describes. Case 2 uses the stored selected
+    /// candidate (exact altitude + repeat period); without one the target
+    /// altitude is used and no repeat is declared.
+    /// </summary>
+    public static ConstellationShell ToShell(OrbitDesignData d)
+    {
+        // Only a Case-2 (repeating) design needs the solved candidate; free
+        // drift and a supplied precession fly the target orbit as-is.
+        double alt = d.CaseChoice == 1
+            ? d.SelectedAltitudeKm ?? d.TargetAltitudeKm
+            : d.TargetAltitudeKm;
+        double? opHt = double.TryParse(d.OpHeightText, NumberStyles.Float,
+            CultureInfo.InvariantCulture, out double oh) ? oh : null;
+        var shell = new ConstellationShell
+        {
+            AltitudeKm = alt, InclinationDeg = d.InclinationDeg, Eccentricity = d.Eccentricity,
+            PlaneCount = Math.Max(1, d.PlaneCount), SatsPerPlane = Math.Max(1, d.SatsPerPlane),
+            WalkerPhasingF = d.WalkerPhasingF, Lan0Deg = d.Lan0Deg, LanSpreadDeg = d.LanSpreadDeg,
+            InPlaneOffsetDeg = d.InPlaneOffsetDeg, ArgumentOfPerigeeDeg = d.ArgPerigeeDeg,
+            OperatingHeightKm = opHt,
+        };
+        return d.CaseChoice switch
+        {
+            1 => shell with
+            {
+                StationKeeping = true, WDeltaDeg = d.KeepRangeDeg,
+                RepeatPeriod = d.RptDays is int dd
+                    ? (dd, d.RptHours ?? 0, d.RptMinutes ?? 0, d.RptSeconds ?? 0)
+                    : null,
+            },
+            2 => shell with
+            {
+                PrecessionSupplied = true,
+                PrecessionRateDegPerSec = d.PrecessionDegPerSec
+                    ?? OrbitDesign.J2NodalRateDegPerSec(
+                        OrbitalConstants.EarthRadiusKm + alt, d.Eccentricity, d.InclinationDeg),
+            },
+            _ => shell with { NOrbits = Math.Max(1, d.NOrbits) },
+        };
+    }
+}

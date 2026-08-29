@@ -7,8 +7,13 @@ using Radians.Orbits.Core.Utilities;
 
 namespace radians.beamlab.app;
 
-/// <summary>One repeat-solution row shaped for the grid.</summary>
-public sealed record OrbitSolutionRow(RepeatSolution Solution)
+/// <summary>
+/// One repeat-solution row shaped for the grid. IsUserEntry marks the row
+/// created by the own-period validator (highlighted); WithinBand is false
+/// when its exact altitude falls outside the search band (flagged red).
+/// </summary>
+public sealed record OrbitSolutionRow(RepeatSolution Solution, bool IsUserEntry = false,
+    bool WithinBand = true)
 {
     public int Orbits => Solution.Orbits;
     public int NodalDays => Solution.NodalDays;
@@ -75,6 +80,22 @@ public sealed class OrbitDesignViewModel : ObservableObject
         set { if (SetField(ref _searchBandKm, value)) Recompute(); }
     }
 
+    private string _checkOrbitsText = "";
+    /// <summary>Own-period validator: whole nodal orbits (k); empty = off.</summary>
+    public string CheckOrbitsText
+    {
+        get => _checkOrbitsText;
+        set { if (SetField(ref _checkOrbitsText, value)) Recompute(); }
+    }
+
+    private string _checkDaysText = "";
+    /// <summary>Own-period validator: whole nodal days (m); empty = off.</summary>
+    public string CheckDaysText
+    {
+        get => _checkDaysText;
+        set { if (SetField(ref _checkDaysText, value)) Recompute(); }
+    }
+
     private int _nOrbits = 288;
     public int NOrbits
     {
@@ -99,8 +120,8 @@ public sealed class OrbitDesignViewModel : ObservableObject
         if (!double.TryParse(_victimBeamwidthText, NumberStyles.Float,
                 CultureInfo.InvariantCulture, out double bw) || bw <= 0.0)
             return;
-        double alt = _selectedSolution?.Solution.AltitudeKm ?? _targetAltitudeKm;
-        int n = OrbitDesign.SuggestedNOrbits(bw, alt);
+        // NOrbits belongs to Case 1, which flies the target orbit.
+        int n = OrbitDesign.SuggestedNOrbits(bw, _targetAltitudeKm);
         if (n != _nOrbits) { _nOrbits = n; OnPropertyChanged(nameof(NOrbits)); }
     }
 
@@ -110,6 +131,22 @@ public sealed class OrbitDesignViewModel : ObservableObject
         get => _keepRangeDeg;
         set { if (SetField(ref _keepRangeDeg, value)) RecomputeDetails(); }
     }
+
+    private string _precessionText = "";
+    /// <summary>
+    /// Case-3 admin-supplied precession rate (deg/s, any sign); empty
+    /// declares the plain-J2 default for the target orbit. Unparsable text
+    /// behaves as empty and the Case-3 preview says so.
+    /// </summary>
+    public string PrecessionText
+    {
+        get => _precessionText;
+        set { if (SetField(ref _precessionText, value)) RecomputeDetails(); }
+    }
+
+    private double? ParsedPrecession()
+        => double.TryParse(_precessionText, NumberStyles.Float, CultureInfo.InvariantCulture,
+            out double v) ? v : null;
 
     // ---- outputs -------------------------------------------------------
 
@@ -129,6 +166,10 @@ public sealed class OrbitDesignViewModel : ObservableObject
 
     private string _statusText = "";
     public string StatusText { get => _statusText; private set => SetField(ref _statusText, value); }
+
+    private string _checkStatusText = "";
+    /// <summary>Narration of the own-period validation (empty when off).</summary>
+    public string CheckStatusText { get => _checkStatusText; private set => SetField(ref _checkStatusText, value); }
 
     private string _case1Text = "";
     public string Case1Text { get => _case1Text; private set => SetField(ref _case1Text, value); }
@@ -154,6 +195,8 @@ public sealed class OrbitDesignViewModel : ObservableObject
 
     // ---- computation ---------------------------------------------------
 
+    private bool _inputsValid = true;
+
     private void Recompute()
     {
         if (_targetAltitudeKm < 200.0 || _targetAltitudeKm > 45000.0
@@ -161,15 +204,21 @@ public sealed class OrbitDesignViewModel : ObservableObject
             || _eccentricity is < 0.0 or >= 0.9
             || _maxOrbitsPerCycle is < 1 or > 2000 || _searchBandKm <= 0.0)
         {
+            _inputsValid = false;
             Solutions = Array.Empty<OrbitSolutionRow>();
             SelectedSolution = null;
+            RecomputeDetails();
             StatusText = "inputs out of range";
+            CheckStatusText = "";
             return;
         }
+        _inputsValid = true;
 
         var sols = OrbitDesign.RepeatSolutions(_targetAltitudeKm, _eccentricity, _inclinationDeg,
             _maxOrbitsPerCycle, take: 10, searchBandKm: _searchBandKm);
-        Solutions = sols.Select(s => new OrbitSolutionRow(s)).ToList();
+        var rows = sols.Select(s => new OrbitSolutionRow(s)).ToList();
+        CheckStatusText = ApplyOwnPeriod(rows);
+        Solutions = rows;
         StatusText = sols.Count == 0
             ? "no repeat inside the search band"
             : $"{sols.Count} candidate(s); nearest {sols[0].AltitudeDeltaKm:+0.00;-0.00} km from target";
@@ -177,23 +226,53 @@ public sealed class OrbitDesignViewModel : ObservableObject
         RecomputeConstellation();
     }
 
+    // The own-period validator: a parseable k/m pair becomes the top row of
+    // the grid (replacing a scan row with the same reduced pair), selected
+    // like any candidate; the returned text narrates the validation.
+    private string ApplyOwnPeriod(List<OrbitSolutionRow> rows)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        if (_checkOrbitsText.Trim().Length == 0 && _checkDaysText.Trim().Length == 0)
+            return "";
+        if (!int.TryParse(_checkOrbitsText, NumberStyles.Integer, inv, out int k) || k < 1
+            || !int.TryParse(_checkDaysText, NumberStyles.Integer, inv, out int m) || m < 1)
+            return "enter whole numbers >= 1 for orbits and nodal days";
+
+        var chk = OrbitDesign.CheckRepeat(_targetAltitudeKm, _eccentricity, _inclinationDeg,
+            k, m, _searchBandKm);
+        string reduced = chk.Reduced
+            ? $"{k}/{m} reduces to {chk.Orbits}/{chk.NodalDays} (the true cycle); "
+            : "";
+        if (chk.Solution is not { } cs)
+            return reduced + "no altitude between 100 and 30000 km closes this pair";
+
+        rows.RemoveAll(r => r.Orbits == chk.Orbits && r.NodalDays == chk.NodalDays);
+        rows.Insert(0, new OrbitSolutionRow(cs, IsUserEntry: true, WithinBand: chk.WithinBand));
+        return reduced
+            + string.Create(inv,
+                $"closes at {cs.AltitudeKm:F2} km ({cs.AltitudeDeltaKm:+0.00;-0.00} from target)")
+            + (chk.WithinBand
+                ? ""
+                : string.Create(inv, $" -- outside the {_searchBandKm:F0} km search band"));
+    }
+
     private void RecomputeDetails()
     {
-        var row = _selectedSolution;
-        if (row is null)
+        if (!_inputsValid)
         {
             Case1Text = Case2Text = Case3Text = "";
             KeepRangeValid = true;
             RecomputeConstellation();
             return;
         }
-        var s = row.Solution;
-        double aKm = OrbitalConstants.EarthRadiusKm + s.AltitudeKm;
+        // Cases 1 and 3 describe the TARGET orbit (no solved repeat needed);
+        // Case 2 describes the selected candidate.
+        double aTarget = OrbitalConstants.EarthRadiusKm + _targetAltitudeKm;
         var inv = CultureInfo.InvariantCulture;
 
         if (_nOrbits >= 1)
         {
-            var plan = OrbitDesign.PrecessionPlan(aKm, _eccentricity, _inclinationDeg, _nOrbits);
+            var plan = OrbitDesign.PrecessionPlan(aTarget, _eccentricity, _inclinationDeg, _nOrbits);
             Case1Text = string.Create(inv,
                 $"f_stn_keep='N', f_precess='N' (rate derived by the examination)\n" +
                 $"S_pass = {plan.SPassDeg:F4} deg   S_grid = {plan.SGridDeg:F4} deg\n" +
@@ -204,26 +283,41 @@ public sealed class OrbitDesignViewModel : ObservableObject
         }
         else Case1Text = "NOrbits must be >= 1";
 
-        try
+        if (_selectedSolution is { } row)
         {
-            var f2 = OrbitDesign.Case2Fields(s, _keepRangeDeg);
-            var (d, h, m, sec) = f2.RptPrd!.Value;
-            Case2Text = string.Create(inv,
-                $"f_stn_keep='Y'   keep_rnge = {f2.KeepRngeDeg:F3} deg (max {s.MaxKeepRangeDeg:F3})\n" +
-                $"rpt_prd_dd={d}  hh={h}  mm={m}  ss={sec}\n" +
-                $"track spacing {s.EquatorSpacingDeg:F3} deg, {s.Orbits} orbits / {s.NodalDays} nodal day(s)");
+            var s = row.Solution;
+            try
+            {
+                var f2 = OrbitDesign.Case2Fields(s, _keepRangeDeg);
+                var (d, h, m, sec) = f2.RptPrd!.Value;
+                Case2Text = string.Create(inv,
+                    $"f_stn_keep='Y'   keep_rnge = {f2.KeepRngeDeg:F3} deg (max {s.MaxKeepRangeDeg:F3})\n" +
+                    $"rpt_prd_dd={d}  hh={h}  mm={m}  ss={sec}\n" +
+                    $"track spacing {s.EquatorSpacingDeg:F3} deg, {s.Orbits} orbits / {s.NodalDays} nodal day(s)");
+                KeepRangeValid = true;
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                Case2Text = ex.Message.Split('\n')[0];
+                KeepRangeValid = false;
+            }
+        }
+        else
+        {
+            Case2Text = "select a repeating candidate (or validate your own period) on the Repeat solver";
             KeepRangeValid = true;
         }
-        catch (ArgumentOutOfRangeException ex)
-        {
-            Case2Text = ex.Message.Split('\n')[0];
-            KeepRangeValid = false;
-        }
 
-        double rate3 = OrbitDesign.J2NodalRateDegPerSec(aKm, _eccentricity, _inclinationDeg);
-        Case3Text = string.Create(inv,
-            $"f_precess='Y'   precession = {rate3:E4} deg/s\n" +
-            $"(the plain-J2 declaration rate at {s.AltitudeKm:F1} km / i={_inclinationDeg:F1})");
+        double rate3 = OrbitDesign.J2NodalRateDegPerSec(aTarget, _eccentricity, _inclinationDeg);
+        Case3Text = ParsedPrecession() is { } custom
+            ? string.Create(inv,
+                $"f_precess='Y'   precession = {custom:E4} deg/s (admin-supplied)\n" +
+                $"(plain-J2 at {_targetAltitudeKm:F1} km / i={_inclinationDeg:F1} would be {rate3:E4} deg/s)")
+            : _precessionText.Trim().Length > 0
+                ? "precession: not a number -- empty declares the J2 default"
+                : string.Create(inv,
+                    $"f_precess='Y'   precession = {rate3:E4} deg/s\n" +
+                    $"(the plain-J2 declaration rate at {_targetAltitudeKm:F1} km / i={_inclinationDeg:F1})");
         RecomputeConstellation();
     }
 
@@ -313,12 +407,6 @@ public sealed class OrbitDesignViewModel : ObservableObject
     /// <summary>0 = Case 1 free drift, 1 = Case 2 station-kept, 2 = Case 3 declared.</summary>
     public int CaseChoice { get => _caseChoice; set { if (SetField(ref _caseChoice, value)) RecomputeConstellation(); } }
 
-    private int _ntcId = 900000001;
-    public int NtcId { get => _ntcId; set => SetField(ref _ntcId, value); }
-
-    private string _satNameText = "DESIGN";
-    public string SatNameText { get => _satNameText; set => SetField(ref _satNameText, value); }
-
     private IReadOnlyList<SrsOrbitRow> _orbitRows = Array.Empty<SrsOrbitRow>();
     public IReadOnlyList<SrsOrbitRow> OrbitRows { get => _orbitRows; private set => SetField(ref _orbitRows, value); }
 
@@ -328,10 +416,18 @@ public sealed class OrbitDesignViewModel : ObservableObject
     private string _snsStatusText = "";
     public string SnsStatusText { get => _snsStatusText; set => SetField(ref _snsStatusText, value); }
 
+    /// <summary>One-line display for the document's shells list.</summary>
+    public string ShellSummary => string.Create(CultureInfo.InvariantCulture,
+        $"{_targetAltitudeKm:F1} km / i {_inclinationDeg:F1} · case {_caseChoice + 1} · {_planeCount}x{_satsPerPlane}");
+
     /// <summary>The designed shell: selected candidate's altitude with the chosen case's fields.</summary>
     public ConstellationShell BuildShell()
     {
-        double alt = _selectedSolution?.Solution.AltitudeKm ?? _targetAltitudeKm;
+        // Only Case 2 needs the solved candidate; Cases 1 and 3 fly the
+        // target orbit as-is.
+        double alt = _caseChoice == 1
+            ? _selectedSolution?.Solution.AltitudeKm ?? _targetAltitudeKm
+            : _targetAltitudeKm;
         double? opHt = double.TryParse(_opHeightText, NumberStyles.Float,
             CultureInfo.InvariantCulture, out double oh) ? oh : null;
         var shell = new ConstellationShell
@@ -352,17 +448,17 @@ public sealed class OrbitDesignViewModel : ObservableObject
             2 => shell with
             {
                 PrecessionSupplied = true,
-                PrecessionRateDegPerSec = OrbitDesign.J2NodalRateDegPerSec(
+                PrecessionRateDegPerSec = ParsedPrecession() ?? OrbitDesign.J2NodalRateDegPerSec(
                     OrbitalConstants.EarthRadiusKm + alt, _eccentricity, _inclinationDeg),
             },
             _ => shell with { NOrbits = Math.Max(1, _nOrbits) },
         };
     }
 
-    /// <summary>A single-shell SNS v10 notice from the design (orbit + phase tables).</summary>
+    /// <summary>A single-shell preview notice (orbit + phase tables only).</summary>
     public SrsNotice BuildNotice()
     {
-        var n = new SrsNotice { NtcId = _ntcId, SatName = _satNameText, Adm = "XXX" };
+        var n = new SrsNotice { NtcId = 0, SatName = "DESIGN", Adm = "XXX" };
         n.AddShell(BuildShell());
         return n;
     }
@@ -383,26 +479,27 @@ public sealed class OrbitDesignViewModel : ObservableObject
             PhaseRows = Array.Empty<SrsPhaseRow>();
             SnsStatusText = ex.Message;
         }
+        OnPropertyChanged(nameof(ShellSummary));
     }
 
-    private sealed record OrbitDesignFile(int SchemaVersion, double TargetAltitudeKm,
-        double InclinationDeg, double Eccentricity, int MaxOrbitsPerCycle, double SearchBandKm,
-        int PlaneCount, int SatsPerPlane, int WalkerPhasingF, double Lan0Deg, double LanSpreadDeg,
-        double InPlaneOffsetDeg, double ArgPerigeeDeg, string OpHeightText, int CaseChoice,
-        double KeepRangeDeg, int NOrbits, string VictimBeamwidthText, int NtcId, string SatName);
-
-    /// <summary>The intermediate design file: every input, reloadable and simulation-ready.</summary>
-    public string BuildDesignJson() => System.Text.Json.JsonSerializer.Serialize(
-        new OrbitDesignFile(1, _targetAltitudeKm, _inclinationDeg, _eccentricity,
+    /// <summary>The design as its file form, including the selected candidate.</summary>
+    public OrbitDesignData BuildDesignData()
+    {
+        var sol = _selectedSolution?.Solution;
+        return new OrbitDesignData(3, _targetAltitudeKm, _inclinationDeg, _eccentricity,
             _maxOrbitsPerCycle, _searchBandKm, _planeCount, _satsPerPlane, _walkerPhasingF,
             _lan0Deg, _lanSpreadDeg, _inPlaneOffsetDeg, _argPerigeeDeg, _opHeightText,
-            _caseChoice, _keepRangeDeg, _nOrbits, _victimBeamwidthText, _ntcId, _satNameText),
-        new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            _caseChoice, _keepRangeDeg, _nOrbits, _victimBeamwidthText,
+            sol?.AltitudeKm, sol?.Orbits, sol?.NodalDays,
+            sol?.RptPrd.Days, sol?.RptPrd.Hours, sol?.RptPrd.Minutes, sol?.RptPrd.Seconds,
+            ParsedPrecession());
+    }
+
+    public string BuildDesignJson() => OrbitDesignFileCodec.Save(BuildDesignData());
 
     public void LoadDesignJson(string json)
     {
-        var d = System.Text.Json.JsonSerializer.Deserialize<OrbitDesignFile>(json)
-            ?? throw new InvalidOperationException("empty design file");
+        var d = OrbitDesignFileCodec.Load(json);
         TargetAltitudeKm = d.TargetAltitudeKm; InclinationDeg = d.InclinationDeg;
         Eccentricity = d.Eccentricity; MaxOrbitsPerCycle = d.MaxOrbitsPerCycle;
         SearchBandKm = d.SearchBandKm; PlaneCount = d.PlaneCount; SatsPerPlane = d.SatsPerPlane;
@@ -410,7 +507,23 @@ public sealed class OrbitDesignViewModel : ObservableObject
         InPlaneOffsetDeg = d.InPlaneOffsetDeg; ArgPerigeeDeg = d.ArgPerigeeDeg;
         OpHeightText = d.OpHeightText; CaseChoice = d.CaseChoice; KeepRangeDeg = d.KeepRangeDeg;
         NOrbits = d.NOrbits; VictimBeamwidthText = d.VictimBeamwidthText;
-        NtcId = d.NtcId; SatNameText = d.SatName;
+        PrecessionText = d.PrecessionDegPerSec?.ToString(CultureInfo.InvariantCulture) ?? "";
+        // Reselect the stored candidate when it is still in the solution
+        // set; a pair the scan cannot see (saved from the own-period
+        // validator) is re-entered through the validator instead.
+        if (d.SelectedOrbits is int k)
+        {
+            var match = Solutions.FirstOrDefault(
+                r => r.Orbits == k && r.NodalDays == d.SelectedNodalDays);
+            if (match is null && d.SelectedNodalDays is int m)
+            {
+                CheckOrbitsText = k.ToString(CultureInfo.InvariantCulture);
+                CheckDaysText = m.ToString(CultureInfo.InvariantCulture);
+                match = Solutions.FirstOrDefault(
+                    r => r.Orbits == k && r.NodalDays == d.SelectedNodalDays);
+            }
+            SelectedSolution = match ?? SelectedSolution;
+        }
     }
 
     /// <summary>The clipboard payload: all three case previews for the selected solution.</summary>

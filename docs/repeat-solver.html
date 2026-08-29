@@ -1,0 +1,227 @@
+<title>Inside the Repeat Solver</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,400;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Italic.woff2") format("woff2");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-SemiBold.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}
+:root{
+  --paper:#E9F4F8; --card:#FFFFFF; --ink:#000000; --muted:#698089;
+  --line:#D1EBF5; --line-soft:#E0F1F8;
+  --g1:#0076A1; --g2:#15807B; --g3:#0B516F;
+  --g1-tint:rgba(0,118,161,.10); --g2-tint:rgba(21,128,123,.10); --g3-tint:rgba(11,81,111,.10);
+  --code-bg:#E4F2F9; --bad:#CC3F4D;
+  --measure:44rem;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#003F57; --card:#154E66; --ink:#FFFFFF; --muted:#A9C6D2;
+    --line:#2E6479; --line-soft:#24576A;
+    --g1:#6FCBEF; --g2:#57C4BC; --g3:#99D7EF;
+    --g1-tint:rgba(111,203,239,.16); --g2-tint:rgba(87,196,188,.15); --g3-tint:rgba(153,215,239,.15);
+    --code-bg:#0F4459; --bad:#E57384;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#003F57; --card:#154E66; --ink:#FFFFFF; --muted:#A9C6D2;
+  --line:#2E6479; --line-soft:#24576A;
+  --g1:#6FCBEF; --g2:#57C4BC; --g3:#99D7EF;
+  --g1-tint:rgba(111,203,239,.16); --g2-tint:rgba(87,196,188,.15); --g3-tint:rgba(153,215,239,.15);
+  --code-bg:#0F4459; --bad:#E57384;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Gibson","Segoe UI",system-ui,sans-serif; font-size:15.5px; line-height:1.6}
+.wrap{max-width:880px; margin:0 auto; padding:40px 28px 72px}
+.kicker{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--g1)}
+h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; margin:.25em 0 .35em; text-wrap:balance; max-width:var(--measure)}
+.lede{color:var(--muted); margin:0 0 8px; max-width:var(--measure); font-family:"Bitter",Georgia,serif; font-style:italic}
+h2{font-size:21px; font-weight:600; letter-spacing:-.01em; margin:2.2em 0 .4em; text-wrap:balance; max-width:var(--measure)}
+p{max-width:var(--measure)}
+code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--code-bg); padding:0 4px; border-radius:3px}
+.tech{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--g1); border-radius:5px; padding:12px 16px; margin:14px 0; font-size:13.5px; max-width:var(--measure)}
+.tech .t{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; font-weight:600}
+.tech .f{font-family:"IBM Plex Mono",monospace; font-size:13px; line-height:1.9; overflow-x:auto}
+.tech p{font-size:13.5px; margin:6px 0 0}
+figure{margin:18px 0; padding:14px 10px 8px; background:var(--card); border:1px solid var(--line); border-radius:6px; overflow-x:auto; max-width:var(--measure)}
+figure svg{display:block; max-width:100%; height:auto; margin:0 auto}
+figcaption{font-size:12px; color:var(--muted); text-align:center; margin-top:8px; font-family:"Bitter",Georgia,serif; font-style:italic}
+.svgtxt{font-family:"IBM Plex Mono",monospace; font-size:12.5px; fill:currentColor}
+.svglbl{font-family:"Gibson","Segoe UI",sans-serif; font-size:12px; fill:var(--muted)}
+table.ex{border-collapse:collapse; font-size:13px; margin:14px 0; max-width:var(--measure); font-variant-numeric:tabular-nums}
+table.ex th{font-family:"IBM Plex Mono",monospace; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); text-align:right; padding:4px 10px; border-bottom:1px solid var(--line)}
+table.ex td{font-family:"IBM Plex Mono",monospace; padding:4px 10px; text-align:right; border-bottom:1px solid var(--line-soft)}
+table.ex tr.pick td{background:var(--g1-tint)}
+.foot{margin-top:44px; font-size:12.5px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; max-width:var(--measure)}
+a{color:var(--g1)} a:hover{color:#1983AA}
+</style>
+
+<div class="wrap">
+<div class="kicker">radians.beamlab &middot; orbit design</div>
+<h1>Inside the Repeat Solver</h1>
+<p class="lede">The Repeat solver lists the altitudes near your target where a ground track truly
+repeats, and turns each one into the numbers a Case-2 filing declares. This page explains what
+the solver searches for, why only special altitudes qualify, and how to read every column of
+its results.</p>
+
+<h2>The question it answers</h2>
+<p>A repeating ground track is a promise: after some whole number of laps, the satellite
+retraces exactly the same lines over the Earth. The promise only holds at special altitudes
+&mdash; so the practical question is not <em>&ldquo;does my orbit repeat?&rdquo;</em> (at an
+arbitrary altitude it does not) but <em>&ldquo;which nearby altitudes repeat, and what does
+each cost me?&rdquo;</em> That is what the solver answers.</p>
+<p>It matters only when you intend to make that promise. A free-drift filing (Case&nbsp;1) and
+a declared-precession filing (Case&nbsp;3) fly your target orbit exactly as entered &mdash; no
+solved repeat is needed, and you can skip the solver entirely. The solver exists for
+Case&nbsp;2.</p>
+<p>Everything rests on one number, explained in
+<a href="orbit-design-cases.html">The Three Orbit Cases</a>: each northbound equator crossing
+lands a fixed step <code>S_pass</code> west of the previous one. At 1200&nbsp;km and
+53&deg; inclination, <code>S_pass</code> is 27.6653&deg; per lap.</p>
+
+<h2>When a track closes</h2>
+<p>Stack the westward steps end to end around the equator. The track repeats after
+<code>k</code> laps precisely when those <code>k</code> steps add up to a whole number of full
+turns &mdash; <code>m</code> of them. One step short or long, and every later lap lands
+slightly offset: the residual is the drift you would fly with.</p>
+
+<figure>
+<svg viewBox="0 0 700 176" role="img" aria-label="Thirteen westward steps summing exactly to one full turn close the track; a near-miss leaves a residual offset per cycle">
+  <defs><marker id="ra" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
+  <g style="color:var(--ink)">
+    <text x="16" y="22" class="svgtxt">k = 13 steps = exactly 1 turn: closed</text>
+    <line x1="30" y1="52" x2="670" y2="52" stroke="currentColor" opacity=".45"/>
+    <g fill="var(--g1)">
+      <circle cx="30" cy="52" r="4"/><circle cx="79" cy="52" r="3"/><circle cx="128" cy="52" r="3"/>
+      <circle cx="177" cy="52" r="3"/><circle cx="226" cy="52" r="3"/><circle cx="275" cy="52" r="3"/>
+      <circle cx="324" cy="52" r="3"/><circle cx="373" cy="52" r="3"/><circle cx="422" cy="52" r="3"/>
+      <circle cx="471" cy="52" r="3"/><circle cx="520" cy="52" r="3"/><circle cx="569" cy="52" r="3"/>
+      <circle cx="618" cy="52" r="3"/>
+    </g>
+    <circle cx="667" cy="52" r="5" fill="none" stroke="var(--g1)" stroke-width="2"/>
+    <text x="30" y="76" class="svglbl">start</text>
+    <text x="640" y="76" class="svglbl">lap 13 lands on the start</text>
+    <text x="16" y="112" class="svgtxt" style="fill:var(--bad)">one step off: never closes</text>
+    <line x1="30" y1="142" x2="670" y2="142" stroke="currentColor" opacity=".45"/>
+    <g fill="currentColor" opacity=".7">
+      <circle cx="30" cy="142" r="4"/><circle cx="82" cy="142" r="3"/><circle cx="134" cy="142" r="3"/>
+      <circle cx="186" cy="142" r="3"/><circle cx="238" cy="142" r="3"/><circle cx="290" cy="142" r="3"/>
+      <circle cx="342" cy="142" r="3"/><circle cx="394" cy="142" r="3"/><circle cx="446" cy="142" r="3"/>
+      <circle cx="498" cy="142" r="3"/><circle cx="550" cy="142" r="3"/><circle cx="602" cy="142" r="3"/>
+      <circle cx="654" cy="142" r="3"/>
+    </g>
+    <line x1="30" y1="128" x2="46" y2="128" stroke="var(--bad)" marker-end="url(#ra)"/>
+    <text x="52" y="132" class="svglbl">residual per cycle</text>
+  </g>
+</svg>
+<figcaption>Top: thirteen steps of 27.692&deg; complete exactly one turn &mdash; the track
+closes. Bottom: fly the same cycle at the wrong altitude and each cycle starts slightly west
+of the last; the offset is the <em>drift@target</em> column.</figcaption>
+</figure>
+
+<p>Only <em>coprime</em> pairs count. A pair like <code>k&nbsp;=&nbsp;26,&nbsp;m&nbsp;=&nbsp;2</code>
+draws no new lines &mdash; it traces the 13-lap pattern twice &mdash; so the solver skips every
+pair with a common factor and reports each distinct pattern once.</p>
+
+<div class="tech">
+  <div class="t">Technical detail &mdash; the closure condition</div>
+  <div class="f">
+    repeat after k laps &nbsp;&hArr;&nbsp; k &middot; S_pass = m &middot; 360&deg;, &nbsp;gcd(k, m) = 1<br>
+    candidate m &nbsp;= round(k &middot; S_pass / 360) &nbsp;for k = 1 &hellip; max orbits/cycle
+  </div>
+  <p><code>S_pass</code> comes from the same J2 secular rates the propagation uses
+  (Rec. ITU-R S.1503-4 &sect;D6.3.2, Steps 1&ndash;4).</p>
+</div>
+
+<h2>Finding the exact altitude</h2>
+<p>At your target altitude the equality almost never holds &mdash; but <code>S_pass</code>
+grows steadily with altitude (a higher orbit takes longer per lap, so the Earth turns further
+underneath). That gives the solver a clean method: for each candidate pair it asks
+<em>&ldquo;at what altitude does <code>S_pass</code> equal exactly
+<code>360&middot;m/k</code>?&rdquo;</em> and closes in on the answer by repeated halving inside
+the search band you set. Candidates whose exact altitude falls outside the band are dropped.</p>
+
+<figure>
+<svg viewBox="0 0 700 200" role="img" aria-label="S_pass grows monotonically with altitude; the altitude where it crosses 360 m over k is the exact repeat altitude, found by bisection inside the search band">
+  <g style="color:var(--ink)">
+    <line x1="60" y1="170" x2="670" y2="170" stroke="currentColor" opacity=".45"/>
+    <line x1="60" y1="170" x2="60" y2="20" stroke="currentColor" opacity=".45"/>
+    <text x="665" y="188" text-anchor="end" class="svglbl">altitude</text>
+    <text x="24" y="30" class="svglbl">S_pass</text>
+    <path d="M70 160 C 260 130 480 80 660 34" fill="none" stroke="currentColor" stroke-width="1.6"/>
+    <rect x="230" y="20" width="260" height="150" fill="var(--g1-tint)"/>
+    <text x="360" y="188" text-anchor="middle" class="svglbl">search band around the target</text>
+    <line x1="60" y1="96" x2="670" y2="96" stroke="var(--g1)" stroke-dasharray="5 3"/>
+    <text x="666" y="88" text-anchor="end" class="svgtxt" style="fill:var(--g1)">360 m / k</text>
+    <circle cx="384" cy="96" r="5" fill="var(--g1)"/>
+    <line x1="384" y1="96" x2="384" y2="170" stroke="var(--g1)" stroke-dasharray="2 3"/>
+    <text x="384" y="188" text-anchor="middle" class="svgtxt" style="fill:var(--g1)">exact alt</text>
+  </g>
+</svg>
+<figcaption>The westward step versus altitude. Where the curve crosses the candidate&rsquo;s
+required value is the exact repeat altitude; bisection finds it because the curve only ever
+rises.</figcaption>
+</figure>
+
+<div class="tech">
+  <div class="t">Technical detail &mdash; the altitude solve</div>
+  <div class="f">
+    f(a) = S_pass(a) &minus; 360 m / k &nbsp;&nbsp;(monotone increasing in a)<br>
+    bracket over [target &minus; band, target + band]; 90 bisection halvings<br>
+    candidates ranked by |exact altitude &minus; target|, best 10 kept
+  </div>
+</div>
+
+<h2>Reading the results</h2>
+<p>Each row of the grid is one closed pattern, already converted into filing terms:</p>
+<p><strong>orbits k / days m</strong> &mdash; the pattern: k laps in m node-relative days.
+<strong>exact alt</strong> &mdash; where the pattern truly closes; <strong>delta</strong> is
+how far that is from your target. <strong>cycle</strong> &mdash; the repeat duration, already
+split as the filing&rsquo;s <code>rpt_prd_dd/hh/mm/ss</code>. <strong>drift@target</strong>
+&mdash; the residual per cycle if you fly your target altitude instead of the exact one.
+<strong>spacing</strong> &mdash; the distance between adjacent tracks, 360/k.
+<strong>max keep_rnge</strong> &mdash; half that spacing: the widest longitude tolerance
+before neighbouring swept tracks collide (the tab refuses more).</p>
+
+<p>A worked example &mdash; target 1200&nbsp;km, inclination 53&deg;
+(<code>S_pass</code>&nbsp;=&nbsp;27.6653&deg;, lap 109.37&nbsp;min):</p>
+
+<table class="ex">
+<tr><th>k</th><th>m</th><th>exact alt (km)</th><th>delta</th><th>cycle</th><th>drift@target</th><th>spacing</th><th>max keep_rnge</th></tr>
+<tr class="pick"><td>13</td><td>1</td><td>1205.03</td><td>+5.03</td><td>0d 23:43:10</td><td>&minus;0.351&deg;</td><td>27.692&deg;</td><td>13.846&deg;</td></tr>
+<tr><td>118</td><td>9</td><td>1161.24</td><td>&minus;38.76</td><td>8d 21:26:09</td><td>+24.505&deg;</td><td>3.051&deg;</td><td>1.525&deg;</td></tr>
+<tr><td>105</td><td>8</td><td>1155.80</td><td>&minus;44.20</td><td>7d 21:42:59</td><td>+24.856&deg;</td><td>3.429&deg;</td><td>1.714&deg;</td></tr>
+<tr><td>116</td><td>9</td><td>1249.45</td><td>+49.45</td><td>8d 21:30:50</td><td>&minus;30.825&deg;</td><td>3.103&deg;</td><td>1.552&deg;</td></tr>
+<tr><td>92</td><td>7</td><td>1148.83</td><td>&minus;51.17</td><td>6d 21:59:48</td><td>+25.207&deg;</td><td>3.913&deg;</td><td>1.957&deg;</td></tr>
+</table>
+
+<p>The trade the table shows is general: short cycles (the one-day 13/1) sit closest to a
+round-number altitude and leave a generous tolerance, but space their tracks far apart;
+long cycles (the week-long grids) lay finer track meshes at the price of a tighter
+tolerance and a repeat period the station keeping must actually hold.</p>
+
+<h2>Checking a period of your own</h2>
+<p>The scan is not the only way in. If you already have a repeat in mind &mdash; from an
+existing filing, a mission plan, a published constellation &mdash; enter it directly as
+<code>k</code> orbits in <code>m</code> nodal days and it is validated like any candidate
+the scan found itself. A non-coprime pair is reduced first, because the shorter cycle is the
+true one: 26 orbits in 2 days is really the 13/1 pattern &mdash; after 13 laps the track has
+already closed, and the second time around adds nothing. The exact altitude that closes the
+reduced pair is then solved anywhere between 100 and 30&nbsp;000&nbsp;km, and the result
+appears as the highlighted top row of the grid: selectable like any other candidate, and
+flagged in red when its altitude falls outside the search band around your target &mdash;
+a warning that the repeat exists, just not near the orbit you meant to fly.</p>
+
+<h2>Proof by flight</h2>
+<p>The solver&rsquo;s numbers are never left as algebra. When you select a row, the tab flies
+one full cycle at the exact altitude through the same propagation the EPFD calculation uses
+and draws the ground track: the filled dot is where it started, the ring where it ended. For a
+true repeat they sit on top of each other, and the printed closure angle says the same thing
+as a number &mdash; 0.0000&deg; for the candidates above.</p>
+
+<p class="foot">Companion to the <strong>Orbit Design</strong> tab&rsquo;s Repeat solver and
+to <a href="orbit-design-cases.html">The Three Orbit Cases</a>. Sources: Rec. ITU-R S.1503-4
+&sect;D6.3.2 Steps 1&ndash;4 for the westward step, &sect;B3.1 for the Case-2 declaration
+(<code>DoesRepeat</code>, <code>W_delta</code>, the repeat period).</p>
+</div>

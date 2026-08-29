@@ -137,11 +137,18 @@ fields for all three station-keeping cases — including the Case-1 artificial
 precession numbers and the spacing the examination run actually measures —
 and draws one full propagated cycle of the selected candidate over the
 coastline map, with start/end markers that coincide when the track closes.
-A Walker-shell panel grows the orbit into a full constellation (orbit and
-phase tables previewed as the SNS v10 rows), designs save and reload as
-`*.orbitdesign.json` files, and a builder writes the shell straight into
-an SNS v10 SRS database. Tooltips share their text with the parameter
+Three sub-tabs share the state: the repeat solver, the station-keeping
+cases, and a Walker-shell constellation panel with live SNS orbit/phase
+tables; designs save and reload as `*.orbitdesign.json` files (including
+the selected candidate). Tooltips share their text with the parameter
 cards.
+
+### SNS v10 builder (window)
+
+Assembles complete SNS v10 datasets (SRS + Masks databases) from separate
+elements — orbit-design files as shells, mask XMLs, operating-parameter
+sets and the scenario frequency ranges — cloned from donor schemas and
+written through the verified writer.
 
 Full details and the maths for every control are in the
 **[user guide](docs/user-guide.md)**.

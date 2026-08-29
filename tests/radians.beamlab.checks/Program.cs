@@ -2821,13 +2821,18 @@ var looks = RandomLooks(300);
 {
     // Running inside the repo tree, the docs walk-up must find the guide
     // and the parameter cards; the four function cards target tabs 1..4.
-    var vmH = new HomeViewModel(AppContext.BaseDirectory);
+    // Alt-dir builds run outside the repo tree; fall back to the repo root
+    // (the J0 pattern) so the docs walk-up still resolves.
+    string homeStart = radians.beamlab.app.HomeViewModel.FindDocsDir(AppContext.BaseDirectory) is null
+        ? @"C:\Projects\radians.beamlab" : AppContext.BaseDirectory;
+    var vmH = new HomeViewModel(homeStart);
     bool okV6 = vmH.Functions.Count == 4
         && vmH.Functions.Select(f => f.TabIndex).SequenceEqual(new[] { 1, 2, 3, 4 })
         && vmH.Functions.All(f => f.Title.Length > 0 && f.Description.Length > 40)
         && vmH.UserGuidePath is not null && File.Exists(vmH.UserGuidePath)
         && vmH.ParameterCardsPath is not null && File.Exists(vmH.ParameterCardsPath)
         && vmH.OrbitCasesPath is not null && File.Exists(vmH.OrbitCasesPath)
+        && vmH.RepeatSolverPath is not null && File.Exists(vmH.RepeatSolverPath)
         && vmH.VersionText.StartsWith("v1.");
     Check("V6 Home view model: four cards, docs resolved from the repo tree, version", okV6,
         $"funcs={vmH.Functions.Count} guide={vmH.UserGuidePath is not null} " +
@@ -2851,7 +2856,7 @@ var looks = RandomLooks(300);
     // altitude; clearing it returns NOrbits to manual control.
     var vmB = new OrbitDesignViewModel();
     vmB.VictimBeamwidthText = "4";
-    int expN = OrbitDesign.SuggestedNOrbits(4.0, vmB.SelectedSolution!.Solution.AltitudeKm);
+    int expN = OrbitDesign.SuggestedNOrbits(4.0, vmB.TargetAltitudeKm);
     bool wiredOk = vmB.NOrbits == expN && vmB.Case1Text.Contains("orbits");
     vmB.VictimBeamwidthText = "";
     vmB.NOrbits = 288;
@@ -2868,9 +2873,9 @@ var looks = RandomLooks(300);
     // must carry the same text. Normalise the page the way the catalog was
     // ported (strip tags, decode entities, collapse whitespace) and require
     // every entry's name and description verbatim.
-    string cardsPath = Path.Combine(
-        radians.beamlab.app.HomeViewModel.FindDocsDir(AppContext.BaseDirectory)!,
-        "parameter-cards.html");
+    string docsDirV8 = radians.beamlab.app.HomeViewModel.FindDocsDir(AppContext.BaseDirectory)
+        ?? @"C:\Projects\radians.beamlab\docs";
+    string cardsPath = Path.Combine(docsDirV8, "parameter-cards.html");
     string norm = System.Text.RegularExpressions.Regex.Replace(
         System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(
             File.ReadAllText(cardsPath), "<[^>]+>", "")), @"\s+", " ");
@@ -2909,7 +2914,7 @@ var looks = RandomLooks(300);
     bool case1Ok = !vmC.OrbitRows[0].StationKeeping && !vmC.OrbitRows[0].PrecessionSupplied;
 
     var notice = vmC.BuildNotice();
-    bool noticeOk = notice.NtcId == vmC.NtcId && notice.SatName == vmC.SatNameText
+    bool noticeOk = notice.NtcId == 0 && notice.SatName == "DESIGN"
         && notice.Orbits.Count == 3 && notice.Phases.Count == 15;
 
     string j1 = vmC.BuildDesignJson();
@@ -2921,6 +2926,202 @@ var looks = RandomLooks(300);
     Check("V9 constellation tables, case fields, notice and design-file round-trip",
         tablesOk && case3Ok && case1Ok && noticeOk && jsonOk,
         $"orb={vmC.OrbitRows.Count} ph={vmC.PhaseRows.Count} json={jsonOk} notice={noticeOk}");
+}
+
+// ---- V10: the SNS v10 builder assembles a notice from elements ----
+{
+    // A Case-2 design saved by the tab (with its selected candidate), then
+    // consumed by the builder alongside mask registrations and R sets.
+    var vmS = new OrbitDesignViewModel();
+    vmS.CaseChoice = 1; vmS.PlaneCount = 2; vmS.SatsPerPlane = 3;
+    string dj = vmS.BuildDesignJson();
+    string tmpD = Path.Combine(AppContext.BaseDirectory, "exp", "v10.orbitdesign.json");
+    Directory.CreateDirectory(Path.GetDirectoryName(tmpD)!);
+    File.WriteAllText(tmpD, dj);
+
+    var shellB = OrbitDesignFileCodec.ToShell(OrbitDesignFileCodec.Load(dj));
+    bool shellOk = shellB.StationKeeping
+        && shellB.RepeatPeriod == vmS.SelectedSolution!.Solution.RptPrd
+        && Math.Abs(shellB.AltitudeKm - vmS.SelectedSolution.Solution.AltitudeKm) < 1e-9;
+
+    var b = new SnsBuilderViewModel { NtcId = 900555001, SatName = "V10SAT" };
+    b.AddShellFile(tmpD);
+    b.Masks.Add(new MaskEntry { MaskId = 1, FilePath = "a.xml", FMask = "P", FMaskType = "A", FreqMinMhz = 19700, FreqMaxMhz = 20200 });
+    b.Masks.Add(new MaskEntry { MaskId = 6, FilePath = "b.xml", FMask = "E", FMaskType = "O", FreqMinMhz = 27500, FreqMaxMhz = 28600 });
+    b.Masks.Add(new MaskEntry { MaskId = 21, FilePath = "c.xml", FMask = "R", FreqMinMhz = 19700, FreqMaxMhz = 20200 });
+    b.Frequencies.Add(new FreqEntry { EmiRcp = "E", FreqMinMhz = 19700, FreqMaxMhz = 20200 });
+    b.Frequencies.Add(new FreqEntry { EmiRcp = "R", FreqMinMhz = 27500, FreqMaxMhz = 28600 });
+
+    var nB = b.BuildNotice();   // validates internally
+    bool okV10 = shellOk
+        && nB.NtcId == 900555001 && nB.SatName == "V10SAT"
+        && nB.Orbits.Count == 2 && nB.Phases.Count == 6
+        && nB.MaskInfo.Count == 3 && nB.OperatingParamIds.SequenceEqual(new[] { 21 })
+        && nB.Scenarios.Count == 1 && nB.Scenarios[0].Frequencies.Count == 2
+        && nB.Scenarios[0].PfdMaskLinks.Count == 1 && nB.Scenarios[0].EsMaskLinks.Count == 1
+        && b.BuildMaskContents().Count == 3
+        && b.SummaryText().Contains("1 R set");
+    Check("V10 SNS builder: design-file shell, mask registry, R set, auto-linked scenario", okV10,
+        $"orb={nB.Orbits.Count} ph={nB.Phases.Count} mi={nB.MaskInfo.Count} " +
+        $"lnk1={nB.Scenarios[0].PfdMaskLinks.Count} lnk2={nB.Scenarios[0].EsMaskLinks.Count} shell={shellOk}");
+}
+
+// ---- V11: the own-period validator ----
+{
+    // A pair the scan itself finds must validate to identical numbers.
+    var scanW = OrbitDesign.RepeatSolutions(1200.0, 0.0, 53.0, 120, take: 10);
+    var refW = scanW[0];   // 13 orbits / 1 nodal day near 1205 km
+    var chkA = OrbitDesign.CheckRepeat(1200.0, 0.0, 53.0, refW.Orbits, refW.NodalDays, 400.0);
+    bool agreeOk = chkA.Solution is { } sa && chkA.WithinBand && !chkA.Reduced
+        && Math.Abs(sa.AltitudeKm - refW.AltitudeKm) < 1e-6
+        && sa.RptPrd == refW.RptPrd && sa.MaxKeepRangeDeg == refW.MaxKeepRangeDeg;
+
+    // A non-coprime pair reduces to the true cycle at the same altitude.
+    var chkB = OrbitDesign.CheckRepeat(1200.0, 0.0, 53.0, refW.Orbits * 2, refW.NodalDays * 2, 400.0);
+    bool reduceOk = chkB.Reduced && chkB.Orbits == refW.Orbits && chkB.NodalDays == refW.NodalDays
+        && chkB.Solution is { } sb && Math.Abs(sb.AltitudeKm - refW.AltitudeKm) < 1e-6;
+
+    // 15/1 closes far below a 1200 km target: still solved, flagged out of band.
+    var chkC = OrbitDesign.CheckRepeat(1200.0, 0.0, 53.0, 15, 1, 400.0);
+    bool bandOk = chkC.Solution is { } sc && !chkC.WithinBand
+        && sc.AltitudeDeltaKm < -400.0 && sc.AltitudeKm > 100.0;
+
+    // VM: the entered pair becomes the selected, highlighted top row and
+    // replaces the identical scan row; clearing restores the plain scan.
+    var vmV = new OrbitDesignViewModel();
+    int baseCount = vmV.Solutions.Count;
+    vmV.CheckOrbitsText = refW.Orbits.ToString();
+    vmV.CheckDaysText = refW.NodalDays.ToString();
+    bool vmOk = vmV.Solutions.Count == baseCount
+        && vmV.Solutions[0].IsUserEntry && vmV.Solutions[0].WithinBand
+        && ReferenceEquals(vmV.SelectedSolution, vmV.Solutions[0])
+        && vmV.Solutions.Count(r => r.Orbits == refW.Orbits && r.NodalDays == refW.NodalDays) == 1
+        && vmV.CheckStatusText.Contains("closes at")
+        && vmV.Case2Text.Contains("rpt_prd_dd=");
+    vmV.CheckOrbitsText = (refW.Orbits * 2).ToString();
+    vmV.CheckDaysText = (refW.NodalDays * 2).ToString();
+    bool vmReduceOk = vmV.CheckStatusText.Contains("reduces to")
+        && vmV.Solutions[0].Orbits == refW.Orbits;
+    vmV.CheckOrbitsText = ""; vmV.CheckDaysText = "";
+    bool clearOk = vmV.CheckStatusText.Length == 0
+        && vmV.Solutions.Count == baseCount && !vmV.Solutions[0].IsUserEntry;
+
+    Check("V11 own-period validator: scan agreement, gcd reduction, band flag, VM row",
+        agreeOk && reduceOk && bandOk && vmOk && vmReduceOk && clearOk,
+        $"agree={agreeOk} reduce={reduceOk} band={bandOk} vm={vmOk} clear={clearOk}");
+}
+
+// ---- V12: Case-3 admin-supplied precession override ----
+{
+    var vmP = new OrbitDesignViewModel();
+    vmP.CaseChoice = 2;   // Case 3 declared precession
+    double aT12 = OrbitalConstants.EarthRadiusKm + vmP.TargetAltitudeKm;
+    double j2Def = OrbitDesign.J2NodalRateDegPerSec(aT12, 0.0, 53.0);
+    bool defOk = vmP.OrbitRows[0].PrecessionRateDegPerSec == j2Def
+        && vmP.Case3Text.Contains("plain-J2");
+
+    vmP.PrecessionText = "-2.5e-5";
+    bool ovrOk = vmP.OrbitRows[0].PrecessionRateDegPerSec == -2.5e-5
+        && vmP.BuildShell().PrecessionRateDegPerSec == -2.5e-5
+        && vmP.Case3Text.Contains("admin-supplied") && vmP.Case3Text.Contains("would be");
+
+    vmP.PrecessionText = "1.14e-5";   // retrograde-style positive passes signed
+    bool signOk = vmP.OrbitRows[0].PrecessionRateDegPerSec == 1.14e-5;
+
+    vmP.PrecessionText = "-2.5e-5";
+    string j12 = vmP.BuildDesignJson();
+    var d12 = OrbitDesignFileCodec.Load(j12);
+    var sh12 = OrbitDesignFileCodec.ToShell(d12);
+    bool fileOk = d12.SchemaVersion == 3 && d12.PrecessionDegPerSec == -2.5e-5
+        && sh12.PrecessionSupplied && sh12.PrecessionRateDegPerSec == -2.5e-5;
+
+    var vmQ = new OrbitDesignViewModel();
+    vmQ.LoadDesignJson(j12);
+    bool loadOk = vmQ.BuildDesignJson() == j12
+        && vmQ.OrbitRows[0].PrecessionRateDegPerSec == -2.5e-5;
+
+    // A version-2 file (field absent) declares the plain-J2 default.
+    var shv2 = OrbitDesignFileCodec.ToShell(
+        OrbitDesignFileCodec.Load(OrbitDesignFileCodec.Save(
+            d12 with { SchemaVersion = 2, PrecessionDegPerSec = null })));
+    bool v2Ok = shv2.PrecessionRateDegPerSec == j2Def;
+
+    Check("V12 Case-3 precession override: default, signed pass-through, schema v3, v2 fallback",
+        defOk && ovrOk && signOk && fileOk && loadOk && v2Ok,
+        $"def={defOk} ovr={ovrOk} sign={signOk} file={fileOk} load={loadOk} v2={v2Ok}");
+}
+
+// ---- V13: the multi-shell design document ----
+{
+    var doc = new OrbitDesignDocumentViewModel();
+    bool startOk = doc.Shells.Count == 1 && ReferenceEquals(doc.SelectedShell, doc.Shells[0])
+        && doc.ShellHeaderText == "editing shell 1 of 1";
+
+    doc.AddShell();
+    doc.SelectedShell.TargetAltitudeKm = 800.0;
+    doc.SelectedShell.CaseChoice = 0;
+    bool independentOk = doc.Shells.Count == 2
+        && ReferenceEquals(doc.SelectedShell, doc.Shells[1])
+        && doc.Shells[0].TargetAltitudeKm == 1200.0
+        && doc.Shells[1].TargetAltitudeKm == 800.0
+        && doc.ShellHeaderText == "editing shell 2 of 2";
+
+    // Combined preview: both shells' rows, orb ids unique across shells.
+    doc.PreviewAllShells = true;
+    var comb = doc.BuildCombinedNotice();
+    int expOrb = doc.Shells[0].OrbitRows.Count + doc.Shells[1].OrbitRows.Count;
+    int expPh = doc.Shells[0].PhaseRows.Count + doc.Shells[1].PhaseRows.Count;
+    bool combinedOk = doc.PreviewOrbitRows.Count == expOrb && doc.PreviewPhaseRows.Count == expPh
+        && comb.Orbits.Select(o => o.OrbId).Distinct().Count() == expOrb;
+    doc.PreviewAllShells = false;
+    bool selectedOnlyOk = doc.PreviewOrbitRows.Count == doc.SelectedShell.OrbitRows.Count;
+
+    // Document JSON round-trip; a bare v3 single-shell file loads as one shell.
+    string dj13 = doc.BuildDocumentJson();
+    var doc2 = new OrbitDesignDocumentViewModel();
+    doc2.LoadDocumentJson(dj13);
+    bool roundOk = doc2.Shells.Count == 2 && doc2.Shells[1].TargetAltitudeKm == 800.0
+        && doc2.Shells[1].CaseChoice == 0 && doc2.BuildDocumentJson() == dj13;
+    var doc3 = new OrbitDesignDocumentViewModel();
+    doc3.LoadDocumentJson(doc.Shells[0].BuildDesignJson());
+    bool v3Ok = doc3.Shells.Count == 1 && doc3.Shells[0].TargetAltitudeKm == 1200.0;
+
+    // Duplicate deep-copies the selection; remove always keeps one shell.
+    doc.DuplicateSelected();
+    bool dupOk = doc.Shells.Count == 3
+        && doc.SelectedShell.TargetAltitudeKm == 800.0
+        && !ReferenceEquals(doc.SelectedShell, doc.Shells[1]);
+    doc.RemoveSelected(); doc.RemoveSelected(); doc.RemoveSelected();
+    bool removeOk = doc.Shells.Count == 1;
+
+    Check("V13 multi-shell document: independence, combined preview, round-trip, v3 load",
+        startOk && independentOk && combinedOk && selectedOnlyOk && roundOk && v3Ok && dupOk && removeOk,
+        $"start={startOk} indep={independentOk} comb={combinedOk} sel={selectedOnlyOk} " +
+        $"round={roundOk} v3={v3Ok} dup={dupOk} rm={removeOk}");
+}
+
+// ---- V14: the builder consumes a whole design document ----
+{
+    var docB = new OrbitDesignDocumentViewModel();
+    docB.Shells[0].PlaneCount = 2; docB.Shells[0].SatsPerPlane = 3;
+    docB.AddShell();
+    docB.SelectedShell.TargetAltitudeKm = 800.0;
+    docB.SelectedShell.CaseChoice = 0;
+    docB.SelectedShell.PlaneCount = 3; docB.SelectedShell.SatsPerPlane = 2;
+    string tmpDoc = Path.Combine(AppContext.BaseDirectory, "exp", "v14.orbitdesign.json");
+    Directory.CreateDirectory(Path.GetDirectoryName(tmpDoc)!);
+    File.WriteAllText(tmpDoc, docB.BuildDocumentJson());
+
+    var bb = new SnsBuilderViewModel { NtcId = 900555002, SatName = "V14SAT" };
+    bb.AddShellFile(tmpDoc);
+    bb.Masks.Add(new MaskEntry { MaskId = 1, FilePath = "a.xml", FMask = "P", FMaskType = "A", FreqMinMhz = 19700, FreqMaxMhz = 20200 });
+    bb.Frequencies.Add(new FreqEntry { EmiRcp = "E", FreqMinMhz = 19700, FreqMaxMhz = 20200 });
+    var nb = bb.BuildNotice();
+    bool okV14 = bb.Shells.Count == 2
+        && nb.Orbits.Count == 5 && nb.Phases.Count == 12
+        && nb.Orbits.Select(o => o.OrbId).Distinct().Count() == 5;
+    Check("V14 builder loads a schema-4 document: one file, all shells", okV14,
+        $"entries={bb.Shells.Count} orb={nb.Orbits.Count} ph={nb.Phases.Count}");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

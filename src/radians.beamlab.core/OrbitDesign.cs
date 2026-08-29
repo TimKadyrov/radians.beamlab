@@ -25,6 +25,26 @@ public sealed record RepeatSolution
     public required double MaxKeepRangeDeg { get; init; }
 }
 
+/// <summary>
+/// Outcome of validating a user-entered repeat pair. The entered pair is
+/// reduced to coprime terms first (the true cycle); Solution is null when
+/// no altitude in the whole 100..30000 km band closes the reduced pair,
+/// and WithinBand says whether its exact altitude lies inside the user's
+/// search band around the target.
+/// </summary>
+public sealed record RepeatCheck
+{
+    public required int OrbitsEntered { get; init; }
+    public required int NodalDaysEntered { get; init; }
+    /// <summary>Reduced coprime orbit count actually solved.</summary>
+    public required int Orbits { get; init; }
+    /// <summary>Reduced coprime nodal-day count actually solved.</summary>
+    public required int NodalDays { get; init; }
+    public required bool Reduced { get; init; }
+    public required bool WithinBand { get; init; }
+    public required RepeatSolution? Solution { get; init; }
+}
+
 /// <summary>The Case-1 artificial-precession numbers for a given run length.</summary>
 public sealed record ArtificialPrecessionPlan
 {
@@ -142,6 +162,60 @@ public static class OrbitDesign
             });
         }
         return results.OrderBy(s => Math.Abs(s.AltitudeDeltaKm)).Take(take).ToList();
+    }
+
+    /// <summary>
+    /// Validates a user-entered repeat pair (orbits nodal orbits in
+    /// nodalDays node-relative Earth turns) against the target orbit. A
+    /// non-coprime pair is reduced first -- the true cycle is the reduced
+    /// one. The exact altitude is solved over the whole 100..30000 km band
+    /// so an out-of-band pair still reports its altitude, flagged through
+    /// WithinBand; a null Solution means no altitude in that band closes
+    /// the pair at this inclination.
+    /// </summary>
+    public static RepeatCheck CheckRepeat(double targetAltitudeKm, double eccentricity,
+        double inclinationDeg, int orbits, int nodalDays, double searchBandKm)
+    {
+        if (orbits < 1) throw new ArgumentOutOfRangeException(nameof(orbits));
+        if (nodalDays < 1) throw new ArgumentOutOfRangeException(nameof(nodalDays));
+        int g = Gcd(orbits, nodalDays);
+        int k = orbits / g, m = nodalDays / g;
+
+        double aTarget = OrbitalConstants.EarthRadiusKm + targetAltitudeKm;
+        var (spassTarget, _) = NodalPassGeometry(aTarget, eccentricity, inclinationDeg);
+        const double loAltKm = 100.0, hiAltKm = 30000.0;
+        double aExact = SolveAltitudeForSPass(360.0 * m / k,
+            OrbitalConstants.EarthRadiusKm + 0.5 * (loAltKm + hiAltKm),
+            eccentricity, inclinationDeg, 0.5 * (hiAltKm - loAltKm));
+
+        RepeatSolution? sol = null;
+        if (!double.IsNaN(aExact))
+        {
+            var (_, tNodalExact) = NodalPassGeometry(aExact, eccentricity, inclinationDeg);
+            double repeatSec = k * tNodalExact;
+            sol = new RepeatSolution
+            {
+                Orbits = k,
+                NodalDays = m,
+                AltitudeKm = aExact - OrbitalConstants.EarthRadiusKm,
+                AltitudeDeltaKm = aExact - aTarget,
+                RepeatSeconds = repeatSec,
+                DriftDegPerCycleAtTarget = k * spassTarget - 360.0 * m,
+                EquatorSpacingDeg = 360.0 / k,
+                RptPrd = DecomposePeriod(repeatSec),
+                MaxKeepRangeDeg = 180.0 / k,
+            };
+        }
+        return new RepeatCheck
+        {
+            OrbitsEntered = orbits,
+            NodalDaysEntered = nodalDays,
+            Orbits = k,
+            NodalDays = m,
+            Reduced = g != 1,
+            WithinBand = sol is not null && Math.Abs(sol.AltitudeDeltaKm) <= searchBandKm,
+            Solution = sol,
+        };
     }
 
     /// <summary>SNS ddd/hh/mm/ss decomposition, rounded to whole seconds.</summary>

@@ -14,19 +14,25 @@ namespace radians.beamlab.app;
 /// </summary>
 public partial class OrbitDesignView : UserControl
 {
-    private readonly OrbitDesignViewModel _vm = new();
+    private readonly OrbitDesignDocumentViewModel _doc = new();
+    private OrbitDesignViewModel _vm;   // the selected shell, rewired on switch
     private CoastlineDataProvider? _coastlines;
 
     private readonly string? _casesGuidePath;
+    private readonly string? _solverGuidePath;
 
     public OrbitDesignView()
     {
         InitializeComponent();
-        DataContext = _vm;
+        _vm = _doc.SelectedShell;
+        DataContext = _doc;
         string? docs = HomeViewModel.FindDocsDir(System.AppContext.BaseDirectory);
         string? guide = docs is null ? null : System.IO.Path.Combine(docs, "orbit-design-cases.html");
         _casesGuidePath = guide is not null && System.IO.File.Exists(guide) ? guide : null;
         CasesGuideButton.IsEnabled = _casesGuidePath is not null;
+        string? solver = docs is null ? null : System.IO.Path.Combine(docs, "repeat-solver.html");
+        _solverGuidePath = solver is not null && System.IO.File.Exists(solver) ? solver : null;
+        SolverGuideButton.IsEnabled = _solverGuidePath is not null;
         WireToolTips();
         Loaded += (_, _) =>
         {
@@ -34,8 +40,18 @@ public partial class OrbitDesignView : UserControl
             Redraw();
         };
         SizeChanged += (_, _) => Redraw();
-        _vm.TrackChanged += () => Dispatcher.Invoke(Redraw);
+        _vm.TrackChanged += OnTrackChanged;
+        _doc.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(OrbitDesignDocumentViewModel.SelectedShell)) return;
+            _vm.TrackChanged -= OnTrackChanged;
+            _vm = _doc.SelectedShell;
+            _vm.TrackChanged += OnTrackChanged;
+            Redraw();
+        };
     }
+
+    private void OnTrackChanged() => Dispatcher.Invoke(Redraw);
 
     private void OnCopyClick(object sender, RoutedEventArgs e)
     {
@@ -57,12 +73,15 @@ public partial class OrbitDesignView : UserControl
     private void WireToolTips()
     {
         static string? Cat(string name) => radians.beamlab.ParameterCatalog.Find(name)?.ToolTipText;
-        AltBox.ToolTip = "Mean altitude of the target orbit (km). The solver lists repeating-track candidates near it.";
+        AltBox.ToolTip = "Mean altitude of the target orbit (km). Every case starts from it; the solver lists repeating-track candidates near it.";
         IncBox.ToolTip = "Orbit inclination (deg). Sets the westward step per lap and the reachable latitudes.";
         EccBox.ToolTip = "Orbit eccentricity (0 = circular). Elliptical designs also declare the argument of perigee and an operating height.";
         MaxOrbBox.ToolTip = "Longest repeat cycle the solver searches, in orbits per cycle (k). Larger values find finer track grids at the cost of longer cycles.";
         BandBox.ToolTip = "How far above and below the target altitude the solver may move (km) to close a cycle exactly. Candidates outside the band are skipped.";
-        BwBox.ToolTip = "Victim 3 dB beamwidth (deg). When set, NOrbits is derived from the run rules (eq (3), N_tracks = 16) at the selected candidate's altitude; leave empty to set NOrbits by hand.";
+        CheckOrbitsBox.ToolTip = "Whole nodal orbits (k) of a repeat you already have in mind. With m: the track repeats after k orbits in m node-relative Earth turns; a non-coprime pair reduces to the true cycle.";
+        CheckDaysBox.ToolTip = "Whole nodal days (m) of the repeat to validate. The exact closing altitude is solved anywhere in 100-30000 km and flagged when it falls outside the search band.";
+        PrecessBox.ToolTip = "Admin-supplied nodal precession rate (deg/s, signed -- negative is the normal prograde case). Empty declares the plain-J2 default for the target orbit. Filed as f_precess='Y', precession.";
+        BwBox.ToolTip = "Victim 3 dB beamwidth (deg). When set, NOrbits is derived from the run rules (eq (3), N_tracks = 16) at the target altitude; leave empty to set NOrbits by hand.";
         NOrbitsBox.ToolTip = Cat("NOrbits") ?? "Case-1 run length in equatorial passes.";
         KeepBox.ToolTip = Cat("StationKeeping · WDeltaDeg · RepeatPeriod")
             ?? "Longitude deadband half-width the station keeping holds (deg).";
@@ -77,11 +96,11 @@ public partial class OrbitDesignView : UserControl
         var dlg = new Microsoft.Win32.SaveFileDialog
         {
             Filter = "Orbit design (*.orbitdesign.json)|*.orbitdesign.json",
-            FileName = _vm.SatNameText + ".orbitdesign.json",
+            FileName = "design.orbitdesign.json",
         };
         if (dlg.ShowDialog() != true) return;
-        System.IO.File.WriteAllText(dlg.FileName, _vm.BuildDesignJson());
-        _vm.SnsStatusText = "design saved: " + dlg.FileName;
+        System.IO.File.WriteAllText(dlg.FileName, _doc.BuildDocumentJson());
+        _vm.SnsStatusText = "design saved (" + _doc.Shells.Count + " shell(s)): " + dlg.FileName;
     }
 
     private void OnLoadDesignClick(object sender, RoutedEventArgs e)
@@ -93,41 +112,31 @@ public partial class OrbitDesignView : UserControl
         if (dlg.ShowDialog() != true) return;
         try
         {
-            _vm.LoadDesignJson(System.IO.File.ReadAllText(dlg.FileName));
-            _vm.SnsStatusText = "design loaded: " + dlg.FileName;
+            _doc.LoadDocumentJson(System.IO.File.ReadAllText(dlg.FileName));
+            _vm.SnsStatusText = "design loaded (" + _doc.Shells.Count + " shell(s)): " + dlg.FileName;
         }
         catch (System.Exception ex) { _vm.SnsStatusText = "load failed: " + ex.Message; }
     }
 
-    private void OnBuildSnsClick(object sender, RoutedEventArgs e)
+    private void OnSolverGuideClick(object sender, RoutedEventArgs e)
     {
-        const string defaultDonor = @"C:\Projects\_EPFD\epfd-reference\Cases\S.1503-4\127520101 SRS.MDB";
-        string donor = defaultDonor;
-        if (!System.IO.File.Exists(donor))
-        {
-            var pick = new Microsoft.Win32.OpenFileDialog
-            {
-                Title = "Select a donor SNS v10 SRS database (schema source)",
-                Filter = "SRS database (*.mdb)|*.mdb",
-            };
-            if (pick.ShowDialog() != true) return;
-            donor = pick.FileName;
-        }
-        var save = new Microsoft.Win32.SaveFileDialog
-        {
-            Filter = "SRS database (*.mdb)|*.mdb",
-            FileName = $"{_vm.NtcId} SRS.MDB",
-        };
-        if (save.ShowDialog() != true) return;
-        try
-        {
-            var notice = _vm.BuildNotice();
-            notice.Validate();
-            SrsMdbWriter.WriteSrs(donor, save.FileName, notice);
-            _vm.SnsStatusText = $"SNS v10 SRS written: {save.FileName} " +
-                $"({notice.Orbits.Count} orbit, {notice.Phases.Count} phase rows)";
-        }
-        catch (System.Exception ex) { _vm.SnsStatusText = "SNS build failed: " + ex.Message; }
+        if (_solverGuidePath is null) return;
+        System.Diagnostics.Process.Start(
+            new System.Diagnostics.ProcessStartInfo(_solverGuidePath) { UseShellExecute = true });
+    }
+
+    private void OnGoSolverClick(object sender, RoutedEventArgs e) => InnerTabs.SelectedIndex = 1;
+    private void OnGoCasesClick(object sender, RoutedEventArgs e) => InnerTabs.SelectedIndex = 2;
+    private void OnGoConstellationClick(object sender, RoutedEventArgs e) => InnerTabs.SelectedIndex = 3;
+
+    private void OnAddShellClick(object sender, RoutedEventArgs e) => _doc.AddShell();
+    private void OnDuplicateShellClick(object sender, RoutedEventArgs e) => _doc.DuplicateSelected();
+    private void OnRemoveShellClick(object sender, RoutedEventArgs e) => _doc.RemoveSelected();
+
+    private void OnOpenSnsBuilderClick(object sender, RoutedEventArgs e)
+    {
+        var w = new SnsBuilderWindow { Owner = Window.GetWindow(this) };
+        w.Show();
     }
 
     private void Redraw()
