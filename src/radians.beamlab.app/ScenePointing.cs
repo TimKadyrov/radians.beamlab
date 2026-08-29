@@ -19,11 +19,21 @@ namespace radians.beamlab.app;
 public sealed class ScenePointing : IBeamPointing
 {
     private readonly PfdMaskViewModel _gen;
+    private readonly double _dutyDb;
 
-    public ScenePointing(PfdMaskViewModel live)
+    /// <param name="illuminationDutyCycle">
+    /// Time-averaged illumination fraction per beam for hopping frames much
+    /// shorter than the simulation step: resolved powers carry
+    /// 10 log10(duty). The declared masks stay peak-PSD envelopes; only the
+    /// simulated statistics average. 1 = continuous (previous behaviour).
+    /// </param>
+    public ScenePointing(PfdMaskViewModel live, double illuminationDutyCycle = 1.0)
     {
+        if (illuminationDutyCycle is <= 0.0 or > 1.0)
+            throw new ArgumentOutOfRangeException(nameof(illuminationDutyCycle));
         _gen = new PfdMaskViewModel(live.Coastlines);
         live.CopySettingsTo(_gen);
+        _dutyDb = 10.0 * Math.Log10(illuminationDutyCycle);
     }
 
     public ResolvedBeamSet Resolve(SatelliteState state)
@@ -38,6 +48,9 @@ public sealed class ScenePointing : IBeamPointing
         _gen.RebuildForCompute();
         // Beams are recreated on every rebuild; snapshot the list so the
         // resolved set stays stable when this pointing moves to the next state.
-        return new ResolvedBeamSet(_gen.Scene.Beams.ToList(), PfdMaskField.BeamPowersDbw(_gen));
+        var powers = PfdMaskField.BeamPowersDbw(_gen);
+        if (_dutyDb != 0.0)
+            for (int i = 0; i < powers.Length; i++) powers[i] += _dutyDb;
+        return new ResolvedBeamSet(_gen.Scene.Beams.ToList(), powers);
     }
 }

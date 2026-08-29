@@ -9,6 +9,18 @@ public sealed record ServiceCell(int CellId, double LatDeg, double LonDeg)
 {
     /// <summary>Simultaneous co-frequency links this cell requests (traffic model; milestone default 1).</summary>
     public int DemandLinks { get; init; } = 1;
+
+    /// <summary>
+    /// Fraction of time each requested link actually carries traffic (an
+    /// on/off activity model, deterministic per cell/slot/window). Offered
+    /// intensity is then roughly DemandLinks * ActivityFactor Erlang;
+    /// blocking is not assumed -- it emerges from the Nco and coverage
+    /// bounds as unserved demand. 1 = always on (previous behaviour).
+    /// </summary>
+    public double ActivityFactor { get; init; } = 1.0;
+
+    /// <summary>Holding time of one on/off activity window (s).</summary>
+    public double ActivityPeriodSec { get; init; } = 300.0;
 }
 
 /// <summary>

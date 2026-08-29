@@ -98,6 +98,19 @@ public static class DeclaredConstraints
     }
 }
 
+/// <summary>
+/// The scheduler's satellite-selection strategy -- the declaration-side
+/// policy the operating parameters bound. MaxGsoSeparation picks the
+/// feasible satellite farthest from the GSO arc (largest alpha), an
+/// arc-avoidance mitigation whose epfd effect is measurable against the
+/// default.
+/// </summary>
+public enum SelectionPolicy
+{
+    HighestElevation,
+    MaxGsoSeparation,
+}
+
 /// <summary>One granted cell-satellite link at a step.</summary>
 public sealed record CellLink(int CellId, int SatelliteNumber, int BeamIndex,
     double StartTimeSec, double ElevationDeg, double AlphaDeg);
@@ -132,6 +145,13 @@ public sealed class ScheduleStep
 /// from it; cells outside es_lat_min/max are not served. Contested capacity
 /// resolves in cell-list order -- a deterministic, declaration-compliant
 /// greedy assignment, not an optimal one.
+///
+/// The selection metric is a policy: highest elevation (default), or
+/// maximum GSO separation -- the feasible satellite farthest from the arc,
+/// an arc-avoidance strategy whose margin effect is thereby measurable.
+/// Demand follows each cell's on/off activity model (ServiceCell
+/// .ActivityFactor): an inactive slot releases its link without counting a
+/// handover or unserved demand.
 /// </summary>
 public sealed class Scheduler
 {
@@ -153,10 +173,11 @@ public sealed class Scheduler
     private readonly Dictionary<(int, int), LinkState> _links = new();
     private readonly Vec3[] _cellEcef;
     private readonly Dictionary<(int shell, int plane), int> _orbIds = new();
+    private readonly SelectionPolicy _policy;
 
     public Scheduler(Constellation constellation, ServiceGeography geography,
         OperatingParamsSet declared, IBeamPointing layout, double simulationDurationSec,
-        double? coverageRadiusKm = null)
+        double? coverageRadiusKm = null, SelectionPolicy policy = SelectionPolicy.HighestElevation)
     {
         _con = constellation;
         _geo = geography;
@@ -164,6 +185,7 @@ public sealed class Scheduler
         _layout = layout;
         _simDurationSec = simulationDurationSec;
         _coverageRadiusKm = coverageRadiusKm ?? geography.CellPitchKm;
+        _policy = policy;
 
         _cellEcef = new Vec3[geography.Cells.Count];
         for (int i = 0; i < geography.Cells.Count; i++)
@@ -241,7 +263,13 @@ public sealed class Scheduler
 
                 list.Add(new Candidate(i, states[i].SatelliteNumber, bestBeam, elev, alpha));
             }
-            list.Sort((a, b) => b.ElevationDeg.CompareTo(a.ElevationDeg));
+            list.Sort((a, b) =>
+            {
+                int cmp = Metric(b).CompareTo(Metric(a));
+                if (cmp != 0) return cmp;
+                cmp = b.ElevationDeg.CompareTo(a.ElevationDeg);
+                return cmp != 0 ? cmp : a.SatelliteNumber.CompareTo(b.SatelliteNumber);
+            });
             candidates[cell.CellId] = list;
         }
 
@@ -306,6 +334,15 @@ public sealed class Scheduler
             for (int slot = 0; slot < nLinks; slot++)
             {
                 var key = (cell.CellId, slot);
+
+                // On/off traffic: an inactive slot has no demand this window
+                // -- release the link, no handover and no unserved counted.
+                if (!ActiveAt(cell, slot, tSec))
+                {
+                    _links.Remove(key);
+                    continue;
+                }
+
                 _links.TryGetValue(key, out var current);
 
                 Candidate feasible = null;
@@ -319,7 +356,7 @@ public sealed class Scheduler
                     double dwell = tSec - current.StartTimeSec;
                     bool wantSwitch = best is not null
                                    && best.SatelliteNumber != current.SatelliteNumber
-                                   && best.ElevationDeg > feasible.ElevationDeg;
+                                   && Metric(best) > Metric(feasible);
                     if (wantSwitch && dwell >= minDur)
                     {
                         _links[key] = new LinkState { SatelliteNumber = best.SatelliteNumber, BeamIndex = best.BeamIndex, StartTimeSec = tSec };
@@ -363,6 +400,30 @@ public sealed class Scheduler
 
     private static double AngleBetweenDeg(Vec3 a, Vec3 b)
         => Math.Acos(Math.Clamp(Vec3.Dot(a.Normalized(), b.Normalized()), -1.0, 1.0)) * 180.0 / Math.PI;
+
+    private double Metric(Candidate c)
+        => _policy == SelectionPolicy.MaxGsoSeparation ? c.AlphaDeg : c.ElevationDeg;
+
+    /// <summary>Deterministic on/off activity for one cell slot in the window containing tSec.</summary>
+    private static bool ActiveAt(ServiceCell cell, int slot, double tSec)
+    {
+        if (cell.ActivityFactor >= 1.0) return true;
+        if (cell.ActivityFactor <= 0.0) return false;
+        long window = (long)Math.Floor(tSec / Math.Max(1.0, cell.ActivityPeriodSec));
+        return Hash01(cell.CellId, slot, window) < cell.ActivityFactor;
+    }
+
+    /// <summary>SplitMix64-style hash of (cell, slot, window) to [0, 1) -- reproducible traffic.</summary>
+    private static double Hash01(int cellId, int slot, long window)
+    {
+        ulong z = (ulong)(uint)cellId * 0x9E3779B97F4A7C15UL
+                ^ ((ulong)(uint)slot + 1UL) * 0xBF58476D1CE4E5B9UL
+                ^ (ulong)window * 0x94D049BB133111EBUL;
+        z ^= z >> 30; z *= 0xBF58476D1CE4E5B9UL;
+        z ^= z >> 27; z *= 0x94D049BB133111EBUL;
+        z ^= z >> 31;
+        return (z >> 11) * (1.0 / 9007199254740992.0);
+    }
 
     private void Grant(ServiceCell cell, (int, int) key, Candidate c,
         List<CellLink> links, Dictionary<int, HashSet<int>> active, HashSet<int> taken,

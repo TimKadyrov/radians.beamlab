@@ -2610,5 +2610,98 @@ var looks = RandomLooks(300);
         okU10 ? $"maxYawDiff={diff37:F3} dB" : detU10 + $" diff37={diff37:F6}");
 }
 
+// ---- U11-U13: activity model, illumination duty, selection policy ----
+{
+    var shellZ = new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1,
+    };
+    var conZ = new Constellation(new[] { shellZ });
+    double simDurZ = 600.0;
+    var stZ = conZ.StateAt(0, 0.0, simDurZ);
+    var vmZ = new PfdMaskViewModel();
+    var declZ = new OperatingParamsSet
+    {
+        SatName = "T", NtcId = 1, ParamId = 1, LowFreqMhz = 27500, HighFreqMhz = 28600,
+    };
+
+    // U11: on/off traffic -- 200 half-active cells at one instant grant
+    // about half the links (deterministic hash across cell ids); factor-0
+    // cells contribute nothing; neither counts unserved demand.
+    var cellsZ = new List<ServiceCell>();
+    for (int c = 1; c <= 200; c++)
+        cellsZ.Add(new ServiceCell(c, stZ.SubSatLatDeg, stZ.SubSatLonDeg) { ActivityFactor = 0.5 });
+    for (int c = 201; c <= 250; c++)
+        cellsZ.Add(new ServiceCell(c, stZ.SubSatLatDeg, stZ.SubSatLonDeg) { ActivityFactor = 0.0 });
+    var geoZ = new ServiceGeography(cellsZ, 500.0);
+    var stepZ = new Scheduler(conZ, geoZ, declZ, new ScenePointing(vmZ), simDurZ).Step(0.0);
+    bool okU11 = stepZ.Links.Count >= 70 && stepZ.Links.Count <= 130
+        && stepZ.Links.All(l => l.CellId <= 200)
+        && stepZ.UnservedCellLinks == 0;
+    Check("U11 activity model: about half the half-active cells link, zero-activity dark", okU11,
+        $"links={stepZ.Links.Count}/200 idleCells=50 unserved={stepZ.UnservedCellLinks}");
+
+    // U12: illumination duty cycle -- every beam power carries 10 log10(d),
+    // so the composite epfd(down) shifts by exactly that.
+    var antZ = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 19700.0, 0.6);
+    var vicZ = new EpfdDownVictim
+    {
+        EsLatDeg = stZ.SubSatLatDeg, EsLonDeg = stZ.SubSatLonDeg,
+        GsoLonDeg = stZ.SubSatLonDeg + 15.0, Antenna = antZ,
+    };
+    var limitsZ = new List<radlimits.LimitPoint>
+    {
+        new radlimits.LimitPoint { EPFD = -300.0, Perc = 0.001 },
+        new radlimits.LimitPoint { EPFD = 0.0, Perc = 100.0 },
+    };
+    var resFull = EpfdDown.Run(conZ, new ScenePointing(vmZ), vicZ, 1.0, 1, limitsZ, simDurZ);
+    var resDuty = EpfdDown.Run(conZ, new ScenePointing(vmZ, 0.25), vicZ, 1.0, 1, limitsZ, simDurZ);
+    double dutyShift = resDuty.MaxEpfdDb - resFull.MaxEpfdDb;
+    bool threwDuty = false;
+    try { _ = new ScenePointing(vmZ, 0.0); } catch (ArgumentOutOfRangeException) { threwDuty = true; }
+    bool okU12 = Math.Abs(dutyShift - 10.0 * Math.Log10(0.25)) < 1e-9 && threwDuty;
+    Check("U12 illumination duty: composite shifts by exactly 10 log10(duty)", okU12,
+        $"shift={dutyShift:F6} expected={10.0 * Math.Log10(0.25):F6} threw={threwDuty}");
+
+    // U13: selection policy -- with two visible satellites whose elevation
+    // and alpha rankings disagree, HighestElevation and MaxGsoSeparation
+    // pick different satellites (each the argmax of its metric).
+    // Two single-sat shells staggered in latitude: A near the equator, B
+    // about 24 deg north on the same meridian. A cell between them (8 deg
+    // north of A) sees A toward the GSO arc (high elevation, small alpha)
+    // and B away from it (low elevation, large alpha) -- the two metrics
+    // rank the satellites oppositely.
+    var shellPa = new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1,
+    };
+    var shellPb = new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1,
+        InPlaneOffsetDeg = 30.0, Lan0Deg = -18.9,
+    };
+    var conP2 = new Constellation(new[] { shellPa, shellPb });
+    var stP0 = conP2.StateAt(0, 0.0, simDurZ);
+    var stP1 = conP2.StateAt(1, 0.0, simDurZ);
+    var cellP = new ServiceCell(1, stP0.SubSatLatDeg + 8.0, stP0.SubSatLonDeg);
+    var esP2 = GeodeticToEcef(cellP.LatDeg, cellP.LonDeg, 0.0);
+    double elevA = ElevationAngleDeg(stP0.PositionEcefKm, esP2);
+    double elevB = ElevationAngleDeg(stP1.PositionEcefKm, esP2);
+    double alphaA = GsoGeometry.AlphaMinAbsDeg(esP2, stP0.PositionEcefKm);
+    double alphaB = GsoGeometry.AlphaMinAbsDeg(esP2, stP1.PositionEcefKm);
+    var geoP2 = new ServiceGeography(new List<ServiceCell> { cellP }, 900.0);
+    var stepElev = new Scheduler(conP2, geoP2, declZ, new ScenePointing(vmZ), simDurZ).Step(0.0);
+    var stepAlpha = new Scheduler(conP2, geoP2, declZ, new ScenePointing(vmZ), simDurZ,
+        policy: SelectionPolicy.MaxGsoSeparation).Step(0.0);
+    int wantElev = elevA >= elevB ? stP0.SatelliteNumber : stP1.SatelliteNumber;
+    int wantAlpha = alphaA >= alphaB ? stP0.SatelliteNumber : stP1.SatelliteNumber;
+    bool okU13 = wantElev != wantAlpha
+        && stepElev.Links.Count == 1 && stepElev.Links[0].SatelliteNumber == wantElev
+        && stepAlpha.Links.Count == 1 && stepAlpha.Links[0].SatelliteNumber == wantAlpha;
+    Check("U13 selection policy: elevation and GSO-separation argmax picked respectively", okU13,
+        $"elev=[{elevA:F1},{elevB:F1}] alpha=[{alphaA:F1},{alphaB:F1}] " +
+        $"gotElev={stepElev.Links.FirstOrDefault()?.SatelliteNumber} gotAlpha={stepAlpha.Links.FirstOrDefault()?.SatelliteNumber}");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;

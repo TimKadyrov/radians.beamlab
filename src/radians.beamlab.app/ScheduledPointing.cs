@@ -21,11 +21,12 @@ public sealed class ScheduledPointing : IBeamPointing
 
     public ScheduledPointing(Constellation constellation, ServiceGeography geography,
         OperatingParamsSet declared, PfdMaskViewModel live, double simulationDurationSec,
-        double? coverageRadiusKm = null)
+        double? coverageRadiusKm = null, SelectionPolicy policy = SelectionPolicy.HighestElevation,
+        double illuminationDutyCycle = 1.0)
     {
-        _inner = new ScenePointing(live);
+        _inner = new ScenePointing(live, illuminationDutyCycle);
         _scheduler = new Scheduler(constellation, geography, declared,
-            new ScenePointing(live), simulationDurationSec, coverageRadiusKm);
+            new ScenePointing(live), simulationDurationSec, coverageRadiusKm, policy);
     }
 
     /// <summary>The schedule used for the most recent step (diagnostics / tests).</summary>
