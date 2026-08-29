@@ -1,0 +1,563 @@
+<title>BeamLab Parameter Cards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --paper:#F6F8F7; --card:#FFFFFF; --ink:#1B2528; --muted:#5A6B6E;
+  --line:#C9D4D2; --line-soft:#DFE7E5;
+  --teal:#0E7C86; --amber:#A85B12; --indigo:#5C63A2;
+  --teal-tint:rgba(14,124,134,.09); --amber-tint:rgba(168,91,18,.09); --indigo-tint:rgba(92,99,162,.10);
+  --code-bg:#EDF2F1;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#131A1B; --card:#1A2325; --ink:#DCE6E4; --muted:#8FA3A1;
+    --line:#31403F; --line-soft:#243130;
+    --teal:#45AEB6; --amber:#D08A45; --indigo:#9BA1DD;
+    --teal-tint:rgba(69,174,182,.13); --amber-tint:rgba(208,138,69,.12); --indigo-tint:rgba(155,161,221,.14);
+    --code-bg:#212D2E;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#131A1B; --card:#1A2325; --ink:#DCE6E4; --muted:#8FA3A1;
+  --line:#31403F; --line-soft:#243130;
+  --teal:#45AEB6; --amber:#D08A45; --indigo:#9BA1DD;
+  --teal-tint:rgba(69,174,182,.13); --amber-tint:rgba(208,138,69,.12); --indigo-tint:rgba(155,161,221,.14);
+  --code-bg:#212D2E;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Archivo",system-ui,sans-serif; font-size:15px; line-height:1.55;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:40px 28px 72px}
+header.top{border-bottom:2px solid var(--ink); padding-bottom:20px; margin-bottom:8px}
+.kicker{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
+h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; margin:.25em 0 .3em; text-wrap:balance}
+.lede{max-width:68ch; color:var(--muted); margin:0}
+.legend{display:flex; flex-wrap:wrap; gap:18px; margin-top:18px; font-size:12.5px}
+.legend .g{display:flex; align-items:center; gap:7px}
+.swatch{width:14px; height:14px; border-radius:3px}
+.legend .ops{font-family:"IBM Plex Mono",monospace; color:var(--muted); margin-left:auto}
+section{margin-top:44px}
+h2{font-size:20px; font-weight:600; letter-spacing:-.01em; margin:0 0 4px; display:flex; align-items:baseline; gap:10px}
+h2 .tag{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; padding:2px 8px; border-radius:3px}
+.sec-note{color:var(--muted); font-size:13.5px; max-width:78ch; margin:0 0 18px}
+.grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:16px}
+.cardp{background:var(--card); border:1px solid var(--line); border-radius:6px; padding:14px 16px 15px 18px; position:relative; display:flex; flex-direction:column; gap:9px}
+.cardp::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; border-radius:6px 0 0 6px}
+.cardp.declared::before{background:var(--teal)}
+.cardp.truth::before{background:var(--amber)}
+.cardp.orbit::before{background:var(--indigo)}
+.name-row{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+.pname{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:14px}
+.unit{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted)}
+.where{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted); line-height:1.6; overflow-wrap:anywhere}
+.where b{font-weight:500; color:var(--ink)}
+.chips{display:flex; flex-wrap:wrap; gap:5px}
+.chip{font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; padding:1.5px 7px; border-radius:3px; border:1px solid var(--line)}
+.declared .chip.on{background:var(--teal-tint); border-color:transparent}
+.truth .chip.on{background:var(--amber-tint); border-color:transparent}
+.orbit .chip.on{background:var(--indigo-tint); border-color:transparent}
+.desc{font-size:13.5px; margin:0}
+.rel{margin:0; padding:8px 0 0; border-top:1px dashed var(--line-soft); list-style:none; font-size:12.5px; display:flex; flex-direction:column; gap:4px}
+.rel li{display:flex; gap:8px}
+.rel .op{font-family:"IBM Plex Mono",monospace; flex:0 0 1.4em; text-align:center}
+.declared .rel .op{color:var(--teal)} .truth .rel .op{color:var(--amber)} .orbit .rel .op{color:var(--indigo)}
+.rel code, .desc code{font-family:"IBM Plex Mono",monospace; font-size:.92em; background:var(--code-bg); padding:0 4px; border-radius:3px}
+figure{margin:4px 0 0; padding:10px 8px 6px; background:var(--paper); border:1px solid var(--line-soft); border-radius:5px}
+figure svg{display:block; max-width:100%; height:auto; margin:0 auto}
+figcaption{font-size:11.5px; color:var(--muted); text-align:center; margin-top:6px}
+.mapfig{margin:26px 0 0; padding:18px 12px 10px; background:var(--card); border:1px solid var(--line); border-radius:6px; overflow-x:auto}
+.svgtxt{font-family:"IBM Plex Mono",monospace; font-size:11px; fill:currentColor}
+.svglbl{font-family:"Archivo",sans-serif; font-size:10.5px; fill:var(--muted)}
+a{color:var(--teal)}
+@media (prefers-reduced-motion: no-preference){ .cardp{transition:border-color .15s} .cardp:hover{border-color:var(--muted)} }
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="kicker">radians.beamlab &middot; non-GSO system description</div>
+  <h1>BeamLab Parameter Cards</h1>
+  <p class="lede">Every input operating parameter the simulator implements &mdash; the declared
+  S.1503-4 bounds it projects onto, the richer truth-side operation model behind them, and the
+  per-shell orbit declarations &mdash; each with where it lives, what enforces it, and how it
+  couples to the others.</p>
+  <div class="legend">
+    <span class="g"><span class="swatch" style="background:var(--teal)"></span>Declared bounds (R set)</span>
+    <span class="g"><span class="swatch" style="background:var(--amber)"></span>Truth-side operation</span>
+    <span class="g"><span class="swatch" style="background:var(--indigo)"></span>Orbit model</span>
+    <span class="ops">&rarr; feeds &nbsp; &perp; excludes &nbsp; &and; min() &nbsp; &equiv; same metric</span>
+  </div>
+
+  <figure class="mapfig">
+  <svg viewBox="0 0 980 300" role="img" aria-label="Relations map: declared bounds, truth-side operation and orbit-model parameters with their load-bearing couplings" style="min-width:820px">
+    <defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
+    <g fill="none" stroke="currentColor" style="color:var(--ink)">
+      <rect x="14" y="30" width="372" height="252" rx="8" stroke="var(--teal)" stroke-dasharray="4 4" opacity=".5"/>
+      <rect x="446" y="30" width="330" height="252" rx="8" stroke="var(--amber)" stroke-dasharray="4 4" opacity=".5"/>
+      <rect x="806" y="30" width="160" height="252" rx="8" stroke="var(--indigo)" stroke-dasharray="4 4" opacity=".5"/>
+    </g>
+    <text x="26" y="20" class="svgtxt" style="fill:var(--teal)">DECLARED BOUNDS</text>
+    <text x="458" y="20" class="svgtxt" style="fill:var(--amber)">TRUTH-SIDE OPERATION</text>
+    <text x="816" y="20" class="svgtxt" style="fill:var(--indigo)">ORBIT MODEL</text>
+    <g style="color:var(--ink)">
+      <g font-family="IBM Plex Mono,monospace" font-size="11">
+        <rect x="28" y="44" width="158" height="24" rx="4" fill="var(--teal-tint)"/><text x="107" y="60" text-anchor="middle" fill="currentColor">ES_LAT_MIN/MAX</text>
+        <rect x="28" y="84" width="158" height="24" rx="4" fill="var(--teal-tint)"/><text x="107" y="100" text-anchor="middle" fill="currentColor">MAX_CO_FREQ_SAT</text>
+        <rect x="28" y="124" width="158" height="24" rx="4" fill="var(--teal-tint)"/><text x="107" y="140" text-anchor="middle" fill="currentColor">MIN_ANGLE_AT_SAT</text>
+        <rect x="28" y="164" width="158" height="24" rx="4" fill="var(--teal-tint)"/><text x="107" y="180" text-anchor="middle" fill="currentColor">MIN_ANGLE_AT_ES</text>
+        <rect x="28" y="212" width="158" height="24" rx="4" fill="var(--teal-tint)"/><text x="107" y="228" text-anchor="middle" fill="currentColor">ES_DENSITY/DIST</text>
+        <rect x="214" y="44" width="158" height="24" rx="4" fill="var(--teal-tint)"/><text x="293" y="60" text-anchor="middle" fill="currentColor">MIN_EXCLUDE</text>
+        <rect x="214" y="84" width="158" height="24" rx="4" fill="var(--teal-tint)"/><text x="293" y="100" text-anchor="middle" fill="currentColor">MIN_ELEV</text>
+        <rect x="214" y="124" width="158" height="24" rx="4" fill="var(--teal-tint)"/><text x="293" y="140" text-anchor="middle" fill="currentColor">MAX_CO_FREQ</text>
+        <rect x="214" y="164" width="158" height="24" rx="4" fill="var(--teal-tint)"/><text x="293" y="180" text-anchor="middle" fill="currentColor">MIN_DURATION</text>
+        <rect x="214" y="212" width="158" height="24" rx="4" fill="var(--teal-tint)"/><text x="293" y="228" text-anchor="middle" fill="currentColor">header &#8596; arrays</text>
+        <rect x="460" y="44" width="150" height="24" rx="4" fill="var(--amber-tint)"/><text x="535" y="60" text-anchor="middle" fill="currentColor">SelectionPolicy</text>
+        <rect x="460" y="84" width="150" height="24" rx="4" fill="var(--amber-tint)"/><text x="535" y="100" text-anchor="middle" fill="currentColor">PowerControl</text>
+        <rect x="460" y="124" width="150" height="24" rx="4" fill="var(--amber-tint)"/><text x="535" y="140" text-anchor="middle" fill="currentColor">DemandLinks</text>
+        <rect x="460" y="164" width="150" height="24" rx="4" fill="var(--amber-tint)"/><text x="535" y="180" text-anchor="middle" fill="currentColor">ActivityFactor</text>
+        <rect x="622" y="44" width="140" height="24" rx="4" fill="var(--amber-tint)"/><text x="692" y="60" text-anchor="middle" fill="currentColor">DutyCycle</text>
+        <rect x="622" y="84" width="140" height="24" rx="4" fill="var(--amber-tint)"/><text x="692" y="100" text-anchor="middle" fill="currentColor">YawSweepDeg</text>
+        <rect x="622" y="124" width="140" height="24" rx="4" fill="var(--amber-tint)"/><text x="692" y="140" text-anchor="middle" fill="currentColor">OperFraction</text>
+        <rect x="622" y="164" width="140" height="24" rx="4" fill="var(--amber-tint)"/><text x="692" y="180" text-anchor="middle" fill="currentColor">CoverageRadius</text>
+        <rect x="818" y="44" width="136" height="24" rx="4" fill="var(--indigo-tint)"/><text x="886" y="60" text-anchor="middle" fill="currentColor">Case 1 NOrbits</text>
+        <rect x="818" y="84" width="136" height="24" rx="4" fill="var(--indigo-tint)"/><text x="886" y="100" text-anchor="middle" fill="currentColor">Case 2 W_delta</text>
+        <rect x="818" y="124" width="136" height="24" rx="4" fill="var(--indigo-tint)"/><text x="886" y="140" text-anchor="middle" fill="currentColor">Case 3 precess</text>
+        <rect x="818" y="164" width="136" height="24" rx="4" fill="var(--indigo-tint)"/><text x="886" y="180" text-anchor="middle" fill="currentColor">e, &omega;, op_ht</text>
+      </g>
+      <g stroke="currentColor" fill="none">
+        <line x1="372" y1="56" x2="460" y2="56" stroke-dasharray="2 3"/>
+        <line x1="372" y1="96" x2="458" y2="96" marker-end="url(#ar)"/>
+        <line x1="372" y1="136" x2="458" y2="136" marker-end="url(#ar)"/>
+      </g>
+      <text x="416" y="48" text-anchor="middle" class="svglbl">&equiv; same &alpha; metric</text>
+      <text x="416" y="88" text-anchor="middle" class="svglbl">&rarr; ref. elevation</text>
+      <text x="416" y="128" text-anchor="middle" class="svglbl">&and; min() = slots</text>
+      <line x1="186" y1="176" x2="214" y2="176" stroke="currentColor" stroke-dasharray="4 3"/>
+      <text x="200" y="200" text-anchor="middle" class="svglbl">&perp; mutually exclusive</text>
+      <line x1="535" y1="164" x2="535" y2="152" stroke="currentColor" marker-end="url(#ar)"/>
+      <text x="543" y="161" class="svglbl">gates demand</text>
+      <line x1="293" y1="212" x2="293" y2="192" stroke="currentColor" marker-end="url(#ar)"/>
+      <text x="301" y="207" class="svglbl">array prevails</text>
+    </g>
+  </svg>
+  <figcaption>The load-bearing couplings. Everything in the teal cluster is declared to the examination;
+  the amber cluster is the operation the declaration must bound; the orbit cluster is per shell.</figcaption>
+  </figure>
+</header>
+
+<!-- ============ DECLARED ============ -->
+<section>
+  <h2>Declared bounds <span class="tag" style="background:var(--teal-tint); color:var(--teal)">S.1503-4 &sect;B3.3 &middot; R set</span></h2>
+  <p class="sec-note">The twelve operating-parameter identifiers of the examination format. BeamLab writes them
+  (<code>OperParamsXmlWriter</code>), the scheduler enforces every one during assignment &mdash; so declared value
+  and simulated behaviour agree by construction &mdash; and the expectation CDFs inherit them.</p>
+  <div class="grid">
+
+  <div class="cardp declared">
+    <div class="name-row"><span class="pname">FREQ_MIN / FREQ_MAX</span><span class="unit">MHz</span></div>
+    <div class="where"><b>OperatingParamsSet.LowFreqMhz/HighFreqMhz</b> &middot; epfd_freq, mask_info</div>
+    <div class="chips"><span class="chip on">Writer</span><span class="chip on">Scenario scoping</span></div>
+    <p class="desc">The band identity of the set. A band may not carry two sets, and every examined band must
+    have one &mdash; the rule that decides how sets 21&ndash;25 partition the BL family.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>scopes which masks and which scenario frequencies the set governs</span></li>
+      <li><span class="op">&rarr;</span><span>one-set-per-band forces BL-ALL to drop the standalone I1 set for its D2 overlap</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp declared">
+    <div class="name-row"><span class="pname">MIN_EXCLUDE</span><span class="unit">deg &alpha; &middot; [lat][orb_id]</span></div>
+    <div class="where"><b>MinExcludeByOrbit</b> &middot; min_exclude/exclusion_zone_angle</div>
+    <div class="chips"><span class="chip on">Scheduler gate</span><span class="chip on">Mask envelope</span></div>
+    <p class="desc">The GSO-arc exclusion half-angle: a satellite whose cell-centre &alpha; sits inside it may not
+    serve. Varies by latitude and per orbital plane (a per-<code>orb_id</code> row overrides the all-orbits row, and
+    when it varies every plane needs a value).</p>
+    <figure><svg viewBox="0 0 300 108" role="img" aria-label="Alpha is the angle at the earth station between a non-GSO satellite direction and the nearest point of the GSO arc; the exclusion zone is a band around the arc">
+      <defs><marker id="a2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
+      <g style="color:var(--ink)" stroke="currentColor" fill="none">
+        <path d="M20 40 Q150 8 280 40" opacity=".9"/>
+        <path d="M20 52 Q150 20 280 52" stroke-dasharray="3 3" opacity=".45"/>
+        <path d="M20 28 Q150 -4 280 28" stroke-dasharray="3 3" opacity=".45"/>
+        <line x1="150" y1="96" x2="150" y2="26" marker-end="url(#a2)" style="color:var(--teal)" stroke="var(--teal)"/>
+        <line x1="150" y1="96" x2="216" y2="34" marker-end="url(#a2)"/>
+        <path d="M150 62 A34 34 0 0 1 174 56" />
+      </g>
+      <circle cx="150" cy="96" r="3.5" fill="currentColor" style="color:var(--ink)"/>
+      <circle cx="216" cy="32" r="3" fill="currentColor" style="color:var(--ink)"/>
+      <text x="150" y="107" text-anchor="middle" class="svgtxt">ES</text>
+      <text x="224" y="28" class="svgtxt">non-GSO</text>
+      <text x="168" y="50" class="svgtxt" style="fill:var(--teal)">&alpha;</text>
+      <text x="24" y="20" class="svglbl">GSO arc &plusmn; exclusion band</text>
+    </svg><figcaption>&alpha; measured at the ES to the nearest arc point; inside the band the satellite is infeasible.</figcaption></figure>
+    <ul class="rel">
+      <li><span class="op">&equiv;</span><span><code>SelectionPolicy.MaxGsoSeparation</code> maximises this same &alpha; metric</span></li>
+      <li><span class="op">&rarr;</span><span>a tighter zone tightens the pfd mask <em>and</em> the selection rule &mdash; margin twice over</span></li>
+      <li><span class="op">&rarr;</span><span>the scene&rsquo;s advanced exclusion rings are its power-taper generalisation</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp declared">
+    <div class="name-row"><span class="pname">MIN_ELEV</span><span class="unit">deg &middot; [lat][az]</span></div>
+    <div class="where"><b>MinElevByLat</b> &middot; min_elev/elev_angle &middot; header <b>elev_angle</b></div>
+    <div class="chips"><span class="chip on">Scheduler gate</span><span class="chip on">Mask envelope</span></div>
+    <p class="desc">Minimum serving elevation, azimuth-dependent (e.g. raised toward the arc). Candidates below it
+    are infeasible; azimuth rows interpolate linearly, latitude picks the nearest block.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>reference elevation for <code>PowerControlRefElevDeg</code> &mdash; the ceiling&rsquo;s slant range</span></li>
+      <li><span class="op">&rarr;</span><span>sets the FOV edge the mask latitude cap and beam lattice must reach</span></li>
+      <li><span class="op">&rarr;</span><span>array prevails over the header inside its latitude span (&sect;6.7.2.2)</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp declared">
+    <div class="name-row"><span class="pname">MIN_DURATION</span><span class="unit">s &middot; [lat]</span></div>
+    <div class="where"><b>MinDurationByLat</b> / header &middot; min_duration</div>
+    <div class="chips"><span class="chip on">Scheduler dwell</span></div>
+    <p class="desc">Minimum tracking dwell once a link is made: voluntary handover to a better satellite waits out
+    the dwell; only infeasibility forces one. Non-zero selects the track-duration examination algorithm (BL-D1).</p>
+    <ul class="rel">
+      <li><span class="op">&perp;</span><span>mutually exclusive with <code>MIN_ANGLE_AT_ES</code> &mdash; a band declares one regime</span></li>
+      <li><span class="op">&rarr;</span><span>an inactive <code>ActivityFactor</code> window releases the link <em>without</em> a handover; dwell restarts on return</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp declared">
+    <div class="name-row"><span class="pname">MAX_CO_FREQ</span><span class="unit">count &middot; [lat]</span></div>
+    <div class="where"><b>MaxCoFreqByLat</b> / header &middot; max_co_freq</div>
+    <div class="chips"><span class="chip on">Scheduler slots</span></div>
+    <p class="desc">Nco: how many co-frequency satellites may serve one location at once. The scheduler grants
+    <code>min(DemandLinks,&nbsp;Nco)</code> slots per cell, each on a distinct satellite.</p>
+    <ul class="rel">
+      <li><span class="op">&and;</span><span><code>DemandLinks</code> &mdash; whichever is smaller is the slot count</span></li>
+      <li><span class="op">&rarr;</span><span>Nco &ge; 2 is what lets <code>MIN_ANGLE_AT_ES</code> bite at all</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp declared">
+    <div class="name-row"><span class="pname">MAX_CO_FREQ_SAT</span><span class="unit">count &middot; header</span></div>
+    <div class="where"><b>MaxCoFreqSat</b> &middot; max_co_freq_sat</div>
+    <div class="chips"><span class="chip on">Scheduler budget</span></div>
+    <p class="desc">Per-satellite cap on simultaneous co-frequency earth stations. Enforced as an assignment-time
+    budget, so a capped satellite&rsquo;s contested cell <em>reassigns</em> to its next-best satellite rather than
+    transmitting unseen &mdash; drops would under-count the epfd&uarr; truth.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>a continuing link squeezed out by an earlier cell&rsquo;s claim breaks as a forced handover</span></li>
+      <li><span class="op">&rarr;</span><span>uplink examination Steps 29&ndash;30 apply the same cap link-by-link</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp declared">
+    <div class="name-row"><span class="pname">MIN_ANGLE_AT_ES</span><span class="unit">deg &middot; header</span></div>
+    <div class="where"><b>MinAngleAtEsDeg</b> &middot; min_angle_at_es</div>
+    <div class="chips"><span class="chip on">Scheduler gate</span></div>
+    <p class="desc">Minimum separation, seen from one cell, between the satellites co-serving it: slot k only takes
+    a satellite at least this far from every satellite already serving the cell.</p>
+    <figure><svg viewBox="0 0 300 96" role="img" aria-label="Angle at the earth station between two serving satellites must exceed the declared minimum">
+      <g style="color:var(--ink)" stroke="currentColor" fill="none">
+        <line x1="150" y1="84" x2="92" y2="22"/>
+        <line x1="150" y1="84" x2="212" y2="26"/>
+        <path d="M131 62 A30 30 0 0 1 170 61" stroke="var(--teal)"/>
+      </g>
+      <circle cx="150" cy="84" r="3.5" fill="currentColor" style="color:var(--ink)"/>
+      <circle cx="92" cy="20" r="3" fill="currentColor" style="color:var(--ink)"/>
+      <circle cx="212" cy="24" r="3" fill="currentColor" style="color:var(--ink)"/>
+      <text x="150" y="95" text-anchor="middle" class="svgtxt">one cell, two slots</text>
+      <text x="70" y="14" class="svgtxt">sat A</text><text x="200" y="14" class="svgtxt">sat B</text>
+      <text x="142" y="53" text-anchor="middle" class="svgtxt" style="fill:var(--teal)">&ge; &theta;</text>
+    </svg><figcaption>Checked against the cell&rsquo;s <code>taken</code> set during slot assignment.</figcaption></figure>
+    <ul class="rel">
+      <li><span class="op">&perp;</span><span><code>MIN_DURATION</code> &mdash; the classic-algorithm half of the pair (BL-D2)</span></li>
+      <li><span class="op">&rarr;</span><span>inert until <code>MAX_CO_FREQ</code> and <code>DemandLinks</code> allow a second slot</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp declared">
+    <div class="name-row"><span class="pname">MIN_ANGLE_AT_SAT</span><span class="unit">deg &middot; header</span></div>
+    <div class="where"><b>MinAngleAtSatDeg</b> &middot; min_angle_at_sat</div>
+    <div class="chips"><span class="chip on">Scheduler gate</span></div>
+    <p class="desc">The mirror gate at the satellite: its co-frequency cells must be separated by at least this
+    angle as seen from it. A violating candidate falls to the cell&rsquo;s next satellite.</p>
+    <figure><svg viewBox="0 0 300 96" role="img" aria-label="Angle at the satellite between two served cells must exceed the declared minimum">
+      <g style="color:var(--ink)" stroke="currentColor" fill="none">
+        <line x1="150" y1="16" x2="86" y2="80"/>
+        <line x1="150" y1="16" x2="218" y2="78"/>
+        <path d="M129 38 A30 30 0 0 1 172 39" stroke="var(--teal)"/>
+        <path d="M40 88 Q150 66 260 88" opacity=".5"/>
+      </g>
+      <circle cx="150" cy="16" r="3.5" fill="currentColor" style="color:var(--ink)"/>
+      <circle cx="86" cy="80" r="3" fill="currentColor" style="color:var(--ink)"/>
+      <circle cx="218" cy="78" r="3" fill="currentColor" style="color:var(--ink)"/>
+      <text x="160" y="14" class="svgtxt">satellite</text>
+      <text x="66" y="94" class="svgtxt">cell 1</text><text x="206" y="94" class="svgtxt">cell 2</text>
+      <text x="150" y="55" text-anchor="middle" class="svgtxt" style="fill:var(--teal)">&ge; &theta;</text>
+    </svg><figcaption>Kept per satellite as its served-cell list grows through the step.</figcaption></figure>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>with <code>MAX_CO_FREQ_SAT</code>, the pair of uplink gates the scheduler enforces by reassignment</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp declared">
+    <div class="name-row"><span class="pname">ES_DENSITY &middot; ES_DISTANCE</span><span class="unit">/km&sup2; &middot; km</span></div>
+    <div class="where"><b>EsDensityPerKm2 / EsDistanceKm</b> &middot; es_density, es_distance</div>
+    <div class="chips"><span class="chip on">Writer</span><span class="chip">Examination-side</span></div>
+    <p class="desc">The typical-ES deployment declaration: the examination plants representative stations every
+    ES_DISTANCE inside the victim beam with <code>NUM_ES = dist&sup2;&middot;density</code> aggregation (&sect;D5.2.5).
+    The truth side transmits from actually scheduled cells instead &mdash; that asymmetry is measured margin.</p>
+    <ul class="rel">
+      <li><span class="op">&perp;</span><span>switched off entirely by specific earth stations (<code>e_as_stn</code>, mask <code>ES_ID</code>) &mdash; BL-U2</span></li>
+      <li><span class="op">&rarr;</span><span>BL-U1 declares both active; its up-CDF is the scheduled-cells truth</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp declared">
+    <div class="name-row"><span class="pname">ES_LAT_MIN / ES_LAT_MAX</span><span class="unit">deg</span></div>
+    <div class="where"><b>EsLatMinDeg / EsLatMaxDeg</b> &middot; es_lat_min, es_lat_max</div>
+    <div class="chips"><span class="chip on">Scheduler filter</span></div>
+    <p class="desc">The declared service latitude range. Cells outside it are never served in the band &mdash;
+    their demand counts as unserved rather than being silently trusted to the caller&rsquo;s geography.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>bounded below the shell inclination, it trims the geometry the masks must cover</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp declared">
+    <div class="name-row"><span class="pname">header &harr; arrays</span><span class="unit">rule &middot; &sect;6.7.2.2</span></div>
+    <div class="where"><b>ElevAngleHeaderDeg, MaxCoFreqHeader, MinDurationSecHeader</b> vs the [lat] arrays</div>
+    <div class="chips"><span class="chip on">DeclaredConstraints</span></div>
+    <p class="desc">Several quantities exist twice: as an XML header scalar and as a per-latitude array. The array
+    prevails inside the latitudes it covers; the header applies outside. The BL sets carry all three shapes
+    (arrays-only, header-only, both-with-different-values) so a consumer must implement the rule, not infer it.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>every <code>DeclaredConstraints</code> accessor resolves this precedence in one place</span></li>
+      <li><span class="op">&rarr;</span><span>set 21 arrays-only &middot; set 22 both-different &middot; set 23 header-only</span></li>
+    </ul>
+  </div>
+
+  </div>
+</section>
+
+<!-- ============ TRUTH ============ -->
+<section>
+  <h2>Truth-side operation <span class="tag" style="background:var(--amber-tint); color:var(--amber)">richer than the format</span></h2>
+  <p class="sec-note">The system description the declaration projects down from. Each of these changes the simulated
+  statistics while staying at or below the declared envelopes &mdash; the gap they open is the measurable
+  conservatism the examination cannot see.</p>
+  <div class="grid">
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">DemandLinks</span><span class="unit">count &middot; per cell</span></div>
+    <div class="where"><b>ServiceCell.DemandLinks</b> (default 1)</div>
+    <div class="chips"><span class="chip on">Scheduler</span></div>
+    <p class="desc">Simultaneous co-frequency links a cell requests &mdash; the demand side of the slot count. Slots
+    beyond feasible capacity surface as unserved demand, i.e. blocking is an <em>output</em>.</p>
+    <ul class="rel">
+      <li><span class="op">&and;</span><span><code>MAX_CO_FREQ</code> caps it into the slot count</span></li>
+      <li><span class="op">&rarr;</span><span>with <code>ActivityFactor</code>, offered intensity &asymp; DemandLinks&nbsp;&times;&nbsp;activity Erlang</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">ActivityFactor</span><span class="unit">0&ndash;1 &middot; + ActivityPeriodSec</span></div>
+    <div class="where"><b>ServiceCell.ActivityFactor / ActivityPeriodSec</b> (1.0 / 300 s)</div>
+    <div class="chips"><span class="chip on">Scheduler demand</span></div>
+    <p class="desc">On/off traffic per slot: in each holding window a deterministic hash of (cell,&nbsp;slot,&nbsp;window)
+    decides whether demand exists. Inactive windows release the link with no handover and no unserved count &mdash;
+    no traffic, no transmission, in both link directions at once.</p>
+    <figure><svg viewBox="0 0 300 84" role="img" aria-label="Timeline: activity windows gate whether a link exists; within a link, illumination duty scales the average power">
+      <g style="color:var(--ink)">
+        <text x="4" y="18" class="svgtxt">activity</text>
+        <g fill="var(--amber)" opacity=".85">
+          <rect x="66" y="8" width="52" height="12" rx="2"/><rect x="142" y="8" width="26" height="12" rx="2"/><rect x="192" y="8" width="66" height="12" rx="2"/>
+        </g>
+        <line x1="66" y1="26" x2="290" y2="26" stroke="currentColor" opacity=".3"/>
+        <text x="4" y="52" class="svgtxt">duty</text>
+        <g fill="currentColor" opacity=".8">
+          <rect x="66" y="42" width="6" height="12"/><rect x="80" y="42" width="6" height="12"/><rect x="94" y="42" width="6" height="12"/><rect x="108" y="42" width="6" height="12"/>
+          <rect x="192" y="42" width="6" height="12"/><rect x="206" y="42" width="6" height="12"/><rect x="220" y="42" width="6" height="12"/><rect x="234" y="42" width="6" height="12"/><rect x="248" y="42" width="6" height="12"/>
+        </g>
+        <text x="4" y="76" class="svglbl">window = ActivityPeriodSec</text>
+        <text x="296" y="76" text-anchor="end" class="svglbl">+10log&#8321;&#8320;(duty)</text>
+      </g>
+    </svg><figcaption>Activity gates whether the link exists; duty scales its time-averaged power.</figcaption></figure>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>releases restart <code>MIN_DURATION</code> dwell without counting handovers</span></li>
+      <li><span class="op">&rarr;</span><span>hash-deterministic: same inputs, same CDFs &mdash; no RNG state anywhere</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">PowerDbw</span><span class="unit">dBW / ref. BW</span></div>
+    <div class="where"><b>EpfdUpEsModel.PowerDbw</b></div>
+    <div class="chips"><span class="chip on">EpfdUp</span></div>
+    <p class="desc">The ES transmit ceiling into its antenna &mdash; the same base the declared E mask envelopes
+    (<code>mask = PowerDbw + G(&theta;)</code> monotone hull), so simulated eirp &le; mask by construction.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>the E mask&rsquo;s base level; gateway and typical classes differ (15 / 12 dBW)</span></li>
+      <li><span class="op">&rarr;</span><span>reduced per link by <code>PowerControlRefElevDeg</code></span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">PowerControlRefElevDeg</span><span class="unit">deg &middot; nullable</span></div>
+    <div class="where"><b>EpfdUpEsModel.PowerControlRefElevDeg</b></div>
+    <div class="chips"><span class="chip on">EpfdUp</span></div>
+    <p class="desc">Range-based closed-loop power control (S.1325 &ldquo;power control on range&rdquo;): the ceiling
+    corresponds to the slant range at this elevation, and each link transmits
+    <code>20&#8201;log&#8321;&#8320;(d&#8202;ref&#8202;/&#8202;d&#8202;link)</code> below it &mdash; constant flux at
+    the serving satellite. Worth &asymp;2&nbsp;dB in the BL-U1 truth CDF.</p>
+    <figure><svg viewBox="0 0 300 100" role="img" aria-label="Slant range at the reference minimum elevation is the longest allowed path; a higher satellite needs less power">
+      <g style="color:var(--ink)" stroke="currentColor" fill="none">
+        <path d="M10 88 Q150 70 290 88" opacity=".5"/>
+        <line x1="80" y1="86" x2="238" y2="26" stroke-dasharray="4 3"/>
+        <line x1="80" y1="86" x2="118" y2="20" stroke="var(--amber)"/>
+      </g>
+      <circle cx="80" cy="86" r="3.5" fill="currentColor" style="color:var(--ink)"/>
+      <circle cx="238" cy="24" r="3" fill="currentColor" style="color:var(--ink)"/>
+      <circle cx="118" cy="18" r="3" fill="currentColor" style="color:var(--ink)"/>
+      <text x="66" y="98" class="svgtxt">ES</text>
+      <text x="296" y="20" text-anchor="end" class="svgtxt">at min elev</text>
+      <text x="96" y="12" class="svgtxt">overhead</text>
+      <text x="168" y="66" class="svglbl">d ref &mdash; full ceiling</text>
+      <text x="88" y="60" class="svglbl" style="fill:var(--amber)">&minus;20log(d ref/d)</text>
+    </svg><figcaption>The declared minimum elevation fixes the reference range, hence the ceiling.</figcaption></figure>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>referenced to the band&rsquo;s declared <code>MIN_ELEV</code> in the dataset</span></li>
+      <li><span class="op">&rarr;</span><span>null keeps the ceiling &mdash; the pre-control behaviour, bit for bit</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">IlluminationDutyCycle</span><span class="unit">(0,1] </span></div>
+    <div class="where"><b>ScenePointing(&hellip;, illuminationDutyCycle)</b></div>
+    <div class="chips"><span class="chip on">Emission composite</span></div>
+    <p class="desc">Beam-hopping time average for frames much shorter than the 30&nbsp;s step: every resolved beam
+    power carries <code>10&#8201;log&#8321;&#8320;(duty)</code>. The declared masks stay peak-PSD envelopes &mdash;
+    only the simulated statistics average (see the duty row in the Activity timeline).</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>emission side only &mdash; the scheduler&rsquo;s footprint layout is duty-independent</span></li>
+      <li><span class="op">&perp;</span><span>never enters the mask samplers: peak vs average is the point</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">SelectionPolicy</span><span class="unit">enum</span></div>
+    <div class="where"><b>Scheduler(&hellip;, policy)</b> &middot; HighestElevation | MaxGsoSeparation</div>
+    <div class="chips"><span class="chip on">Scheduler metric</span></div>
+    <p class="desc">Which feasible satellite serves: the highest-elevation default, or the one farthest from the GSO
+    arc. Both obey every declared bound; the difference between their CDFs prices the arc-avoidance strategy.</p>
+    <ul class="rel">
+      <li><span class="op">&equiv;</span><span>MaxGsoSeparation maximises the same &alpha; that <code>MIN_EXCLUDE</code> bounds</span></li>
+      <li><span class="op">&rarr;</span><span>drives the candidate sort <em>and</em> the voluntary-handover comparison</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">OperationalFraction</span><span class="unit">0&ndash;1 &middot; per shell</span></div>
+    <div class="where"><b>ConstellationShell.OperationalFraction</b></div>
+    <div class="chips"><span class="chip on">Constellation</span><span class="chip on">Scheduler</span></div>
+    <p class="desc">The transmitting cohort: spares and orbit-raising satellites fly with real positions but radiate
+    nothing and never serve, interleaved by a Bresenham spread. The SRS always declares the full shell, so truth
+    &le; declaration by construction.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>declared N_sat stays the envelope; the fraction is pure measured margin</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">YawSweepDeg</span><span class="unit">deg[] &middot; default {0}</span></div>
+    <div class="where"><b>MaskXmlExportOptions.YawSweepDeg</b> &rarr; ReachableEnvelopeSampler</div>
+    <div class="chips"><span class="chip on">Mask envelope</span></div>
+    <p class="desc">Body-yaw offsets swept on top of each pass heading when the pfd envelope is sampled. A
+    yaw-steering payload <em>must</em> sweep its reachable yaw range here or the derived mask is not an envelope
+    &mdash; the one parameter that guards mask correctness rather than tightness.</p>
+    <ul class="rel">
+      <li><span class="op">&perp;</span><span>the S mask needs no sweep: body yaw is a rigid rotation about nadir and its azimuth envelope is invariant</span></li>
+      <li><span class="op">&rarr;</span><span>sweep step no coarser than the output bin, or peaks slip between cells</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">CellPitchKm / coverageRadiusKm</span><span class="unit">km</span></div>
+    <div class="where"><b>ServiceGeography.CellPitchKm</b> &middot; Scheduler ctor override</div>
+    <div class="chips"><span class="chip on">Scheduler coverage</span></div>
+    <p class="desc">The service-grid pitch, doubling as the default radius within which a resolved beam footprint
+    must land to cover a cell. The default hex layout has <em>no central beam</em> &mdash; nearest boresights sit
+    433&nbsp;km from the sub-satellite point at 1200&nbsp;km &mdash; a lattice fact that decides feasibility.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>too tight a radius silently unserves covered-looking cells (three harness checks learned this)</span></li>
+      <li><span class="op">&rarr;</span><span>interacts with <code>MIN_ELEV</code>: both must admit the geometry before a candidate exists</span></li>
+    </ul>
+  </div>
+
+  </div>
+</section>
+
+<!-- ============ ORBIT ============ -->
+<section>
+  <h2>Orbit model <span class="tag" style="background:var(--indigo-tint); color:var(--indigo)">per shell &middot; EPS &sect;6.4.1.1</span></h2>
+  <p class="sec-note">Declared per orbital plane &mdash; which is why one notice may mix the three station-keeping
+  cases (the deliberate &sect;B5.1 tension the BL-ALL README documents). Each maps one-to-one from
+  <code>ConstellationShell</code> into SRS orbit-row fields, so the declared and the propagated system are the same
+  by construction.</p>
+  <div class="grid">
+
+  <div class="cardp orbit">
+    <div class="name-row"><span class="pname">StationKeeping &middot; WDeltaDeg &middot; RepeatPeriod</span><span class="unit">Case 2</span></div>
+    <div class="where"><b>f_stn_keep='Y', keep_rnge, rpt_prd_*</b> &middot; shell A</div>
+    <div class="chips"><span class="chip on">Propagator</span><span class="chip on">SRS writer</span></div>
+    <p class="desc">Station-kept repeating ground track: the longitude tolerance W_delta sweeps the track across its
+    deadband, and the declared repeat period tells the examination the comb it may fold over.</p>
+    <ul class="rel">
+      <li><span class="op">&perp;</span><span>excludes artificial precession &mdash; <code>NOrbits</code> is ignored when kept</span></li>
+      <li><span class="op">&rarr;</span><span><code>keep_rnge</code> is a float column: compare at 1e-4, not 1e-6</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp orbit">
+    <div class="name-row"><span class="pname">NOrbits</span><span class="unit">count &middot; Case 1</span></div>
+    <div class="where"><b>ConstellationShell.NOrbits</b> &rarr; ArtificialPrecession &middot; shell B</div>
+    <div class="chips"><span class="chip on">Propagator</span></div>
+    <p class="desc">Free drift: the examination adds artificial precession so NOrbits nodal passes tile the equator
+    (&sect;D6.3.2 Steps 8&ndash;11). Transcribed formula-identically &mdash; including the documented sign quirk
+    where the measured spacing lands at <code>2&middot;S_pass&nbsp;&minus;&nbsp;S_grid</code>.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>zero disables the mechanism (used when a declared rate exists)</span></li>
+      <li><span class="op">&rarr;</span><span>identity with the examination outranks track-repeat elegance &mdash; see the upstream note</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp orbit">
+    <div class="name-row"><span class="pname">PrecessionSupplied &middot; PrecessionRateDegPerSec</span><span class="unit">Case 3</span></div>
+    <div class="where"><b>f_precess='Y', precession</b> &middot; shell C (J2 rate)</div>
+    <div class="chips"><span class="chip on">Propagator</span><span class="chip on">SRS writer</span></div>
+    <p class="desc">Administration-supplied nodal precession: the declared rate is used directly instead of the
+    derived artificial one. The BL value is the standard J2 regression for the elliptical shell
+    (&minus;1.81&times;10&#8315;&#8309;&nbsp;deg/s).</p>
+    <ul class="rel">
+      <li><span class="op">&perp;</span><span>supersedes <code>NOrbits</code>-derived precession on that shell</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp orbit">
+    <div class="name-row"><span class="pname">Eccentricity &middot; ArgumentOfPerigee &middot; OperatingHeightKm</span><span class="unit">elliptical</span></div>
+    <div class="where"><b>apog/perig_km, perig_arg, op_ht_km</b> &middot; shell C</div>
+    <div class="chips"><span class="chip on">Propagator</span><span class="chip on">Emission gate</span></div>
+    <p class="desc">The elliptical declarations. The minimum operating height (H_MIN) is an emission gate: below it
+    the satellite flies dark &mdash; and it sets the worst-case range the pfd envelope is sampled at
+    (<code>Vm</code> uses op-height, not mean altitude).</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>activates the examination&rsquo;s elliptical worst-case-geometry path and per-step height check</span></li>
+      <li><span class="op">&rarr;</span><span>phase_ang declares &omega;&nbsp;+&nbsp;&nu;; the constellation applies the inverse, so declared and propagated agree</span></li>
+    </ul>
+  </div>
+
+  </div>
+</section>
+
+<p style="margin-top:40px; font-size:12px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px">
+Sources: S.1503-4 Parts B/C/D and EPS &sect;6 for the declared set; Rec. S.1325-3 and current NGSO filing practice
+for the truth-side model (see docs/nongso-operation-parameters.md). Every card&rsquo;s behaviour is pinned by a
+harness check (sections K, P, T, U).</p>
+</div>
