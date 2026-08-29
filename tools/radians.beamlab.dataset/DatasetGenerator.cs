@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -644,13 +644,13 @@ public static class DatasetGenerator
                 WriteUpExpectation(Exp("epfd_up_cdf.csv"), Set23(ntc), U1,
                     ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, o.Quick ? 900.0 : 450.0),
                     esPowerDbw: 12.0, antFreqMhz: 28000.0, antDiamM: 0.65,
-                    "victim GSO sat lon=10, boresight lat=45 lon=0; typical ES = scheduled cells, 12 dBW + S.1428 0.65 m", o);
+                    "victim GSO sat lon=10, boresight lat=45 lon=0; typical ES = scheduled cells, ceiling 12 dBW range-controlled + S.1428 0.65 m", o);
                 expected.Add("up");
                 break;
             case "BL-U2":
                 WriteUpExpectation(Exp("epfd_up_cdf.csv"), Set24(ntc), U2, GatewayGeo(),
                     esPowerDbw: 15.0, antFreqMhz: 29750.0, antDiamM: 2.4,
-                    "victim GSO sat lon=10, boresight lat=45 lon=0; ES = the three declared gateways, 15 dBW + S.1428 2.4 m", o);
+                    "victim GSO sat lon=10, boresight lat=45 lon=0; ES = the three declared gateways, ceiling 15 dBW range-controlled + S.1428 2.4 m", o);
                 expected.Add("up");
                 break;
             case "BL-I1":
@@ -666,7 +666,7 @@ public static class DatasetGenerator
                 WriteUpExpectation(Exp("epfd_up_cdf.csv"), Set23(ntc), U1,
                     ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, o.Quick ? 900.0 : 450.0),
                     esPowerDbw: 12.0, antFreqMhz: 28000.0, antDiamM: 0.65,
-                    "victim GSO sat lon=10, boresight lat=45 lon=0; typical ES = scheduled cells, 12 dBW + S.1428 0.65 m", o);
+                    "victim GSO sat lon=10, boresight lat=45 lon=0; typical ES = scheduled cells, ceiling 12 dBW range-controlled + S.1428 0.65 m", o);
                 expected.Add("down"); expected.Add("is"); expected.Add("up");
                 break;
         }
@@ -774,6 +774,11 @@ public static class DatasetGenerator
         {
             PowerDbw = esPowerDbw,
             Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, antFreqMhz, antDiamM),
+            // Range-based closed-loop power control: the declared ceiling
+            // corresponds to the slant range at the band's declared minimum
+            // elevation; each link transmits below it (constant flux at the
+            // serving satellite). The masks still bound the ceiling.
+            PowerControlRefElevDeg = declared.ElevAngleHeaderDeg ?? 10.0,
         };
         var res = EpfdUp.Run(con, scheduler, geo, GsoSatVictim(band.FMin), esModel,
             ExpStepSec, steps, PermissiveLimits(), simDur);
@@ -831,8 +836,9 @@ public static class DatasetGenerator
                   active, ES latitude range -60..60.
                 - expected/epfd_up_cdf.csv: simulated epfd(up) at the GSO satellite victim;
                   the transmitting ES are the scheduler's active links (each served cell
-                  radiating 12 dBW + S.1428 0.65 m toward its serving satellite), with the
-                  declared MAX_CO_FREQ_SAT and MIN_ANGLE_AT_SAT gates applied.
+                  radiating toward its serving satellite with range-based power control
+                  below the 12 dBW ceiling, S.1428 0.65 m), with the declared
+                  MAX_CO_FREQ_SAT and MIN_ANGLE_AT_SAT gates applied.
                 """,
             "BL-U2" => """
                 Activates: uplink 29.5-30.0 GHz, specific declared earth stations.
@@ -844,7 +850,7 @@ public static class DatasetGenerator
                 - Operating-parameter set 24: ES_DENSITY / ES_DISTANCE switched OFF (specific
                   stations), MAX_CO_FREQ_SAT = 1, MIN_ANGLE_AT_SAT = 2 deg.
                 - expected/epfd_up_cdf.csv: simulated epfd(up) with the three gateways as the
-                  transmitting population (15 dBW + S.1428 2.4 m). GW-EAST never sees the
+                  transmitting population (15 dBW ceiling, range-controlled, S.1428 2.4 m). GW-EAST never sees the
                   GSO victim at 10E (below its horizon) and so contributes nothing -- that is
                   the truth the geometry implies, not an omission.
                 """,

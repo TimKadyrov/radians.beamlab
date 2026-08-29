@@ -42,6 +42,15 @@ public sealed class MaskXmlExportOptions
     public MaskPlotKind Kind = MaskPlotKind.AlphaDeltaLong;
     public MaskExportFormat Format = MaskExportFormat.Xml;
     public string OutputPath = "";
+
+    /// <summary>
+    /// Body-yaw offsets (deg) added on top of each pass heading when the
+    /// envelope is sampled. { 0 } is the heading-locked payload; a
+    /// yaw-steering payload must sweep its reachable yaw range here or the
+    /// derived mask is not an envelope. Keep the sweep step no coarser than
+    /// the output bin.
+    /// </summary>
+    public double[] YawSweepDeg = { 0.0 };
 }
 
 /// <summary>

@@ -14,7 +14,9 @@ namespace radians.beamlab.app;
 /// there and the composite EIRP is enveloped over azimuth at each angle --
 /// and over the reachable pass headings (the WP4 configuration set), since
 /// the GSO-arc direction is Earth-referenced while the layout flies with the
-/// orbit.
+/// orbit. No yaw sweep is needed here, unlike the pfd samplers: body yaw is
+/// a rigid rotation of the composite about nadir, and the per-angle azimuth
+/// envelope is invariant under it.
 /// </summary>
 public static class SatEirpMaskBuilder
 {

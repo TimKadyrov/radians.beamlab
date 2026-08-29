@@ -216,6 +216,7 @@ public sealed class Scheduler
             var list = new List<Candidate>();
             for (int i = 0; i < n; i++)
             {
+                if (!_con.IsOperational(i)) continue;   // spares do not serve
                 var pos = states[i].PositionEcefKm;
                 double elev = ElevationAngleDeg(pos, es);
                 if (elev <= 0.0) continue;

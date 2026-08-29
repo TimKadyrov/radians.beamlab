@@ -2484,5 +2484,131 @@ var looks = RandomLooks(300);
         $"in={inStep.Links.Count} out={outStep.Links.Count}+{outStep.UnservedCellLinks}u");
 }
 
+// ---- U8-U10: power control, deployment fraction, yaw sweep ----
+{
+    var shellW = new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1,
+    };
+    var conW = new Constellation(new[] { shellW });
+    double simDurW = 600.0;
+    var stW = conW.StateAt(0, 0.0, simDurW);
+    double wLat = stW.SubSatLatDeg, wLon = stW.SubSatLonDeg;
+    var vmW = new PfdMaskViewModel();
+    var geoW = new ServiceGeography(new List<ServiceCell> { new(1, wLat, wLon) }, 500.0);
+    var declW = new OperatingParamsSet
+    {
+        SatName = "T", NtcId = 1, ParamId = 1, LowFreqMhz = 27500, HighFreqMhz = 28600,
+    };
+    var vicW = new EpfdGsoSatVictim
+    {
+        GsoLonDeg = wLon + 15.0, BoresightLatDeg = wLat, BoresightLonDeg = wLon,
+        Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APSREC408V01, 28000.0, null),
+        GmaxDbi = 40.7, Phi3DbDeg = 1.55,
+    };
+    var limitsW = new List<radlimits.LimitPoint>
+    {
+        new radlimits.LimitPoint { EPFD = -300.0, Perc = 0.001 },
+        new radlimits.LimitPoint { EPFD = 0.0, Perc = 100.0 },
+    };
+    var antW = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 28000.0, 0.65);
+
+    // U8: range-based power control -- the single zenith link transmits
+    // 20 log10(dRef/dLink) below the ceiling; null keeps the ceiling.
+    double HandUp(double powerDbw)
+    {
+        var esP = GeodeticToEcef(wLat, wLon, 0.0);
+        var satP = stW.PositionEcefKm;
+        double lonR = vicW.GsoLonDeg * Math.PI / 180.0;
+        var gsoP = new Vec3(GsoGeometry.GsoRadiusKm * Math.Cos(lonR),
+                            GsoGeometry.GsoRadiusKm * Math.Sin(lonR), 0.0);
+        double phi = Math.Acos(Math.Clamp(Vec3.Dot((satP - esP).Normalized(),
+            (gsoP - esP).Normalized()), -1.0, 1.0)) * 180.0 / Math.PI;
+        double dM = (gsoP - esP).Length * 1000.0;
+        return powerDbw + antW.GetAntGain(phi, 0.0)
+             - 10.0 * Math.Log10(4.0 * Math.PI * dM * dM) + vicW.RelativeGainDb(0.0);
+    }
+    double dRefW = EpfdUp.SlantRangeKm(stW.AltitudeKm, 10.0);
+    double dLinkW = (stW.PositionEcefKm - GeodeticToEcef(wLat, wLon, 0.0)).Length;
+    double redW = 20.0 * Math.Log10(dRefW / dLinkW);
+
+    EpfdUpResult RunUp(double? refElev) => EpfdUp.Run(conW,
+        new Scheduler(conW, geoW, declW, new ScenePointing(vmW), simDurW), geoW, vicW,
+        new EpfdUpEsModel { PowerDbw = 12.0, Antenna = antW, PowerControlRefElevDeg = refElev },
+        1.0, 1, limitsW, simDurW);
+    var resCeil = RunUp(null);
+    var resPc = RunUp(10.0);
+    bool okU8 = redW > 0.0
+        && Math.Abs(resCeil.MaxEpfdDb - HandUp(12.0)) < 1e-9
+        && Math.Abs(resPc.MaxEpfdDb - (HandUp(12.0) - redW)) < 1e-9;
+    Check("U8 range-based uplink power control: ceiling and controlled link exact", okU8,
+        $"ceil={resCeil.MaxEpfdDb:F6}/{HandUp(12.0):F6} pc={resPc.MaxEpfdDb:F6}/{HandUp(12.0) - redW:F6} red={redW:F3}");
+
+    // U9: OperationalFraction -- spares fly dark and are never scheduled.
+    var shellY = new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 2, SatsPerPlane = 1,
+        LanSpreadDeg = 30.0, OperationalFraction = 0.5,
+    };
+    var conY = new Constellation(new[] { shellY });
+    var snapY = conY.SnapshotAt(0.0, simDurW, new ScenePointing(vmW));
+    var stY0 = conY.StateAt(0, 0.0, simDurW);
+    // Pitch 900: the operational satellite is 15 deg of longitude away and
+    // its nearest beam boresight sits beyond a 500 km radius.
+    var geoY = new ServiceGeography(new List<ServiceCell> { new(1, stY0.SubSatLatDeg, stY0.SubSatLonDeg) }, 900.0);
+    var stepY = new Scheduler(conY, geoY, declW, new ScenePointing(vmW), simDurW).Step(0.0);
+    bool threwFrac = false;
+    try { _ = new Constellation(new[] { shellY with { OperationalFraction = 1.5 } }); }
+    catch (ArgumentOutOfRangeException) { threwFrac = true; }
+    bool okU9 = !conY.IsOperational(0) && conY.IsOperational(1)
+        && snapY.Satellites[0].Beams.Beams.Count == 0
+        && snapY.Satellites[1].Beams.Beams.Count > 0
+        && stepY.Links.Count == 1 && stepY.Links[0].SatelliteNumber == 2
+        && threwFrac;
+    Check("U9 OperationalFraction: spare flies dark, scheduler serves from the operational sat", okU9,
+        $"op=[{conY.IsOperational(0)},{conY.IsOperational(1)}] beams=[{snapY.Satellites[0].Beams.Beams.Count},{snapY.Satellites[1].Beams.Beams.Count}] link={stepY.Links.FirstOrDefault()?.SatelliteNumber} threw={threwFrac}");
+
+    // U10: yaw sweep semantics, probed at the sampler (the export binning
+    // is too coarse to see a rotation of the near-symmetric hex layout):
+    // a yawed field differs from the heading-locked one, and the swept
+    // sampler is exactly the max of the two.
+    ReachableEnvelopeSampler Samp(double[] sweep)
+    {
+        var o10 = new MaskXmlExportOptions
+        {
+            LatMinDeg = 0, LatMaxDeg = 0, LatStepDeg = 10, BStepDeg = 5, CStepDeg = 5,
+            Kind = MaskPlotKind.AzEl, YawSweepDeg = sweep,
+        };
+        var samp = new ReachableEnvelopeSampler(vmW, o10, 53.0);
+        samp.PrepareLatitude(0.0);
+        return samp;
+    }
+    // 37 deg breaks both the hex layout symmetry and the pass headings.
+    var s0 = Samp(new[] { 0.0 });
+    var s37 = Samp(new[] { 37.0 });
+    var sBoth = Samp(new[] { 0.0, 37.0 });
+    bool unionOk = true, maxOk = true; double diff37 = 0.0; string detU10 = "";
+    for (int k = 0; k < 72 && unionOk && maxOk; k++)
+    {
+        double az = -180.0 + 5.0 * k;
+        foreach (double el in new[] { 20.0, 45.0, 70.0 })
+        {
+            double v0 = s0.SampleMaxIn(az, el, 2.5, 2.5);
+            double v37 = s37.SampleMaxIn(az, el, 2.5, 2.5);
+            double vb = sBoth.SampleMaxIn(az, el, 2.5, 2.5);
+            double expect = Math.Max(v0, v37);
+            if (double.IsFinite(v0) && double.IsFinite(v37))
+                diff37 = Math.Max(diff37, Math.Abs(v37 - v0));
+            if (double.IsFinite(expect) && Math.Abs(vb - expect) > 1e-9)
+            { maxOk = false; detU10 = $"az={az} el={el}: both={vb} max={expect}"; break; }
+            if (double.IsFinite(v0) && vb < v0 - 1e-9)
+            { unionOk = false; detU10 = $"az={az} el={el}: both={vb} < base={v0}"; break; }
+        }
+    }
+    bool okU10 = unionOk && maxOk && diff37 > 1e-6;
+    Check("U10 yaw sweep: yawed field differs, swept sampler is the exact union max", okU10,
+        okU10 ? $"maxYawDiff={diff37:F3} dB" : detU10 + $" diff37={diff37:F6}");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;

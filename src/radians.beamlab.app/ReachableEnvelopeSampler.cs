@@ -13,11 +13,16 @@ namespace radians.beamlab.app;
 /// field is computed once per heading (Scene.BodyYawDeg) and every envelope
 /// read is the max across headings. Reduces to the single north-aligned
 /// configuration of <see cref="MaskExportSampler"/> when the headings merge.
+/// A yaw-steering payload widens the set beyond the pass headings: supply
+/// MaskXmlExportOptions.YawSweepDeg and each heading is swept over those
+/// body-yaw offsets too -- without it the derived mask is only an envelope
+/// for heading-locked layouts.
 /// </summary>
 public sealed class ReachableEnvelopeSampler : IPfdMaskSampler
 {
     private readonly PfdMaskViewModel _gen;
     private readonly double _inclinationDeg;
+    private readonly double[] _yawSweep;
     private readonly List<PfdMaskField> _fields = new();
 
     public ReachableEnvelopeSampler(PfdMaskViewModel live, MaskXmlExportOptions o, double inclinationDeg)
@@ -26,6 +31,7 @@ public sealed class ReachableEnvelopeSampler : IPfdMaskSampler
         live.CopySettingsTo(_gen);
         _gen.MaskKind = o.Kind;
         _inclinationDeg = inclinationDeg;
+        _yawSweep = o.YawSweepDeg is { Length: > 0 } ? o.YawSweepDeg : new[] { 0.0 };
 
         // Same compute-grid clamp as MaskExportSampler: envelope binning
         // wants >= ~2 field cells per output bin.
@@ -51,14 +57,15 @@ public sealed class ReachableEnvelopeSampler : IPfdMaskSampler
 
         _fields.Clear();
         foreach (double psi in headings)
-        {
-            _gen.Scene.SubSatLatDeg = latDeg;
-            _gen.Scene.BodyYawDeg = psi;
-            _gen.RebuildForCompute();
-            var field = new PfdMaskField();
-            field.Rebuild(_gen);
-            _fields.Add(field);
-        }
+            foreach (double yaw in _yawSweep)
+            {
+                _gen.Scene.SubSatLatDeg = latDeg;
+                _gen.Scene.BodyYawDeg = psi + yaw;
+                _gen.RebuildForCompute();
+                var field = new PfdMaskField();
+                field.Rebuild(_gen);
+                _fields.Add(field);
+            }
     }
 
     public double SampleMaxIn(double xDeg, double yDeg, double halfW, double halfH)

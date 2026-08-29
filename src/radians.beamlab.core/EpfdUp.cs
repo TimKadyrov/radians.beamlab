@@ -16,8 +16,17 @@ namespace radians.beamlab;
 /// </summary>
 public sealed class EpfdUpEsModel
 {
+    /// <summary>Power ceiling (dBW per reference bandwidth) -- the declared mask base.</summary>
     public required double PowerDbw { get; init; }
     public required AntennaLibrary Antenna { get; init; }
+
+    /// <summary>
+    /// Range-based closed-loop power control (Rec. S.1325 "power control on
+    /// range"): when set, the ceiling corresponds to the slant range at this
+    /// elevation, and each link transmits 20 log10(d_ref / d_link) below it
+    /// -- constant flux at the serving satellite. Null keeps the ceiling.
+    /// </summary>
+    public double? PowerControlRefElevDeg { get; init; }
 }
 
 /// <summary>Result of an epfd(up) run: the examination-binned statistics.</summary>
@@ -89,7 +98,14 @@ public static class EpfdUp
                     var toGso = (gso - esPos).Normalized();
                     double phiDeg = Math.Acos(Math.Clamp(Vec3.Dot(toSat, toGso), -1.0, 1.0))
                                   * 180.0 / Math.PI;
-                    double eirp = es.PowerDbw + es.Antenna.GetAntGain(phiDeg, 0.0);
+                    double power = es.PowerDbw;
+                    if (es.PowerControlRefElevDeg is double refElev)
+                    {
+                        double dRefKm = SlantRangeKm(satState.AltitudeKm, refElev);
+                        double dLinkKm = (satPos - esPos).Length;
+                        power -= Math.Max(0.0, 20.0 * Math.Log10(dRefKm / dLinkKm));
+                    }
+                    double eirp = power + es.Antenna.GetAntGain(phiDeg, 0.0);
 
                     double dM = (gso - esPos).Length * 1000.0;
                     var toEs = (esPos - gso).Normalized();
@@ -122,5 +138,15 @@ public static class EpfdUp
             MaxEpfdDb = maxEpfd,
             QuietSteps = quiet,
         };
+    }
+
+    /// <summary>Slant range (km) to a satellite at altitude h seen at elevation eps (spherical Earth).</summary>
+    public static double SlantRangeKm(double altitudeKm, double elevDeg)
+    {
+        double r = EarthRadiusKm + altitudeKm;
+        double eps = elevDeg * Math.PI / 180.0;
+        double cosE = Math.Cos(eps);
+        return Math.Sqrt(r * r - EarthRadiusKm * EarthRadiusKm * cosE * cosE)
+             - EarthRadiusKm * Math.Sin(eps);
     }
 }

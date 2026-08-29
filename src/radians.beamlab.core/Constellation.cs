@@ -117,6 +117,14 @@ public sealed record ConstellationShell
     public double PrecessionRateDegPerSec { get; init; }
     /// <summary>Declared repeating ground-track period (station-kept shells), for the SRS rpt_prd fields.</summary>
     public (int Days, int Hours, int Minutes, int Seconds)? RepeatPeriod { get; init; }
+
+    /// <summary>
+    /// Fraction of the shell's satellites that transmit (spares and
+    /// orbit-raising cohort excluded). The declaration (SRS) always carries
+    /// the full shell; only the simulated emission honours the fraction, so
+    /// the truth sits at or below the declared system by construction.
+    /// </summary>
+    public double OperationalFraction { get; init; } = 1.0;
 }
 
 /// <summary>
@@ -168,6 +176,7 @@ public sealed class Constellation
     private readonly List<OrbitPropagator> _propagators = new();
     private readonly List<OrbitalElements> _elements = new();
     private readonly List<(int shell, int plane, int slot)> _identity = new();
+    private readonly List<bool> _operational = new();
 
     public Constellation(IReadOnlyList<ConstellationShell> shells)
     {
@@ -175,6 +184,10 @@ public sealed class Constellation
         for (int sh = 0; sh < shells.Count; sh++)
         {
             var shell = shells[sh];
+            if (shell.OperationalFraction is < 0.0 or > 1.0)
+                throw new ArgumentOutOfRangeException(nameof(shells),
+                    "OperationalFraction must be within [0, 1]");
+            int shellOrdinal = 0;
             double a = OrbitalConstants.EarthRadiusKm + shell.AltitudeKm;
             double perigAltKm = a * (1.0 - shell.Eccentricity) - OrbitalConstants.EarthRadiusKm;
             double artPrec = !shell.StationKeeping && shell.NOrbits > 0
@@ -213,6 +226,13 @@ public sealed class Constellation
                     _elements.Add(el);
                     _propagators.Add(new OrbitPropagator(el));
                     _identity.Add((sh, p, s));
+                    // Bresenham spread of the operational cohort across the
+                    // shell: exactly round(f * N) satellites transmit, evenly
+                    // interleaved with the spares.
+                    _operational.Add(
+                        Math.Floor((shellOrdinal + 1) * shell.OperationalFraction)
+                        - Math.Floor(shellOrdinal * shell.OperationalFraction) >= 1.0);
+                    shellOrdinal++;
                     satNumber++;
                 }
             }
@@ -276,8 +296,16 @@ public sealed class Constellation
         for (int i = 0; i < _propagators.Count; i++)
         {
             var state = StateAt(i, timeSeconds, simulationDurationSeconds);
-            sats.Add(new SatelliteSnapshot(state, pointing?.Resolve(state)));
+            // Non-operational satellites fly but do not radiate.
+            sats.Add(new SatelliteSnapshot(state,
+                _operational[i] ? pointing?.Resolve(state) : EmptyBeams));
         }
         return new SystemSnapshot { TimeSeconds = timeSeconds, Satellites = sats };
     }
+
+    private static readonly ResolvedBeamSet EmptyBeams =
+        new(Array.Empty<Beam>(), Array.Empty<double>());
+
+    /// <summary>Whether the satellite at this index transmits (shell OperationalFraction).</summary>
+    public bool IsOperational(int index) => _operational[index];
 }
