@@ -280,12 +280,23 @@ With fixed beams the composition is exact and the derived mask is tight, so the
 first margin measurement isolates worst-case geometry and selection rules from
 the steering question. Steering comes second, as WP2 lands.
 
-## 10. Decisions still open
+## 10. Decisions taken
 
-1. **Reachable or occurring** as the envelope basis (§5). Recommended:
-   reachable.
-2. Whether the shared propagator assembly is practical to reference from
-   beamlab, or whether some other arrangement is needed (WP1).
-3. Whether beamlab writes Access `.mdb` SRS content directly or emits an
-   intermediate the existing tooling converts (WP7).
-4. Which sampling-depth option (§7) the first margin measurement uses.
+All four questions this section used to hold are resolved; recorded here so
+the spec reads as history rather than as pending work.
+
+1. **Reachable** is the envelope basis (§5), bounded by the payload power
+   budget; the *occurring* set remains available through the scheduler-gated
+   pointing and is what the expectation CDFs use for the selection-rule side.
+2. The propagator is **vendored byte-identical** into `core/orbits/`
+   (namespaces preserved, provenance in its README); a drift-guard check
+   compares every vendored file against the source tree, so "shared
+   component" holds by verification rather than by reference.
+3. beamlab writes the SNS v10 `.mdb` content **directly**: cloned worked
+   donors via ACE OLE DB for the SRS, and the BR native mask store for the
+   Masks database with a container-format fallback for the forms the native
+   validator predates (`R` sets, 4-D format "A"); the fallback rows verify
+   through the BR native extractor.
+4. Sampling depth is **option 2** (body percentiles from a fixed 30 s comb,
+   the tail justified by the envelope argument); no dual time step. The
+   BL-* dataset ships its expectation CDFs on that basis.
