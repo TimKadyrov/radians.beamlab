@@ -2225,10 +2225,18 @@ var looks = RandomLooks(300);
         // T4: expectation CDFs exist for the downlink cases, parse, and are
         // monotone non-increasing in percent-exceeded.
         bool okT4 = true; string detT4 = "";
-        foreach (string c in new[] { "BL-D1", "BL-D2", "BL-ALL" })
+        var expT4 = new (string Case, string File)[]
         {
-            string csv = Path.Combine(outDs, c, "expected", "epfd_down_cdf.csv");
-            if (!File.Exists(csv)) { okT4 = false; detT4 = c + " missing"; break; }
+            ("BL-D1", "epfd_down_cdf.csv"), ("BL-D2", "epfd_down_cdf.csv"),
+            ("BL-U1", "epfd_up_cdf.csv"), ("BL-U2", "epfd_up_cdf.csv"),
+            ("BL-I1", "epfd_down_cdf.csv"), ("BL-I1", "epfd_is_cdf.csv"),
+            ("BL-ALL", "epfd_down_cdf.csv"), ("BL-ALL", "epfd_up_cdf.csv"),
+            ("BL-ALL", "epfd_is_cdf.csv"),
+        };
+        foreach (var (c, f) in expT4)
+        {
+            string csv = Path.Combine(outDs, c, "expected", f);
+            if (!File.Exists(csv)) { okT4 = false; detT4 = c + "/" + f + " missing"; break; }
             var rows = File.ReadAllLines(csv)
                 .Where(l => l.Length > 0 && l[0] != '#' && char.IsDigit(l[0]) || l.StartsWith("-"))
                 .Select(l => l.Split(','))
@@ -2236,13 +2244,13 @@ var looks = RandomLooks(300);
                 .Select(pr => (E: double.Parse(pr[0], CultureInfo.InvariantCulture),
                                P: double.Parse(pr[1], CultureInfo.InvariantCulture)))
                 .ToList();
-            if (rows.Count < 3) { okT4 = false; detT4 = c + " too few rows"; break; }
+            if (rows.Count < 3) { okT4 = false; detT4 = c + "/" + f + " too few rows"; break; }
             for (int i = 1; i < rows.Count && okT4; i++)
-                if (rows[i].P > rows[i - 1].P + 1e-12) { okT4 = false; detT4 = c + " pct not monotone"; }
-            if (okT4 && (rows[0].P > 100.0 || rows[^1].P < 0.0)) { okT4 = false; detT4 = c + " pct range"; }
+                if (rows[i].P > rows[i - 1].P + 1e-12) { okT4 = false; detT4 = c + "/" + f + " pct not monotone"; }
+            if (okT4 && (rows[0].P > 100.0 || rows[^1].P < 0.0)) { okT4 = false; detT4 = c + "/" + f + " pct range"; }
             if (okT4) detT4 += $"{c}:{rows.Count} ";
         }
-        Check("T4 expectation CDFs present, parse, monotone", okT4, detT4.Trim());
+        Check("T4 expectation CDFs present for every direction, parse, monotone", okT4, detT4.Trim());
         }
         catch (Exception ex)
         {
@@ -2253,6 +2261,227 @@ var looks = RandomLooks(300);
     {
         Check("T2-T4 dataset generation", true, "donor MDBs or EpfdMasksApi64.dll not present, skipped");
     }
+}
+
+// ---- U: epfd(up) and the epfd(is) byproduct ----
+{
+    // One satellite over a known cell: every quantity is hand-computable.
+    var shellU = new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1,
+    };
+    var conU = new Constellation(new[] { shellU });
+    double simDurU = 600.0;
+    var st0 = conU.StateAt(0, 0.0, simDurU);
+    double cLat = st0.SubSatLatDeg, cLon = st0.SubSatLonDeg;
+
+    var vicUp = new EpfdGsoSatVictim
+    {
+        GsoLonDeg = cLon + 15.0, BoresightLatDeg = cLat, BoresightLonDeg = cLon,
+        Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APSREC408V01, 28000.0, null),
+        GmaxDbi = 40.7, Phi3DbDeg = 1.55,
+    };
+    var esModelU = new EpfdUpEsModel
+    {
+        PowerDbw = 12.0,
+        Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 28000.0, 0.65),
+    };
+    var limitsU = new List<radlimits.LimitPoint>
+    {
+        new radlimits.LimitPoint { EPFD = -300.0, Perc = 0.001 },
+        new radlimits.LimitPoint { EPFD = 0.0, Perc = 100.0 },
+    };
+    OperatingParamsSet DeclU(int? capSat, double? minAngleSat) => new()
+    {
+        SatName = "T", NtcId = 1, ParamId = 1, LowFreqMhz = 27500, HighFreqMhz = 28600,
+        MaxCoFreqSat = capSat, MinAngleAtSatDeg = minAngleSat,
+    };
+
+    double gsoLonRadU = vicUp.GsoLonDeg * Math.PI / 180.0;
+    var gsoU = new Vec3(GsoGeometry.GsoRadiusKm * Math.Cos(gsoLonRadU),
+                        GsoGeometry.GsoRadiusKm * Math.Sin(gsoLonRadU), 0.0);
+    double LinkLinear(double latDeg, double lonDeg)
+    {
+        var esP = GeodeticToEcef(latDeg, lonDeg, 0.0);
+        var satP = st0.PositionEcefKm;
+        double phi = Math.Acos(Math.Clamp(Vec3.Dot((satP - esP).Normalized(),
+            (gsoU - esP).Normalized()), -1.0, 1.0)) * 180.0 / Math.PI;
+        double eirp = 12.0 + esModelU.Antenna.GetAntGain(phi, 0.0);
+        double dM = (gsoU - esP).Length * 1000.0;
+        var bsDir = (GeodeticToEcef(cLat, cLon, 0.0) - gsoU).Normalized();
+        double psi = Math.Acos(Math.Clamp(Vec3.Dot(bsDir, (esP - gsoU).Normalized()),
+            -1.0, 1.0)) * 180.0 / Math.PI;
+        return Math.Pow(10.0, (eirp - 10.0 * Math.Log10(4.0 * Math.PI * dM * dM)
+            + vicUp.RelativeGainDb(psi)) / 10.0);
+    }
+
+    // U1: single link, analytic identity (boresight at the cell: Grel = 0).
+    // Pitch 500: the default hex layout has no central beam -- the nearest
+    // boresights sit 433 km from the sub-satellite point.
+    var geo1 = new ServiceGeography(new List<ServiceCell> { new(1, cLat, cLon) }, 500.0);
+    var vmU = new PfdMaskViewModel();
+    var res1 = EpfdUp.Run(conU, new Scheduler(conU, geo1, DeclU(null, null),
+        new ScenePointing(vmU), simDurU), geo1, vicUp, esModelU,
+        1.0, 1, limitsU, simDurU);
+    double exp1 = 10.0 * Math.Log10(LinkLinear(cLat, cLon));
+    Check("U1 epfd(up) single link matches the hand formula",
+        res1.QuietSteps == 0 && Math.Abs(res1.MaxEpfdDb - exp1) < 1e-9,
+        $"run={res1.MaxEpfdDb:F6} hand={exp1:F6} quiet={res1.QuietSteps}");
+
+    // U2/U3 geometry: a second cell 3 deg east (about 15.5 deg apart at the
+    // satellite -- computed below rather than assumed).
+    double lon2 = cLon + 3.0;
+    var geo2 = new ServiceGeography(new List<ServiceCell> { new(1, cLat, cLon), new(2, cLat, lon2) }, 500.0);
+    double expPair = 10.0 * Math.Log10(LinkLinear(cLat, cLon) + LinkLinear(cLat, lon2));
+    var esA = GeodeticToEcef(cLat, cLon, 0.0);
+    var esB = GeodeticToEcef(cLat, lon2, 0.0);
+    double sepAtSat = Math.Acos(Math.Clamp(Vec3.Dot(
+        (esA - st0.PositionEcefKm).Normalized(), (esB - st0.PositionEcefKm).Normalized()),
+        -1.0, 1.0)) * 180.0 / Math.PI;
+
+    // U2: no cap -> both links (pair identity); MAX_CO_FREQ_SAT = 1 -> the
+    // higher-elevation (sub-satellite) link only.
+    var resPair = EpfdUp.Run(conU, new Scheduler(conU, geo2, DeclU(null, null),
+        new ScenePointing(vmU), simDurU), geo2, vicUp, esModelU,
+        1.0, 1, limitsU, simDurU);
+    var resCap = EpfdUp.Run(conU, new Scheduler(conU, geo2, DeclU(1, null),
+        new ScenePointing(vmU), simDurU), geo2, vicUp, esModelU,
+        1.0, 1, limitsU, simDurU);
+    Check("U2 MAX_CO_FREQ_SAT gate: pair without cap, best link with cap 1",
+        Math.Abs(resPair.MaxEpfdDb - expPair) < 1e-9 && Math.Abs(resCap.MaxEpfdDb - exp1) < 1e-9
+        && resPair.MaxEpfdDb > resCap.MaxEpfdDb,
+        $"pair={resPair.MaxEpfdDb:F6}/{expPair:F6} cap={resCap.MaxEpfdDb:F6}/{exp1:F6}");
+
+    // U3: MIN_ANGLE_AT_SAT above the pair separation drops the weaker link;
+    // below it keeps both.
+    var resWide = EpfdUp.Run(conU, new Scheduler(conU, geo2, DeclU(null, sepAtSat + 5.0),
+        new ScenePointing(vmU), simDurU), geo2, vicUp, esModelU,
+        1.0, 1, limitsU, simDurU);
+    var resNarrow = EpfdUp.Run(conU, new Scheduler(conU, geo2, DeclU(null, Math.Max(0.5, sepAtSat - 5.0)),
+        new ScenePointing(vmU), simDurU), geo2, vicUp, esModelU,
+        1.0, 1, limitsU, simDurU);
+    Check("U3 MIN_ANGLE_AT_SAT gate around the actual pair separation",
+        Math.Abs(resWide.MaxEpfdDb - exp1) < 1e-9 && Math.Abs(resNarrow.MaxEpfdDb - expPair) < 1e-9,
+        $"sep={sepAtSat:F2} wide={resWide.MaxEpfdDb:F6}/{exp1:F6} narrow={resNarrow.MaxEpfdDb:F6}/{expPair:F6}");
+
+    // U4: the epfd(is) byproduct -- identical down statistics with and
+    // without the extra victim, the IS value matching the hand-composed
+    // eirp toward the GSO, and Earth blockage silencing the far side.
+    var antD = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 19700.0, 0.6);
+    var vicDown = new EpfdDownVictim { EsLatDeg = cLat, EsLonDeg = cLon, GsoLonDeg = cLon + 15.0, Antenna = antD };
+    var vicIs = new EpfdGsoSatVictim
+    {
+        GsoLonDeg = cLon + 20.0, BoresightLatDeg = cLat, BoresightLonDeg = cLon,
+        Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APSREC408V01, 19700.0, null),
+        GmaxDbi = 40.7, Phi3DbDeg = 1.55,
+    };
+    var resDown0 = EpfdDown.Run(conU, new ScenePointing(vmU), vicDown, 1.0, 1, limitsU, simDurU);
+    var resDown1 = EpfdDown.Run(conU, new ScenePointing(vmU), vicDown, 1.0, 1, limitsU, simDurU, vicIs);
+
+    var snapU = conU.SnapshotAt(0.0, simDurU, new ScenePointing(vmU));
+    var beamsU = snapU.Satellites[0].Beams;
+    double lonIsRad = vicIs.GsoLonDeg * Math.PI / 180.0;
+    var gsoIsU = new Vec3(GsoGeometry.GsoRadiusKm * Math.Cos(lonIsRad),
+                          GsoGeometry.GsoRadiusKm * Math.Sin(lonIsRad), 0.0);
+    var satPosU = snapU.Satellites[0].State.PositionEcefKm;
+    double eirpIsU = BeamComposer.CompositeEirpDbw(beamsU.Beams,
+        (gsoIsU - satPosU).Normalized(), beamsU.PowersDbw);
+    double dIsM = (gsoIsU - satPosU).Length * 1000.0;
+    var bsDirIs = (GeodeticToEcef(cLat, cLon, 0.0) - gsoIsU).Normalized();
+    double psiIs = Math.Acos(Math.Clamp(Vec3.Dot(bsDirIs, (satPosU - gsoIsU).Normalized()),
+        -1.0, 1.0)) * 180.0 / Math.PI;
+    double expIs = eirpIsU - 10.0 * Math.Log10(4.0 * Math.PI * dIsM * dIsM) + vicIs.RelativeGainDb(psiIs);
+
+    var (cdf0, pct0) = resDown0.Accumulator.BuildCdf();
+    var (cdf1, pct1) = resDown1.Accumulator.BuildCdf();
+    bool downUnchanged = resDown0.MaxEpfdDb == resDown1.MaxEpfdDb
+        && pct0.Length == pct1.Length && pct0.SequenceEqual(pct1);
+
+    var vicIsFar = new EpfdGsoSatVictim
+    {
+        GsoLonDeg = cLon + 180.0, BoresightLatDeg = 0.0, BoresightLonDeg = cLon + 180.0,
+        Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APSREC408V01, 19700.0, null),
+        GmaxDbi = 40.7, Phi3DbDeg = 1.55,
+    };
+    var resFar = EpfdDown.Run(conU, new ScenePointing(vmU), vicDown, 1.0, 1, limitsU, simDurU, vicIsFar);
+
+    Check("U4 epfd(is) byproduct: down unchanged, IS matches hand value, far side blocked",
+        downUnchanged && resDown1.IsAccumulator is not null
+        && resDown1.IsQuietSteps == 0 && Math.Abs(resDown1.MaxEpfdIsDb - expIs) < 1e-9
+        && resFar.IsQuietSteps == 1 && double.IsNegativeInfinity(resFar.MaxEpfdIsDb),
+        $"is={resDown1.MaxEpfdIsDb:F6} hand={expIs:F6} downSame={downUnchanged} farQuiet={resFar.IsQuietSteps}");
+}
+
+// ---- U5-U7: WP2 assignment-time gates (reassign, not drop) ----
+{
+    // Two satellites 15 deg of longitude apart at t = 0.
+    var shellV = new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 2, SatsPerPlane = 1,
+        LanSpreadDeg = 30.0,
+    };
+    var conV = new Constellation(new[] { shellV });
+    double simDurV = 600.0;
+    var stA = conV.StateAt(0, 0.0, simDurV);
+    var stB = conV.StateAt(1, 0.0, simDurV);
+    var vmV = new PfdMaskViewModel();
+
+    OperatingParamsSet DeclV(int? capSat = null, double? minAngleEs = null,
+        double latMin = -90.0, double latMax = 90.0) => new()
+    {
+        SatName = "T", NtcId = 1, ParamId = 1, LowFreqMhz = 27500, HighFreqMhz = 28600,
+        MaxCoFreqSat = capSat, MinAngleAtEsDeg = minAngleEs,
+        EsLatMinDeg = latMin, EsLatMaxDeg = latMax,
+    };
+
+    // U5: both cells prefer satellite A; MAX_CO_FREQ_SAT = 1 must push the
+    // second cell onto satellite B (reassignment), not leave it unserved.
+    var cellsV = new List<ServiceCell>
+    {
+        new(1, stA.SubSatLatDeg, stA.SubSatLonDeg),
+        new(2, stA.SubSatLatDeg, stA.SubSatLonDeg + 5.0),
+    };
+    var geoV = new ServiceGeography(cellsV, 500.0);
+    var freeStep = new Scheduler(conV, geoV, DeclV(), new ScenePointing(vmV), simDurV).Step(0.0);
+    var capStep = new Scheduler(conV, geoV, DeclV(capSat: 1), new ScenePointing(vmV), simDurV).Step(0.0);
+    bool bothPreferA = freeStep.Links.Count == 2
+        && freeStep.Links.All(l => l.SatelliteNumber == stA.SatelliteNumber);
+    var capBy = capStep.Links.ToDictionary(l => l.CellId, l => l.SatelliteNumber);
+    bool okU5 = bothPreferA && capStep.Links.Count == 2 && capStep.UnservedCellLinks == 0
+        && capBy[1] == stA.SatelliteNumber && capBy[2] == stB.SatelliteNumber;
+    Check("U5 MAX_CO_FREQ_SAT reassigns the contested cell to the next satellite", okU5,
+        $"free=[{string.Join(",", freeStep.Links.Select(l => l.CellId + ":" + l.SatelliteNumber))}] " +
+        $"cap=[{string.Join(",", capStep.Links.Select(l => l.CellId + ":" + l.SatelliteNumber))}] " +
+        $"unserved={capStep.UnservedCellLinks}");
+
+    // U6: one cell midway with two demand links; MIN_ANGLE_AT_ES above the
+    // actual satellite separation blocks the second satellite, below keeps it.
+    double midLon = (stA.SubSatLonDeg + stB.SubSatLonDeg) / 2.0;
+    var cellMid = new ServiceCell(1, stA.SubSatLatDeg, midLon) { DemandLinks = 2 };
+    var geoMid = new ServiceGeography(new List<ServiceCell> { cellMid }, 500.0);
+    var esMid = GeodeticToEcef(cellMid.LatDeg, cellMid.LonDeg, 0.0);
+    double sepAtEs = Math.Acos(Math.Clamp(Vec3.Dot(
+        (stA.PositionEcefKm - esMid).Normalized(), (stB.PositionEcefKm - esMid).Normalized()),
+        -1.0, 1.0)) * 180.0 / Math.PI;
+    var wideStep = new Scheduler(conV, geoMid, DeclV(minAngleEs: sepAtEs + 10.0),
+        new ScenePointing(vmV), simDurV).Step(0.0);
+    var narrowStep = new Scheduler(conV, geoMid, DeclV(minAngleEs: Math.Max(0.5, sepAtEs - 10.0)),
+        new ScenePointing(vmV), simDurV).Step(0.0);
+    bool okU6 = wideStep.Links.Count == 1 && wideStep.UnservedCellLinks == 1
+        && narrowStep.Links.Count == 2
+        && narrowStep.Links.Select(l => l.SatelliteNumber).Distinct().Count() == 2;
+    Check("U6 MIN_ANGLE_AT_ES separates the satellites co-serving one cell", okU6,
+        $"sep={sepAtEs:F2} wide={wideStep.Links.Count}+{wideStep.UnservedCellLinks}u narrow={narrowStep.Links.Count}");
+
+    // U7: a cell outside the declared ES latitude range is not served.
+    var geoOne = new ServiceGeography(new List<ServiceCell> { new(1, stA.SubSatLatDeg, stA.SubSatLonDeg) }, 500.0);
+    var inStep = new Scheduler(conV, geoOne, DeclV(latMin: stA.SubSatLatDeg - 5, latMax: stA.SubSatLatDeg + 5),
+        new ScenePointing(vmV), simDurV).Step(0.0);
+    var outStep = new Scheduler(conV, geoOne, DeclV(latMin: stA.SubSatLatDeg + 30, latMax: stA.SubSatLatDeg + 60),
+        new ScenePointing(vmV), simDurV).Step(0.0);
+    bool okU7 = inStep.Links.Count == 1 && outStep.Links.Count == 0 && outStep.UnservedCellLinks == 1;
+    Check("U7 ES_LAT_MIN/MAX: cells outside the declared range are not served", okU7,
+        $"in={inStep.Links.Count} out={outStep.Links.Count}+{outStep.UnservedCellLinks}u");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

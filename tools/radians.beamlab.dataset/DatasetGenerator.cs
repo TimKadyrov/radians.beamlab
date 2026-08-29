@@ -626,49 +626,92 @@ public static class DatasetGenerator
             throw new InvalidOperationException($"{caseName}: mask store failed: " +
                 string.Join(",", bad.Select(r => $"{r.MaskId}:{r.Status}")));
 
-        if (caseName is "BL-D1" or "BL-D2" or "BL-ALL")
+        string Exp(string file) => Path.Combine(caseDir, "expected", file);
+        ServiceGeography GatewayGeo() => new(
+            Gateways.Select((g, i) => new ServiceCell(i + 1, g.LatDeg, g.LonDeg)).ToList(), 500.0);
+        var expected = new List<string>();
+        switch (caseName)
         {
-            var declared = SetFor(caseName == "BL-D2" ? 22 : 21, ntc);
-            var band = caseName == "BL-D2" ? D2 : D1;
-            WriteExpectation(Path.Combine(caseDir, "expected", "epfd_down_cdf.csv"), declared, band, o);
+            case "BL-D1":
+                WriteDownExpectation(Exp("epfd_down_cdf.csv"), null, Set21(ntc), D1, o);
+                expected.Add("down");
+                break;
+            case "BL-D2":
+                WriteDownExpectation(Exp("epfd_down_cdf.csv"), null, Set22(ntc), D2, o);
+                expected.Add("down");
+                break;
+            case "BL-U1":
+                WriteUpExpectation(Exp("epfd_up_cdf.csv"), Set23(ntc), U1,
+                    ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, o.Quick ? 900.0 : 450.0),
+                    esPowerDbw: 12.0, antFreqMhz: 28000.0, antDiamM: 0.65,
+                    "victim GSO sat lon=10, boresight lat=45 lon=0; typical ES = scheduled cells, 12 dBW + S.1428 0.65 m", o);
+                expected.Add("up");
+                break;
+            case "BL-U2":
+                WriteUpExpectation(Exp("epfd_up_cdf.csv"), Set24(ntc), U2, GatewayGeo(),
+                    esPowerDbw: 15.0, antFreqMhz: 29750.0, antDiamM: 2.4,
+                    "victim GSO sat lon=10, boresight lat=45 lon=0; ES = the three declared gateways, 15 dBW + S.1428 2.4 m", o);
+                expected.Add("up");
+                break;
+            case "BL-I1":
+                // The IS statistic is a byproduct of the downlink emission run
+                // over the same band: one snapshot stream, two accumulators.
+                WriteDownExpectation(Exp("epfd_down_cdf.csv"), Exp("epfd_is_cdf.csv"),
+                    Set25(ntc), I1, o);
+                expected.Add("down"); expected.Add("is");
+                break;
+            case "BL-ALL":
+                WriteDownExpectation(Exp("epfd_down_cdf.csv"), null, Set21(ntc), D1, o);
+                WriteDownExpectation(null, Exp("epfd_is_cdf.csv"), Set22(ntc), D2, o);
+                WriteUpExpectation(Exp("epfd_up_cdf.csv"), Set23(ntc), U1,
+                    ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, o.Quick ? 900.0 : 450.0),
+                    esPowerDbw: 12.0, antFreqMhz: 28000.0, antDiamM: 0.65,
+                    "victim GSO sat lon=10, boresight lat=45 lon=0; typical ES = scheduled cells, 12 dBW + S.1428 0.65 m", o);
+                expected.Add("down"); expected.Add("is"); expected.Add("up");
+                break;
         }
         File.WriteAllText(Path.Combine(caseDir, "README.md"), CaseReadme(caseName, ntc), Utf8NoBom);
         o.Log($"  {caseName}: SRS + Masks + README" +
-              (caseName is "BL-D1" or "BL-D2" or "BL-ALL" ? " + expectation CDF" : ""));
+              (expected.Count > 0 ? $" + expectation CDFs ({string.Join("/", expected)})" : ""));
     }
 
-    // ---- expectation data (EpfdDown CDF, sampling option 2) ------------
+    // ---- expectation data (simulated CDFs, sampling option 2) ----------
 
-    private static void WriteExpectation(string path, OperatingParamsSet declared, Band band, DatasetOptions o)
+    private const double ExpStepSec = 30.0;
+    private static double ExpSimDur(DatasetOptions o) => o.Quick ? 7200.0 : 172800.0;
+
+    // Permissive limits: the deliverable is the CDF, not a verdict.
+    private static List<radlimits.LimitPoint> PermissiveLimits() => new()
+    {
+        new() { EPFD = -300.0, Perc = 0.001 },
+        new() { EPFD = 0.0, Perc = 100.0 },
+    };
+
+    /// <summary>
+    /// The GSO satellite victim for epfd(up)/epfd(is): S.672-4 reference of
+    /// Sec. D6.5.2 -- every dataset band is at or above 17 GHz, so beamwidth
+    /// 1.55 deg with peak gain 40.7 dBi (Tables 8 and 16), Ls = -20.
+    /// </summary>
+    private static EpfdGsoSatVictim GsoSatVictim(double freqMhz) => new()
+    {
+        GsoLonDeg = 10.0, BoresightLatDeg = 45.0, BoresightLonDeg = 0.0,
+        Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APSREC408V01, freqMhz, null),
+        GmaxDbi = 40.7, Phi3DbDeg = 1.55,
+    };
+
+    private static void WriteCdfCsv(string path, string label, string victimDesc, Band band,
+        long steps, long quietSteps, double maxDb,
+        radcompute1503_2.EpfdAccumulator acc)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path));
-        var con = new Constellation(Shells);
-        double stepSec = 30.0;
-        double simDur = o.Quick ? 7200.0 : 172800.0;
-        long steps = (long)(simDur / stepSec);
-
-        var vm = Vm(ShellA, band.FMin / 1000.0, 10.0, 8.0);
-        var geo = ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, o.Quick ? 900.0 : 450.0);
-        var pointing = new ScheduledPointing(con, geo, declared, vm, simDur);
-        var ant = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, band.FMin, 0.6);
-        var victim = new EpfdDownVictim { EsLatDeg = 45.0, EsLonDeg = 0.0, GsoLonDeg = 10.0, Antenna = ant };
-        // Permissive limits: the deliverable is the CDF, not a verdict.
-        var limits = new List<radlimits.LimitPoint>
-        {
-            new() { EPFD = -300.0, Perc = 0.001 },
-            new() { EPFD = 0.0, Perc = 100.0 },
-        };
-        var res = EpfdDown.Run(con, pointing, victim, stepSec, steps, limits, simDur);
-        var (epfd, pct) = res.Accumulator.BuildCdf();
-
+        var (epfd, pct) = acc.BuildCdf();
         var sb = new StringBuilder();
-        sb.AppendLine("# EpfdDown CDF -- simulated epfd(down) at the victim, S.1503-4 D7.1.2 bins (0.1 dB).");
+        sb.AppendLine($"# {label} CDF -- simulated at the victim, S.1503-4 D7.1.2 bins (0.1 dB).");
         sb.AppendLine("# Sampling option 2 (design brief section 6): body percentiles only; the tail");
         sb.AppendLine("# is bounded by the mask envelope by construction.");
+        sb.AppendLine(FormattableString.Invariant($"# band={band.FMin}-{band.FMax} MHz  {victimDesc}"));
         sb.AppendLine(FormattableString.Invariant(
-            $"# band={band.FMin}-{band.FMax} MHz  victim ES lat=45 lon=0, GSO lon=10, S.1428 0.6 m"));
-        sb.AppendLine(FormattableString.Invariant(
-            $"# step_s={stepSec}  steps={steps}  quiet_steps={res.QuietSteps}  max_epfd_db={res.MaxEpfdDb:F3}"));
+            $"# step_s={ExpStepSec}  steps={steps}  quiet_steps={quietSteps}  max_epfd_db={maxDb:F3}"));
         sb.AppendLine("epfd_dbw_m2_40khz,percent_time_exceeded");
         // Trim to the informative support (one flanking bin each side); the
         // omitted bins are exactly 100 below and exactly 0 above.
@@ -680,6 +723,62 @@ public static class DatasetGenerator
         for (int i = first; i <= last; i++)
             sb.AppendLine(FormattableString.Invariant($"{epfd[i]:F1},{pct[i]:G9}"));
         File.WriteAllText(path, sb.ToString(), Utf8NoBom);
+    }
+
+    /// <summary>
+    /// epfd(down) CDF under the band's declared set; when isPath is given the
+    /// same run also yields the epfd(is) CDF at the GSO satellite victim --
+    /// the byproduct coupling: one snapshot stream, two accumulators.
+    /// </summary>
+    private static void WriteDownExpectation(string downPath, string isPath,
+        OperatingParamsSet declared, Band band, DatasetOptions o)
+    {
+        var con = new Constellation(Shells);
+        double simDur = ExpSimDur(o);
+        long steps = (long)(simDur / ExpStepSec);
+
+        var vm = Vm(ShellA, band.FMin / 1000.0, 10.0, 8.0);
+        var geo = ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, o.Quick ? 900.0 : 450.0);
+        var pointing = new ScheduledPointing(con, geo, declared, vm, simDur);
+        var ant = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, band.FMin, 0.6);
+        var victim = new EpfdDownVictim { EsLatDeg = 45.0, EsLonDeg = 0.0, GsoLonDeg = 10.0, Antenna = ant };
+        var isVictim = isPath is null ? null : GsoSatVictim(band.FMin);
+
+        var res = EpfdDown.Run(con, pointing, victim, ExpStepSec, steps, PermissiveLimits(),
+            simDur, isVictim);
+        if (downPath is not null)
+            WriteCdfCsv(downPath, "epfd(down)", "victim ES lat=45 lon=0, GSO lon=10, S.1428 0.6 m",
+                band, steps, res.QuietSteps, res.MaxEpfdDb, res.Accumulator);
+        if (isPath is not null)
+            WriteCdfCsv(isPath, "epfd(is)",
+                "victim GSO sat lon=10, boresight lat=45 lon=0, S.672 40.7 dBi / 1.55 deg / Ls -20",
+                band, steps, res.IsQuietSteps, res.MaxEpfdIsDb, res.IsAccumulator);
+    }
+
+    /// <summary>
+    /// epfd(up) CDF: the transmitting ES are the scheduler's active links
+    /// over the given service geography, radiating esPowerDbw through the
+    /// declared-mask antenna family toward their serving satellites.
+    /// </summary>
+    private static void WriteUpExpectation(string path, OperatingParamsSet declared, Band band,
+        ServiceGeography geo, double esPowerDbw, double antFreqMhz, double antDiamM,
+        string victimDesc, DatasetOptions o)
+    {
+        var con = new Constellation(Shells);
+        double simDur = ExpSimDur(o);
+        long steps = (long)(simDur / ExpStepSec);
+
+        var vm = Vm(ShellA, band.FMin / 1000.0, 10.0, 8.0);
+        var scheduler = new Scheduler(con, geo, declared, new ScenePointing(vm), simDur);
+        var esModel = new EpfdUpEsModel
+        {
+            PowerDbw = esPowerDbw,
+            Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, antFreqMhz, antDiamM),
+        };
+        var res = EpfdUp.Run(con, scheduler, geo, GsoSatVictim(band.FMin), esModel,
+            ExpStepSec, steps, PermissiveLimits(), simDur);
+        WriteCdfCsv(path, "epfd(up)", victimDesc, band, steps, res.QuietSteps, res.MaxEpfdDb,
+            res.Accumulator);
     }
 
     // ---- documentation -------------------------------------------------
@@ -730,6 +829,10 @@ public static class DatasetGenerator
                 - Operating-parameter set 23: HEADER SCALARS ONLY -- max_co_freq, elev_angle,
                   MAX_CO_FREQ_SAT = 2, MIN_ANGLE_AT_SAT = 1.5 deg, ES_DENSITY / ES_DISTANCE
                   active, ES latitude range -60..60.
+                - expected/epfd_up_cdf.csv: simulated epfd(up) at the GSO satellite victim;
+                  the transmitting ES are the scheduler's active links (each served cell
+                  radiating 12 dBW + S.1428 0.65 m toward its serving satellite), with the
+                  declared MAX_CO_FREQ_SAT and MIN_ANGLE_AT_SAT gates applied.
                 """,
             "BL-U2" => """
                 Activates: uplink 29.5-30.0 GHz, specific declared earth stations.
@@ -740,6 +843,10 @@ public static class DatasetGenerator
                   native store predates format "A"); the BR extractor reads them back.
                 - Operating-parameter set 24: ES_DENSITY / ES_DISTANCE switched OFF (specific
                   stations), MAX_CO_FREQ_SAT = 1, MIN_ANGLE_AT_SAT = 2 deg.
+                - expected/epfd_up_cdf.csv: simulated epfd(up) with the three gateways as the
+                  transmitting population (15 dBW + S.1428 2.4 m). GW-EAST never sees the
+                  GSO victim at 10E (below its horizon) and so contributes nothing -- that is
+                  the truth the geometry implies, not an omission.
                 """,
             "BL-I1" => """
                 Activates: inter-satellite 17.8-18.4 GHz.
@@ -750,6 +857,12 @@ public static class DatasetGenerator
                 - Exercises the eq (3) / eq (4) phi split between artificial precession and
                   the time-step computation on shells B (derived) and C (declared).
                 - Operating-parameter set 25 (minimal, header elev_angle only).
+                - expected/epfd_down_cdf.csv and expected/epfd_is_cdf.csv from ONE emission
+                  run: the epfd(is) statistic is a byproduct of the downlink simulation --
+                  the same resolved beam sets composed toward the GSO satellite victim
+                  (S.672 40.7 dBi / 1.55 deg / Ls -20, boresight 45N 0E), every
+                  non-Earth-blocked space station contributing (D5.3.5 has no exclusion
+                  gating).
                 """,
             "BL-ALL" => """
                 The full NEXT-style notice: all five bands, two scenarios.
@@ -760,7 +873,10 @@ public static class DatasetGenerator
                   R 27.5-28.6 GHz (mask 7) -- mixed direction, both downlink algorithms
                   across the notice.
                 - Operating-parameter sets 21-24 via mask_lnk3.
-                - expected/epfd_down_cdf.csv for the 19.7-20.2 GHz band under set 21.
+                - expected/: all three directions -- epfd_down_cdf.csv (19.7-20.2 GHz under
+                  set 21), epfd_up_cdf.csv (27.5-28.6 GHz under set 23), and
+                  epfd_is_cdf.csv (17.8-18.6 GHz emission composed toward the GSO
+                  satellite, byproduct of the downlink run under set 22).
 
                 NOTE (S.1503-4 B5.1 tension): this notice mixes a repeating station-kept
                 shell (A) with non-repeating shells (B, C). EPS V42 places f_stn_keep,
@@ -784,9 +900,9 @@ public static class DatasetGenerator
             Machine-generated examination input for S.1503-4 implementations, produced by
             `tools/radians.beamlab.dataset` from one simulated constellation. Each case
             directory holds an SNS v10 SRS database, a Masks database (BR container
-            format), the mask XML sources under `xml/`, and for the downlink cases an
-            `expected/epfd_down_cdf.csv` -- the simulated epfd(down) CDF in the
-            examination's own 0.1 dB bins.
+            format), the mask XML sources under `xml/`, and under `expected/` the
+            simulated CDFs for the case's directions -- epfd(down), epfd(up) and
+            epfd(is) -- in the examination's own 0.1 dB bins.
 
             Generation profile of this copy: {profile}.
 
@@ -808,9 +924,17 @@ public static class DatasetGenerator
 
             The expectation CDFs use sampling option 2: body percentiles from a
             {(o.Quick ? "2-hour" : "48-hour")} run at 30 s steps, tail justified by the envelope
-            argument. The victim is an S.1428 60 cm earth station at 45N 0E against the
-            GSO satellite at 10E; the scheduler honours the declared operating-parameter
-            set of the case's band (dwell, Nco, exclusion, minimum elevation).
+            argument. Victims: epfd(down) an S.1428 60 cm earth station at 45N 0E against
+            the GSO satellite at 10E; epfd(up) and epfd(is) the GSO satellite at 10E with
+            its S.672-4 receive beam (40.7 dBi / 1.55 deg / Ls -20, Sec. D6.5.2 Table 16)
+            pointed at 45N 0E. The scheduler honours the declared operating-parameter set
+            of the case's band (dwell, Nco, exclusion, minimum elevation); the uplink run
+            additionally applies the declared MAX_CO_FREQ_SAT and MIN_ANGLE_AT_SAT gates,
+            and the epfd(is) statistic is the byproduct of the same emission run that
+            produces epfd(down) in that band. Note the asymmetry the margin measures: the
+            examination deploys representative uplink ES around the GSO boresight with
+            NUM_ES aggregation (Sec. D5.2.5), while these expectations transmit from the
+            actually scheduled cells.
 
             Regeneration requires the donor databases (schema source: worked case
             127520101) and the BR native EpfdMasksApi64.dll:

@@ -63,6 +63,15 @@ public static class DeclaredConstraints
         return p.MinDurationSecHeader ?? 0;
     }
 
+    /// <summary>Per-satellite co-frequency link cap MAX_CO_FREQ_SAT (header only); absent = no cap.</summary>
+    public static int MaxCoFreqSat(OperatingParamsSet p) => p.MaxCoFreqSat ?? int.MaxValue;
+
+    /// <summary>Minimum angle at the satellite between co-frequency ES (deg, header only); absent = 0.</summary>
+    public static double MinAngleAtSatDeg(OperatingParamsSet p) => p.MinAngleAtSatDeg ?? 0.0;
+
+    /// <summary>Minimum angle at the ES between co-serving satellites (deg, header only); absent = 0.</summary>
+    public static double MinAngleAtEsDeg(OperatingParamsSet p) => p.MinAngleAtEsDeg ?? 0.0;
+
     /// <summary>
     /// Exclusion-zone angle alpha0 (deg) at latitude for the given orbit
     /// (SRS orb_id, per plane): an orbit-specific min_exclude array overrides
@@ -115,6 +124,14 @@ public sealed class ScheduleStep
 /// min_duration(lat) unless it becomes infeasible (forced handover);
 /// voluntary handovers to a higher-elevation satellite happen only after the
 /// dwell. Distinct satellites per cell never exceed max_co_freq(lat).
+///
+/// The remaining declared bounds are enforced during assignment, so they
+/// reassign rather than drop: max_co_freq_sat caps links per satellite;
+/// min_angle_at_sat separates a satellite's co-frequency cells as seen from
+/// it; min_angle_at_es separates the satellites co-serving one cell as seen
+/// from it; cells outside es_lat_min/max are not served. Contested capacity
+/// resolves in cell-list order -- a deterministic, declaration-compliant
+/// greedy assignment, not an optimal one.
 /// </summary>
 public sealed class Scheduler
 {
@@ -227,17 +244,63 @@ public sealed class Scheduler
             candidates[cell.CellId] = list;
         }
 
-        // Assignment with dwell.
+        // Assignment with dwell. The remaining declared bounds gate candidate
+        // ELIGIBILITY here, so contested capacity reassigns to the next-best
+        // satellite (or goes unserved) rather than being dropped downstream;
+        // a continuing link whose satellite a gate now refuses breaks as a
+        // forced handover.
         var links = new List<CellLink>();
         var active = new Dictionary<int, HashSet<int>>();
         int voluntary = 0, forced = 0, unserved = 0;
 
-        foreach (var cell in _geo.Cells)
+        int capSat = DeclaredConstraints.MaxCoFreqSat(_declared);
+        double minAngleSat = DeclaredConstraints.MinAngleAtSatDeg(_declared);
+        double minAngleEs = DeclaredConstraints.MinAngleAtEsDeg(_declared);
+        var satLinkCount = new Dictionary<int, int>();          // satellite number -> links granted this step
+        var satServedCells = new Dictionary<int, List<Vec3>>(); // satellite number -> served cell positions
+
+        for (int ci = 0; ci < _geo.Cells.Count; ci++)
         {
+            var cell = _geo.Cells[ci];
+            var esPos = _cellEcef[ci];
+
+            if (cell.LatDeg < _declared.EsLatMinDeg || cell.LatDeg > _declared.EsLatMaxDeg)
+            {
+                unserved += cell.DemandLinks;   // outside the declared ES latitude range
+                continue;
+            }
+
             var cand = candidates[cell.CellId];
             int nLinks = Math.Min(cell.DemandLinks, DeclaredConstraints.MaxCoFreq(_declared, cell.LatDeg));
             int minDur = DeclaredConstraints.MinDurationSec(_declared, cell.LatDeg);
             var taken = new HashSet<int>();   // satellites already serving this cell
+
+            bool Eligible(Candidate x)
+            {
+                if (satLinkCount.GetValueOrDefault(x.SatelliteNumber) >= capSat) return false;
+                if (minAngleSat > 0.0 && satServedCells.TryGetValue(x.SatelliteNumber, out var served))
+                {
+                    var sp = states[x.SatIndex].PositionEcefKm;
+                    foreach (var other in served)
+                        if (AngleBetweenDeg(other - sp, esPos - sp) < minAngleSat) return false;
+                }
+                if (minAngleEs > 0.0)
+                {
+                    var cp = states[x.SatIndex].PositionEcefKm;
+                    foreach (int satNo in taken)
+                        if (AngleBetweenDeg(states[satNo - 1].PositionEcefKm - esPos, cp - esPos) < minAngleEs)
+                            return false;
+                }
+                return true;
+            }
+
+            void Book(Candidate c)
+            {
+                satLinkCount[c.SatelliteNumber] = satLinkCount.GetValueOrDefault(c.SatelliteNumber) + 1;
+                if (!satServedCells.TryGetValue(c.SatelliteNumber, out var served))
+                    satServedCells[c.SatelliteNumber] = served = new List<Vec3>();
+                served.Add(esPos);
+            }
 
             for (int slot = 0; slot < nLinks; slot++)
             {
@@ -246,9 +309,9 @@ public sealed class Scheduler
 
                 Candidate feasible = null;
                 if (current is not null)
-                    feasible = cand.FirstOrDefault(x => x.SatelliteNumber == current.SatelliteNumber);
+                    feasible = cand.FirstOrDefault(x => x.SatelliteNumber == current.SatelliteNumber && Eligible(x));
 
-                Candidate best = cand.FirstOrDefault(x => !taken.Contains(x.SatelliteNumber));
+                Candidate best = cand.FirstOrDefault(x => !taken.Contains(x.SatelliteNumber) && Eligible(x));
 
                 if (current is not null && feasible is not null && !taken.Contains(current.SatelliteNumber))
                 {
@@ -261,11 +324,13 @@ public sealed class Scheduler
                         _links[key] = new LinkState { SatelliteNumber = best.SatelliteNumber, BeamIndex = best.BeamIndex, StartTimeSec = tSec };
                         voluntary++;
                         Grant(cell, key, best, links, active, taken);
+                        Book(best);
                     }
                     else
                     {
                         current.BeamIndex = feasible.BeamIndex;   // beam may drift as the sat moves
                         Grant(cell, key, feasible with { BeamIndex = feasible.BeamIndex }, links, active, taken, current.StartTimeSec);
+                        Book(feasible);
                     }
                 }
                 else
@@ -279,6 +344,7 @@ public sealed class Scheduler
                     if (current is not null) forced++;
                     _links[key] = new LinkState { SatelliteNumber = best.SatelliteNumber, BeamIndex = best.BeamIndex, StartTimeSec = tSec };
                     Grant(cell, key, best, links, active, taken);
+                    Book(best);
                 }
             }
         }
@@ -293,6 +359,9 @@ public sealed class Scheduler
             UnservedCellLinks = unserved,
         };
     }
+
+    private static double AngleBetweenDeg(Vec3 a, Vec3 b)
+        => Math.Acos(Math.Clamp(Vec3.Dot(a.Normalized(), b.Normalized()), -1.0, 1.0)) * 180.0 / Math.PI;
 
     private void Grant(ServiceCell cell, (int, int) key, Candidate c,
         List<CellLink> links, Dictionary<int, HashSet<int>> active, HashSet<int> taken,
