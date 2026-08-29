@@ -254,5 +254,9 @@
         <TabItem Header="Mask Viewer">
             <app:MaskViewerView />
         </TabItem>
+
+        <TabItem Header="Orbit Design">
+            <app:OrbitDesignView />
+        </TabItem>
     </TabControl>
 </Window>

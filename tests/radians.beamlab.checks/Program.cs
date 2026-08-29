@@ -2789,5 +2789,33 @@ var looks = RandomLooks(300);
         $"spass={plan.SPassDeg:F4} grid={plan.SGridDeg:F4} measured={plan.MeasuredSpacingDeg:F4} rate={plan.RateDegPerSec:E3}");
 }
 
+// ---- V5: the Orbit Design tab view model, headless ----
+{
+    var vmO = new OrbitDesignViewModel();   // defaults: 1200 km, i 53, e 0
+    var expO = OrbitDesign.RepeatSolutions(1200.0, 0.0, 53.0, 120, take: 10);
+    bool rowsOk = vmO.Solutions.Count == expO.Count && vmO.Solutions.Count > 0
+        && vmO.Solutions[0].Solution == expO[0]
+        && ReferenceEquals(vmO.SelectedSolution, vmO.Solutions[0]);
+
+    bool textsOk = vmO.Case2Text.Contains("rpt_prd_dd=") && vmO.KeepRangeValid
+        && vmO.Case1Text.Contains("2*S_pass - S_grid")
+        && vmO.Case3Text.Contains("f_precess='Y'")
+        && vmO.BuildCopyText().Contains("[Case 2 station-kept repeating]");
+
+    vmO.KeepRangeDeg = vmO.SelectedSolution!.Solution.MaxKeepRangeDeg + 1.0;
+    bool invalidCaught = !vmO.KeepRangeValid;
+    vmO.KeepRangeDeg = 0.5;
+    bool validAgain = vmO.KeepRangeValid;
+
+    bool trackOk = vmO.TrackSegments.Count > 0
+        && vmO.TrackSegments.Sum(seg => seg.Count) > vmO.SelectedSolution.Solution.Orbits * 100
+        && vmO.TrackClosureDeg < 0.05;
+
+    Check("V5 Orbit Design view model: rows, previews, keep_rnge validation, track closure",
+        rowsOk && textsOk && invalidCaught && validAgain && trackOk,
+        $"rows={vmO.Solutions.Count} closure={vmO.TrackClosureDeg:F4} " +
+        $"invalidCaught={invalidCaught} texts={textsOk}");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;

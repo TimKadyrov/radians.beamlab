@@ -120,6 +120,18 @@ latitude blocks with the same heatmap and profile plots. Values are read the
 way EPFD tools read a mask — §D5.1.5 bilinear interpolation, clamped at the
 table edges — with fully unreachable regions blank.
 
+### Orbit Design
+
+Prototypes the SNS v10 orbit parameters. Enter a target altitude,
+inclination and eccentricity: the tab lists the repeating-ground-track
+candidates near it (k orbits per m nodal days, the exact altitude for each,
+the cycle as the ready `rpt_prd_dd/hh/mm/ss` fields, the equator spacing and
+the largest `keep_rnge` that keeps swept tracks distinct), previews the SNS
+fields for all three station-keeping cases — including the Case-1 artificial
+precession numbers and the spacing the examination run actually measures —
+and draws one full propagated cycle of the selected candidate over the
+coastline map, with start/end markers that coincide when the track closes.
+
 Full details and the maths for every control are in the
 **[user guide](docs/user-guide.md)**.
 

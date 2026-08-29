@@ -317,6 +317,46 @@ imported table and are omitted.
 
 ---
 
+## Tab 4 — Orbit Design
+
+Prototypes the three SNS v10 orbit-parameter groups from a target orbit.
+
+**Target orbit (left).** Altitude (km), inclination, eccentricity, the
+largest cycle length to search (orbits per cycle) and the altitude band the
+solver may move within. Everything recomputes as you edit.
+
+**Solutions grid (top right).** Repeating-ground-track candidates: a track
+repeats after `k` nodal orbits when `k · S_pass = m · 360°`, with `S_pass`
+the westward node shift per orbit from the same J2 secular rates the
+propagator integrates. Per row: `k` and `m` (coprime), the exact altitude
+that closes the cycle, its offset from your target, the cycle duration in
+the SNS `rpt_prd_dd/hh/mm/ss` split, the residual drift if you fly the
+target altitude instead, the equator spacing `360/k`, and the largest
+`keep_rnge` before adjacent swept deadbands overlap (`180/k`).
+
+**Case previews (left, per selected row).**
+
+- *Case 1 — free drift*: for a chosen run length `NOrbits`, the artificial
+  precession numbers the examination derives — `S_pass`, the grid value
+  `S_grid`, the rate, the run duration, and the spacing the run actually
+  measures (`2·S_pass − S_grid`; the Steps 8–11 transcription lands one
+  adjustment past the grid, documented upstream). Nothing is declared:
+  `f_stn_keep='N'`, `f_precess='N'`.
+- *Case 2 — station-kept repeating*: your `keep_rnge` against the row's
+  bound (red when the deadbands would overlap), plus the ready
+  `f_stn_keep='Y'` / `keep_rnge` / `rpt_prd_*` field set.
+- *Case 3 — declared precession*: the plain-J2 nodal regression rate at the
+  selected geometry, as `f_precess='Y'` / `precession`.
+
+**Copy SNS fields** puts all three previews on the clipboard.
+
+**Ground track (bottom right).** One full cycle of the selected candidate,
+propagated through the real constellation propagator over the coastline
+map. The filled dot marks the start, the ring the end — coincident when
+the cycle closes; the caption prints the closure angle.
+
+---
+
 ## Tips & troubleshooting
 
 - **The heatmap looks almost one colour.** The ramp auto-scales; when the
