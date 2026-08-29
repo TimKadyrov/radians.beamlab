@@ -1,0 +1,386 @@
+<title>The Three Orbit Cases</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,400;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Italic.woff2") format("woff2");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-SemiBold.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}
+:root{
+  --paper:#E9F4F8; --card:#FFFFFF; --ink:#000000; --muted:#698089;
+  --line:#D1EBF5; --line-soft:#E0F1F8;
+  --g1:#0076A1; --g2:#15807B; --g3:#0B516F;
+  --g1-tint:rgba(0,118,161,.10); --g2-tint:rgba(21,128,123,.10); --g3-tint:rgba(11,81,111,.10);
+  --code-bg:#E4F2F9; --bad:#CC3F4D;
+  --measure:44rem;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#003F57; --card:#154E66; --ink:#FFFFFF; --muted:#A9C6D2;
+  --line:#2E6479; --line-soft:#24576A;
+  --g1:#6FCBEF; --g2:#57C4BC; --g3:#99D7EF;
+  --g1-tint:rgba(111,203,239,.16); --g2-tint:rgba(87,196,188,.15); --g3-tint:rgba(153,215,239,.15);
+  --code-bg:#0F4459; --bad:#E57384;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#003F57; --card:#154E66; --ink:#FFFFFF; --muted:#A9C6D2;
+  --line:#2E6479; --line-soft:#24576A;
+  --g1:#6FCBEF; --g2:#57C4BC; --g3:#99D7EF;
+  --g1-tint:rgba(111,203,239,.16); --g2-tint:rgba(87,196,188,.15); --g3-tint:rgba(153,215,239,.15);
+  --code-bg:#0F4459; --bad:#E57384;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Gibson","Segoe UI",system-ui,sans-serif; font-size:15.5px; line-height:1.6}
+.wrap{max-width:880px; margin:0 auto; padding:40px 28px 72px}
+.kicker{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--g1)}
+h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; margin:.25em 0 .35em; text-wrap:balance; max-width:var(--measure)}
+.lede{color:var(--muted); margin:0 0 8px; max-width:var(--measure); font-family:"Bitter",Georgia,serif; font-style:italic}
+h2{font-size:21px; font-weight:600; letter-spacing:-.01em; margin:2.2em 0 .4em; text-wrap:balance; max-width:var(--measure)}
+h2 .case-tag{font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:.08em; padding:2px 9px; border-radius:3px; vertical-align:3px; margin-right:8px}
+.c1 .case-tag{background:var(--g2-tint); color:var(--g2)}
+.c2 .case-tag{background:var(--g1-tint); color:var(--g1)}
+.c3 .case-tag{background:var(--g3-tint); color:var(--g3)}
+p{max-width:var(--measure)}
+code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--code-bg); padding:0 4px; border-radius:3px}
+.tech{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--line); border-radius:5px; padding:12px 16px; margin:14px 0; font-size:13.5px; max-width:var(--measure)}
+.c1 .tech{border-left-color:var(--g2)} .c2 .tech{border-left-color:var(--g1)} .c3 .tech{border-left-color:var(--g3)}
+.tech .t{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; font-weight:600}
+.tech .f{font-family:"IBM Plex Mono",monospace; font-size:13px; line-height:1.9; overflow-x:auto}
+.tech p{font-size:13.5px; margin:6px 0 0}
+.sns{font-family:"IBM Plex Mono",monospace; font-size:12.5px; background:var(--code-bg); border-radius:4px; padding:8px 12px; margin:10px 0; display:inline-block}
+.quirk{border:1px dashed var(--g1); border-radius:5px; padding:10px 14px; margin:14px 0; font-size:13.5px; background:rgba(153,215,239,.20); max-width:var(--measure)}
+figure{margin:18px 0; padding:14px 10px 8px; background:var(--card); border:1px solid var(--line); border-radius:6px; overflow-x:auto; max-width:var(--measure)}
+figure svg{display:block; max-width:100%; height:auto; margin:0 auto}
+figcaption{font-size:12px; color:var(--muted); text-align:center; margin-top:8px; font-family:"Bitter",Georgia,serif; font-style:italic}
+.svgtxt{font-family:"IBM Plex Mono",monospace; font-size:12.5px; fill:currentColor}
+.svglbl{font-family:"Gibson","Segoe UI",sans-serif; font-size:12px; fill:var(--muted)}
+.foot{margin-top:44px; font-size:12.5px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; max-width:var(--measure)}
+a{color:var(--g1)} a:hover{color:#1983AA}
+</style>
+
+<div class="wrap">
+<div class="kicker">radians.beamlab &middot; orbit design</div>
+<h1>The Three Orbit Cases</h1>
+<p class="lede">Before a non-GSO constellation can operate, its filing goes through the EPFD
+calculation &mdash; and the filing must say how the system holds its path over the Earth.
+There are exactly three answers: the three orbit cases. This page explains what they mean,
+why they exist, and how the Orbit Design tab turns your orbit numbers into the fields the
+filing needs.</p>
+
+<h2>Why cases exist at all</h2>
+<p>The EPFD calculation (equivalent power flux-density &mdash; the measure of how much
+interference a constellation could cause to other satellite systems) works by simulation: it
+replays the satellites&rsquo; motion for a while and accumulates the interference reaching a
+victim. For the result to be fair, the calculation has to see the constellation from every
+angle it can actually take up &mdash; not just the slice of geometry that happened to occur
+during the run.</p>
+<p>The complication is that satellite paths do not stand still. The Earth is slightly wider at
+the equator than pole to pole, and that extra bulge tugs on every tilted orbit, slowly turning
+its path westward. Left alone, the line a satellite traces over the ground drifts a little with
+every lap and never comes back to where it started. So the calculation needs to know: does the
+operator <em>fight</em> that drift, <em>declare</em> it, or <em>let it run</em>? That single
+question is the whole classification:</p>
+
+<figure>
+<svg viewBox="0 0 860 210" role="img" aria-label="Decision flow: holding the ground track leads to Case 2; declaring a drift rate leads to Case 3; otherwise Case 1, where the EPFD calculation adds its own drift correction">
+  <defs><marker id="fa" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
+  <g style="color:var(--ink)">
+    <rect x="20" y="80" width="200" height="50" rx="6" fill="var(--code-bg)" stroke="currentColor" fill-opacity=".6"/>
+    <text x="120" y="101" text-anchor="middle" class="svgtxt">does the operator hold</text>
+    <text x="120" y="116" text-anchor="middle" class="svgtxt">the ground track?</text>
+    <g stroke="currentColor" fill="none">
+      <line x1="220" y1="92" x2="308" y2="52" marker-end="url(#fa)"/>
+      <line x1="220" y1="118" x2="308" y2="158" marker-end="url(#fa)"/>
+    </g>
+    <text x="252" y="58" class="svglbl">yes</text>
+    <text x="252" y="152" class="svglbl">no</text>
+    <rect x="312" y="28" width="230" height="48" rx="6" fill="var(--g1-tint)" stroke="var(--g1)"/>
+    <text x="427" y="48" text-anchor="middle" class="svgtxt" style="fill:var(--g1)">CASE 2 station-kept</text>
+    <text x="427" y="64" text-anchor="middle" class="svgtxt">repeating track + tolerance</text>
+    <rect x="312" y="134" width="230" height="50" rx="6" fill="var(--code-bg)" stroke="currentColor" fill-opacity=".6"/>
+    <text x="427" y="155" text-anchor="middle" class="svgtxt">does it declare its own</text>
+    <text x="427" y="170" text-anchor="middle" class="svgtxt">drift rate?</text>
+    <g stroke="currentColor" fill="none">
+      <line x1="542" y1="146" x2="626" y2="112" marker-end="url(#fa)"/>
+      <line x1="542" y1="172" x2="626" y2="188" marker-end="url(#fa)"/>
+    </g>
+    <text x="572" y="118" class="svglbl">yes</text>
+    <text x="572" y="192" class="svglbl">no</text>
+    <rect x="630" y="88" width="210" height="48" rx="6" fill="var(--g3-tint)" stroke="var(--g3)"/>
+    <text x="735" y="108" text-anchor="middle" class="svgtxt" style="fill:var(--g3)">CASE 3 declared</text>
+    <text x="735" y="124" text-anchor="middle" class="svgtxt">rate used as filed</text>
+    <rect x="630" y="164" width="210" height="42" rx="6" fill="var(--g2-tint)" stroke="var(--g2)"/>
+    <text x="735" y="181" text-anchor="middle" class="svgtxt" style="fill:var(--g2)">CASE 1 free drift</text>
+    <text x="735" y="198" text-anchor="middle" class="svgtxt">adds its own correction</text>
+  </g>
+</svg>
+<figcaption>The filing answers the first question with its station-keeping flag and the second
+with a declared precession rate; answering no to both is Case 1.</figcaption>
+</figure>
+
+<div class="tech">
+  <div class="t">Technical detail</div>
+  <p>The three cases and their parameters are defined in Rec. ITU-R S.1503-4, &sect;B3.1
+  (<code>DoesRepeat</code> with <code>W_delta</code>; <code>AdminSuppliedPrecession</code> with
+  <code>ORBIT_PRECESS</code>; neither flag = free drift), and the propagation each one implies
+  in &sect;D6.3. The westward turning of the orbit plane is the J2 nodal regression.</p>
+</div>
+
+<h2>The one number everything is built on</h2>
+<p>Watch a satellite cross the equator heading north, then watch its next crossing one lap
+later. The second crossing lands a fixed distance <em>west</em> of the first &mdash; partly
+because the Earth rotated underneath, partly because of the bulge&rsquo;s slow turning of the
+orbit. That fixed westward step per lap is called <code>S_pass</code>, and all three cases are
+just different kinds of arithmetic on it. The Orbit Design tab computes it from three numbers
+you already know about your orbit: its altitude, its tilt (inclination), and how stretched it
+is (eccentricity).</p>
+
+<figure>
+<svg viewBox="0 0 860 130" role="img" aria-label="Successive equator crossings step westward by S_pass each lap">
+  <g style="color:var(--ink)">
+    <line x1="30" y1="70" x2="830" y2="70" stroke="currentColor" opacity=".45"/>
+    <text x="832" y="58" text-anchor="end" class="svglbl">equator</text>
+    <g fill="currentColor">
+      <circle cx="700" cy="70" r="5"/><circle cx="560" cy="70" r="5" opacity=".75"/>
+      <circle cx="420" cy="70" r="5" opacity=".55"/><circle cx="280" cy="70" r="5" opacity=".4"/>
+      <circle cx="140" cy="70" r="5" opacity=".28"/>
+    </g>
+    <text x="700" y="94" text-anchor="middle" class="svgtxt">lap 1</text>
+    <text x="560" y="94" text-anchor="middle" class="svgtxt">2</text>
+    <text x="420" y="94" text-anchor="middle" class="svgtxt">3</text>
+    <text x="280" y="94" text-anchor="middle" class="svgtxt">4</text>
+    <text x="140" y="94" text-anchor="middle" class="svgtxt">5</text>
+    <g stroke="currentColor" fill="none">
+      <path d="M700 48 L560 48" marker-end="url(#fa)"/>
+      <line x1="700" y1="42" x2="700" y2="54"/><line x1="560" y1="42" x2="560" y2="54"/>
+    </g>
+    <text x="630" y="36" text-anchor="middle" class="svgtxt">S_pass (west)</text>
+  </g>
+</svg>
+<figcaption>Each northbound equator crossing lands <code>S_pass</code> degrees west of the last
+one. Everything else on this page is arithmetic on this step.</figcaption>
+</figure>
+
+<div class="tech">
+  <div class="t">Technical detail &mdash; how S_pass is computed</div>
+  <div class="f">
+    n&#772; &nbsp;= n&#8320; [1 + 1.5 J&#8322; (Re/p)&sup2; (1 &minus; 1.5 sin&sup2;i) &radic;(1&minus;e&sup2;)]<br>
+    &Omega;&#775; &nbsp;= &minus;1.5 J&#8322; (Re/p)&sup2; n&#772; cos i &nbsp;&nbsp;&nbsp; &omega;&#775; = 1.5 J&#8322; (Re/p)&sup2; n&#772; (2 &minus; 2.5 sin&sup2;i)<br>
+    T_nodal = 360 / (&omega;&#775; + n&#772;) &nbsp;&nbsp;&nbsp; S_pass = (&omega;_e &minus; &Omega;&#775;) &middot; T_nodal
+  </div>
+  <p>The J2 secular rates of Rec. S.1503-4 &sect;D6.3 &mdash; the same ones its propagator
+  integrates, so what the tab predicts is what the simulation does.</p>
+</div>
+
+<!-- ================= CASE 1 ================= -->
+<div class="c1">
+<h2><span class="case-tag">CASE 1</span>Free drift &mdash; the calculation adds its own correction</h2>
+<p><strong>The situation.</strong> The operator does nothing about the drift. The ground track
+slides west forever and never repeats.</p>
+<p><strong>The problem that creates.</strong> The EPFD calculation cannot run forever. Cut a
+drifting track off after any finite time and some longitudes have been visited many times while
+others were never visited at all &mdash; the interference result would depend on where the run
+happened to start and stop.</p>
+<p><strong>The fix.</strong> The Recommendation has the calculation itself add a tiny extra drift
+&mdash; an <em>artificial precession</em> &mdash; sized so that a chosen number of laps
+(<code>NOrbits</code>) spreads the crossings perfectly evenly around the equator and then
+closes. Every longitude gets sampled equally, and the run has a natural end. Important:
+this is a simulation device, not a property of the satellite &mdash; the filing declares
+<em>nothing</em> for it.</p>
+
+<figure>
+<svg viewBox="0 0 860 180" role="img" aria-label="Without the correction a finite run samples the equator unevenly; with it, NOrbits laps spread evenly and close">
+  <g style="color:var(--ink)">
+    <text x="30" y="24" class="svgtxt">free drift, finite run</text>
+    <line x1="30" y1="52" x2="830" y2="52" stroke="currentColor" opacity=".45"/>
+    <g fill="currentColor">
+      <circle cx="90" cy="52" r="4"/><circle cx="152" cy="52" r="4"/><circle cx="214" cy="52" r="4"/>
+      <circle cx="276" cy="52" r="4"/><circle cx="338" cy="52" r="4"/><circle cx="400" cy="52" r="4"/>
+      <circle cx="462" cy="52" r="4"/><circle cx="524" cy="52" r="4"/>
+    </g>
+    <text x="690" y="42" class="svglbl">never visited in this run</text>
+    <rect x="560" y="44" width="250" height="16" fill="none" stroke="var(--bad)" stroke-dasharray="4 3"/>
+    <text x="30" y="108" class="svgtxt">with the correction, NOrbits = 12</text>
+    <line x1="30" y1="136" x2="830" y2="136" stroke="currentColor" opacity=".45"/>
+    <g fill="var(--g2)">
+      <circle cx="63" cy="136" r="4"/><circle cx="129" cy="136" r="4"/><circle cx="195" cy="136" r="4"/>
+      <circle cx="261" cy="136" r="4"/><circle cx="327" cy="136" r="4"/><circle cx="393" cy="136" r="4"/>
+      <circle cx="459" cy="136" r="4"/><circle cx="525" cy="136" r="4"/><circle cx="591" cy="136" r="4"/>
+      <circle cx="657" cy="136" r="4"/><circle cx="723" cy="136" r="4"/><circle cx="789" cy="136" r="4"/>
+    </g>
+    <g stroke="currentColor" fill="none">
+      <line x1="63" y1="152" x2="63" y2="162"/><line x1="129" y1="152" x2="129" y2="162"/>
+      <path d="M63 158 L129 158"/>
+    </g>
+    <text x="96" y="174" text-anchor="middle" class="svgtxt">even spacing</text>
+  </g>
+</svg>
+<figcaption>Top: a drifting track piles its crossings into one part of the equator during a
+finite run. Bottom: the added correction rounds the step so 12 laps cover the equator evenly
+and come back to the start.</figcaption>
+</figure>
+
+<div class="tech">
+  <div class="t">Technical detail &mdash; what the tab&rsquo;s Case 1 panel computes</div>
+  <div class="f">
+    S_grid &nbsp;= 360 &middot; floor(NOrbits &middot; S_pass / 360) / NOrbits<br>
+    rate &nbsp;&nbsp;&nbsp;= (S_grid &minus; S_pass) / T_nodal &nbsp;&nbsp;(added to the node rate)<br>
+    run &nbsp;&nbsp;&nbsp;&nbsp;= NOrbits &middot; T_nodal
+  </div>
+  <p>Rec. S.1503-4 &sect;D6.3.2, Steps 8&ndash;11. <code>NOrbits</code> comes from the
+  Recommendation&rsquo;s run-geometry rules; in the tab it is an input.</p>
+</div>
+
+<div class="quirk"><strong>A known quirk.</strong> Implementations that transcribe the
+Recommendation&rsquo;s Steps 8&ndash;11 literally end up with a measured crossing spacing of
+<code>2&middot;S_pass &minus; S_grid</code> &mdash; one correction step <em>past</em> the even
+grid, the opposite direction from the stated goal. The error is small (bounded by two grid
+cells per lap) and identical across literal implementations, which matters more for comparing
+results than hitting the ideal spacing. The tab prints the measured value alongside the ideal
+one so the difference is never a surprise.</div>
+
+<div class="sns">filed: nothing &mdash; both station-keeping answers are "no"</div>
+</div>
+
+<!-- ================= CASE 2 ================= -->
+<div class="c2">
+<h2><span class="case-tag">CASE 2</span>Station-kept &mdash; a promised, repeating track</h2>
+<p><strong>The situation.</strong> The operator actively steers the constellation so its ground
+track repeats: after a fixed number of laps, every satellite retraces the same lines over the
+Earth, staying within a promised longitude tolerance either side of them.</p>
+<p><strong>What the filing must say.</strong> Two things: how long one full repeat takes
+(the <em>repeat period</em>), and how wide the tolerance is (the <em>keep range</em>). The
+EPFD calculation then simulates exactly one declared cycle and sweeps the satellite across the
+tolerance band, because within the promise the system may be anywhere in it.</p>
+<p><strong>The catch.</strong> A track only repeats at special altitudes. It repeats after
+<code>k</code> laps precisely when <code>k</code> westward steps add up to whole turns of the
+Earth &mdash; and at an arbitrary altitude they almost never do. That is the tab&rsquo;s main
+job: it lists the nearby altitudes where the equality holds exactly, so you can pick one
+instead of promising a repeat your orbit cannot deliver.</p>
+
+<figure>
+<svg viewBox="0 0 860 170" role="img" aria-label="A repeating track spaces its crossings evenly; each owns a tolerance band, and a tolerance of half the spacing or more makes neighbouring bands overlap">
+  <g style="color:var(--ink)">
+    <text x="30" y="22" class="svgtxt">k tracks, spacing 360/k &mdash; tolerance below the bound</text>
+    <line x1="30" y1="58" x2="830" y2="58" stroke="currentColor" opacity=".45"/>
+    <g>
+      <rect x="105" y="44" width="70" height="28" fill="var(--g1-tint)"/>
+      <rect x="305" y="44" width="70" height="28" fill="var(--g1-tint)"/>
+      <rect x="505" y="44" width="70" height="28" fill="var(--g1-tint)"/>
+      <rect x="705" y="44" width="70" height="28" fill="var(--g1-tint)"/>
+    </g>
+    <g fill="var(--g1)">
+      <circle cx="140" cy="58" r="4"/><circle cx="340" cy="58" r="4"/>
+      <circle cx="540" cy="58" r="4"/><circle cx="740" cy="58" r="4"/>
+    </g>
+    <g stroke="currentColor" fill="none">
+      <line x1="340" y1="80" x2="540" y2="80" marker-end="url(#fa)"/>
+      <line x1="340" y1="74" x2="340" y2="86"/>
+    </g>
+    <text x="440" y="96" text-anchor="middle" class="svgtxt">360/k</text>
+    <text x="140" y="90" text-anchor="middle" class="svgtxt">&plusmn;keep range</text>
+    <text x="30" y="116" class="svgtxt" style="fill:var(--bad)">tolerance &ge; half the spacing: bands collide</text>
+    <line x1="30" y1="146" x2="830" y2="146" stroke="currentColor" opacity=".45"/>
+    <g>
+      <rect x="40" y="132" width="200" height="28" fill="none" stroke="var(--bad)" stroke-dasharray="4 3"/>
+      <rect x="240" y="132" width="200" height="28" fill="none" stroke="var(--bad)" stroke-dasharray="4 3"/>
+      <rect x="440" y="132" width="200" height="28" fill="none" stroke="var(--bad)" stroke-dasharray="4 3"/>
+    </g>
+    <g fill="var(--g1)">
+      <circle cx="140" cy="146" r="4"/><circle cx="340" cy="146" r="4"/><circle cx="540" cy="146" r="4"/>
+    </g>
+  </g>
+</svg>
+<figcaption>Each promised track owns a swept tolerance band. Past half the track spacing the
+neighbouring bands touch &mdash; the promise no longer describes separate tracks, and the tab
+refuses the value.</figcaption>
+</figure>
+
+<div class="tech">
+  <div class="t">Technical detail &mdash; what the tab&rsquo;s grid and Case 2 panel compute</div>
+  <div class="f">
+    find coprime (k, m): &nbsp;k &middot; S_pass(a) = 360 &middot; m &nbsp;&nbsp;(solved for the altitude a near your target)<br>
+    repeat period &nbsp;= k &middot; T_nodal(a) &nbsp;&rarr;&nbsp; the filing&rsquo;s dd/hh/mm/ss fields<br>
+    spacing &nbsp;= 360/k &nbsp;&nbsp;&nbsp; keep range &lt; 180/k
+  </div>
+  <p>Rec. S.1503-4 &sect;B3.1 (<code>DoesRepeat</code>, <code>W_delta</code>) and &sect;D6.3;
+  the tolerance sweep is the Recommendation&rsquo;s Case-2 propagation behaviour.</p>
+</div>
+
+<div class="sns">filed: station keeping = yes &nbsp;&middot;&nbsp; keep range (deg) &nbsp;&middot;&nbsp; repeat period (dd/hh/mm/ss)</div>
+<p>The map at the bottom of the tab shows the promise being kept: one full cycle of the selected
+candidate, flown by the real propagator. The dot is where the track started, the ring where it
+ended &mdash; when they sit on top of each other, the track closed, and the printed closure
+angle is the same statement as a number.</p>
+</div>
+
+<!-- ================= CASE 3 ================= -->
+<div class="c3">
+<h2><span class="case-tag">CASE 3</span>Declared drift &mdash; the filed rate is used as-is</h2>
+<p><strong>The situation.</strong> Some systems neither hold a repeating track nor drift
+passively &mdash; they manage their orbit&rsquo;s slow turn deliberately, for instance to keep a
+constant relationship with the Sun. For these, the operator simply declares the turning rate,
+and the EPFD calculation propagates the constellation with exactly the filed number instead of
+inventing a correction.</p>
+<p><strong>What the tab offers.</strong> The natural rate for an unmanaged orbit at your chosen
+geometry &mdash; the honest default to file when the drift is real but undirected. A system
+that actively manages the rate files its managed value instead.</p>
+
+<div class="tech">
+  <div class="t">Technical detail &mdash; the tab&rsquo;s Case 3 panel</div>
+  <div class="f">
+    declared rate = &minus;1.5 &middot; n &middot; J&#8322; &middot; (Re/p)&sup2; &middot; cos i &nbsp;&nbsp;(deg/s)
+  </div>
+  <p>The standard J2 nodal regression at the filed altitude, eccentricity and inclination; the
+  case itself is Rec. S.1503-4 &sect;B3.1 (<code>AdminSuppliedPrecession</code>,
+  <code>ORBIT_PRECESS</code>).</p>
+</div>
+
+<div class="sns">filed: station keeping = no &nbsp;&middot;&nbsp; precession = yes, rate in deg/s</div>
+</div>
+
+<h2>From your numbers to the filing &mdash; the whole chain</h2>
+<p>Everything above is one pipeline: three numbers describe the orbit, one computation gives the
+westward step, and the step branches into the three filings. The tab shows all three cases at
+once for whichever candidate you select, so they are compared on the same orbit rather than
+imagined separately.</p>
+
+<figure>
+<svg viewBox="0 0 860 250" role="img" aria-label="Inputs altitude, eccentricity and inclination feed the drift computation, which branches into the three cases' filing fields">
+  <g style="color:var(--ink)">
+    <rect x="20" y="96" width="130" height="58" rx="6" fill="var(--code-bg)" stroke="currentColor" fill-opacity=".6"/>
+    <text x="85" y="119" text-anchor="middle" class="svgtxt">your orbit</text>
+    <text x="85" y="137" text-anchor="middle" class="svgtxt">alt, e, i</text>
+    <rect x="210" y="96" width="150" height="58" rx="6" fill="var(--code-bg)" stroke="currentColor" fill-opacity=".6"/>
+    <text x="285" y="115" text-anchor="middle" class="svgtxt">drift computation</text>
+    <text x="285" y="132" text-anchor="middle" class="svgtxt">lap period T_nodal</text>
+    <text x="285" y="148" text-anchor="middle" class="svgtxt">westward step S_pass</text>
+    <g stroke="currentColor" fill="none">
+      <line x1="150" y1="125" x2="206" y2="125" marker-end="url(#fa)"/>
+      <line x1="360" y1="110" x2="438" y2="52" marker-end="url(#fa)"/>
+      <line x1="360" y1="125" x2="438" y2="125" marker-end="url(#fa)"/>
+      <line x1="360" y1="140" x2="438" y2="198" marker-end="url(#fa)"/>
+    </g>
+    <text x="392" y="66" class="svglbl">+ NOrbits</text>
+    <text x="386" y="118" class="svglbl">+ target alt</text>
+    <text x="392" y="184" class="svglbl">as filed</text>
+    <rect x="442" y="24" width="396" height="56" rx="6" fill="var(--g2-tint)" stroke="var(--g2)"/>
+    <text x="640" y="46" text-anchor="middle" class="svgtxt" style="fill:var(--g2)">CASE 1: correction rate, run length</text>
+    <text x="640" y="64" text-anchor="middle" class="svgtxt">nothing filed; measured spacing printed</text>
+    <rect x="442" y="97" width="396" height="56" rx="6" fill="var(--g1-tint)" stroke="var(--g1)"/>
+    <text x="640" y="119" text-anchor="middle" class="svgtxt" style="fill:var(--g1)">CASE 2: repeat altitudes (k, m), period fields,</text>
+    <text x="640" y="137" text-anchor="middle" class="svgtxt">keep range and its half-spacing bound</text>
+    <rect x="442" y="170" width="396" height="56" rx="6" fill="var(--g3-tint)" stroke="var(--g3)"/>
+    <text x="640" y="192" text-anchor="middle" class="svgtxt" style="fill:var(--g3)">CASE 3: the natural drift rate at that geometry</text>
+    <text x="640" y="210" text-anchor="middle" class="svgtxt">precession field, deg/s</text>
+  </g>
+</svg>
+<figcaption>One input set, one drift computation, three filing shapes.</figcaption>
+</figure>
+
+<p class="foot">Companion to the <strong>Orbit Design</strong> tab and the parameter
+cards. Sources: Rec. ITU-R S.1503-4 &sect;B3.1 for the case parameters, &sect;D6.3 and
+&sect;D6.3.2 for the propagation and the artificial-precession steps.</p>
+</div>

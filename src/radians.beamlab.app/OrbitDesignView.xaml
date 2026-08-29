@@ -10,6 +10,10 @@
         <!-- left: inputs + case previews -->
         <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="0,0,8,0">
+            <TextBlock TextWrapping="Wrap" Foreground="#555555" Margin="0,0,0,2"
+                       Text="Prototype the SNS v10 orbit declaration: enter a target orbit, pick a repeating-track candidate, and read off the fields for each station-keeping case."/>
+            <Button x:Name="CasesGuideButton" Content="What are the three cases?"
+                    HorizontalAlignment="Left" Padding="8,2" Click="OnCasesGuideClick"/>
             <GroupBox Header="Target orbit">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -36,6 +40,8 @@
 
             <GroupBox Header="Case 1 — free drift (artificial precession)">
                 <StackPanel>
+                    <TextBlock TextWrapping="Wrap" Foreground="#777777" FontSize="11" Margin="0,0,0,4"
+                               Text="No station keeping is filed. The examination adds an artificial precession so NOrbits passes tile the equator uniformly; nothing below is declared."/>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="130"/>
@@ -50,6 +56,8 @@
 
             <GroupBox Header="Case 2 — station-kept repeating track">
                 <StackPanel>
+                    <TextBlock TextWrapping="Wrap" Foreground="#777777" FontSize="11" Margin="0,0,0,4"
+                               Text="A committed repeating track: declare the cycle (rpt_prd, from the selected row) and the longitude deadband (keep_rnge) the examination sweeps."/>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="130"/>
@@ -74,7 +82,11 @@
             </GroupBox>
 
             <GroupBox Header="Case 3 — declared precession">
-                <TextBlock Text="{Binding Case3Text}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                <StackPanel>
+                    <TextBlock TextWrapping="Wrap" Foreground="#777777" FontSize="11" Margin="0,0,0,4"
+                               Text="The administration files its own nodal precession rate and the examination uses it as-is; the J2 rate below is the honest default for an unmanaged node."/>
+                    <TextBlock Text="{Binding Case3Text}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                </StackPanel>
             </GroupBox>
 
             <Button Content="Copy SNS fields" Click="OnCopyClick"/>
@@ -84,11 +96,14 @@
         <!-- right: solutions grid + ground track -->
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
-                <RowDefinition Height="200"/>
+                <RowDefinition Height="235"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <DataGrid Grid.Row="0" ItemsSource="{Binding Solutions}"
+            <StackPanel Grid.Row="0">
+            <TextBlock Foreground="#555555" Margin="0,0,0,2" TextWrapping="Wrap"
+                       Text="Repeating-track candidates near the target: a track repeats after k orbits when k · S_pass = m · 360°. Each row is solved to the exact altitude that closes the cycle."/>
+            <DataGrid ItemsSource="{Binding Solutions}"
                       SelectedItem="{Binding SelectedSolution, Mode=TwoWay}"
                       AutoGenerateColumns="False" IsReadOnly="True"
                       HeadersVisibility="Column" GridLinesVisibility="Horizontal"
@@ -105,6 +120,9 @@
                     <DataGridTextColumn Header="max keep_rnge" Binding="{Binding MaxKeepText}" Width="100"/>
                 </DataGrid.Columns>
             </DataGrid>
+            <TextBlock Foreground="#777777" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
+                       Text="drift@target: node drift per cycle if flown at your altitude instead · max keep_rnge: half the track spacing — a wider deadband makes adjacent swept tracks overlap."/>
+            </StackPanel>
 
             <Border Grid.Row="1" Margin="0,8,0,0" BorderBrush="#cccccc" BorderThickness="1" Background="#fbfdfc">
                 <Grid>
@@ -112,6 +130,9 @@
                     <TextBlock Text="{Binding TrackClosureText}" Margin="8,4"
                                VerticalAlignment="Bottom" HorizontalAlignment="Left"
                                Foreground="#666666" FontFamily="Consolas" FontSize="11"/>
+                    <TextBlock Text="one full propagated cycle of the selected candidate — dot marks the start, ring the end; they coincide when the track closes"
+                               Margin="8,4" VerticalAlignment="Top" HorizontalAlignment="Left"
+                               Foreground="#888888" FontSize="11" TextWrapping="Wrap"/>
                 </Grid>
             </Border>
         </Grid>

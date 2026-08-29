@@ -38,6 +38,7 @@ public sealed class HomeViewModel
     /// <summary>Local docs, when running inside the repo tree; null hides the link.</summary>
     public string? UserGuidePath { get; }
     public string? ParameterCardsPath { get; }
+    public string? OrbitCasesPath { get; }
 
     public string VersionText { get; }
 
@@ -49,6 +50,8 @@ public sealed class HomeViewModel
         UserGuidePath = docs is null ? null : Path.Combine(docs, "user-guide.md");
         string? cards = docs is null ? null : Path.Combine(docs, "parameter-cards.html");
         ParameterCardsPath = cards is not null && File.Exists(cards) ? cards : null;
+        string? cases = docs is null ? null : Path.Combine(docs, "orbit-design-cases.html");
+        OrbitCasesPath = cases is not null && File.Exists(cases) ? cases : null;
 
         var v = Assembly.GetExecutingAssembly().GetName().Version;
         VersionText = v is null ? "" : $"v{v.Major}.{v.Minor}.{v.Build}";

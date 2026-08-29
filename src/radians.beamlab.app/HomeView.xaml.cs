@@ -22,6 +22,7 @@ public partial class HomeView : UserControl
         DataContext = _vm;
         GuideButton.IsEnabled = _vm.UserGuidePath is not null;
         CardsButton.IsEnabled = _vm.ParameterCardsPath is not null;
+        OrbitCasesButton.IsEnabled = _vm.OrbitCasesPath is not null;
     }
 
     private void OnOpenClick(object sender, RoutedEventArgs e)
@@ -31,6 +32,7 @@ public partial class HomeView : UserControl
 
     private void OnGuideClick(object sender, RoutedEventArgs e) => Shell(_vm.UserGuidePath);
     private void OnCardsClick(object sender, RoutedEventArgs e) => Shell(_vm.ParameterCardsPath);
+    private void OnOrbitCasesClick(object sender, RoutedEventArgs e) => Shell(_vm.OrbitCasesPath);
 
     private static void Shell(string? path)
     {

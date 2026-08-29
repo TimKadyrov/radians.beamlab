@@ -17,10 +17,16 @@ public partial class OrbitDesignView : UserControl
     private readonly OrbitDesignViewModel _vm = new();
     private CoastlineDataProvider? _coastlines;
 
+    private readonly string? _casesGuidePath;
+
     public OrbitDesignView()
     {
         InitializeComponent();
         DataContext = _vm;
+        string? docs = HomeViewModel.FindDocsDir(System.AppContext.BaseDirectory);
+        string? guide = docs is null ? null : System.IO.Path.Combine(docs, "orbit-design-cases.html");
+        _casesGuidePath = guide is not null && System.IO.File.Exists(guide) ? guide : null;
+        CasesGuideButton.IsEnabled = _casesGuidePath is not null;
         Loaded += (_, _) =>
         {
             _coastlines ??= new CoastlineDataProvider();
@@ -34,6 +40,13 @@ public partial class OrbitDesignView : UserControl
     {
         string text = _vm.BuildCopyText();
         if (text.Length > 0) Clipboard.SetText(text);
+    }
+
+    private void OnCasesGuideClick(object sender, RoutedEventArgs e)
+    {
+        if (_casesGuidePath is null) return;
+        System.Diagnostics.Process.Start(
+            new System.Diagnostics.ProcessStartInfo(_casesGuidePath) { UseShellExecute = true });
     }
 
     private void Redraw()

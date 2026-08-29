@@ -2827,6 +2827,7 @@ var looks = RandomLooks(300);
         && vmH.Functions.All(f => f.Title.Length > 0 && f.Description.Length > 40)
         && vmH.UserGuidePath is not null && File.Exists(vmH.UserGuidePath)
         && vmH.ParameterCardsPath is not null && File.Exists(vmH.ParameterCardsPath)
+        && vmH.OrbitCasesPath is not null && File.Exists(vmH.OrbitCasesPath)
         && vmH.VersionText.StartsWith("v1.");
     Check("V6 Home view model: four cards, docs resolved from the repo tree, version", okV6,
         $"funcs={vmH.Functions.Count} guide={vmH.UserGuidePath is not null} " +

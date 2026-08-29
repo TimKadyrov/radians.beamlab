@@ -32,8 +32,10 @@
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="GuideButton" Content="User guide" Margin="0,0,8,0" Padding="10,3"
                         Click="OnGuideClick"/>
-                <Button x:Name="CardsButton" Content="Parameter cards" Padding="10,3"
+                <Button x:Name="CardsButton" Content="Parameter cards" Margin="0,0,8,0" Padding="10,3"
                         Click="OnCardsClick"/>
+                <Button x:Name="OrbitCasesButton" Content="Orbit case guide" Padding="10,3"
+                        Click="OnOrbitCasesClick"/>
             </StackPanel>
             <TextBlock Text="{Binding VersionText}" Foreground="#999999" Margin="0,16,0,0"/>
         </StackPanel>
