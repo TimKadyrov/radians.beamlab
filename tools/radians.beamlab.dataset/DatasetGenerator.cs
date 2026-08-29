@@ -71,19 +71,15 @@ public static class DatasetGenerator
         double rp = OrbitalConstants.EarthRadiusKm + perigAltKm;
         double ra = OrbitalConstants.EarthRadiusKm + apogAltKm;
         double a = (rp + ra) / 2.0, e = (ra - rp) / (ra + rp);
-        // Standard J2 nodal regression rate, declared by the administration.
-        double n = Math.Sqrt(OrbitalConstants.MuEarth / (a * a * a));
-        double pSemiLatus = a * (1.0 - e * e);
-        double incRad = 63.4 * Math.PI / 180.0;
-        double raanRateRadS = -1.5 * n * OrbitalConstants.J2
-            * Math.Pow(OrbitalConstants.EarthRadiusKm / pSemiLatus, 2.0) * Math.Cos(incRad);
         return new ConstellationShell
         {
             AltitudeKm = a - OrbitalConstants.EarthRadiusKm, Eccentricity = e,
             InclinationDeg = 63.4, ArgumentOfPerigeeDeg = 270.0,
             PlaneCount = 2, SatsPerPlane = 4, WalkerPhasingF = 1,
             OperatingHeightKm = 1000.0,
-            PrecessionSupplied = true, PrecessionRateDegPerSec = raanRateRadS * 180.0 / Math.PI,
+            // Standard J2 nodal regression rate, declared by the administration.
+            PrecessionSupplied = true,
+            PrecessionRateDegPerSec = OrbitDesign.J2NodalRateDegPerSec(a, e, 63.4),
         };
     }
 

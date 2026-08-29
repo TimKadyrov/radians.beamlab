@@ -2703,5 +2703,91 @@ var looks = RandomLooks(300);
         $"gotElev={stepElev.Links.FirstOrDefault()?.SatelliteNumber} gotAlpha={stepAlpha.Links.FirstOrDefault()?.SatelliteNumber}");
 }
 
+// ---- V: OrbitDesign -- prototyping the SNS v10 orbit parameters ----
+{
+    // V1: the promoted Case-3 J2 rate is bit-identical to the value the
+    // dataset generator declares for shell C (refactor invariance).
+    var shC = radians.beamlab.dataset.DatasetGenerator.ShellC;
+    double aC = OrbitalConstants.EarthRadiusKm + shC.AltitudeKm;
+    double rateV = OrbitDesign.J2NodalRateDegPerSec(aC, shC.Eccentricity, shC.InclinationDeg);
+    Check("V1 Case-3 J2 rate identical to the generator's shell C declaration",
+        rateV == shC.PrecessionRateDegPerSec && rateV < 0,
+        $"module={rateV:E9} shell={shC.PrecessionRateDegPerSec:E9}");
+
+    // V2: repeat solver end to end -- fly the solved altitude through the
+    // vendored propagator for one full cycle and the ascending-node
+    // longitude returns to its start.
+    var sols = OrbitDesign.RepeatSolutions(1200.0, 0.0, 53.0, maxOrbitsPerCycle: 120);
+    var best = sols[0];
+    bool shapeOk = sols.Count > 0
+        && sols.All(x => x.NodalDays >= 1 && Math.Abs(x.EquatorSpacingDeg - 360.0 / x.Orbits) < 1e-12
+                      && Math.Abs(x.MaxKeepRangeDeg - 180.0 / x.Orbits) < 1e-12)
+        && Math.Abs(best.RepeatSeconds
+            - (((best.RptPrd.Days * 24 + best.RptPrd.Hours) * 60 + best.RptPrd.Minutes) * 60
+               + best.RptPrd.Seconds)) <= 0.5;
+
+    var shellR = new ConstellationShell
+    {
+        AltitudeKm = best.AltitudeKm, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1,
+    };
+    var conR = new Constellation(new[] { shellR });
+    double simDurR = best.RepeatSeconds + 20000.0;
+    double CrossLonV(double tStart)
+    {
+        double t0 = tStart, dt = 20.0;
+        double z0 = conR.StateAt(0, t0, simDurR).PositionEcefKm.Z;
+        for (int k = 0; k < 400000; k++)
+        {
+            double t1 = t0 + dt;
+            double z1 = conR.StateAt(0, t1, simDurR).PositionEcefKm.Z;
+            if (z0 < 0 && z1 >= 0)
+            {
+                for (int b = 0; b < 60; b++)
+                {
+                    double tm = 0.5 * (t0 + t1);
+                    if (conR.StateAt(0, tm, simDurR).PositionEcefKm.Z < 0) t0 = tm; else t1 = tm;
+                }
+                return conR.StateAt(0, 0.5 * (t0 + t1), simDurR).SubSatLonDeg;
+            }
+            t0 = t1; z0 = z1;
+        }
+        return double.NaN;
+    }
+    double lonStart = CrossLonV(10.0);
+    double lonCycle = CrossLonV(10.0 + best.RepeatSeconds);
+    double dLon = ((lonCycle - lonStart) % 360.0 + 540.0) % 360.0 - 180.0;
+    Check("V2 repeat solver: one solved cycle returns the ascending node",
+        shapeOk && Math.Abs(dLon) < 0.05,
+        $"k={best.Orbits} m={best.NodalDays} alt={best.AltitudeKm:F2} " +
+        $"(target 1200{best.AltitudeDeltaKm:+0.00;-0.00}) dLon={dLon:F4} shape={shapeOk}");
+
+    // V3: field previews -- the three cases produce the right SNS flags and
+    // the keep_rnge overlap rule rejects a deadband at half the spacing.
+    var f1 = OrbitDesign.Case1Fields();
+    var f2 = OrbitDesign.Case2Fields(best, 0.4 * best.MaxKeepRangeDeg);
+    var f3 = OrbitDesign.Case3Fields(rateV);
+    bool threwKeep = false;
+    try { OrbitDesign.Case2Fields(best, best.MaxKeepRangeDeg); }
+    catch (ArgumentOutOfRangeException) { threwKeep = true; }
+    bool okV3 = f1 is { FStnKeep: 'N', FPrecess: 'N', KeepRngeDeg: null, RptPrd: null }
+        && f2.FStnKeep == 'Y' && f2.RptPrd == best.RptPrd
+        && Math.Abs(f2.KeepRngeDeg!.Value - 0.4 * best.MaxKeepRangeDeg) < 1e-12
+        && f3 is { FPrecess: 'Y', FStnKeep: 'N' } && f3.PrecessionDegPerSec == rateV
+        && threwKeep;
+    Check("V3 SNS field previews per case; keep_rnge overlap rule enforced", okV3,
+        $"f2=({f2.FStnKeep},{f2.KeepRngeDeg:F3},rpt={f2.RptPrd?.Days}d{f2.RptPrd?.Hours}h) threw={threwKeep}");
+
+    // V4: the precession plan restates the Case-1 formula set exactly.
+    var plan = OrbitDesign.PrecessionPlan(aC, 0.0, 53.0, 288);
+    var (spV, tnV) = OrbitDesign.NodalPassGeometry(aC, 0.0, 53.0);
+    double gridV = 360.0 * Math.Floor(288 * spV / 360.0) / 288;
+    bool okV4 = plan.RateRadPerSec == ArtificialPrecession.RadPerSec(aC, 0.0, 53.0, 288)
+        && plan.SPassDeg == spV && plan.SGridDeg == gridV
+        && plan.MeasuredSpacingDeg == 2.0 * spV - gridV
+        && plan.RunDurationSec == 288 * tnV;
+    Check("V4 precession plan identical to the Steps 8-11 formula set", okV4,
+        $"spass={plan.SPassDeg:F4} grid={plan.SGridDeg:F4} measured={plan.MeasuredSpacingDeg:F4} rate={plan.RateDegPerSec:E3}");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
