@@ -91,9 +91,11 @@ public sealed class SimulationViewModel : ObservableObject
                 ? string.Create(CultureInfo.InvariantCulture,
                     $"; downlink footprint: declared mask ({(m.Kind == MaskPlotKind.AlphaDeltaLong ? "alpha/dLong" : "az/el")}, {m.BlockCount} lat block(s), refbw {m.RefBwKHz:F0} kHz -- no .is.csv)")
                 : "";
+            string gap = s.Profile is { } pg && OperationComposer.PerLatExclusionSceneGap(pg) is string g
+                ? " -- " + g : "";
             StatusText = string.Create(CultureInfo.InvariantCulture,
                 $"ready: {s.Shells.Length} shell(s), {s.SatCount} satellites; victim ES {s.EsLat}/{s.EsLon}, GSO {s.GsoLon} degE; {s.Steps} steps of {s.StepSec} s -- Run writes .down/.is/.up.csv")
-                + fp;
+                + fp + gap;
         }
         catch (Exception ex) { StatusText = "invalid: " + ex.Message; }
     }

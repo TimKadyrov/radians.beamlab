@@ -21,6 +21,11 @@ using static radians.beamlab.GeoMath;
 // (D5.1.5 reads, real-filing regression). Checks against the local ITU
 // reference case (I2-I4) skip cleanly when that file is not present.
 
+// Opt-in measurement modes: the first margin figure (docs/margin-figure.md)
+// and the payload envelope study (docs/margin-study.md).
+if (args.Length > 0 && args[0] == "margin") return MarginFigure.Run();
+if (args.Length > 0 && args[0] == "study") return MarginFigure.Study();
+
 int pass = 0, fail = 0;
 void Check(string name, bool ok, string detail = "")
 {
@@ -3907,9 +3912,18 @@ var looks = RandomLooks(300);
                 && compM.UsesMaskFootprint && compM.DownlinkMaskXmlPath == mask110
                 && validOk && runOk;
 
-    Check("V28 declared-mask footprint: exact read, cap, exclusion, envelope, plumbing",
-        exactOk && capOk && exclOk && envOk && plumbOk,
-        $"exact={exactOk} cap={capOk} excl={exclOk} env={envOk} plumb={plumbOk} " +
+    // The per-latitude/scene-ring guard (debate follow-up): fires exactly
+    // when the profile carries rows the scene cannot express.
+    var profLat = new OperationProfile(Name: "g",
+        AlphaByLat: new[] { new ProfileLatRow(30.0, 6.0), new ProfileLatRow(60.0, 8.0) });
+    bool guardOk = OperationComposer.PerLatExclusionSceneGap(profLat) is string gw
+                && gw.Contains("per-latitude")
+                && OperationComposer.PerLatExclusionSceneGap(profM) is null
+                && OperationComposer.PerLatExclusionSceneGap(new OperationProfile(AlphaExclDeg: 7.0)) is null;
+
+    Check("V28 declared-mask footprint: exact read, cap, exclusion, envelope, plumbing, ring guard",
+        exactOk && capOk && exclOk && envOk && plumbOk && guardOk,
+        $"exact={exactOk} cap={capOk} excl={exclOk} env={envOk} plumb={plumbOk} guard={guardOk} " +
         $"h0={h0:F2} h1={h1:F2} free={rFree.MaxEpfdDb:F2} cap1={rCap.MaxEpfdDb:F2}");
 }
 

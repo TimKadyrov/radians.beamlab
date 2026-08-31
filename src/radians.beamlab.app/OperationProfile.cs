@@ -196,4 +196,19 @@ public static class OperationComposer
     public static ConstellationShell[] ApplyToShells(OperationProfile p,
         IEnumerable<ConstellationShell> shells)
         => shells.Select(s => s with { OperationalFraction = p.OperationalFraction }).ToArray();
+
+    /// <summary>
+    /// Non-null when the profile carries per-latitude exclusion rows the
+    /// composed scene cannot express yet: the scheduler enforces them but
+    /// the scene ring (and every mask exported from it) bakes only the
+    /// global angle, so a projection margin from such a profile is
+    /// silently inflated by the un-inherited rows. The guard exists so
+    /// that state cannot be entered unknowingly; it retires when the
+    /// scene/export gain per-latitude alpha (tracked in
+    /// docs/compliance-loop-plan.md).
+    /// </summary>
+    public static string? PerLatExclusionSceneGap(OperationProfile p)
+        => (p.AlphaByLat?.Count ?? 0) == 0 ? null
+           : FormattableString.Invariant(
+               $"WARNING: {p.AlphaByLat!.Count} per-latitude exclusion row(s) gate the scheduler but the scene/mask bakes only the global alpha ({p.AlphaExclDeg:F1} deg) -- exported masks and projection margins from this profile are inflated until mask inheritance lands");
 }

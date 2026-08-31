@@ -130,7 +130,9 @@ public sealed class ComplianceViewModel : ObservableObject
             var rows = await Task.Run(() => RunSweep(sweep, sweep.Profile.AlphaExclDeg));
             Rows.Clear();
             foreach (var r in rows) Rows.Add(r);
-            StatusText = (sweep.Profile.Down.FootprintSource == "mask"
+            string gap = OperationComposer.PerLatExclusionSceneGap(sweep.Profile) is string g
+                ? g + " -- " : "";
+            StatusText = gap + (sweep.Profile.Down.FootprintSource == "mask"
                 ? "declared-mask footprint -- " : "") + SummarizeRows(rows);
         }
         catch (Exception ex) { StatusText = "sweep failed: " + ex.Message; }
@@ -370,14 +372,37 @@ public sealed class ComplianceViewModel : ObservableObject
                         : "")
                   + " -- Apply writes it into the profile"
                 : string.Create(CultureInfo.InvariantCulture,
-                    $"no compliant alpha up to {maxA:F1} deg ({advice.Iterations} sweep(s)) -- raise the cap or adjust the system");
+                    $"no compliant alpha up to {maxA:F1} deg ({advice.Iterations} sweep(s)): worst margin {advice.WorstMarginEndDb:+0.0;-0.0} dB at lat {advice.WorstLatEndDeg:F0}, ")
+                  + TrendText(advice.WorstMarginStartDb, advice.WorstMarginEndDb)
+                  + (advice.WorstMarginEndDb - advice.WorstMarginStartDb > 0.5
+                        ? " -- raise the cap to continue the walk"
+                     : advice.WorstMarginStartDb - advice.WorstMarginEndDb > 0.5
+                        ? " -- a larger exclusion worsens this geometry"
+                        : " -- the exclusion angle is not the binding lever; adjust the system");
         }
         catch (Exception ex) { StatusText = "advise failed: " + ex.Message; }
         finally { IsRunning = false; }
     }
 
+    /// <summary>
+    /// The walk's outcome plus its trajectory: the worst margin at the
+    /// first and last swept alpha (NaN when no sweep ran) and the
+    /// latitude holding the final worst margin -- so a failed walk can
+    /// say where the margin ended and which way it was moving, not just
+    /// "not compliant".
+    /// </summary>
     public sealed record Advice(double? FoundAlpha, List<ComplianceRow> FinalRows,
-        int Iterations, List<double> FailingAtStart);
+        int Iterations, List<double> FailingAtStart,
+        double WorstMarginStartDb = double.NaN, double WorstMarginEndDb = double.NaN,
+        double WorstLatEndDeg = double.NaN);
+
+    /// <summary>How the worst margin moved over the walk, as a phrase.</summary>
+    public static string TrendText(double startDb, double endDb)
+        => !double.IsFinite(startDb) || !double.IsFinite(endDb) ? "trend unknown"
+           : Math.Abs(endDb - startDb) < 0.5 ? "not changing with alpha"
+           : endDb > startDb
+               ? string.Create(CultureInfo.InvariantCulture, $"improving with alpha (+{endDb - startDb:F1} dB over the walk)")
+               : string.Create(CultureInfo.InvariantCulture, $"worsening with alpha ({endDb - startDb:F1} dB over the walk)");
 
     /// <summary>
     /// Walks the global exclusion angle from the profile's value upward
@@ -390,15 +415,23 @@ public sealed class ComplianceViewModel : ObservableObject
         var failingAtStart = new List<double>();
         var last = new List<ComplianceRow>();
         int iter = 0;
+        double worstStart = double.NaN;
         for (double a = a0; a <= alphaMax + 1e-9; a += alphaStep)
         {
             iter++;
             last = RunSweep(sweep, a);
             if (iter == 1)
+            {
                 failingAtStart = last.Where(r => !r.Pass).Select(r => r.LatDeg).ToList();
-            if (last.All(r => r.Pass)) return new Advice(a, last, iter, failingAtStart);
+                worstStart = last.Min(r => r.WorstMarginDb);
+            }
+            if (last.All(r => r.Pass)) return new Advice(a, last, iter, failingAtStart,
+                worstStart, last.Min(r => r.WorstMarginDb),
+                last.OrderBy(r => r.WorstMarginDb).First().LatDeg);
         }
-        return new Advice(null, last, iter, failingAtStart);
+        var worstEnd = last.Count > 0 ? last.OrderBy(r => r.WorstMarginDb).First() : null;
+        return new Advice(null, last, iter, failingAtStart,
+            worstStart, worstEnd?.WorstMarginDb ?? double.NaN, worstEnd?.LatDeg ?? double.NaN);
     }
 
     /// <summary>Writes the found global exclusion back into the profile file (step 8's hand-off).</summary>
