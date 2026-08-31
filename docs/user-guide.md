@@ -528,23 +528,39 @@ exactly the way the pfd/e.i.r.p. masks are made.
 as one saved element (`*.opprofile.json`) — the counterpart of the orbit
 design document for the operational side, and the input to the
 simulation runner, the R-set deriver and the compliance loop
-(`docs/compliance-loop-plan.md`). Grouped fields: payload/beams
-(frequency, the **footprint source** — *beam composition* shapes the
-downlink footprint live from the beam fields below, *PFD mask* points at
-a declared S.1503-4 mask XML that simulations then read the
-examination's way (§D5.1.4.1: nearest-latitude table, exclusion-zone and
-Nco selection from the declared set); the beam fields still shape the
-scheduler's coverage geometry in both modes — then peak gain, beam cell
-radius, Taylor SLR/n̄, pattern floor,
-Tx e.i.r.p., power mode, aggregation and reuse cluster, reference
-bandwidth — optional fields empty keep the scene defaults),
-coverage/service (minimum elevation with per-latitude rows, service
-area, cell pitch, coverage radius), operation/scheduling (tracking
-strategy, Nco per cell and per satellite with per-latitude rows, minimum
-angles, demand, activity factor/period, operational fraction,
-illumination duty) and the exclusion (global or per-latitude — left at 0
-until the compliance loop finds it). The parameter list is open and
-grows with the model.
+(`docs/compliance-loop-plan.md`). Every group says **where its
+parameters flow**, and every field's tooltip is its parameter card (the
+same text as `docs/parameter-cards.html`, kept identical by a check):
+
+- **Downlink** — the *footprint source* first (*beam composition*
+  computes the victim-facing footprint live from the shaped beams — the
+  truth; *PFD mask* points at a declared S.1503-4 mask XML that
+  simulations read the examination's way, §D5.1.4.1 over §D5.1.5 reads;
+  the beam fields still shape the scheduler's coverage geometry in both
+  modes); then the *payload* block, which shapes the scene and every
+  exported mask (frequency, peak gain, beam cell radius, Taylor SLR/n̄,
+  pattern floor, per-beam Tx power density in the reference bandwidth —
+  per-beam boresight e.i.r.p. density = power density + peak gain —
+  power mode,
+  aggregation and reuse cluster, reference bandwidth); then the *link
+  discipline* pair (min angles at satellite/ES), which the scheduler
+  enforces and the R set declares. Optional fields empty keep the scene
+  defaults.
+- **Uplink** — the transmit chain feeding epfd(up) (frequency, ES power
+  ceiling, range-based power-control reference elevation, S.1428 dish),
+  then its own link-discipline pair.
+- **Coverage / service** — the served-cell geography (minimum elevation
+  with per-latitude rows, service area, cell pitch, coverage radius).
+- **Operation / scheduling** — scheduler gates and the derived R set
+  (tracking strategy, Nco per cell and per satellite, hold time, demand,
+  activity factor/period, operational fraction, illumination duty).
+- **Exclusion** — the one number that reaches *both* sides: the scene
+  ring baked into every exported mask, and the scheduler gate declared
+  in the R set (left at 0 until the compliance loop finds it).
+  Per-latitude rows gate the scheduler only until mask inheritance
+  lands — setting them raises a warning where figures are made.
+
+The parameter list is open and grows with the model.
 
 ---
 

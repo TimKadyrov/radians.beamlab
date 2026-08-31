@@ -147,7 +147,10 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     </g>
   </svg>
   <figcaption>The load-bearing couplings. Everything in the left cluster is declared to the EPFD
-  calculation; the middle cluster is the operation the declaration must bound; the orbit cluster is per shell.</figcaption>
+  calculation; the middle cluster is the operation the declaration must bound; the orbit cluster is per shell.
+  The payload family (the &ldquo;Scene &amp; masks&rdquo; cards further down) shapes the composite that the left
+  cluster's masks envelope &mdash; it feeds the diagram through the mask-envelope chips rather than a cluster of
+  its own.</figcaption>
   </figure>
 </header>
 
@@ -495,6 +498,149 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     <ul class="rel">
       <li><span class="op">&rarr;</span><span>too tight a radius silently unserves covered-looking cells (three harness checks learned this)</span></li>
       <li><span class="op">&rarr;</span><span>interacts with <code>MIN_ELEV</code>: both must admit the geometry before a candidate exists</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">GainPeakDbi</span><span class="unit">dBi &middot; per beam</span></div>
+    <div class="where"><b>PfdMaskViewModel.GmDbi</b> &middot; profile GainPeakDbi</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Per-beam peak gain Gm of the S.1528-1 &sect;1.4 pattern &mdash; the top of every beam's gain
+    curve and the bridge from transmit power to e.i.r.p.: per beam at its own boresight, e.i.r.p. density =
+    TxEirpDbw + Gm (the composite adds neighbouring side lobes on top). Empty in the profile keeps the scene
+    default.</p>
+    <ul class="rel">
+      <li><span class="op">&and;</span><span>with <code>TxEirpDbw</code> it sets the boresight density the payload envelope study sweeps</span></li>
+      <li><span class="op">&perp;</span><span>beam width comes from the layout, not Gm &mdash; cell sizing lives in <code>BeamCellRadiusKm</code></span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">BeamCellRadiusKm</span><span class="unit">km &middot; per beam</span></div>
+    <div class="where"><b>PfdMaskViewModel.CellRadiusKm</b> &middot; profile BeamCellRadiusKm</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Ground-cell radius one beam serves &mdash; sets the beam lattice density and each beam's width
+    in the auto layout: smaller cells mean more, narrower beams over the same service area.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>the composite the masks envelope is the power sum of exactly this lattice</span></li>
+      <li><span class="op">&perp;</span><span>coverage feasibility is separate &mdash; <code>CellPitchKm / coverageRadiusKm</code> decide which cells a footprint reaches</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">TaylorSlrDb &middot; TaylorNbar</span><span class="unit">dB &middot; count</span></div>
+    <div class="where"><b>PfdMaskViewModel.TaylorSlrDb / TaylorNbar</b> &middot; profile TaylorSlrDb / TaylorNbar</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">The S.1528-1 &sect;1.4 Taylor illumination knobs: side-lobe ratio and the number of shaped
+    secondary lobes; Annex 2's reference values, 20 dB and 4, are the scene defaults. Off-axis epfd toward a victim
+    rides on exactly these side lobes.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span><code>PatternFloorDbi</code> caps the far-out lobes the Taylor shape decays into</span></li>
+      <li><span class="op">&rarr;</span><span>the kernel is pinned by checks at the Bessel-zero abscissae (|F| &le; 1)</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">PatternFloorDbi</span><span class="unit">dBi</span></div>
+    <div class="where"><b>PfdMaskViewModel.LfDbi</b> &middot; profile PatternFloorDbi</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">The far-out side-lobe / null floor LF: the pattern never falls below it, so far off boresight a
+    victim sees the floor, not the Taylor shape. It dominates the mask's far bins and the quiet end of the epfd
+    CDF; the scene default is 0 dBi.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>raising it lifts every far-off-axis epfd sample dB for dB</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">TxEirpDbw</span><span class="unit">dBW / ref. BW &middot; per beam</span></div>
+    <div class="where"><b>PfdMaskViewModel.TxEirpDbw</b> &middot; profile TxEirpDbw</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Per-beam transmit power density into the pattern (dBW in the reference bandwidth):
+    constant-e.i.r.p. mode feeds exactly this to every beam and the composite adds the pattern gain on top. Every
+    epfd statistic moves dB for dB with it &mdash; the payload envelope study's compliance frontier is linear in
+    this one knob.</p>
+    <ul class="rel">
+      <li><span class="op">&equiv;</span><span>per-beam boresight e.i.r.p. density = TxEirpDbw + <code>GainPeakDbi</code></span></li>
+      <li><span class="op">&rarr;</span><span><code>PowerMode</code> adds per-beam slant compensation in constant-boresight-PFD mode</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">PowerMode</span><span class="unit">enum</span></div>
+    <div class="where"><b>PfdMaskViewModel.PowerMode</b> &middot; constant e.i.r.p. | constant boresight PFD</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Downlink power control: constant e.i.r.p. (the default) drives every beam at TxEirpDbw; constant
+    boresight PFD adds 20 log&#8321;&#8320;(slant/altitude) per beam so every boresight lands the same flux on the
+    ground despite spreading &mdash; the compensation a real payload flies.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>check C4 pins the compensation: boresight PFD flat across the layout</span></li>
+      <li><span class="op">&rarr;</span><span>the derived masks bake whichever mode the profile declares</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">Aggregation &middot; ReuseClusterIndex</span><span class="unit">enum &middot; index</span></div>
+    <div class="where"><b>PfdMaskViewModel.Aggregation / ReuseClusterIndex</b> &middot; power sum | co-channel worst colour</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">How beams combine toward one direction: the all-co-frequency power sum, or the frequency-reuse
+    worst colour &mdash; only one cluster's co-channel beams sum, the reuse index picking the colouring. The
+    ordering is invariant: max single &le; co-channel &le; power sum.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>checks pin the K-colour adjacency and the ordering (C2, C3)</span></li>
+      <li><span class="op">&rarr;</span><span>a smaller co-channel population is the aggregation-side face of frequency reuse</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">RefBwKHz</span><span class="unit">kHz</span></div>
+    <div class="where"><b>PfdMaskViewModel.RefBwKHz</b> &middot; mask refbw_khz</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Reference bandwidth of every density in the chain &mdash; the masks, the limits and the CDFs
+    all quote per-reference-bandwidth quantities, and Article 22 epfd(down) uses 40 kHz. Declared once, carried
+    everywhere.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>the BR limits rows carry their own refbw &mdash; the compliance window shows both</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">FootprintSource</span><span class="unit">enum</span></div>
+    <div class="where"><b>DownlinkProfile.FootprintSource</b> &middot; composition | mask (+ MaskXmlPath)</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span><span class="chip on">Examination read</span></div>
+    <p class="desc">Where the downlink footprint toward a victim comes from in simulations: beam composition
+    computes it live from the shaped beams (the truth); PFD mask reads a declared mask XML the examination's way
+    &mdash; &sect;D5.1.4.1 selection over &sect;D5.1.5 reads. Run both on one profile and the CDF difference is the
+    projection margin.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>the beam fields still shape the scheduler's coverage geometry in both modes</span></li>
+      <li><span class="op">&perp;</span><span>no epfd(is) byproduct under the mask source &mdash; that needs the e.i.r.p. masks</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">EsDishM</span><span class="unit">m</span></div>
+    <div class="where"><b>UplinkProfile.EsDishM</b> &middot; S.1428 diameter</div>
+    <div class="chips"><span class="chip on">EpfdUp</span></div>
+    <p class="desc">S.1428 antenna diameter of the transmitting earth stations on the uplink. The downlink victim's
+    dish is not declared here &mdash; the examination pairs each Article 22 limit row with its own reference
+    diameter, so the victim antenna comes from the limit table.</p>
+    <ul class="rel">
+      <li><span class="op">&and;</span><span>with <code>PowerDbw</code> and <code>PowerControlRefElevDeg</code> it is the whole uplink transmit chain</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">Service area</span><span class="unit">deg lat &times; lon</span></div>
+    <div class="where"><b>OperationProfile.ServiceLat/LonMin..Max</b> &middot; ServiceGeography.Grid</div>
+    <div class="chips"><span class="chip on">Geography</span></div>
+    <p class="desc">The served-cell rectangle the geography is gridded over at the cell pitch &mdash; the
+    truth-side population of transmitting and receiving cells. Distinct from the declared ES_LAT range: the
+    composer copies the latitude bounds into the declaration; the longitude bounds exist only on the truth side
+    (the examination plants typical ES by density instead).</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>cells outside the declared <code>ES_LAT</code> range are never served &mdash; declaration binds truth</span></li>
+      <li><span class="op">&rarr;</span><span>the deriver's measured es_lat envelope comes from exactly these cells</span></li>
     </ul>
   </div>
 

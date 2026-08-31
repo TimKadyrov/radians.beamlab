@@ -16,18 +16,32 @@ public partial class OperationProfileWindow : Window
     }
 
     /// <summary>
-    /// Parameter help reuses the shared ParameterCatalog (the card deck's
-    /// twin) wherever a card exists; payload knobs carry authored inline
-    /// tooltips in the XAML.
+    /// Every field's help comes from the shared ParameterCatalog (the
+    /// card deck's twin) -- one card per parameter, UI and documentation
+    /// unable to drift.
     /// </summary>
     private void WireToolTips()
     {
         static string? Cat(string name) => radians.beamlab.ParameterCatalog.Find(name)?.ToolTipText;
         FreqBox.ToolTip = Cat("FREQ_MIN / FREQ_MAX");
         UlFreqBox.ToolTip = Cat("FREQ_MIN / FREQ_MAX");
+        FootprintCombo.ToolTip = Cat("FootprintSource");
+        MaskPathBox.ToolTip = Cat("FootprintSource");
+        GainBox.ToolTip = Cat("GainPeakDbi");
+        CellRadBox.ToolTip = Cat("BeamCellRadiusKm");
+        SlrBox.ToolTip = Cat("TaylorSlrDb · TaylorNbar");
+        NbarBox.ToolTip = Cat("TaylorSlrDb · TaylorNbar");
+        FloorBox.ToolTip = Cat("PatternFloorDbi");
+        EirpBox.ToolTip = Cat("TxEirpDbw");
+        PowerModeCombo.ToolTip = Cat("PowerMode");
+        AggCombo.ToolTip = Cat("Aggregation · ReuseClusterIndex");
+        ReuseBox.ToolTip = Cat("Aggregation · ReuseClusterIndex");
+        RefBwBox.ToolTip = Cat("RefBwKHz");
+        EsDishBox.ToolTip = Cat("EsDishM");
         MinElevBox.ToolTip = Cat("MIN_ELEV");
         MinElevByLatBox.ToolTip = Cat("MIN_ELEV");
-        LatBox.ToolTip = Cat("ES_LAT_MIN / ES_LAT_MAX");
+        LatBox.ToolTip = Cat("Service area");
+        LonBox.ToolTip = Cat("Service area");
         CellBox.ToolTip = Cat("CellPitchKm / coverageRadiusKm");
         PolicyCombo.ToolTip = Cat("SelectionPolicy");
         NcoBox.ToolTip = Cat("MAX_CO_FREQ");

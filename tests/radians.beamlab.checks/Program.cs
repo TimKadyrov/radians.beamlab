@@ -2914,13 +2914,13 @@ var looks = RandomLooks(300);
     var missing = ParameterCatalog.All
         .Where(e => !norm.Contains(e.Name) || !norm.Contains(e.Description))
         .Select(e => e.Name).ToList();
-    bool okV8 = ParameterCatalog.All.Count == 24
+    bool okV8 = ParameterCatalog.All.Count == 35
         && ParameterCatalog.All.Count(e => e.Group == ParameterGroup.Declared) == 11
-        && ParameterCatalog.All.Count(e => e.Group == ParameterGroup.Truth) == 9
+        && ParameterCatalog.All.Count(e => e.Group == ParameterGroup.Truth) == 20
         && ParameterCatalog.All.Count(e => e.Group == ParameterGroup.Orbit) == 4
         && missing.Count == 0
         && ParameterCatalog.Find("MIN_EXCLUDE") is { } me && me.ToolTipText.Contains("- ");
-    Check("V8 parameter catalog: 24 entries locked verbatim to the card deck", okV8,
+    Check("V8 parameter catalog: 35 entries locked verbatim to the card deck", okV8,
         missing.Count > 0 ? "drifted: " + string.Join(", ", missing.Take(3))
                           : $"entries={ParameterCatalog.All.Count}");
 }

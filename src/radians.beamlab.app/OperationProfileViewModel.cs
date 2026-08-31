@@ -214,7 +214,7 @@ public sealed class OperationProfileViewModel : ObservableObject
                 Opt(_gainPeakText, "peak gain"), Opt(_beamCellRadiusText, "beam cell radius"),
                 Opt(_taylorSlrText, "Taylor SLR"), OptInt(_taylorNbarText, "Taylor nbar"),
                 Opt(_patternFloorText, "pattern floor"),
-                Opt(_txEirpText, "tx eirp"), _powerMode.Trim(), _aggregation.Trim(),
+                Opt(_txEirpText, "tx power density"), _powerMode.Trim(), _aggregation.Trim(),
                 OptInt(_reuseClusterText, "reuse cluster"), Req(_refBwText, "ref bandwidth"),
                 Opt(_dlAngleSatText, "downlink min angle at sat"),
                 Opt(_dlAngleEsText, "downlink min angle at ES"),

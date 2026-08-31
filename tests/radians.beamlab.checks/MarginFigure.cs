@@ -382,7 +382,7 @@ internal static class MarginFigure
 
         double gm = OperationComposer.Compose(ProfAt(0.0, 0.0), sceneAlt).Scene.GmDbi;
         Console.WriteLine(string.Create(inv,
-            $"anchor: per-beam peak gain {gm:F1} dBi (scene default) -- boresight e.i.r.p. density = power density + {gm:F1} dB"));
+            $"anchor: per-beam peak gain {gm:F1} dBi (scene default) -- per-beam boresight e.i.r.p. density = power density + {gm:F1} dB"));
 
         // ---- 1. The compliance frontier at alpha = 0 ---------------------
         var eirps = new[] { 0.0, -10.0, -20.0, -30.0, -40.0 };

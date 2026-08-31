@@ -187,6 +187,91 @@ public static class ParameterCatalog
                 "too tight a radius silently unserves covered-looking cells (three harness checks learned this)",
                 "interacts with MIN_ELEV: both must admit the geometry before a candidate exists",
             }),
+        new(ParameterGroup.Truth, "GainPeakDbi", "dBi · per beam",
+            "PfdMaskViewModel.GmDbi · profile GainPeakDbi",
+            "Per-beam peak gain Gm of the S.1528-1 §1.4 pattern — the top of every beam's gain curve and the bridge from transmit power to e.i.r.p.: per beam at its own boresight, e.i.r.p. density = TxEirpDbw + Gm (the composite adds neighbouring side lobes on top). Empty in the profile keeps the scene default.",
+            new[]
+            {
+                "with TxEirpDbw it sets the boresight density the payload envelope study sweeps",
+                "beam width comes from the layout, not Gm — cell sizing lives in BeamCellRadiusKm",
+            }),
+        new(ParameterGroup.Truth, "BeamCellRadiusKm", "km · per beam",
+            "PfdMaskViewModel.CellRadiusKm · profile BeamCellRadiusKm",
+            "Ground-cell radius one beam serves — sets the beam lattice density and each beam's width in the auto layout: smaller cells mean more, narrower beams over the same service area.",
+            new[]
+            {
+                "the composite the masks envelope is the power sum of exactly this lattice",
+                "coverage feasibility is separate — CellPitchKm / coverageRadiusKm decide which cells a footprint reaches",
+            }),
+        new(ParameterGroup.Truth, "TaylorSlrDb · TaylorNbar", "dB · count",
+            "PfdMaskViewModel.TaylorSlrDb / TaylorNbar · profile TaylorSlrDb / TaylorNbar",
+            "The S.1528-1 §1.4 Taylor illumination knobs: side-lobe ratio and the number of shaped secondary lobes; Annex 2's reference values, 20 dB and 4, are the scene defaults. Off-axis epfd toward a victim rides on exactly these side lobes.",
+            new[]
+            {
+                "PatternFloorDbi caps the far-out lobes the Taylor shape decays into",
+                "the kernel is pinned by checks at the Bessel-zero abscissae (|F| ≤ 1)",
+            }),
+        new(ParameterGroup.Truth, "PatternFloorDbi", "dBi",
+            "PfdMaskViewModel.LfDbi · profile PatternFloorDbi",
+            "The far-out side-lobe / null floor LF: the pattern never falls below it, so far off boresight a victim sees the floor, not the Taylor shape. It dominates the mask's far bins and the quiet end of the epfd CDF; the scene default is 0 dBi.",
+            new[]
+            {
+                "raising it lifts every far-off-axis epfd sample dB for dB",
+            }),
+        new(ParameterGroup.Truth, "TxEirpDbw", "dBW / ref. BW · per beam",
+            "PfdMaskViewModel.TxEirpDbw · profile TxEirpDbw",
+            "Per-beam transmit power density into the pattern (dBW in the reference bandwidth): constant-e.i.r.p. mode feeds exactly this to every beam and the composite adds the pattern gain on top. Every epfd statistic moves dB for dB with it — the payload envelope study's compliance frontier is linear in this one knob.",
+            new[]
+            {
+                "per-beam boresight e.i.r.p. density = TxEirpDbw + GainPeakDbi",
+                "PowerMode adds per-beam slant compensation in constant-boresight-PFD mode",
+            }),
+        new(ParameterGroup.Truth, "PowerMode", "enum",
+            "PfdMaskViewModel.PowerMode · constant e.i.r.p. | constant boresight PFD",
+            "Downlink power control: constant e.i.r.p. (the default) drives every beam at TxEirpDbw; constant boresight PFD adds 20 log₁₀(slant/altitude) per beam so every boresight lands the same flux on the ground despite spreading — the compensation a real payload flies.",
+            new[]
+            {
+                "check C4 pins the compensation: boresight PFD flat across the layout",
+                "the derived masks bake whichever mode the profile declares",
+            }),
+        new(ParameterGroup.Truth, "Aggregation · ReuseClusterIndex", "enum · index",
+            "PfdMaskViewModel.Aggregation / ReuseClusterIndex · power sum | co-channel worst colour",
+            "How beams combine toward one direction: the all-co-frequency power sum, or the frequency-reuse worst colour — only one cluster's co-channel beams sum, the reuse index picking the colouring. The ordering is invariant: max single ≤ co-channel ≤ power sum.",
+            new[]
+            {
+                "checks pin the K-colour adjacency and the ordering (C2, C3)",
+                "a smaller co-channel population is the aggregation-side face of frequency reuse",
+            }),
+        new(ParameterGroup.Truth, "RefBwKHz", "kHz",
+            "PfdMaskViewModel.RefBwKHz · mask refbw_khz",
+            "Reference bandwidth of every density in the chain — the masks, the limits and the CDFs all quote per-reference-bandwidth quantities, and Article 22 epfd(down) uses 40 kHz. Declared once, carried everywhere.",
+            new[]
+            {
+                "the BR limits rows carry their own refbw — the compliance window shows both",
+            }),
+        new(ParameterGroup.Truth, "FootprintSource", "enum",
+            "DownlinkProfile.FootprintSource · composition | mask (+ MaskXmlPath)",
+            "Where the downlink footprint toward a victim comes from in simulations: beam composition computes it live from the shaped beams (the truth); PFD mask reads a declared mask XML the examination's way — §D5.1.4.1 selection over §D5.1.5 reads. Run both on one profile and the CDF difference is the projection margin.",
+            new[]
+            {
+                "the beam fields still shape the scheduler's coverage geometry in both modes",
+                "no epfd(is) byproduct under the mask source — that needs the e.i.r.p. masks",
+            }),
+        new(ParameterGroup.Truth, "EsDishM", "m",
+            "UplinkProfile.EsDishM · S.1428 diameter",
+            "S.1428 antenna diameter of the transmitting earth stations on the uplink. The downlink victim's dish is not declared here — the examination pairs each Article 22 limit row with its own reference diameter, so the victim antenna comes from the limit table.",
+            new[]
+            {
+                "with PowerDbw and PowerControlRefElevDeg it is the whole uplink transmit chain",
+            }),
+        new(ParameterGroup.Truth, "Service area", "deg lat × lon",
+            "OperationProfile.ServiceLat/LonMin..Max · ServiceGeography.Grid",
+            "The served-cell rectangle the geography is gridded over at the cell pitch — the truth-side population of transmitting and receiving cells. Distinct from the declared ES_LAT range: the composer copies the latitude bounds into the declaration; the longitude bounds exist only on the truth side (the examination plants typical ES by density instead).",
+            new[]
+            {
+                "cells outside the declared ES_LAT range are never served — declaration binds truth",
+                "the deriver's measured es_lat envelope comes from exactly these cells",
+            }),
         new(ParameterGroup.Orbit, "StationKeeping · WDeltaDeg · RepeatPeriod", "Case 2",
             "f_stn_keep='Y', keep_rnge, rpt_prd_* · shell A",
             "Station-kept repeating ground track: the longitude tolerance W_delta sweeps the track across its deadband, and the declared repeat period tells the examination the comb it may fold over.",
