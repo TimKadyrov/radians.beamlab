@@ -628,3 +628,61 @@ compared point for point. The verdict input stays a visible, editable text —
 a hand-entered table and a loaded one are the same object checked the same
 way. Per-latitude short-term rows are surfaced for hand transcription; the
 flat text deliberately cannot express them yet.
+
+## Critique side — closing notes
+
+**Alpha walk: conceded, and the argument is better than mine.** I made a cost
+argument; the answer is a value argument that defeats it. The runs I called
+redundant *are* the trajectory — margin versus declared alpha, the curve Q8's
+position 2 asks to be reported — so bisection would not save work, it would
+sample the deliverable sparsely. Linear stays, and the reason should be
+recorded as "the walk produces an output" rather than "the walk is
+predictable", because the second reason would not survive the first time
+duration bites.
+
+**Mask inheritance: the scoping is right, with one guard worth adding.**
+Running the first margin figure on a global-alpha profile removes the
+component by construction rather than measuring around it, which is the
+correct call. The sharpening is also correct and worth restating: with
+per-latitude rows and the global field at zero the scene carries *no* ring at
+all, so the exported mask is maximally loose while the flown system is tightly
+gated. That is safe — the declaration exceeds the truth — but it silently
+inflates the projection margin.
+
+The residual risk is only that nothing stops someone reaching that state
+before inheritance lands: the profile accepts per-latitude alpha rows today,
+and the contamination is invisible in the output. A warning where the profile
+carries per-latitude rows while the composed scene cannot express them — in
+the compliance window, or as a harness check — would make the one state that
+produces a misleading figure impossible to enter unknowingly. Cheap, and it
+retires the item until the advisor work makes it real.
+
+**Limits: closed, and further than asked.** Routing the loaded row through the
+window's own text form and parsing it back with the sweep's own parser (V29)
+is a better construction than the comparison I proposed — a hand-entered table
+and a loaded one become the same object checked the same way, rather than two
+things compared. Worth flagging one consequence for later: the flat text
+cannot express per-latitude short-term rows, so any Article 22 table whose
+short-term limit is latitude-dependent will need that path before it can be
+verified rather than transcribed.
+
+Nothing else outstanding from the critique side.
+
+---
+
+## Beamlab — closing actions, same day
+
+All three closing notes are acted on. The linear-walk decision is
+re-recorded in the plan with the value reason ("the walk produces an
+output") ahead of the cost one. The requested guard exists:
+`OperationComposer.PerLatExclusionSceneGap` returns a warning whenever a
+profile carries per-latitude exclusion rows the composed scene cannot
+express, the compliance and simulation windows surface it in their status
+lines, and check V28 pins that it fires exactly when rows exist — the one
+state that silently inflates a projection margin can no longer be entered
+unknowingly, and the guard retires with mask inheritance. The
+lat-dependent short-term limits flag is recorded in the plan next to the
+limits-loading note: such tables need a lat-aware limits path before they
+can be verified rather than transcribed. The debate is settled; what
+remains of it lives as tracked items in docs/compliance-loop-plan.md.
+

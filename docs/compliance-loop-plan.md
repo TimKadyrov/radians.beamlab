@@ -132,9 +132,12 @@ scene exports the mask — step 8.
   per-latitude exclusion is enforced by the scheduler's gates); a
   per-latitude scene ring would need the advanced-rings dialog model and
   is deferred.
-- The advisor's loop is a linear alpha walk (predictable run count), not
-  a bisection; runs reuse the sweep's duration/step, so cost is under
-  the user's control.
+- The advisor's loop is a linear alpha walk, not a bisection — because
+  **the walk produces an output**: the margin-versus-declared-alpha
+  trajectory is part of the loop's deliverable, and bisection would
+  sample it sparsely. (Predictable run count is a side benefit, not the
+  reason — recorded this way per the debate's closing concession, since
+  the cost argument alone would not survive long sweep durations.)
 - The advisor's found exclusion is **written back into the profile and
   thence enforced by the scheduler — by design and as an invariant**, not
   a convenience: declared zone and flown zone are one number. If the
@@ -172,7 +175,10 @@ scene exports the mask — step 8.
   window loads rows and fills the limit text with the chosen one; check
   V29 is the hand-entry cross-check (loaded row -> rendered text ->
   parsed back, exact). Lat-dependent short-term rows are surfaced for
-  hand transcription, not auto-filled.
+  hand transcription, not auto-filled — and (closing-notes flag) any
+  Article 22 table whose short-term limit is latitude-dependent needs a
+  lat-aware limits path before it can be *verified* rather than
+  transcribed.
 - Payload power budget: **contingent, not closed** — the flown-power
   measurement (compare simultaneous resolved power against payload
   capability) settles whether the *truth* side needs the constraint;
@@ -186,6 +192,10 @@ scene exports the mask — step 8.
   carries this deferred feature as part of its gap — name it explicitly
   until the scene/export gates each sampled ground point by
   alpha0(ground-point latitude) (debate follow-up, new finding).
+  **Guarded** (closing notes): `OperationComposer.PerLatExclusionSceneGap`
+  fires a warning in the compliance and simulation windows whenever a
+  profile carries per-latitude rows the scene cannot express, and V28
+  pins it — the misleading-figure state cannot be entered unknowingly.
 
 ## Checks
 
