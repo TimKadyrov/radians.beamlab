@@ -32,6 +32,19 @@ public partial class ComplianceWindow : Window
         if (dlg.ShowDialog() == true) _vm.ProfilePath = dlg.FileName;
     }
 
+    private void OnBrowseLimitsDbClick(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = "BR limits database (*.mdb)|*.mdb",
+        };
+        if (dlg.ShowDialog() == true) _vm.LimitsDbPathText = dlg.FileName;
+    }
+
+    private void OnLoadLimitsClick(object sender, RoutedEventArgs e) => _vm.LoadLimitsFromDb();
+
+    private void OnUseLimitClick(object sender, RoutedEventArgs e) => _vm.UseSelectedLimit();
+
     private async void OnRunClick(object sender, RoutedEventArgs e) => await _vm.RunAsync();
 
     private async void OnAdviseClick(object sender, RoutedEventArgs e) => await _vm.AdviseAsync();

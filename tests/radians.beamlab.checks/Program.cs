@@ -3913,5 +3913,67 @@ var looks = RandomLooks(300);
         $"h0={h0:F2} h1={h1:F2} free={rFree.MaxEpfdDb:F2} cap1={rCap.MaxEpfdDb:F2}");
 }
 
+// ---- V29: BR limits database read + hand-entry cross-check ----
+{
+    string[] limitsDbs =
+    {
+        @"C:\Projects\_EPFD\epfd-reference\Cases\EPFD_limits_RES85_WRC23.mdb",
+        @"C:\Projects\_EPFD\radians\radians\Resources\EPFD_limits_RES85_WRC23.mdb",
+    };
+    string[] dllDirs29 =
+    {
+        @"C:\Projects\_EPFD\radians\radians\dlls",
+        @"C:\Projects\_EPFD\radians\radians\bin\Debug\net10.0-windows7.0",
+    };
+    string limitsDb = limitsDbs.FirstOrDefault(File.Exists);
+    string dllDir29 = dllDirs29.FirstOrDefault(d => File.Exists(Path.Combine(d, "EpfdLimitsApi64.dll")));
+
+    if (limitsDb is not null && dllDir29 is not null)
+    {
+        // Crash-proof like the M checks: a wedged native DLL must fail
+        // the check, not the process.
+        try
+        {
+            LimitsDbReader.DllDirectory = dllDir29;
+            // The compliance window's own query shape: 19.7 GHz downlink,
+            // a 40 kHz sliver band, 1200 km operating height, A22.
+            var lims = LimitsDbReader.Read(limitsDb, 19700.0 - 0.02, 19700.0 + 0.02,
+                40.0, 1200.0);
+            bool anyOk = lims.Count > 0;
+            bool pointsOk = lims.All(l => l.Points.Count > 0 && l.Points.All(p =>
+                double.IsFinite(p.EPFD) && p.Perc >= 0.0 && p.Perc <= 100.0));
+
+            // The cross-check radians proposed: a hand-entered table is
+            // exactly the rendered text of the loaded one -- render the
+            // first plain row through the window's own text form and
+            // parse it back with the sweep's own parser.
+            var plain = lims.FirstOrDefault(l => !l.ShortTermLatDependent && l.Points.Count > 0);
+            bool roundOk = false;
+            if (plain is not null)
+            {
+                var parsed = ComplianceViewModel.ParseLimits(ComplianceViewModel.LimitPointsText(plain));
+                roundOk = parsed.Count == plain.Points.Count
+                    && parsed.Zip(plain.Points).All(z => z.First.EPFD == z.Second.EPFD
+                                                      && z.First.Perc == z.Second.Perc);
+            }
+            bool descOk = lims.All(l => ComplianceViewModel.DescribeLimit(l).Length > 0);
+
+            Check("V29 BR limits database: rows extracted, hand-entry text round-trips",
+                anyOk && pointsOk && roundOk && descOk,
+                $"rows={lims.Count} first={(lims.Count > 0 ? lims[0].RrRef : "-")} " +
+                $"plainPts={plain?.Points.Count ?? 0} round={roundOk}");
+        }
+        catch (Exception ex)
+        {
+            Check("V29 BR limits database read", false, "exception: " + ex.Message);
+        }
+    }
+    else
+    {
+        Check("V29 BR limits database read", true,
+            "limits database or EpfdLimitsApi64.dll not present, skipped");
+    }
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;

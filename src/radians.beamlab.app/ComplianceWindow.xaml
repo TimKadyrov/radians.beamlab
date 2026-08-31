@@ -85,6 +85,29 @@
                     </StackPanel>
                 </GroupBox>
 
+                <GroupBox Header="Limits from the BR database (optional)">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Text="{Binding LimitsDbPathText, UpdateSourceTrigger=LostFocus}"
+                                     ToolTip="The BR limits database (EPFD_limits_*.mdb). Reading needs the BR native pair EpfdLimitsApi64.dll + EpfdLimitsDbAccessLib64.dll next to the app or in a known location."/>
+                            <Button Grid.Column="1" Content="…" Margin="4,1,0,1" Click="OnBrowseLimitsDbClick"/>
+                            <Button Grid.Column="2" Content="Load" Margin="4,1,0,1" Click="OnLoadLimitsClick"
+                                    ToolTip="Extracts the epfd(down) Article 22 rows applicable to the profile's downlink carrier and the design's operating height — the radians reader's calling pattern over the vendored interop."/>
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox ItemsSource="{Binding LimitChoices}" SelectedIndex="{Binding SelectedLimitIndex}"/>
+                            <Button Grid.Column="1" Content="Use" Margin="4,1,0,1" Click="OnUseLimitClick"
+                                    ToolTip="Fills the limit text above with the chosen row's points; the sweep verdicts against exactly that text, so what is used stays visible and editable."/>
+                        </Grid>
+                    </StackPanel>
+                </GroupBox>
+
                 <GroupBox Header="Exclusion advisor">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">

@@ -135,6 +135,13 @@ scene exports the mask — step 8.
 - The advisor's loop is a linear alpha walk (predictable run count), not
   a bisection; runs reuse the sweep's duration/step, so cost is under
   the user's control.
+- The advisor's found exclusion is **written back into the profile and
+  thence enforced by the scheduler — by design and as an invariant**, not
+  a convenience: declared zone and flown zone are one number. If the
+  write-back ever became advisory, the two could diverge and the
+  projection margin would degenerate into measuring the divergence
+  (debate follow-up, Q8 concession — the mechanism is the load-bearing
+  part).
 - The downlink footprint source is an explicit choice in the profile:
   *beam composition* (the live shaped beams — the loop verifies the real
   system) or *PFD mask* (a declared mask XML — the loop then runs the
@@ -159,7 +166,26 @@ scene exports the mask — step 8.
   addition.
 - epfd(up)/(is) compliance sweeps: same machinery, different victim and
   limits; add after the downlink loop settles.
-- Limits-database loading through the vendored `radlimits` reader.
+- ~~Limits-database loading through the vendored `radlimits` reader.~~
+  Done (post-debate): `LimitsDbReader` (core) mirrors the radians
+  reader's calling pattern over the vendored interop; the compliance
+  window loads rows and fills the limit text with the chosen one; check
+  V29 is the hand-entry cross-check (loaded row -> rendered text ->
+  parsed back, exact). Lat-dependent short-term rows are surfaced for
+  hand transcription, not auto-filled.
+- Payload power budget: **contingent, not closed** — the flown-power
+  measurement (compare simultaneous resolved power against payload
+  capability) settles whether the *truth* side needs the constraint;
+  the *declaration* side (envelope basis under a budget) belongs to the
+  filed-mask-basis decision and is decided there (debate Q1/Q2).
+- The exported mask does not yet inherit per-latitude exclusion: the R
+  set can carry per-latitude alpha rows (scheduler-enforced) while the
+  scene ring is global — at tightened latitudes the mask then describes
+  radiation the operation never produces. Valid (mask >= truth holds)
+  but not minimal, and a margin figure computed from such a profile
+  carries this deferred feature as part of its gap — name it explicitly
+  until the scene/export gates each sampled ground point by
+  alpha0(ground-point latitude) (debate follow-up, new finding).
 
 ## Checks
 

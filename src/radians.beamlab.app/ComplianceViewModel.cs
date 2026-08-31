@@ -231,6 +231,96 @@ public sealed class ComplianceViewModel : ObservableObject
         return pts;
     }
 
+    // ---- limits from the BR database ------------------------------------
+
+    private string _limitsDbPathText = "";
+    /// <summary>Path of the BR limits database (EPFD_limits_*.mdb).</summary>
+    public string LimitsDbPathText { get => _limitsDbPathText; set => SetField(ref _limitsDbPathText, value); }
+
+    /// <summary>Display rows of the loaded limits, index-aligned with the internal list.</summary>
+    public ObservableCollection<string> LimitChoices { get; } = new();
+
+    private List<radlimits.Limit> _loadedLimits = new();
+
+    private int _selectedLimitIndex = -1;
+    public int SelectedLimitIndex { get => _selectedLimitIndex; set => SetField(ref _selectedLimitIndex, value); }
+
+    // The BR native pair's known homes on this machine (same convention
+    // as the check harness); used only when the DLL is not already
+    // resolvable next to the process.
+    private static readonly string[] KnownDllDirs =
+    {
+        @"C:\Projects\_EPFD\radians\radians\dlls",
+        @"C:\Projects\_EPFD\radians\radians\bin\Debug\net10.0-windows7.0",
+    };
+
+    /// <summary>
+    /// Reads the applicable epfd(down) Article 22 rows from the BR
+    /// limits database for the profile's downlink carrier (a
+    /// reference-bandwidth sliver as the band, the shells' lowest
+    /// operating height) via the vendored radlimits interop -- the
+    /// radians reader's calling pattern. Fills the choice list; Use
+    /// puts the chosen row's points into the limit text.
+    /// </summary>
+    public void LoadLimitsFromDb()
+    {
+        try
+        {
+            var sweep = BuildSweep();   // design + profile supply carrier and height
+            if (_limitsDbPathText.Trim().Length == 0)
+                throw new InvalidOperationException("pick the limits database (*.mdb) first");
+            LimitsDbReader.DllDirectory ??= KnownDllDirs.FirstOrDefault(
+                d => File.Exists(Path.Combine(d, "EpfdLimitsApi64.dll")));
+
+            double fMhz = sweep.Profile.Down.FrequencyGhz * 1000.0;
+            double bwKhz = sweep.Profile.Down.RefBwKHz;
+            double halfMhz = bwKhz / 2000.0;
+            double opHt = sweep.Shells.Min(s => s.OperatingHeightKm ?? s.AltitudeKm);
+            _loadedLimits = LimitsDbReader.Read(_limitsDbPathText.Trim(),
+                fMhz - halfMhz, fMhz + halfMhz, bwKhz, opHt);
+
+            LimitChoices.Clear();
+            foreach (var l in _loadedLimits) LimitChoices.Add(DescribeLimit(l));
+            SelectedLimitIndex = _loadedLimits.Count > 0 ? 0 : -1;
+            StatusText = string.Create(CultureInfo.InvariantCulture,
+                $"{_loadedLimits.Count} limit row(s) at {fMhz:F0} MHz, op height {opHt:F0} km -- pick one and Use to fill the points");
+        }
+        catch (Exception ex) { StatusText = "limits load failed: " + ex.Message; }
+    }
+
+    /// <summary>Puts the selected loaded row's points into the limit text.</summary>
+    public void UseSelectedLimit()
+    {
+        if (_selectedLimitIndex < 0 || _selectedLimitIndex >= _loadedLimits.Count)
+        { StatusText = "load and pick a limit row first"; return; }
+        var l = _loadedLimits[_selectedLimitIndex];
+        if (l.ShortTermLatDependent)
+        {
+            // The flat text cannot express per-latitude short-term rows;
+            // show them for hand transcription of the applicable band.
+            StatusText = "lat-dependent short-term limit -- transcribe the applicable latitude band by hand: "
+                + string.Join("; ", l.Points.Select(p => FormattableString.Invariant(
+                    $"lat {p.LatMin}..{p.LatMax}: {p.EPFD} dB at {p.Perc}%")));
+            return;
+        }
+        LimitsText = LimitPointsText(l);
+        StatusText = string.Create(CultureInfo.InvariantCulture,
+            $"limit points filled from {l.RrRef} ({l.Points.Count} point(s)) -- the sweep verdicts against exactly this text");
+    }
+
+    /// <summary>The limit text a loaded row fills in -- one "epfd perc" line per point.</summary>
+    public static string LimitPointsText(radlimits.Limit l)
+        => string.Join("\n", l.Points.Select(p =>
+            FormattableString.Invariant($"{p.EPFD} {p.Perc}")));
+
+    /// <summary>One line describing a loaded limit row.</summary>
+    public static string DescribeLimit(radlimits.Limit l)
+        => string.Create(CultureInfo.InvariantCulture,
+            $"{l.RrRef} -- {l.Service} {l.RegFreq_min:F0}-{l.RegFreq_max:F0} MHz, refbw {l.RefBW:F0} kHz")
+           + (l.Rf_diam is double d ? string.Create(CultureInfo.InvariantCulture, $", dish {d:F2} m") : "")
+           + $", regions {string.Join("/", l.regions)}"
+           + (l.ShortTermLatDependent ? ", lat-dependent short-term" : "");
+
     // ---- stage C: the exclusion advisor ---------------------------------
 
     private string _alphaStepText = "1";

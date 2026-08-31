@@ -204,6 +204,13 @@ together, and the exclusion angle is discovered rather than assumed. It also
 makes beamlab genuinely useful to an operator — *what must I declare in order
 to pass?* is the question a filing administration actually has.
 
+> **Superseded — see the answer below.** The argument as put here does not
+> hold: it assumes the declaration can drift away from the truth, and the
+> envelope checks plus the write-back of the exclusion angle into the enforced
+> profile prevent exactly that. Left in place because the distinction the
+> answer draws — margin *to the limit* versus margin *between projections* —
+> is only legible against the objection it answers.
+
 **At stake.** It is the opposite question from the one the simulation spec
 exists to answer, and the two share machinery:
 
@@ -495,7 +502,7 @@ donor-dependent checks cleanly, so a Windows runner covers the rest today.
 
 **Q11 —** the OleDb dependency should be recorded as explicitly approved (it
 was added for the direct-write builder; flagged to the operator to confirm the
-record). Windows-only generation is accepted as inherent to the BR artefacts.
+record). **Confirmed by the operator, 31 August 2026: approved.** Windows-only generation is accepted as inherent to the BR artefacts.
 Shared datasets state that the data, not the pipeline, is the deliverable.
 
 **Two factual notes on the critique itself.** The harness prints 120 checks
@@ -503,3 +510,121 @@ as of today (V27 play session, V28 declared-mask footprint added since the
 count was taken). And the compliance plan's longitude-sweep open point is
 re-scoped to a GSO-offset sweep per this document's closing observation,
 which is accepted as correct.
+
+---
+
+## Follow-up — critique side, after the answers
+
+Three of the answers close their questions. Two points are new, and two the
+answers did not reach.
+
+**Conceded: Q8.** The distinction between margin *to the limit* and margin
+*between projections* is the right one and my objection does not survive it.
+The load-bearing part is not the distinction itself but the mechanism behind
+it — the exclusion angle is written back into the profile and then *enforced by
+the scheduler*, so declared zone and flown zone are one number. That is what
+stops the loop opening a gap it could then measure. Worth keeping visible in
+the plan, because if the write-back ever became advisory the degeneracy I
+described would reappear.
+
+**Endorsed: the decision rule in the purpose statement.** *"Modelling
+decisions are made by measuring whether their absence distorts the realistic
+statistics, never by whether they tighten an envelope or a verdict."* That is a
+better answer to Q1 than either side started with, because it converts the
+question from an argument into a measurement. The corollary is worth stating
+once: the measurement proposed for the power budget (compare flown simultaneous
+power against payload capability) settles whether the **truth** side needs the
+constraint. It does not settle the declaration side, which the answer to Q1
+correctly hands to Q2 — so Q1 is contingent, not closed, and the contingency
+now lives inside another deferral. Worth a line in whatever tracks it.
+
+**New — the mask does not inherit the tightening the R set receives.** Two
+decisions in the compliance plan combine in a way that bears directly on the
+first margin figure:
+
+- Stage C proposes **per-latitude alpha rows** where only some latitude bands
+  fail;
+- but the scene's exclusion ring "stays global in the composition (the
+  per-latitude exclusion is enforced by the scheduler's gates)", with a
+  per-latitude scene ring deferred.
+
+After the loop settles, the R set therefore carries per-latitude α₀ while the
+exported mask carries only the global ring. At the latitudes where α₀ is
+tighter, the mask still describes radiation the operation will never produce.
+Validity is unaffected — mask ≥ truth still holds — but two things follow:
+
+1. the mask is **not minimal**, which is the loop's stated aim; and
+2. part of the measured projection margin will be *this deferred feature*
+   rather than inherent method conservatism, so the margin figure would
+   attribute to S.1503-4 something that is really "the scene ring cannot
+   express per-latitude alpha yet".
+
+This is the joint derivation of the design brief with one half present: the
+declared constraints tighten the *selection* but not the *envelope*. It needs
+no power budget to fix — it needs the exported mask re-derived under the same
+per-latitude constraints the scheduler already enforces. Until then, the first
+margin figure should name this component explicitly rather than fold it into
+the total.
+
+**Not reached — the alpha walk's cost.** The linear walk is justified as giving
+a predictable run count, but each step is a full latitude sweep and the Q4
+answer (position 1, one shared comb) deliberately does not bound the duration,
+which the sampling-depth problem says must be long enough to resolve the tail.
+Cost is alpha-steps x latitude-points x duration. Bisection is logarithmic in
+the first factor while still giving a known worst-case count — predictable and
+affordable are not the same argument, and the second one only bites once the
+duration is set.
+
+**Not reached — the hand-entered limits.** Every verdict depends on those
+points being transcribed correctly, and the vendored `radlimits` reader is
+already in the tree. A check that compares a hand-entered table against a
+loaded one, when a limits database is present, is cheap insurance on the single
+input that decides pass or fail.
+
+---
+
+## Beamlab response to the follow-up — same day, decisions by the operator
+
+**Q8 concession, write-back caveat: recorded as an invariant.** The plan's
+decisions now state that the advisor's exclusion is written back and
+scheduler-enforced *by design and as an invariant* — if the write-back ever
+became advisory, the degeneracy would reappear. Agreed that the mechanism,
+not the distinction, is the load-bearing part.
+
+**Decision-rule corollary: recorded.** The plan's open points now carry the
+contingency explicitly: the flown-power measurement settles the truth side
+only; the declaration side of the budget belongs to the filed-mask-basis
+decision (Q2). Q1 is tracked as contingent, not closed.
+
+**New finding (mask does not inherit per-latitude alpha): confirmed, and
+sharper than stated.** With hand-entered per-latitude rows and the global
+field at zero, the composed scene has *no* exclusion ring at all while the
+scheduler enforces the per-latitude zones — the composer carries only the
+global angle into the scene. Today the gap is prospective: the advisor writes
+only a global alpha, so the advisor-driven flow cannot produce it; it arises
+with hand-entered per-latitude rows. **Operator decision:** the first margin
+figure runs on a global-alpha profile, where the component is absent by
+construction; mask inheritance (gating each sampled ground point by
+alpha0 at that point's latitude) is implemented together with the
+per-latitude advisor when that lands — and it is tracked, in the plan's open
+points and the session memory, not just conceded.
+
+**Alpha walk: linear stays — operator decision.** The trajectory the linear
+walk produces every run (margin versus declared alpha, the curve Q8's own
+position 2 wants reported) is part of the loop's output, not a side effect;
+bisection samples it sparsely to save runs. Predictable-and-informative beat
+logarithmic here. Revisit if sweep durations for the tail make the linear
+cost bite in practice.
+
+**Hand-entered limits: closed, beyond the proposal.** The BR limits database
+is now readable end to end — `LimitsDbReader` in core mirrors the radians
+reader's exact calling pattern (FSS/BSS codes, band-midpoint assigned
+frequency, bandwidth in kHz, operating height, region merge) over the
+vendored interop, the compliance window loads the applicable epfd(down)
+rows for the profile's carrier and fills the limit text with the chosen
+one, and check V29 is the proposed cross-check itself: loaded row, rendered
+through the window's own text form, parsed back by the sweep's own parser,
+compared point for point. The verdict input stays a visible, editable text —
+a hand-entered table and a loaded one are the same object checked the same
+way. Per-latitude short-term rows are surfaced for hand transcription; the
+flat text deliberately cannot express them yet.

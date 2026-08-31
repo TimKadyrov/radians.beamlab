@@ -555,7 +555,15 @@ grows with the model.
 latitude grid (ES latitude from/to/step at a chosen ES longitude, the
 wanted GSO at ES longitude + offset, S.1428 dish), one run per grid
 point against the entered limit — the applicable Article 22 table rows,
-one `epfd_db percent` per line. Each point is verdicted with the
+one `epfd_db percent` per line. The rows can be **loaded from the BR
+limits database** (`EPFD_limits_*.mdb`, needs the BR native library
+pair): Load extracts the epfd(down) rows applicable to the profile's
+downlink carrier and the design's operating height through the same
+vendored reader radians uses, and Use fills the limit text with the
+chosen row's points — what the sweep verdicts against stays visible and
+editable, so a hand-entered table and a loaded one are the same thing
+checked the same way. Per-latitude short-term rows are shown for hand
+transcription (the flat text cannot express them). Each point is verdicted with the
 examination's own §D7.1.3 comparison (pass iff the measured exceedance
 at every limit epfd stays within the allowed percentage) and reported
 with the worst dB margin read off the CDF (positive = room to spare);

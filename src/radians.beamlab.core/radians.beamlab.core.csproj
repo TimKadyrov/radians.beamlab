@@ -7,6 +7,9 @@
     <LangVersion>latest</LangVersion>
     <!-- vendored radlimits (epfdshare/) carries unsafe GPU-layout structs -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- radians defines WIN64 in every configuration; the vendored
+         radlimits picks the 64-bit BR DLL name by it -->
+    <DefineConstants>$(DefineConstants);WIN64</DefineConstants>
     <RootNamespace>radians.beamlab</RootNamespace>
     <AssemblyName>radians.beamlab.core</AssemblyName>
     <InvariantGlobalization>true</InvariantGlobalization>
