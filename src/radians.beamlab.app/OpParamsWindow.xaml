@@ -1,0 +1,170 @@
+<Window x:Class="radians.beamlab.app.OpParamsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Operating parameters (R set)"
+        Height="640" Width="900"
+        Background="#E9F4F8" Foreground="#000000"
+        FontFamily="Gibson, Segoe UI" FontSize="12">
+    <Window.Resources>
+        <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#000000"/><Setter Property="Margin" Value="0,2,0,2"/></Style>
+        <Style TargetType="TextBox"><Setter Property="Background" Value="#ffffff"/><Setter Property="Foreground" Value="#000000"/><Setter Property="BorderBrush" Value="#8BC4CD"/><Setter Property="Padding" Value="3"/><Setter Property="Margin" Value="0,1,0,1"/></Style>
+        <Style TargetType="Button"><Setter Property="Background" Value="#ffffff"/><Setter Property="Foreground" Value="#0076A1"/><Setter Property="BorderBrush" Value="#0076A1"/><Setter Property="Padding" Value="6,3"/><Setter Property="Margin" Value="0,2,4,2"/></Style>
+        <Style TargetType="GroupBox"><Setter Property="Foreground" Value="#0B516F"/><Setter Property="BorderBrush" Value="#D1EBF5"/><Setter Property="Margin" Value="0,4,0,4"/><Setter Property="Padding" Value="6"/></Style>
+    </Window.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="12">
+        <TextBlock TextWrapping="Wrap" Foreground="#698089"
+                   Text="Author one non-GSO operating-parameter set (the f_mask R element): the declared operating constraints the EPFD calculation enforces alongside the pfd / e.i.r.p. masks. Header fields left empty are omitted from the XML; arrays are one node per line. Register the exported XML in the SNS builder as an R row."/>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="340"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                <GroupBox Header="Identity and frequency">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/><ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="sat_name"/>
+                        <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding SatName, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="1" Text="ntc_id"/>
+                        <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding NtcIdText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="2" Text="param_id"/>
+                        <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding ParamIdText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="3" Text="low_freq_mhz"/>
+                        <TextBox   x:Name="FreqMinBox" Grid.Row="3" Grid.Column="1" Text="{Binding LowFreqText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="4" Text="high_freq_mhz"/>
+                        <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding HighFreqText, UpdateSourceTrigger=LostFocus}"/>
+                    </Grid>
+                </GroupBox>
+
+                <GroupBox Header="Earth-station population">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/><ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="es_density (/km²)"/>
+                        <TextBox   x:Name="EsDensityBox" Grid.Row="0" Grid.Column="1" Text="{Binding EsDensityText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="1" Text="es_distance (km)"/>
+                        <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding EsDistanceText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="2" Text="es_lat_min (deg)"/>
+                        <TextBox   x:Name="EsLatBox" Grid.Row="2" Grid.Column="1" Text="{Binding EsLatMinText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="3" Text="es_lat_max (deg)"/>
+                        <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding EsLatMaxText, UpdateSourceTrigger=LostFocus}"/>
+                    </Grid>
+                </GroupBox>
+
+                <GroupBox Header="Header constraints (empty = omitted)">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/><ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="min_angle_at_sat"/>
+                        <TextBox   x:Name="AngleSatBox" Grid.Row="0" Grid.Column="1" Text="{Binding MinAngleAtSatText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="1" Text="min_angle_at_es"/>
+                        <TextBox   x:Name="AngleEsBox" Grid.Row="1" Grid.Column="1" Text="{Binding MinAngleAtEsText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="2" Text="max_co_freq"/>
+                        <TextBox   x:Name="CoFreqBox" Grid.Row="2" Grid.Column="1" Text="{Binding MaxCoFreqHeaderText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="3" Text="max_co_freq_sat"/>
+                        <TextBox   x:Name="CoFreqSatBox" Grid.Row="3" Grid.Column="1" Text="{Binding MaxCoFreqSatText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="4" Text="min_duration (s)"/>
+                        <TextBox   x:Name="DurationBox" Grid.Row="4" Grid.Column="1" Text="{Binding MinDurationHeaderText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="5" Text="elev_angle (deg)"/>
+                        <TextBox   x:Name="ElevHeaderBox" Grid.Row="5" Grid.Column="1" Text="{Binding ElevAngleHeaderText, UpdateSourceTrigger=LostFocus}"/>
+                    </Grid>
+                </GroupBox>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1">
+                <GroupBox Header="min_exclude — one node per line: orb lat alpha (orb 0 = all orbits)">
+                    <TextBox x:Name="MinExcludeBox" AcceptsReturn="True" Height="80" VerticalScrollBarVisibility="Auto"
+                             FontFamily="Consolas" Text="{Binding MinExcludeText, UpdateSourceTrigger=LostFocus}"/>
+                </GroupBox>
+                <GroupBox Header="min_elev — one node per line: lat az elev">
+                    <TextBox x:Name="MinElevBox" AcceptsReturn="True" Height="80" VerticalScrollBarVisibility="Auto"
+                             FontFamily="Consolas" Text="{Binding MinElevText, UpdateSourceTrigger=LostFocus}"/>
+                </GroupBox>
+                <GroupBox Header="max_co_freq — one node per line: lat value">
+                    <TextBox x:Name="MaxCoFreqArrBox" AcceptsReturn="True" Height="60" VerticalScrollBarVisibility="Auto"
+                             FontFamily="Consolas" Text="{Binding MaxCoFreqText, UpdateSourceTrigger=LostFocus}"/>
+                </GroupBox>
+                <GroupBox Header="min_duration — one node per line: lat seconds">
+                    <TextBox x:Name="MinDurationArrBox" AcceptsReturn="True" Height="60" VerticalScrollBarVisibility="Auto"
+                             FontFamily="Consolas" Text="{Binding MinDurationText, UpdateSourceTrigger=LostFocus}"/>
+                </GroupBox>
+            </StackPanel>
+        </Grid>
+
+        <GroupBox Header="Derive from simulation">
+            <StackPanel>
+                <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
+                           Text="The intended path: fly the real system (its constellation, its own minimum elevation and exclusion behaviour), measure what every granted link actually does, and envelope the measurements into the declared set — minima floored, maxima carried, unobserved quantities left undeclared. Fills every field above for review."/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="190"/><ColumnDefinition Width="220"/>
+                        <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="Design document"/>
+                    <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding DeriveDesignPath, UpdateSourceTrigger=LostFocus}"/>
+                    <Button    Grid.Row="0" Grid.Column="2" Content="Browse…" Margin="4,1,0,1" Click="OnDeriveBrowseClick"/>
+                    <TextBlock Grid.Row="5" Text="Operation profile (optional)"/>
+                    <TextBox   Grid.Row="5" Grid.Column="1" Text="{Binding DeriveProfilePath, UpdateSourceTrigger=LostFocus}"
+                               ToolTip="An *.opprofile.json; when set the whole system side comes from it and the min-elev/alpha/area fields above are ignored."/>
+                    <Button    Grid.Row="5" Grid.Column="2" Content="Browse…" Margin="4,1,0,1" Click="OnDeriveProfileBrowseClick"/>
+                    <TextBlock Grid.Row="1" Text="System min elevation (deg)"/>
+                    <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding DeriveMinElevText, UpdateSourceTrigger=LostFocus}"
+                               ToolTip="What the real operation enforces; the derived min_elev floors what was actually flown."/>
+                    <TextBlock Grid.Row="2" Text="System exclusion alpha (deg)"/>
+                    <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding DeriveAlphaText, UpdateSourceTrigger=LostFocus}"
+                               ToolTip="The real GSO exclusion ring; 0 = none enforced. A min_exclude array is derived only where an exclusion actually shaped operations."/>
+                    <TextBlock Grid.Row="3" Text="Duration (days) / step (s)"/>
+                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal">
+                        <TextBox Width="100" Text="{Binding DeriveDurationDaysText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBox Width="100" Margin="6,1,0,1" Text="{Binding DeriveStepSecText, UpdateSourceTrigger=LostFocus}"/>
+                    </StackPanel>
+                    <TextBlock Grid.Row="4" Text="Service lat min/max · band · cell (km)"/>
+                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
+                        <TextBox Width="46" Text="{Binding DeriveLatMinText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBox Width="46" Margin="6,1,0,1" Text="{Binding DeriveLatMaxText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBox Width="46" Margin="6,1,0,1" Text="{Binding DeriveLatBandText, UpdateSourceTrigger=LostFocus}"
+                                 ToolTip="Latitude band width of the derived per-latitude arrays."/>
+                        <TextBox Width="56" Margin="6,1,0,1" Text="{Binding DeriveCellKmText, UpdateSourceTrigger=LostFocus}"
+                                 ToolTip="Service-grid cell pitch; also the derived es_distance, with es_density = 1/cell^2."/>
+                    </StackPanel>
+                </Grid>
+                <Button Content="Derive &amp; fill" HorizontalAlignment="Left" IsEnabled="{Binding DeriveEnabled}"
+                        Click="OnDeriveClick"
+                        ToolTip="Simulates the system on a worker thread, then fills every header field and array above with the measured envelope."/>
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox Header="File">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Save set (JSON)…" Click="OnSaveClick"/>
+                    <Button Content="Load set…" Click="OnLoadClick"/>
+                    <Button Content="Export R XML…" Click="OnExportClick"/>
+                </StackPanel>
+                <TextBlock Text="{Binding SummaryText}" Foreground="#698089" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding StatusText}" Foreground="#CC3F4D" TextWrapping="Wrap"/>
+            </StackPanel>
+        </GroupBox>
+    </StackPanel>
+    </ScrollViewer>
+</Window>

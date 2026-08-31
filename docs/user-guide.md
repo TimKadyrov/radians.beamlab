@@ -37,10 +37,12 @@ outline is used.
 ## Home
 
 The app opens on a launcher page: one card per function (the Open button
-activates its tab), links to this guide and to the parameter cards
-(`docs/parameter-cards.html`, per-parameter reference with relations), and
-the version. Switching tabs never resets a function's state — the numbered
-tabs below describe the functions in their card order.
+activates its tab) and one card per tool window — the operation profile,
+the compliance loop, the R-set designer, the simulation runner and the
+SNS v10 builder — plus links to this guide and to the parameter cards
+(`docs/parameter-cards.html`, per-parameter reference with relations),
+and the version. Switching tabs never resets a function's state — the
+numbered tabs below describe the functions in their card order.
 
 ## Tab 1 — Composite gain map
 
@@ -344,16 +346,21 @@ repeats after `k` nodal orbits when `k · S_pass = m · 360°`, with `S_pass`
 the westward node shift per orbit from the same J2 secular rates the
 propagator integrates. Per row: `k` and `m` (coprime), the exact altitude
 that closes the cycle, its offset from your target, the cycle duration in
-the SNS `rpt_prd_dd/hh/mm/ss` split, the residual drift if you fly the
-target altitude instead, the equator spacing `360/k`, and the largest
-`keep_rnge` before adjacent swept deadbands overlap (`180/k`).
+the SNS `rpt_prd_dd/hh/mm/ss` split at both altitudes (`cycle@target`,
+the default declaration at your own altitude, and `cycle@exact`), the
+free-flight drift per cycle at your altitude — what station keeping
+absorbs when declaring at the target — the equator spacing `360/k`, and
+the largest `keep_rnge` before adjacent swept deadbands overlap
+(`180/k`).
 
-**Check a period of your own.** A repeat you already have in mind enters
-as whole orbits per whole nodal days and is validated like any solved
-candidate: a non-coprime pair is reduced to the true cycle first, the
-exact closing altitude is solved anywhere in 100–30 000 km, and the
-result becomes the selectable, highlighted top row of the grid — flagged
-red when its altitude falls outside the search band.
+**Declare a period of your own** (fixed-altitude mode). The declaration
+itself: auto-filled with the nearest repeat, updated by selecting a
+grid row, or typed as any pair (whole orbits per whole nodal days). It
+is validated like any solved candidate — a non-coprime entry is reduced
+to the true cycle first, the exact closing altitude is solved anywhere
+in 100–30 000 km — and rides as the selectable, highlighted top row of
+the grid, flagged red when its altitude falls outside the search band.
+In adjusting-altitude mode the entry gives way to the search settings.
 
 **Case previews (left).** Cases 1 and 3 read the target orbit; only
 Case 2 reads the selected candidate row.
@@ -368,7 +375,13 @@ Case 2 reads the selected candidate row.
   `f_stn_keep='N'`, `f_precess='N'`.
 - *Case 2 — station-kept repeating*: your `keep_rnge` against the row's
   bound (red when the deadbands would overlap), plus the ready
-  `f_stn_keep='Y'` / `keep_rnge` / `rpt_prd_*` field set.
+  `f_stn_keep='Y'` / `keep_rnge` / `rpt_prd_*` field set. The declared
+  altitude follows the solver's **altitude mode** — *fixed altitude*
+  (the default: keep the target orbit; the panel prints the drift the
+  station keeping absorbs with a correction cadence for your
+  `keep_rnge`) or *adjusting altitude* (adopt the exact closing
+  altitude, zero correction); the EPFD calculation flies the declared
+  repeat and sweeps the deadband either way.
 - *Case 3 — declared precession*: `f_precess='Y'` / `precession`, either
   the plain-J2 nodal regression rate at the target orbit (the default) or
   a rate you supply yourself (deg/s, any sign — prograde orbits drift
@@ -376,25 +389,53 @@ Case 2 reads the selected candidate row.
 
 **Copy SNS fields** puts all three previews on the clipboard.
 
-**Ground track (bottom right).** One full cycle of the selected candidate,
-propagated through the real constellation propagator over the coastline
-map. The filled dot marks the start, the ring the end — coincident when
-the cycle closes; the caption prints the closure angle.
+**Ground track (bottom right).** One full cycle of the selected
+candidate, propagated through the real constellation propagator over the
+coastline map at the *declared* altitude. The filled dot marks the start,
+the ring the end: at the exact closing altitude they coincide and the
+printed closure is 0; at the target altitude (the default) the printed
+closure equals the free-flight drift per cycle — the correction burden,
+not an error. A *whole constellation* toggle overlays one declared
+cycle of every satellite of every shell in the document, each shell
+flying its own declared repeat: the repeat is per orbit and shared by a
+shell's planes, so the phasing only decides whether the satellites ride
+the same k track lines or interleave between them — the overlay makes
+that visible.
 
 The tab opens on a **Start here** overview: the shells list (add,
-duplicate, remove — a document always keeps at least one shell), the
-selected shell's target-orbit inputs, plus the four-step workflow with a
-jump button per step and a note on what each step feeds forward (the
-selected candidate drives the cases and the constellation; the saved
-design file is the hand-off to the builder).
-Only a Case-2 repeating design needs a solved candidate — free drift and
-declared precession fly the target orbit as entered, so those designs can
-skip the solver. The working sub-tabs share one state:
+duplicate, move up/down, remove — a document always keeps at least one
+shell, shells can be named, and the order is what numbers `orb_id`
+across shells in the combined notice and the built SRS), the selected
+shell's target-orbit inputs, plus the four-step workflow with a jump
+button per step and a note on what each step feeds forward (the selected
+candidate drives the cases and the constellation; the saved design file
+is the hand-off to the builder).
 
-- **Repeat solver** — the search settings (max orbits per cycle, altitude
-  band), the own-period check, the candidate grid and the propagated
-  ground track with its closure markers; *How the solver works* opens
-  `docs/repeat-solver.html`, the full explanation with a worked example.
+The shells list also shows the **constellation repeat** — `P_repeat`,
+the LCM of the shells' declared cycles, which is what the EPFD run
+actually cycles over (§D4.6: the time for *every* satellite, across
+every sub-constellation, to return to the same position relative to the
+Earth) — and warns when shells mix repeating and non-repeating
+(§A2.4/§B5.1 want all one or the other). The **Harmonize rpt_prd**
+button on the Constellation sub-tab (shown while the case is Case 2)
+declares that common period on every Case-2 shell: any multiple of a
+shell's own cycle is a valid repeat period for its track. Changing a
+shell's pair or altitude mode clears its harmonization.
+Only a Case-2 repeating design needs the solver's repeat pair — and by
+default even that is declared at the target altitude, the exact closing
+altitude staying as the zero-correction reference; free drift and
+declared precession skip the solver entirely. The working sub-tabs share
+one state:
+
+- **Repeat solver** — mode first: *fixed altitude* shows the
+  declared-pair entry (auto-filled with the nearest repeat), *adjusting
+  altitude* shows the search settings (max orbits per cycle, altitude
+  band); then the keep_rnge tolerance (your promise, not a solved value —
+  the solver bounds it and, at a fixed altitude, prices its crossing
+  cadence; mirrored with the cases tab), the shared candidate grid and
+  the propagated ground track with its closure markers; *How the solver
+  works* opens `docs/repeat-solver.html`, the full explanation with a
+  worked example.
 - **Station-keeping cases** — the three case panels (artificial-precession
   numbers with the NOrbits derivation from a victim beamwidth, the
   keep_rnge rule, the declared J2 rate) and the copy-to-clipboard field
@@ -430,16 +471,135 @@ assembles a complete SNS v10 dataset from separate elements:
   schema-4 document contributes its whole constellation at once, an older
   single-shell file contributes one.
 - **Masks and operating-parameter sets** — one row per mask XML with its
-  `mask_id`, `f_mask` (P/E/S/R), type and frequency range; `R` rows
-  register as operating-parameter sets.
+  `mask_id`, `f_mask` (P/E/S/R), type, frequency range and link scope:
+  `orb` (the plane the mask serves; empty = whole constellation), `sat`
+  (the satellite within that plane; empty = every satellite) and, for E
+  masks, `e_as` (the specific earth station; empty = typical/all). `R`
+  rows register as operating-parameter sets.
+- **Earth stations** — declared `e_as_stn` rows (id, name, type S/T,
+  coordinates, dish) that E-mask `e_as` links reference; a specific
+  station (S) needs coordinates.
 - **Scenario frequencies** — the examined ranges (E = emission,
   R = reception) of the single built scenario.
 
 **Build dataset** writes both databases — `<ntc_id> SRS.MDB` and
 `<ntc_id> Masks.MDB` — cloned from donor schemas (the reference donors
-are used when present, otherwise you pick them). Version 1 links every
-P/S mask and every E mask into scenario 1 at whole-constellation
-granularity; per-plane and per-satellite linking is a later refinement.
+are used when present, otherwise you pick them). Every mask links into
+scenario 1 at the scope its row sets — whole constellation, per plane,
+per satellite, or a specific earth station — and the builder checks the
+references (an `orb` link must match an orbit row; an `e_as` link needs
+its `e_as_stn` entry).
+
+---
+
+## Operating-parameters designer (R set)
+
+*Tools → Operating parameters (R set)*, also reachable from the builder.
+Authors one `non_gso_operating_parameters` set: the header quantities as
+single fields (empty = the attribute is omitted from the XML), the four
+arrays — `min_exclude`, `min_elev`, `max_co_freq`, `min_duration` — as
+plain text, one node per line (the group headers show each line format).
+The set round-trips through `*.opparams.json`, and **Export R XML**
+writes the byte-convention R-set XML; register it in the SNS builder as
+an `f_mask R` row. The writer's encoding rules are enforced on export:
+`min_duration` is never written as 0 (omit it for the classic
+algorithm), `min_angle_at_es` is rejected when `min_duration` is
+declared, and `es_density`/`es_distance` must be declared together or
+both omitted. Every field carries the parameter-card help text.
+
+**Derive from simulation.** The intended path when the declarations are
+not known a priori: point at a design document, state the real system's
+own operating behaviour (its minimum serving elevation and exclusion
+ring), and fly it over the service grid. Every granted link's measured
+elevation, GSO offset, per-cell and per-satellite link counts and
+inter-link angles are enveloped into the declared set — minima floored
+to 0.1°, maxima carried, `es_density`/`es_distance` taken from the grid,
+an exclusion array derived only where an exclusion actually shaped
+operations, and quantities never observed left undeclared. The result
+fills the designer for review, then saves or exports like any
+hand-entered set — declarations as envelopes of the simulated truth,
+exactly the way the pfd/e.i.r.p. masks are made.
+
+---
+
+## Operation profile (window)
+
+*Tools → Operation profile.* The real system's operating characteristics
+as one saved element (`*.opprofile.json`) — the counterpart of the orbit
+design document for the operational side, and the input to the
+simulation runner, the R-set deriver and the compliance loop
+(`docs/compliance-loop-plan.md`). Grouped fields: payload/beams
+(frequency, the **footprint source** — *beam composition* shapes the
+downlink footprint live from the beam fields below, *PFD mask* points at
+a declared S.1503-4 mask XML that simulations then read the
+examination's way (§D5.1.4.1: nearest-latitude table, exclusion-zone and
+Nco selection from the declared set); the beam fields still shape the
+scheduler's coverage geometry in both modes — then peak gain, beam cell
+radius, Taylor SLR/n̄, pattern floor,
+Tx e.i.r.p., power mode, aggregation and reuse cluster, reference
+bandwidth — optional fields empty keep the scene defaults),
+coverage/service (minimum elevation with per-latitude rows, service
+area, cell pitch, coverage radius), operation/scheduling (tracking
+strategy, Nco per cell and per satellite with per-latitude rows, minimum
+angles, demand, activity factor/period, operational fraction,
+illumination duty) and the exclusion (global or per-latitude — left at 0
+until the compliance loop finds it). The parameter list is open and
+grows with the model.
+
+---
+
+## Compliance loop (window)
+
+*Tools → Compliance loop.* Steps 4–7 of the producer workflow
+(`docs/compliance-loop-plan.md`): epfd(down) victims are swept across a
+latitude grid (ES latitude from/to/step at a chosen ES longitude, the
+wanted GSO at ES longitude + offset, S.1428 dish), one run per grid
+point against the entered limit — the applicable Article 22 table rows,
+one `epfd_db percent` per line. Each point is verdicted with the
+examination's own §D7.1.3 comparison (pass iff the measured exceedance
+at every limit epfd stays within the allowed percentage) and reported
+with the worst dB margin read off the CDF (positive = room to spare);
+failing rows show red, and the table exports to CSV. **Suggest
+exclusion** walks the global exclusion angle upward from the profile's
+value — one full sweep per step, up to a cap — to the smallest compliant
+α, noting when only some latitudes failed (per-latitude α rows are then
+the finer declaration); **Apply to profile** writes the found angle back
+into the operation profile, from where the R-set deriver and the mask
+export turn the compliant system into its declarations. When the
+profile's downlink footprint source is *PFD mask*, the sweep runs the
+examination's own down algorithm against the declared mask and R-set
+gates instead of the live composition — the direct check of what the
+examination will compute from the filing; the advisor's α walk then
+tightens the declared exclusion zone while the mask file stays fixed.
+
+---
+
+## Simulation runner (window)
+
+*Tools → Simulation runner.* Runs the epfd(down) / epfd(is) / epfd(up)
+simulation directly from a design document — no databases needed — over
+the scheduler-driven operation model, the same composition the
+validation dataset used. Two modes: **Play** animates the operation on
+the world map — satellites moving, the service cells, thin lines for
+every *candidate* (feasible) link and thick lines for the *active*
+(granted) ones, with a live count — without collecting statistics;
+**Quick run** is the accelerated simulation with no UI updates,
+producing the CDFs. Inputs: the design document, an optional
+operating-parameter set (`*.opparams.json` from the R-set designer;
+empty = permissive defaults at the entered minimum elevation, no
+exclusion zone), the victim (GSO longitude; ES latitude/longitude, which
+also serve as the up/is victim's boresight; S.1428 dish diameter), the
+uplink ES power ceiling (range-based power control keeps each link below
+it), frequency, duration and time step. **Run** executes on a worker
+thread and writes three CDF CSVs in S.1503-4 D7.1.2 bins (0.1 dB):
+`base.down.csv`, `base.is.csv` (the byproduct at the GSO satellite
+victim — S.672, 40.7 dBi / 1.55°) and `base.up.csv`. The service
+geography is fixed at the generator's grid (30–60°N, ±20°E, 450 km
+cells) — keep the victim ES inside it. When the operation profile
+declares the *PFD mask* footprint source, epfd(down) is computed the
+examination's way from the declared mask (§D5.1.4.1) instead of the
+live composition; there is then no `.is.csv` — the intersatellite
+byproduct needs the e.i.r.p. masks, not the pfd mask.
 
 ---
 

@@ -36,6 +36,41 @@ public sealed class MaskEntry : ObservableObject
 
     private double _freqMaxMhz = 12750;
     public double FreqMaxMhz { get => _freqMaxMhz; set => SetField(ref _freqMaxMhz, value); }
+
+    private string _linkOrbIdText = "";
+    /// <summary>Link scope: orb_id (plane) this mask serves; empty = the whole constellation.</summary>
+    public string LinkOrbIdText { get => _linkOrbIdText; set => SetField(ref _linkOrbIdText, value); }
+
+    private string _linkSatIdText = "";
+    /// <summary>Link scope: satellite number within the plane; empty = every satellite of the plane.</summary>
+    public string LinkSatIdText { get => _linkSatIdText; set => SetField(ref _linkSatIdText, value); }
+
+    private string _linkEsIdText = "";
+    /// <summary>E masks: the specific earth station (e_as_id) this mask belongs to; empty = typical/all (-1).</summary>
+    public string LinkEsIdText { get => _linkEsIdText; set => SetField(ref _linkEsIdText, value); }
+}
+
+/// <summary>One declared earth station row (e_as_stn) for specific-ES mask links.</summary>
+public sealed class EsEntry : ObservableObject
+{
+    private int _eAsId = 1;
+    public int EAsId { get => _eAsId; set => SetField(ref _eAsId, value); }
+
+    private string _stnName = "ES-1";
+    public string StnName { get => _stnName; set => SetField(ref _stnName, value); }
+
+    private string _stnType = "S";
+    /// <summary>'S' = specific (needs coordinates), 'T' = typical.</summary>
+    public string StnType { get => _stnType; set => SetField(ref _stnType, value); }
+
+    private string _latText = "45";
+    public string LatText { get => _latText; set => SetField(ref _latText, value); }
+
+    private string _lonText = "0";
+    public string LonText { get => _lonText; set => SetField(ref _lonText, value); }
+
+    private string _antDiamText = "";
+    public string AntDiamText { get => _antDiamText; set => SetField(ref _antDiamText, value); }
 }
 
 /// <summary>One examination frequency range of the single built scenario.</summary>
@@ -77,6 +112,7 @@ public sealed class SnsBuilderViewModel : ObservableObject
     public ObservableCollection<ShellEntry> Shells { get; } = new();
     public ObservableCollection<MaskEntry> Masks { get; } = new();
     public ObservableCollection<FreqEntry> Frequencies { get; } = new();
+    public ObservableCollection<EsEntry> EarthStations { get; } = new();
 
     private string _statusText = "";
     public string StatusText { get => _statusText; set => SetField(ref _statusText, value); }
@@ -104,6 +140,17 @@ public sealed class SnsBuilderViewModel : ObservableObject
             if (fm == 'R') n.OperatingParamIds.Add(m.MaskId);
         }
 
+        foreach (var es in EarthStations)
+            n.EarthStations.Add(new SrsEarthStation
+            {
+                EAsId = es.EAsId,
+                StnName = es.StnName,
+                StnType = (es.StnType.Trim().ToUpperInvariant() + "S")[0],
+                LatDeg = OptNum(es.LatText, $"earth station {es.EAsId} latitude"),
+                LonDeg = OptNum(es.LonText, $"earth station {es.EAsId} longitude"),
+                AntDiamM = OptNum(es.AntDiamText, $"earth station {es.EAsId} dish"),
+            });
+
         if (Frequencies.Count > 0)
         {
             var sc = new SrsScenario { ScenId = 1, ScenName = _scenarioName };
@@ -115,8 +162,20 @@ public sealed class SnsBuilderViewModel : ObservableObject
             foreach (var m in Masks)
             {
                 char fm = (m.FMask.Trim().ToUpperInvariant() + "P")[0];
-                if (fm is 'P' or 'S') sc.PfdMaskLinks.Add(new SrsMaskLink(s1++, m.MaskId));
-                else if (fm == 'E') sc.EsMaskLinks.Add(new SrsMaskLink(s2++, m.MaskId, EAsId: -1));
+                // Per-row link scope: empty orb = the whole constellation
+                // (-1), empty sat = every satellite of the plane, empty
+                // e_as = typical/all (-1).
+                int orb = OptInt(m.LinkOrbIdText, $"mask {m.MaskId} orb link") ?? -1;
+                int? sat = OptInt(m.LinkSatIdText, $"mask {m.MaskId} sat link");
+                if (orb != -1 && n.Orbits.All(o => o.OrbId != orb))
+                    throw new InvalidOperationException($"mask {m.MaskId}: orb link {orb} matches no orbit row");
+                if (sat is not null && orb == -1)
+                    throw new InvalidOperationException($"mask {m.MaskId}: a sat link needs an orb link");
+                if (fm is 'P' or 'S')
+                    sc.PfdMaskLinks.Add(new SrsMaskLink(s1++, m.MaskId, orb, sat));
+                else if (fm == 'E')
+                    sc.EsMaskLinks.Add(new SrsMaskLink(s2++, m.MaskId, orb, sat,
+                        OptInt(m.LinkEsIdText, $"mask {m.MaskId} e_as link") ?? -1));
             }
             n.Scenarios.Add(sc);
         }
@@ -124,6 +183,16 @@ public sealed class SnsBuilderViewModel : ObservableObject
         n.Validate();
         return n;
     }
+
+    private static double? OptNum(string text, string what)
+        => text.Trim().Length == 0 ? null
+            : double.TryParse(text, System.Globalization.NumberStyles.Float, CultureInfo.InvariantCulture, out double v)
+                ? v : throw new FormatException($"{what}: '{text.Trim()}' is not a number");
+
+    private static int? OptInt(string text, string what)
+        => text.Trim().Length == 0 ? null
+            : int.TryParse(text, System.Globalization.NumberStyles.Integer, CultureInfo.InvariantCulture, out int v)
+                ? v : throw new FormatException($"{what}: '{text.Trim()}' is not a whole number");
 
     /// <summary>The Masks-database content rows for the registered masks.</summary>
     public IReadOnlyList<SrsMdbWriter.MaskContent> BuildMaskContents()
@@ -139,7 +208,8 @@ public sealed class SnsBuilderViewModel : ObservableObject
             return string.Create(CultureInfo.InvariantCulture,
                 $"{Shells.Count} shell(s) -> {n.Orbits.Count} orbit / {n.Phases.Count} phase rows; " +
                 $"{n.MaskInfo.Count} mask_info row(s), {n.OperatingParamIds.Count} R set(s); " +
-                $"{(n.Scenarios.Count > 0 ? n.Scenarios[0].Frequencies.Count : 0)} frequency range(s)");
+                $"{(n.Scenarios.Count > 0 ? n.Scenarios[0].Frequencies.Count : 0)} frequency range(s); " +
+                $"{n.EarthStations.Count} earth station(s)");
         }
         catch (Exception ex) { return ex.Message; }
     }

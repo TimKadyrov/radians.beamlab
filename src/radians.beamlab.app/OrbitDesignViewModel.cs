@@ -27,6 +27,14 @@ public sealed record OrbitSolutionRow(RepeatSolution Solution, bool IsUserEntry 
             return $"{d}d {h:00}:{m:00}:{s:00}";
         }
     }
+    public string CycleAtTargetText
+    {
+        get
+        {
+            var (d, h, m, s) = Solution.RptPrdAtTarget;
+            return $"{d}d {h:00}:{m:00}:{s:00}";
+        }
+    }
     public string DriftText => Solution.DriftDegPerCycleAtTarget.ToString("+0.000;-0.000", CultureInfo.InvariantCulture);
     public string SpacingText => Solution.EquatorSpacingDeg.ToString("F3", CultureInfo.InvariantCulture);
     public string MaxKeepText => Solution.MaxKeepRangeDeg.ToString("F3", CultureInfo.InvariantCulture);
@@ -132,6 +140,65 @@ public sealed class OrbitDesignViewModel : ObservableObject
         set { if (SetField(ref _keepRangeDeg, value)) RecomputeDetails(); }
     }
 
+    private bool _declareAtTargetAltitude = true;
+    /// <summary>
+    /// Case-2 default ("fixed altitude"): the repeat is declared at the
+    /// target altitude and station keeping absorbs the natural drift (the
+    /// EPFD calculation flies the declared repeat and sweeps the deadband
+    /// either way). False ("adjusting altitude") adopts the selected
+    /// candidate's exact closing altitude, where the repeat costs zero
+    /// correction.
+    /// </summary>
+    public bool DeclareAtTargetAltitude
+    {
+        get => _declareAtTargetAltitude;
+        set
+        {
+            if (!SetField(ref _declareAtTargetAltitude, value)) return;
+            _harmonizedRptSeconds = null;   // the declared cycle changed
+            OnPropertyChanged(nameof(AdjustAltitudeChoice));
+            // Recompute so entering fixed mode auto-fills an empty pair;
+            // then refresh unconditionally -- the reselect inside may be a
+            // no-op while the mode still changes texts and the track.
+            Recompute();
+            RecomputeDetails();
+            RecomputeTrack();
+        }
+    }
+
+    /// <summary>The inverse view of the choice, for the second radio button.</summary>
+    public bool AdjustAltitudeChoice
+    {
+        get => !_declareAtTargetAltitude;
+        set => DeclareAtTargetAltitude = !value;
+    }
+
+    private long? _harmonizedRptSeconds;
+    /// <summary>
+    /// Case-2 override: the constellation repeat period (s) declared as
+    /// this shell's rpt_prd instead of its own cycle -- any multiple of
+    /// the track's cycle is a valid repeat period for it (Rec. A2.4: one
+    /// period appropriate for all). Cleared whenever the declared cycle
+    /// changes (a new pair or altitude mode).
+    /// </summary>
+    public long? HarmonizedRptSeconds
+    {
+        get => _harmonizedRptSeconds;
+        set { if (SetField(ref _harmonizedRptSeconds, value)) RecomputeDetails(); }
+    }
+
+    /// <summary>This shell's own declared cycle in whole seconds (Case 2 with a selection; else null).</summary>
+    public long? OwnRptSeconds
+        => _caseChoice == 1 && _selectedSolution is { } r
+            ? (long)Math.Round(_declareAtTargetAltitude
+                ? r.Solution.RepeatSecondsAtTarget
+                : r.Solution.RepeatSeconds)
+            : null;
+
+    /// <summary>The rpt_prd this shell declares: the harmonized period or its own cycle.</summary>
+    public long? DeclaredRptSeconds
+        => _caseChoice == 1 ? _harmonizedRptSeconds ?? OwnRptSeconds : null;
+
     private string _precessionText = "";
     /// <summary>
     /// Case-3 admin-supplied precession rate (deg/s, any sign); empty
@@ -161,7 +228,30 @@ public sealed class OrbitDesignViewModel : ObservableObject
     public OrbitSolutionRow? SelectedSolution
     {
         get => _selectedSolution;
-        set { if (SetField(ref _selectedSolution, value)) { ApplyBeamwidth(); RecomputeDetails(); RecomputeTrack(); } }
+        set
+        {
+            if (!SetField(ref _selectedSolution, value)) return;
+            _harmonizedRptSeconds = null;   // the declared cycle changed
+            ApplyBeamwidth(); RecomputeDetails(); RecomputeTrack();
+            SyncOwnPeriod(value);
+        }
+    }
+
+    // In fixed-altitude mode a grid selection auto-fills the declared
+    // pair, so it rides to the top as the checked row; the recompute
+    // guard keeps the solver's own reselects out, and adjusting mode
+    // selects rows without promoting them.
+    private void SyncOwnPeriod(OrbitSolutionRow? row)
+    {
+        if (_inRecompute || !_declareAtTargetAltitude || row is null || row.IsUserEntry) return;
+        string k = row.Orbits.ToString(CultureInfo.InvariantCulture);
+        string m = row.NodalDays.ToString(CultureInfo.InvariantCulture);
+        if (k == _checkOrbitsText.Trim() && m == _checkDaysText.Trim()) return;
+        _checkOrbitsText = k;
+        _checkDaysText = m;
+        OnPropertyChanged(nameof(CheckOrbitsText));
+        OnPropertyChanged(nameof(CheckDaysText));
+        Recompute();
     }
 
     private string _statusText = "";
@@ -180,6 +270,10 @@ public sealed class OrbitDesignViewModel : ObservableObject
     private bool _keepRangeValid = true;
     public bool KeepRangeValid { get => _keepRangeValid; private set => SetField(ref _keepRangeValid, value); }
 
+    private string _keepRangeHintText = "";
+    /// <summary>The solver-tab keep_rnge hint: the bound, and in fixed mode the crossing cadence.</summary>
+    public string KeepRangeHintText { get => _keepRangeHintText; private set => SetField(ref _keepRangeHintText, value); }
+
     private string _case3Text = "";
     public string Case3Text { get => _case3Text; private set => SetField(ref _case3Text, value); }
 
@@ -196,8 +290,16 @@ public sealed class OrbitDesignViewModel : ObservableObject
     // ---- computation ---------------------------------------------------
 
     private bool _inputsValid = true;
+    private bool _inRecompute;
 
     private void Recompute()
+    {
+        _inRecompute = true;
+        try { RecomputeCore(); }
+        finally { _inRecompute = false; }
+    }
+
+    private void RecomputeCore()
     {
         if (_targetAltitudeKm < 200.0 || _targetAltitudeKm > 45000.0
             || _inclinationDeg <= 0.0 || _inclinationDeg >= 180.0
@@ -216,6 +318,16 @@ public sealed class OrbitDesignViewModel : ObservableObject
 
         var sols = OrbitDesign.RepeatSolutions(_targetAltitudeKm, _eccentricity, _inclinationDeg,
             _maxOrbitsPerCycle, take: 10, searchBandKm: _searchBandKm);
+        // Fixed-altitude mode always declares a pair: an empty entry
+        // starts from the nearest repeat.
+        if (_declareAtTargetAltitude && sols.Count > 0
+            && _checkOrbitsText.Trim().Length == 0 && _checkDaysText.Trim().Length == 0)
+        {
+            _checkOrbitsText = sols[0].Orbits.ToString(CultureInfo.InvariantCulture);
+            _checkDaysText = sols[0].NodalDays.ToString(CultureInfo.InvariantCulture);
+            OnPropertyChanged(nameof(CheckOrbitsText));
+            OnPropertyChanged(nameof(CheckDaysText));
+        }
         var rows = sols.Select(s => new OrbitSolutionRow(s)).ToList();
         CheckStatusText = ApplyOwnPeriod(rows);
         Solutions = rows;
@@ -248,12 +360,17 @@ public sealed class OrbitDesignViewModel : ObservableObject
 
         rows.RemoveAll(r => r.Orbits == chk.Orbits && r.NodalDays == chk.NodalDays);
         rows.Insert(0, new OrbitSolutionRow(cs, IsUserEntry: true, WithinBand: chk.WithinBand));
-        return reduced
-            + string.Create(inv,
-                $"closes at {cs.AltitudeKm:F2} km ({cs.AltitudeDeltaKm:+0.00;-0.00} from target)")
+        // The narration follows the mode: fixed altitude leads with what is
+        // declared, the exact closing altitude stays as the reference.
+        string closing = string.Create(inv,
+            $"closes by itself at {cs.AltitudeKm:F2} km ({cs.AltitudeDeltaKm:+0.00;-0.00} from target)")
             + (chk.WithinBand
                 ? ""
                 : string.Create(inv, $" -- outside the {_searchBandKm:F0} km search band"));
+        return reduced + (_declareAtTargetAltitude
+            ? string.Create(inv,
+                $"declared at {_targetAltitudeKm:F1} km, drift {Math.Abs(cs.DriftDegPerCycleAtTarget):F4} deg/cycle to hold; ") + closing
+            : closing);
     }
 
     private void RecomputeDetails()
@@ -262,6 +379,7 @@ public sealed class OrbitDesignViewModel : ObservableObject
         {
             Case1Text = Case2Text = Case3Text = "";
             KeepRangeValid = true;
+            KeepRangeHintText = "";
             RecomputeConstellation();
             return;
         }
@@ -288,12 +406,28 @@ public sealed class OrbitDesignViewModel : ObservableObject
             var s = row.Solution;
             try
             {
-                var f2 = OrbitDesign.Case2Fields(s, _keepRangeDeg);
-                var (d, h, m, sec) = f2.RptPrd!.Value;
+                var f2 = OrbitDesign.Case2Fields(s, _keepRangeDeg, _declareAtTargetAltitude);
+                var (d, h, m, sec) = _harmonizedRptSeconds is long hp
+                    ? OrbitDesign.DecomposePeriod(hp)
+                    : f2.RptPrd!.Value;
+                double drift = Math.Abs(s.DriftDegPerCycleAtTarget);
+                string altLine = _declareAtTargetAltitude
+                    ? drift > 1e-9
+                        ? string.Create(inv,
+                            $"declared at the target {_targetAltitudeKm:F1} km; station keeping absorbs {drift:F4} deg/cycle\n" +
+                            $"(keep_rnge crossed in {_keepRangeDeg / drift:F1} cycle(s) ~ {_keepRangeDeg / drift * s.RepeatSecondsAtTarget / 86400.0:F1} d between corrections)")
+                        : string.Create(inv,
+                            $"declared at the target {_targetAltitudeKm:F1} km; station keeping absorbs negligible drift")
+                    : string.Create(inv,
+                        $"declared at the exact closing altitude {s.AltitudeKm:F2} km (zero correction)");
+                if (_harmonizedRptSeconds is long hs2)
+                    altLine += string.Create(inv,
+                        $"\nrpt_prd harmonized to the constellation period ({hs2 / (OwnRptSeconds ?? hs2)} own cycle(s))");
                 Case2Text = string.Create(inv,
                     $"f_stn_keep='Y'   keep_rnge = {f2.KeepRngeDeg:F3} deg (max {s.MaxKeepRangeDeg:F3})\n" +
                     $"rpt_prd_dd={d}  hh={h}  mm={m}  ss={sec}\n" +
-                    $"track spacing {s.EquatorSpacingDeg:F3} deg, {s.Orbits} orbits / {s.NodalDays} nodal day(s)");
+                    $"track spacing {s.EquatorSpacingDeg:F3} deg, {s.Orbits} orbits / {s.NodalDays} nodal day(s)\n")
+                    + altLine;
                 KeepRangeValid = true;
             }
             catch (ArgumentOutOfRangeException ex)
@@ -307,6 +441,7 @@ public sealed class OrbitDesignViewModel : ObservableObject
             Case2Text = "select a repeating candidate (or validate your own period) on the Repeat solver";
             KeepRangeValid = true;
         }
+        KeepRangeHintText = _selectedSolution is { } hr ? BuildKeepHint(hr.Solution) : "";
 
         double rate3 = OrbitDesign.J2NodalRateDegPerSec(aTarget, _eccentricity, _inclinationDeg);
         Case3Text = ParsedPrecession() is { } custom
@@ -321,6 +456,21 @@ public sealed class OrbitDesignViewModel : ObservableObject
         RecomputeConstellation();
     }
 
+    // keep_rnge is the operator's own tolerance promise; the solver only
+    // bounds it (half the track spacing) and, at a fixed altitude, prices
+    // it (how often the free-flight drift crosses it).
+    private string BuildKeepHint(RepeatSolution s)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        string hint = string.Create(inv,
+            $"max {s.MaxKeepRangeDeg:F3} deg (half the {s.EquatorSpacingDeg:F3} deg track spacing)");
+        if (!_keepRangeValid) return "keep_rnge out of bounds -- " + hint;
+        double drift = Math.Abs(s.DriftDegPerCycleAtTarget);
+        return _declareAtTargetAltitude && drift > 1e-9
+            ? hint + string.Create(inv, $"; drift crosses it in {_keepRangeDeg / drift:F1} cycle(s)")
+            : hint;
+    }
+
     private void RecomputeTrack()
     {
         var row = _selectedSolution;
@@ -332,34 +482,20 @@ public sealed class OrbitDesignViewModel : ObservableObject
             return;
         }
         var s = row.Solution;
+        // The map flies the DECLARED orbit: the exact closing altitude, or
+        // the target altitude, where the closure gap equals the drift the
+        // station keeping absorbs. Solo satellite here; the document owns
+        // the whole-constellation overlay across shells.
+        double altD = _declareAtTargetAltitude ? _targetAltitudeKm : s.AltitudeKm;
         var shell = new ConstellationShell
         {
-            AltitudeKm = s.AltitudeKm, InclinationDeg = _inclinationDeg,
+            AltitudeKm = altD, InclinationDeg = _inclinationDeg,
             Eccentricity = _eccentricity, PlaneCount = 1, SatsPerPlane = 1,
         };
         var con = new Constellation(new[] { shell });
-        double simDur = s.RepeatSeconds;
+        double simDur = _declareAtTargetAltitude ? s.RepeatSecondsAtTarget : s.RepeatSeconds;
         int steps = Math.Min(40000, s.Orbits * 180);
-
-        var segments = new List<IReadOnlyList<(double, double)>>();
-        var current = new List<(double, double)>();
-        double? prevLon = null;
-        (double LatDeg, double LonDeg) first = default, last = default;
-        for (int k = 0; k <= steps; k++)
-        {
-            var st = con.StateAt(0, simDur * k / steps, simDur);
-            var pt = (st.SubSatLatDeg, st.SubSatLonDeg);
-            if (k == 0) first = pt;
-            last = pt;
-            if (prevLon is double pl && Math.Abs(pt.SubSatLonDeg - pl) > 180.0)
-            {
-                if (current.Count > 1) segments.Add(current);
-                current = new List<(double, double)>();
-            }
-            current.Add(pt);
-            prevLon = pt.SubSatLonDeg;
-        }
-        if (current.Count > 1) segments.Add(current);
+        var (segments, first, last) = SampleTracks(con, simDur, steps);
         TrackSegments = segments;
 
         double la1 = first.LatDeg * Math.PI / 180.0, lo1 = first.LonDeg * Math.PI / 180.0;
@@ -374,7 +510,10 @@ public sealed class OrbitDesignViewModel : ObservableObject
     public string TrackClosureText => double.IsNaN(TrackClosureDeg)
         ? ""
         : string.Create(CultureInfo.InvariantCulture,
-            $"track closure after one cycle: {TrackClosureDeg:F4} deg");
+            $"track closure after one cycle: {TrackClosureDeg:F4} deg")
+          + (_declareAtTargetAltitude
+              ? " (flown at the target altitude: the gap is the free-flight drift station keeping absorbs)"
+              : "");
 
     // ---- constellation construction (Walker shell -> SNS tables) -------
 
@@ -405,7 +544,19 @@ public sealed class OrbitDesignViewModel : ObservableObject
 
     private int _caseChoice = 1;
     /// <summary>0 = Case 1 free drift, 1 = Case 2 station-kept, 2 = Case 3 declared.</summary>
-    public int CaseChoice { get => _caseChoice; set { if (SetField(ref _caseChoice, value)) RecomputeConstellation(); } }
+    public int CaseChoice
+    {
+        get => _caseChoice;
+        set
+        {
+            if (!SetField(ref _caseChoice, value)) return;
+            OnPropertyChanged(nameof(IsCase2));
+            RecomputeConstellation();
+        }
+    }
+
+    /// <summary>True when the station-keeping case is Case 2 (gates the harmonize control).</summary>
+    public bool IsCase2 => _caseChoice == 1;
 
     private IReadOnlyList<SrsOrbitRow> _orbitRows = Array.Empty<SrsOrbitRow>();
     public IReadOnlyList<SrsOrbitRow> OrbitRows { get => _orbitRows; private set => SetField(ref _orbitRows, value); }
@@ -416,16 +567,28 @@ public sealed class OrbitDesignViewModel : ObservableObject
     private string _snsStatusText = "";
     public string SnsStatusText { get => _snsStatusText; set => SetField(ref _snsStatusText, value); }
 
-    /// <summary>One-line display for the document's shells list.</summary>
-    public string ShellSummary => string.Create(CultureInfo.InvariantCulture,
-        $"{_targetAltitudeKm:F1} km / i {_inclinationDeg:F1} · case {_caseChoice + 1} · {_planeCount}x{_satsPerPlane}");
+    private string _shellName = "";
+    /// <summary>Optional user-given shell name; rides in every list and the design file.</summary>
+    public string ShellName
+    {
+        get => _shellName;
+        set { if (SetField(ref _shellName, value)) OnPropertyChanged(nameof(ShellSummary)); }
+    }
 
-    /// <summary>The designed shell: selected candidate's altitude with the chosen case's fields.</summary>
+    /// <summary>One-line display for the document's shells list.</summary>
+    public string ShellSummary
+        => (_shellName.Trim().Length > 0 ? _shellName.Trim() + " — " : "")
+           + string.Create(CultureInfo.InvariantCulture,
+               $"{_targetAltitudeKm:F1} km / i {_inclinationDeg:F1} · case {_caseChoice + 1} · {_planeCount}x{_satsPerPlane}");
+
+    /// <summary>The designed shell: the declared altitude with the chosen case's fields.</summary>
     public ConstellationShell BuildShell()
     {
-        // Only Case 2 needs the solved candidate; Cases 1 and 3 fly the
-        // target orbit as-is.
-        double alt = _caseChoice == 1
+        // Cases 1 and 3 fly the target orbit as-is; Case 2 declares at the
+        // target altitude too by default (station keeping absorbs the
+        // drift) and only adopts the solved candidate's exact altitude
+        // when the operator opts out of the default.
+        double alt = _caseChoice == 1 && !_declareAtTargetAltitude
             ? _selectedSolution?.Solution.AltitudeKm ?? _targetAltitudeKm
             : _targetAltitudeKm;
         double? opHt = double.TryParse(_opHeightText, NumberStyles.Float,
@@ -443,7 +606,11 @@ public sealed class OrbitDesignViewModel : ObservableObject
             1 when _selectedSolution is not null => shell with
             {
                 StationKeeping = true, WDeltaDeg = _keepRangeDeg,
-                RepeatPeriod = _selectedSolution.Solution.RptPrd,
+                RepeatPeriod = _harmonizedRptSeconds is long hs
+                    ? OrbitDesign.DecomposePeriod(hs)
+                    : _declareAtTargetAltitude
+                        ? _selectedSolution.Solution.RptPrdAtTarget
+                        : _selectedSolution.Solution.RptPrd,
             },
             2 => shell with
             {
@@ -482,17 +649,77 @@ public sealed class OrbitDesignViewModel : ObservableObject
         OnPropertyChanged(nameof(ShellSummary));
     }
 
+    /// <summary>
+    /// This shell's full Walker pattern for one declared cycle -- the
+    /// building block of the document's constellation-track overlay.
+    /// Empty without a selected repeat.
+    /// </summary>
+    public IReadOnlyList<IReadOnlyList<(double LatDeg, double LonDeg)>> BuildShellTrackSegments(int sampleBudget)
+    {
+        if (_selectedSolution is not { } row) return Array.Empty<IReadOnlyList<(double, double)>>();
+        var s = row.Solution;
+        double altD = _declareAtTargetAltitude ? _targetAltitudeKm : s.AltitudeKm;
+        var shell = new ConstellationShell
+        {
+            AltitudeKm = altD, InclinationDeg = _inclinationDeg, Eccentricity = _eccentricity,
+            PlaneCount = Math.Max(1, _planeCount), SatsPerPlane = Math.Max(1, _satsPerPlane),
+            WalkerPhasingF = _walkerPhasingF, Lan0Deg = _lan0Deg, LanSpreadDeg = _lanSpreadDeg,
+            InPlaneOffsetDeg = _inPlaneOffsetDeg, ArgumentOfPerigeeDeg = _argPerigeeDeg,
+        };
+        var con = new Constellation(new[] { shell });
+        double simDur = _declareAtTargetAltitude ? s.RepeatSecondsAtTarget : s.RepeatSeconds;
+        // Budgeted sampling with a resolution floor so tracks stay smooth.
+        int steps = Math.Min(Math.Min(40000, s.Orbits * 180),
+            Math.Max(s.Orbits * 20, Math.Max(1, sampleBudget) / con.SatelliteCount));
+        return SampleTracks(con, simDur, steps).Segments;
+    }
+
+    private static (List<IReadOnlyList<(double, double)>> Segments,
+        (double LatDeg, double LonDeg) First, (double LatDeg, double LonDeg) Last)
+        SampleTracks(Constellation con, double simDur, int steps)
+    {
+        var segments = new List<IReadOnlyList<(double, double)>>();
+        (double LatDeg, double LonDeg) first = default, last = default;
+        for (int sat = 0; sat < con.SatelliteCount; sat++)
+        {
+            var current = new List<(double, double)>();
+            double? prevLon = null;
+            for (int k = 0; k <= steps; k++)
+            {
+                var st = con.StateAt(sat, simDur * k / steps, simDur);
+                var pt = (st.SubSatLatDeg, st.SubSatLonDeg);
+                if (sat == 0 && k == 0) first = pt;
+                if (sat == 0) last = pt;
+                if (prevLon is double pl && Math.Abs(pt.SubSatLonDeg - pl) > 180.0)
+                {
+                    if (current.Count > 1) segments.Add(current);
+                    current = new List<(double, double)>();
+                }
+                current.Add(pt);
+                prevLon = pt.SubSatLonDeg;
+            }
+            if (current.Count > 1) segments.Add(current);
+        }
+        return (segments, first, last);
+    }
+
     /// <summary>The design as its file form, including the selected candidate.</summary>
     public OrbitDesignData BuildDesignData()
     {
         var sol = _selectedSolution?.Solution;
-        return new OrbitDesignData(3, _targetAltitudeKm, _inclinationDeg, _eccentricity,
+        // The stored rpt_prd is the DECLARED one: harmonized to the
+        // constellation period when set, else the shell's own cycle at
+        // the declared altitude.
+        (int Days, int Hours, int Minutes, int Seconds)? rpt = _harmonizedRptSeconds is long hs
+            ? OrbitDesign.DecomposePeriod(hs)
+            : _declareAtTargetAltitude ? sol?.RptPrdAtTarget : sol?.RptPrd;
+        return new OrbitDesignData(6, _targetAltitudeKm, _inclinationDeg, _eccentricity,
             _maxOrbitsPerCycle, _searchBandKm, _planeCount, _satsPerPlane, _walkerPhasingF,
             _lan0Deg, _lanSpreadDeg, _inPlaneOffsetDeg, _argPerigeeDeg, _opHeightText,
             _caseChoice, _keepRangeDeg, _nOrbits, _victimBeamwidthText,
             sol?.AltitudeKm, sol?.Orbits, sol?.NodalDays,
-            sol?.RptPrd.Days, sol?.RptPrd.Hours, sol?.RptPrd.Minutes, sol?.RptPrd.Seconds,
-            ParsedPrecession());
+            rpt?.Days, rpt?.Hours, rpt?.Minutes, rpt?.Seconds,
+            ParsedPrecession(), _declareAtTargetAltitude, _harmonizedRptSeconds, _shellName);
     }
 
     public string BuildDesignJson() => OrbitDesignFileCodec.Save(BuildDesignData());
@@ -500,6 +727,7 @@ public sealed class OrbitDesignViewModel : ObservableObject
     public void LoadDesignJson(string json)
     {
         var d = OrbitDesignFileCodec.Load(json);
+        ShellName = d.ShellName;
         TargetAltitudeKm = d.TargetAltitudeKm; InclinationDeg = d.InclinationDeg;
         Eccentricity = d.Eccentricity; MaxOrbitsPerCycle = d.MaxOrbitsPerCycle;
         SearchBandKm = d.SearchBandKm; PlaneCount = d.PlaneCount; SatsPerPlane = d.SatsPerPlane;
@@ -508,6 +736,7 @@ public sealed class OrbitDesignViewModel : ObservableObject
         OpHeightText = d.OpHeightText; CaseChoice = d.CaseChoice; KeepRangeDeg = d.KeepRangeDeg;
         NOrbits = d.NOrbits; VictimBeamwidthText = d.VictimBeamwidthText;
         PrecessionText = d.PrecessionDegPerSec?.ToString(CultureInfo.InvariantCulture) ?? "";
+        DeclareAtTargetAltitude = d.DeclareAtTargetAltitude;
         // Reselect the stored candidate when it is still in the solution
         // set; a pair the scan cannot see (saved from the own-period
         // validator) is re-entered through the validator instead.
@@ -524,6 +753,8 @@ public sealed class OrbitDesignViewModel : ObservableObject
             }
             SelectedSolution = match ?? SelectedSolution;
         }
+        // Restore last: the reselect above clears the override.
+        HarmonizedRptSeconds = d.HarmonizedRptSeconds;
     }
 
     /// <summary>The clipboard payload: all three case previews for the selected solution.</summary>
@@ -533,7 +764,8 @@ public sealed class OrbitDesignViewModel : ObservableObject
         if (row is null) return "";
         var s = row.Solution;
         return string.Create(CultureInfo.InvariantCulture,
-            $"SNS v10 orbit fields -- alt {s.AltitudeKm:F2} km, i {_inclinationDeg:F1} deg, e {_eccentricity:F3}\n" +
+            $"SNS v10 orbit fields -- target {_targetAltitudeKm:F2} km / i {_inclinationDeg:F1} deg / e {_eccentricity:F3}; " +
+            $"candidate {s.Orbits}/{s.NodalDays} @ {s.AltitudeKm:F2} km\n" +
             $"[Case 1 free drift]\n{Case1Text}\n[Case 2 station-kept repeating]\n{Case2Text}\n" +
             $"[Case 3 declared precession]\n{Case3Text}\n");
     }

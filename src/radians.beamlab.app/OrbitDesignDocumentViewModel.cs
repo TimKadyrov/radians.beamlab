@@ -41,6 +41,7 @@ public sealed class OrbitDesignDocumentViewModel : ObservableObject
         {
             OnPropertyChanged(nameof(ShellHeaderText));
             RecomputePreview();
+            if (_showConstellationTrack) RecomputeOverlay();
         };
         RecomputePreview();
     }
@@ -57,6 +58,9 @@ public sealed class OrbitDesignDocumentViewModel : ObservableObject
         if (e.PropertyName is nameof(OrbitDesignViewModel.OrbitRows)
             or nameof(OrbitDesignViewModel.PhaseRows))
             RecomputePreview();
+        if (e.PropertyName == nameof(OrbitDesignViewModel.OrbitRows)
+            && _showConstellationTrack)
+            RecomputeOverlay();
     }
 
     public string ShellHeaderText
@@ -82,6 +86,20 @@ public sealed class OrbitDesignDocumentViewModel : ObservableObject
         vm.LoadDesignJson(_selectedShell.BuildDesignJson());
         Shells.Add(vm);
         SelectedShell = vm;
+    }
+
+    /// <summary>Moves the selected shell one slot up; order numbers orb_id across shells.</summary>
+    public void MoveSelectedUp()
+    {
+        int i = Shells.IndexOf(_selectedShell);
+        if (i > 0) Shells.Move(i, i - 1);
+    }
+
+    /// <summary>Moves the selected shell one slot down.</summary>
+    public void MoveSelectedDown()
+    {
+        int i = Shells.IndexOf(_selectedShell);
+        if (i >= 0 && i < Shells.Count - 1) Shells.Move(i, i + 1);
     }
 
     /// <summary>Removes the selected shell; a document always keeps one.</summary>
@@ -119,6 +137,7 @@ public sealed class OrbitDesignDocumentViewModel : ObservableObject
 
     private void RecomputePreview()
     {
+        ConstellationRepeatText = BuildRepeatText();
         if (!_previewAllShells)
         {
             PreviewOrbitRows = _selectedShell.OrbitRows;
@@ -140,6 +159,87 @@ public sealed class OrbitDesignDocumentViewModel : ObservableObject
             PreviewPhaseRows = Array.Empty<SrsPhaseRow>();
             PreviewStatusText = ex.Message;
         }
+    }
+
+    // ---- constellation-track overlay: every shell's pattern -------------
+
+    private bool _showConstellationTrack;
+    /// <summary>Track-map overlay: one declared cycle of every satellite of every shell.</summary>
+    public bool ShowConstellationTrack
+    {
+        get => _showConstellationTrack;
+        set { if (SetField(ref _showConstellationTrack, value)) RecomputeOverlay(); }
+    }
+
+    private IReadOnlyList<IReadOnlyList<(double LatDeg, double LonDeg)>> _overlaySegments
+        = Array.Empty<IReadOnlyList<(double, double)>>();
+    /// <summary>The overlay polylines; empty while the toggle is off.</summary>
+    public IReadOnlyList<IReadOnlyList<(double LatDeg, double LonDeg)>> OverlaySegments
+    {
+        get => _overlaySegments;
+        private set => SetField(ref _overlaySegments, value);
+    }
+
+    // Each shell flies its OWN declared cycle (its altitude, its rpt_prd);
+    // the union is the constellation's ground pattern.
+    private void RecomputeOverlay()
+    {
+        if (!_showConstellationTrack)
+        {
+            OverlaySegments = Array.Empty<IReadOnlyList<(double, double)>>();
+            return;
+        }
+        var segs = new List<IReadOnlyList<(double, double)>>();
+        int budget = 150000 / Math.Max(1, Shells.Count);
+        foreach (var sh in Shells) segs.AddRange(sh.BuildShellTrackSegments(budget));
+        OverlaySegments = segs;
+    }
+
+    // ---- constellation repeat period (Rec. A2.4 / D4.6) -----------------
+
+    private string _constellationRepeatText = "";
+    /// <summary>P_repeat readout: the LCM of the shells' declared cycles, or the A2.4/B5.1 mixed warning.</summary>
+    public string ConstellationRepeatText
+    { get => _constellationRepeatText; private set => SetField(ref _constellationRepeatText, value); }
+
+    // P_repeat is the time for EVERY satellite, across every shell, to
+    // return to the same position relative to the Earth: within a shell
+    // that is its own declared cycle; across shells the LCM of them.
+    private string BuildRepeatText()
+    {
+        var declared = Shells.Select(s => s.DeclaredRptSeconds).ToList();
+        int nRep = declared.Count(v => v is not null);
+        if (nRep == 0) return "";
+        if (nRep < Shells.Count)
+            return "shells mix repeating and non-repeating -- Rec. S.1503-4 A2.4/B5.1 wants all one or the other";
+        long p = 1;
+        foreach (var v in declared) p = Lcm(p, v!.Value);
+        var (d, h, m, s2) = OrbitDesign.DecomposePeriod(p);
+        string counts = string.Join(", ", Shells.Select(
+            (sh, i) => FormattableString.Invariant($"{p / sh.DeclaredRptSeconds!.Value}x shell {i + 1}")));
+        string text = FormattableString.Invariant(
+            $"constellation repeat P_repeat = {d}d {h:00}:{m:00}:{s2:00} ({counts})");
+        return d > 100
+            ? text + " -- impractically long: harmonize or align the declared pairs"
+            : text;
+    }
+
+    private static long Gcd(long a, long b) { while (b != 0) (a, b) = (b, a % b); return a; }
+    private static long Lcm(long a, long b) => a / Gcd(a, b) * b;
+
+    /// <summary>
+    /// Declares the common constellation period -- the LCM of every
+    /// shell's own cycle -- as rpt_prd on every shell (A2.4: one repeat
+    /// period appropriate for all satellites, including all
+    /// sub-constellations). No-op unless every shell is Case 2.
+    /// </summary>
+    public void HarmonizeRptPrd()
+    {
+        var own = Shells.Select(s => s.OwnRptSeconds).ToList();
+        if (own.Count == 0 || own.Any(v => v is null)) return;
+        long p = 1;
+        foreach (var v in own) p = Lcm(p, v!.Value);
+        foreach (var s in Shells) s.HarmonizedRptSeconds = p;
     }
 
     /// <summary>All shells in one preview notice, orb_id continuing across shells.</summary>

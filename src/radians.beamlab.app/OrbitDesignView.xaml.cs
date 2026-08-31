@@ -43,6 +43,11 @@ public partial class OrbitDesignView : UserControl
         _vm.TrackChanged += OnTrackChanged;
         _doc.PropertyChanged += (_, e) =>
         {
+            if (e.PropertyName == nameof(OrbitDesignDocumentViewModel.OverlaySegments))
+            {
+                Redraw();
+                return;
+            }
             if (e.PropertyName != nameof(OrbitDesignDocumentViewModel.SelectedShell)) return;
             _vm.TrackChanged -= OnTrackChanged;
             _vm = _doc.SelectedShell;
@@ -81,10 +86,13 @@ public partial class OrbitDesignView : UserControl
         CheckOrbitsBox.ToolTip = "Whole nodal orbits (k) of a repeat you already have in mind. With m: the track repeats after k orbits in m node-relative Earth turns; a non-coprime pair reduces to the true cycle.";
         CheckDaysBox.ToolTip = "Whole nodal days (m) of the repeat to validate. The exact closing altitude is solved anywhere in 100-30000 km and flagged when it falls outside the search band.";
         PrecessBox.ToolTip = "Admin-supplied nodal precession rate (deg/s, signed -- negative is the normal prograde case). Empty declares the plain-J2 default for the target orbit. Filed as f_precess='Y', precession.";
+        FixedAltRadio.ToolTip = "The default: the Case-2 filing keeps your target altitude and declares rpt_prd as k laps of your own orbit; the free-flight drift (drift@target) is what station keeping corrects, and the EPFD calculation only ever flies the declared repeat with the deadband sweep.";
+        AdjustAltRadio.ToolTip = "The filing adopts the selected candidate's exact closing altitude, where the repeat holds itself and costs zero correction.";
         BwBox.ToolTip = "Victim 3 dB beamwidth (deg). When set, NOrbits is derived from the run rules (eq (3), N_tracks = 16) at the target altitude; leave empty to set NOrbits by hand.";
         NOrbitsBox.ToolTip = Cat("NOrbits") ?? "Case-1 run length in equatorial passes.";
         KeepBox.ToolTip = Cat("StationKeeping · WDeltaDeg · RepeatPeriod")
             ?? "Longitude deadband half-width the station keeping holds (deg).";
+        KeepSolverBox.ToolTip = KeepBox.ToolTip;
         WalkerFBox.ToolTip = "Walker phasing parameter F: satellites in adjacent planes are offset by F x 360 / (planes x sats per plane) degrees.";
         LanSpreadBox.ToolTip = "Longitude span the planes divide: 360 = Walker delta, 180 = Walker star.";
         OpHeightBox.ToolTip = Cat("Eccentricity · ArgumentOfPerigee · OperatingHeightKm")
@@ -131,7 +139,10 @@ public partial class OrbitDesignView : UserControl
 
     private void OnAddShellClick(object sender, RoutedEventArgs e) => _doc.AddShell();
     private void OnDuplicateShellClick(object sender, RoutedEventArgs e) => _doc.DuplicateSelected();
+    private void OnMoveShellUpClick(object sender, RoutedEventArgs e) => _doc.MoveSelectedUp();
+    private void OnMoveShellDownClick(object sender, RoutedEventArgs e) => _doc.MoveSelectedDown();
     private void OnRemoveShellClick(object sender, RoutedEventArgs e) => _doc.RemoveSelected();
+    private void OnHarmonizeClick(object sender, RoutedEventArgs e) => _doc.HarmonizeRptPrd();
 
     private void OnOpenSnsBuilderClick(object sender, RoutedEventArgs e)
     {
@@ -176,19 +187,27 @@ public partial class OrbitDesignView : UserControl
             if (pl.Points.Count > 1) TrackCanvas.Children.Add(pl);
         }
 
-        // ground track (one full cycle)
+        // ground track: one satellite's declared cycle, or the document's
+        // whole-constellation overlay (thinner lines for the union grid)
         var trackBrush = new SolidColorBrush(Color.FromRgb(0x00, 0x76, 0xA1));
-        foreach (var seg in _vm.TrackSegments)
+        bool shellMode = _doc.ShowConstellationTrack;
+        foreach (var seg in shellMode ? _doc.OverlaySegments : _vm.TrackSegments)
         {
-            var pl = new Polyline { Stroke = trackBrush, StrokeThickness = 1.4, Opacity = 0.9 };
+            var pl = new Polyline
+            {
+                Stroke = trackBrush,
+                StrokeThickness = shellMode ? 1.0 : 1.4,
+                Opacity = shellMode ? 0.55 : 0.9,
+            };
             foreach (var (lat, lon) in seg)
                 pl.Points.Add(new Point(X(lon), Y(lat)));
             if (pl.Points.Count > 1) TrackCanvas.Children.Add(pl);
         }
 
         // start / end markers: a filled dot at the start, a ring at the end --
-        // coincident when the cycle closes.
-        if (_vm.TrackSegments.Count > 0)
+        // coincident when the cycle closes. Solo mode only; among a whole
+        // shell's tracks they are noise.
+        if (!shellMode && _vm.TrackSegments.Count > 0)
         {
             var first = _vm.TrackSegments[0][0];
             var lastSeg = _vm.TrackSegments[^1];

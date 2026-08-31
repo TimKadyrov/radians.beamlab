@@ -28,6 +28,26 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
+            <ItemsControl ItemsSource="{Binding Tools}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Width="420" Margin="0,0,12,12" Padding="14,10"
+                                Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1"
+                                CornerRadius="4">
+                            <StackPanel>
+                                <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding Description}" TextWrapping="Wrap"
+                                           Foreground="#698089" Margin="0,4,0,8" MinHeight="60"/>
+                                <Button Content="Open" Width="80" HorizontalAlignment="Left"
+                                        Tag="{Binding Key}" Click="OnToolOpenClick"/>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
             <TextBlock Text="Documentation" FontSize="15" FontWeight="SemiBold" Margin="0,10,0,4"/>
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="GuideButton" Content="User guide" Margin="0,0,8,0" Padding="10,3"
@@ -40,12 +60,6 @@
                         Click="OnSolverGuideClick"/>
             </StackPanel>
 
-            <TextBlock Text="Tools" FontSize="15" FontWeight="SemiBold" Margin="0,10,0,4"/>
-            <StackPanel Orientation="Horizontal">
-                <Button Content="SNS v10 builder" Padding="10,3" Click="OnSnsBuilderClick"/>
-            </StackPanel>
-            <TextBlock Foreground="#698089" FontSize="11" TextWrapping="Wrap"
-                       Text="Assembles complete SNS v10 datasets (SRS + Masks) from orbit designs, mask XMLs and operating-parameter sets."/>
             <TextBlock Text="{Binding VersionText}" Foreground="#698089" Margin="0,16,0,0"/>
         </StackPanel>
     </ScrollViewer>

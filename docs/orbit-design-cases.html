@@ -254,11 +254,14 @@ Earth, staying within a promised longitude tolerance either side of them.</p>
 (the <em>repeat period</em>), and how wide the tolerance is (the <em>keep range</em>). The
 EPFD calculation then simulates exactly one declared cycle and sweeps the satellite across the
 tolerance band, because within the promise the system may be anywhere in it.</p>
-<p><strong>The catch.</strong> A track only repeats at special altitudes. It repeats after
-<code>k</code> laps precisely when <code>k</code> westward steps add up to whole turns of the
-Earth &mdash; and at an arbitrary altitude they almost never do. That is the tab&rsquo;s main
-job: it lists the nearby altitudes where the equality holds exactly, so you can pick one
-instead of promising a repeat your orbit cannot deliver.</p>
+<p><strong>The catch.</strong> A track only repeats <em>by itself</em> at special altitudes:
+it closes after <code>k</code> laps precisely when <code>k</code> westward steps add up to
+whole turns of the Earth, and at an arbitrary altitude they almost never do. But the promise
+is the operator&rsquo;s, not the orbit&rsquo;s &mdash; in practice the mission altitude is
+fixed, the repeat is declared at it, and the station keeping corrects the small natural
+drift; that is exactly what the tolerance band exists for. The tab shows both readings: what
+the repeat costs in correction at <em>your</em> altitude (the default declaration), and the
+nearby altitudes where the equality holds exactly and the repeat costs nothing.</p>
 
 <figure>
 <svg viewBox="0 0 860 170" role="img" aria-label="A repeating track spaces its crossings evenly; each owns a tolerance band, and a tolerance of half the spacing or more makes neighbouring bands overlap">

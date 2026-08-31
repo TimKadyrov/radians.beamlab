@@ -33,6 +33,11 @@ public sealed class SrsOrbitRow
     public double PrecessionRateDegPerSec { get; init; }
     /// <summary>Declared repeating ground-track period (rpt_prd_dd/hh/mm/ss).</summary>
     public (int Days, int Hours, int Minutes, int Seconds)? RepeatPeriod { get; init; }
+
+    /// <summary>Display form of the repeat period, "0d 23:41:45"; empty when none declared.</summary>
+    public string RptPrdText => RepeatPeriod is { } rp
+        ? $"{rp.Days}d {rp.Hours:00}:{rp.Minutes:00}:{rp.Seconds:00}"
+        : "";
 }
 
 /// <summary>One SRS phase row: in-plane angle from the ascending node (deg).</summary>

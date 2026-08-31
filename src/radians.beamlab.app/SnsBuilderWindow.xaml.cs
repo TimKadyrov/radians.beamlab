@@ -66,6 +66,21 @@ public partial class SnsBuilderWindow : Window
         if (MasksGrid.SelectedItem is MaskEntry m) _vm.Masks.Remove(m);
     }
 
+    private void OnOpParamsClick(object sender, RoutedEventArgs e)
+        => new OpParamsWindow { Owner = this }.Show();
+
+    private void OnAddEsClick(object sender, RoutedEventArgs e)
+    {
+        int nextId = 1;
+        foreach (var s in _vm.EarthStations) nextId = Math.Max(nextId, s.EAsId + 1);
+        _vm.EarthStations.Add(new EsEntry { EAsId = nextId, StnName = $"ES-{nextId}" });
+    }
+
+    private void OnRemoveEsClick(object sender, RoutedEventArgs e)
+    {
+        if (EsGrid.SelectedItem is EsEntry s) _vm.EarthStations.Remove(s);
+    }
+
     private void OnAddFreqClick(object sender, RoutedEventArgs e) => _vm.Frequencies.Add(new FreqEntry());
 
     private void OnRemoveFreqClick(object sender, RoutedEventArgs e)

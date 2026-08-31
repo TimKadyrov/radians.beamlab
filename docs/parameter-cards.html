@@ -220,7 +220,9 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     <div class="where"><b>MinDurationByLat</b> / header &middot; min_duration</div>
     <div class="chips"><span class="chip on">Scheduler dwell</span></div>
     <p class="desc">Minimum tracking dwell once a link is made: voluntary handover to a better satellite waits out
-    the dwell; only infeasibility forces one. Non-zero selects the track-duration examination algorithm (BL-D1).</p>
+    the dwell; only infeasibility forces one. Non-zero also gates admission &mdash; a new link is only made toward
+    a satellite that stays above the elevation floor and outside the exclusion for the whole duration &mdash; and
+    selects the track-duration examination algorithm (BL-D1).</p>
     <ul class="rel">
       <li><span class="op">&perp;</span><span>mutually exclusive with <code>MIN_ANGLE_AT_ES</code> &mdash; a band declares one regime</span></li>
       <li><span class="op">&rarr;</span><span>an inactive <code>ActivityFactor</code> window releases the link <em>without</em> a handover; dwell restarts on return</span></li>
@@ -447,10 +449,11 @@ a{color:var(--g1)} a:hover{color:#1983AA}
 
   <div class="cardp truth">
     <div class="name-row"><span class="pname">SelectionPolicy</span><span class="unit">enum</span></div>
-    <div class="where"><b>Scheduler(&hellip;, policy)</b> &middot; HighestElevation | MaxGsoSeparation</div>
+    <div class="where"><b>Scheduler(&hellip;, policy)</b> &middot; HighestElevation | MaxGsoSeparation | HoldUntilForced</div>
     <div class="chips"><span class="chip on">Scheduler metric</span></div>
-    <p class="desc">Which feasible satellite serves: the highest-elevation default, or the one farthest from the GSO
-    arc. Both obey every declared bound; the difference between their CDFs prices the arc-avoidance strategy.</p>
+    <p class="desc">Which feasible satellite serves: the highest-elevation default, the one farthest from the GSO
+    arc, or hold-until-forced &mdash; no voluntary handover while the link stays feasible. All obey every declared
+    bound; the differences between their CDFs price the strategies.</p>
     <ul class="rel">
       <li><span class="op">&equiv;</span><span>MaxGsoSeparation maximises the same &alpha; that <code>MIN_EXCLUDE</code> bounds</span></li>
       <li><span class="op">&rarr;</span><span>drives the candidate sort <em>and</em> the voluntary-handover comparison</span></li>

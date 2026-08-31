@@ -19,7 +19,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="12">
         <TextBlock TextWrapping="Wrap" Foreground="#698089"
-                   Text="Assemble a complete SNS v10 dataset from separate elements: orbit designs (shells), mask XMLs and derived operating-parameter sets. Version 1 links every P/S mask and every E mask into one scenario at whole-constellation granularity."/>
+                   Text="Assemble a complete SNS v10 dataset from separate elements: orbit designs (shells), mask XMLs, derived operating-parameter sets and declared earth stations. Every mask links into scenario 1 at the scope its row sets — whole constellation, per plane (orb), per satellite (orb+sat), or a specific earth station (e_as)."/>
 
         <GroupBox Header="Notice identity">
             <StackPanel Orientation="Horizontal">
@@ -58,12 +58,41 @@
                         <DataGridTextColumn Header="type" Binding="{Binding FMaskType}" Width="45"/>
                         <DataGridTextColumn Header="f_min (MHz)" Binding="{Binding FreqMinMhz}" Width="85"/>
                         <DataGridTextColumn Header="f_max (MHz)" Binding="{Binding FreqMaxMhz}" Width="85"/>
+                        <DataGridTextColumn Header="orb" Binding="{Binding LinkOrbIdText}" Width="45"/>
+                        <DataGridTextColumn Header="sat" Binding="{Binding LinkSatIdText}" Width="45"/>
+                        <DataGridTextColumn Header="e_as" Binding="{Binding LinkEsIdText}" Width="50"/>
                         <DataGridTextColumn Header="xml" Binding="{Binding FilePath}" Width="*"/>
                     </DataGrid.Columns>
                 </DataGrid>
+                <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,2,0,0"
+                           Text="Link scope per row: orb = the plane the mask serves (empty = whole constellation), sat = the satellite within that plane (empty = every satellite), e_as = the specific earth station an E mask belongs to (empty = typical/all)."/>
                 <StackPanel Orientation="Horizontal">
                     <Button Content="Add mask XML…" Click="OnAddMaskClick"/>
                     <Button Content="Remove selected" Click="OnRemoveMaskClick"/>
+                    <Button Content="Design operating parameters…" Click="OnOpParamsClick"
+                            ToolTip="Opens the R-set designer; register the XML it exports as an f_mask R row here."/>
+                </StackPanel>
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox Header="Earth stations (e_as_stn) — specific ES for mask_lnk2">
+            <StackPanel>
+                <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,2"
+                           Text="Declared earth stations an E mask can link to via its e_as column. Type S (specific) needs coordinates; T (typical) describes a class."/>
+                <DataGrid x:Name="EsGrid" ItemsSource="{Binding EarthStations}" AutoGenerateColumns="False"
+                          CanUserAddRows="False" MaxHeight="100">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="e_as_id" Binding="{Binding EAsId}" Width="60"/>
+                        <DataGridTextColumn Header="name" Binding="{Binding StnName}" Width="120"/>
+                        <DataGridTextColumn Header="type" Binding="{Binding StnType}" Width="45"/>
+                        <DataGridTextColumn Header="lat (deg)" Binding="{Binding LatText}" Width="75"/>
+                        <DataGridTextColumn Header="lon (deg)" Binding="{Binding LonText}" Width="75"/>
+                        <DataGridTextColumn Header="dish (m)" Binding="{Binding AntDiamText}" Width="70"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Add earth station" Click="OnAddEsClick"/>
+                    <Button Content="Remove selected" Click="OnRemoveEsClick"/>
                 </StackPanel>
             </StackPanel>
         </GroupBox>

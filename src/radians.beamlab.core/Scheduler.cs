@@ -109,6 +109,11 @@ public enum SelectionPolicy
 {
     HighestElevation,
     MaxGsoSeparation,
+    /// <summary>
+    /// Minimum handovers: a made link is held while it stays feasible --
+    /// no voluntary handover ever; new links pick the highest elevation.
+    /// </summary>
+    HoldUntilForced,
 }
 
 /// <summary>One granted cell-satellite link at a step.</summary>
@@ -120,6 +125,8 @@ public sealed class ScheduleStep
 {
     public required double TimeSeconds { get; init; }
     public required IReadOnlyList<CellLink> Links { get; init; }
+    /// <summary>Every feasible cell-satellite pair this step (the granted Links are a subset).</summary>
+    public required IReadOnlyList<CellLink> CandidateLinks { get; init; }
     /// <summary>satellite number -> gate-ON beam indices.</summary>
     public required IReadOnlyDictionary<int, HashSet<int>> ActiveBeams { get; init; }
     public required int VoluntaryHandovers { get; init; }
@@ -349,12 +356,14 @@ public sealed class Scheduler
                 if (current is not null)
                     feasible = cand.FirstOrDefault(x => x.SatelliteNumber == current.SatelliteNumber && Eligible(x));
 
-                Candidate best = cand.FirstOrDefault(x => !taken.Contains(x.SatelliteNumber) && Eligible(x));
+                Candidate best = cand.FirstOrDefault(x => !taken.Contains(x.SatelliteNumber)
+                    && Eligible(x) && Sustainable(x, cell, esPos, tSec, minDur));
 
                 if (current is not null && feasible is not null && !taken.Contains(current.SatelliteNumber))
                 {
                     double dwell = tSec - current.StartTimeSec;
-                    bool wantSwitch = best is not null
+                    bool wantSwitch = _policy != SelectionPolicy.HoldUntilForced
+                                   && best is not null
                                    && best.SatelliteNumber != current.SatelliteNumber
                                    && Metric(best) > Metric(feasible);
                     if (wantSwitch && dwell >= minDur)
@@ -391,6 +400,9 @@ public sealed class Scheduler
         {
             TimeSeconds = tSec,
             Links = links,
+            CandidateLinks = candidates.SelectMany(kv => kv.Value.Select(c =>
+                new CellLink(kv.Key, c.SatelliteNumber, c.BeamIndex, tSec,
+                    c.ElevationDeg, c.AlphaDeg))).ToList(),
             ActiveBeams = active,
             VoluntaryHandovers = voluntary,
             ForcedHandovers = forced,
@@ -403,6 +415,31 @@ public sealed class Scheduler
 
     private double Metric(Candidate c)
         => _policy == SelectionPolicy.MaxGsoSeparation ? c.AlphaDeg : c.ElevationDeg;
+
+    // MIN_DURATION as an admission rule: a NEW link is only made toward a
+    // satellite that can sustain it -- still above the declared elevation
+    // and outside the exclusion at the cell after the declared duration.
+    // Beam coverage is not re-resolved at the look-ahead instant: the
+    // layout tiles the whole min-elevation footprint, so elevation and
+    // exclusion are the binding gates.
+    private bool Sustainable(Candidate c, ServiceCell cell, Vec3 es, double tSec, int minDurSec)
+    {
+        if (minDurSec <= 0) return true;
+        double tEnd = Math.Min(tSec + minDurSec, _simDurationSec);
+        if (tEnd <= tSec) return true;
+        var st = _con.StateAt(c.SatIndex, tEnd, _simDurationSec);
+        var pos = st.PositionEcefKm;
+        double elev = ElevationAngleDeg(pos, es);
+        if (elev <= 0.0) return false;
+        var (cn, ce, _) = SatNedBasis(cell.LatDeg, cell.LonDeg);
+        var toSat = (pos - es).Normalized();
+        double az = Math.Atan2(Vec3.Dot(toSat, ce), Vec3.Dot(toSat, cn)) * 180.0 / Math.PI;
+        if (az < 0) az += 360.0;
+        if (elev < DeclaredConstraints.MinElevDeg(_declared, cell.LatDeg, az)) return false;
+        double alpha = GsoGeometry.AlphaMinAbsDeg(es, pos);
+        int orbId = _orbIds[(st.ShellIndex, st.PlaneIndex)];
+        return alpha >= DeclaredConstraints.ExclusionAlphaDeg(_declared, cell.LatDeg, orbId);
+    }
 
     /// <summary>Deterministic on/off activity for one cell slot in the window containing tSec.</summary>
     private static bool ActiveAt(ServiceCell cell, int slot, double tSec)

@@ -177,9 +177,11 @@ rises.</figcaption>
 <p>Each row of the grid is one closed pattern, already converted into filing terms:</p>
 <p><strong>orbits k / days m</strong> &mdash; the pattern: k laps in m node-relative days.
 <strong>exact alt</strong> &mdash; where the pattern truly closes; <strong>delta</strong> is
-how far that is from your target. <strong>cycle</strong> &mdash; the repeat duration, already
-split as the filing&rsquo;s <code>rpt_prd_dd/hh/mm/ss</code>. <strong>drift@target</strong>
-&mdash; the residual per cycle if you fly your target altitude instead of the exact one.
+how far that is from your target. <strong>cycle@target / cycle@exact</strong> &mdash; the repeat
+duration, already split as the filing&rsquo;s <code>rpt_prd_dd/hh/mm/ss</code>, at your own
+altitude (the default declaration) and at the exact closing altitude.
+<strong>drift@target</strong> &mdash; the free-flight drift per cycle at your altitude:
+the correction your station keeping absorbs when declaring at the target.
 <strong>spacing</strong> &mdash; the distance between adjacent tracks, 360/k.
 <strong>max keep_rnge</strong> &mdash; half that spacing: the widest longitude tolerance
 before neighbouring swept tracks collide (the tab refuses more).</p>
@@ -188,7 +190,7 @@ before neighbouring swept tracks collide (the tab refuses more).</p>
 (<code>S_pass</code>&nbsp;=&nbsp;27.6653&deg;, lap 109.37&nbsp;min):</p>
 
 <table class="ex">
-<tr><th>k</th><th>m</th><th>exact alt (km)</th><th>delta</th><th>cycle</th><th>drift@target</th><th>spacing</th><th>max keep_rnge</th></tr>
+<tr><th>k</th><th>m</th><th>exact alt (km)</th><th>delta</th><th>cycle@exact</th><th>drift@target</th><th>spacing</th><th>max keep_rnge</th></tr>
 <tr class="pick"><td>13</td><td>1</td><td>1205.03</td><td>+5.03</td><td>0d 23:43:10</td><td>&minus;0.351&deg;</td><td>27.692&deg;</td><td>13.846&deg;</td></tr>
 <tr><td>118</td><td>9</td><td>1161.24</td><td>&minus;38.76</td><td>8d 21:26:09</td><td>+24.505&deg;</td><td>3.051&deg;</td><td>1.525&deg;</td></tr>
 <tr><td>105</td><td>8</td><td>1155.80</td><td>&minus;44.20</td><td>7d 21:42:59</td><td>+24.856&deg;</td><td>3.429&deg;</td><td>1.714&deg;</td></tr>
@@ -201,11 +203,38 @@ round-number altitude and leave a generous tolerance, but space their tracks far
 long cycles (the week-long grids) lay finer track meshes at the price of a tighter
 tolerance and a repeat period the station keeping must actually hold.</p>
 
-<h2>Checking a period of your own</h2>
-<p>The scan is not the only way in. If you already have a repeat in mind &mdash; from an
-existing filing, a mission plan, a published constellation &mdash; enter it directly as
-<code>k</code> orbits in <code>m</code> nodal days and it is validated like any candidate
-the scan found itself. A non-coprime pair is reduced first, because the shorter cycle is the
+<h2>Declaring at your own altitude</h2>
+<p>In practice the altitude is rarely negotiable &mdash; the mission fixed it long before the
+filing. The tab therefore declares a Case-2 repeat <em>at your target altitude</em> by
+default: <code>rpt_prd</code> is <code>k</code> laps of your own orbit
+(<strong>cycle@target</strong>), and the residual drift per cycle
+(<strong>drift@target</strong>) is simply what the station keeping corrects, as it would in
+flight. The EPFD calculation never integrates that drift anyway: for a station-kept orbit it
+flies the declared repeat and sweeps the node across the declared <code>keep_rnge</code>
+deadband, so a repeat held by station keeping and a repeat that closes naturally are the same
+thing to the examination. The exact closing altitude stays in the grid as the zero-correction
+reference &mdash; fly there and the pattern holds itself &mdash; adoptable through the
+solver&rsquo;s <em>adjusting altitude</em> mode.</p>
+
+<h2>The constellation repeat</h2>
+<p>What the EPFD run actually cycles over is <code>P_repeat</code>, the <em>constellation</em>
+repeat period &mdash; the time for every satellite, across every sub-constellation, to
+return to the same position relative to the Earth (&sect;D4.6; the run is
+<code>T_run = N_run &middot; P_repeat</code>). Within one shell this is automatic: all
+satellites share the cycle, so the shell repeats exactly when its track does. Across shells
+it is a declaration constraint &mdash; &sect;A2.4 requires one repeat period appropriate for
+<em>all</em> satellites, including all sub-constellations &mdash; so the shells&rsquo;
+declared cycles must share a common multiple. The document computes it live as the LCM of
+the declared <code>rpt_prd</code> values, warns when repeating and non-repeating shells mix
+(&sect;B5.1 wants all one or the other), and <em>Harmonize rpt_prd</em> declares the common
+period on every shell: any multiple of a shell&rsquo;s own cycle is a valid repeat period
+for its track, and the station keeping holds each track either way.</p>
+
+<h2>Declaring a period of your own</h2>
+<p>In fixed-altitude mode this entry <em>is</em> the declaration: it starts on the nearest
+repeat, follows the grid row you select, and accepts any pair you have in mind &mdash; from
+an existing filing, a mission plan, a published constellation &mdash; as <code>k</code>
+orbits in <code>m</code> nodal days, validated like any candidate the scan found itself. A non-coprime pair is reduced first, because the shorter cycle is the
 true one: 26 orbits in 2 days is really the 13/1 pattern &mdash; after 13 laps the track has
 already closed, and the second time around adds nothing. The exact altitude that closes the
 reduced pair is then solved anywhere between 100 and 30&nbsp;000&nbsp;km, and the result
@@ -218,10 +247,19 @@ a warning that the repeat exists, just not near the orbit you meant to fly.</p>
 one full cycle at the exact altitude through the same propagation the EPFD calculation uses
 and draws the ground track: the filled dot is where it started, the ring where it ended. For a
 true repeat they sit on top of each other, and the printed closure angle says the same thing
-as a number &mdash; 0.0000&deg; for the candidates above.</p>
+as a number &mdash; 0.0000&deg; for the candidates above. With the default at-target
+declaration the tab flies your own altitude instead, and the printed closure equals the drift
+per cycle &mdash; the correction burden shown as a number, not an error.</p>
+<p>A <em>whole constellation</em> toggle overlays one declared cycle of every satellite of
+every shell in the document, each shell flying its own declared repeat. The repeat itself is
+declared per orbit &mdash; every plane of a shell shares it &mdash; so a shell&rsquo;s
+combined pattern repeats with its own <code>rpt_prd</code>; what the Walker phasing decides
+is only whether the satellites ride the same <code>k</code> track lines or interleave
+between them, and the overlay makes that visible at a glance.</p>
 
 <p class="foot">Companion to the <strong>Orbit Design</strong> tab&rsquo;s Repeat solver and
 to <a href="orbit-design-cases.html">The Three Orbit Cases</a>. Sources: Rec. ITU-R S.1503-4
 &sect;D6.3.2 Steps 1&ndash;4 for the westward step, &sect;B3.1 for the Case-2 declaration
-(<code>DoesRepeat</code>, <code>W_delta</code>, the repeat period).</p>
+(<code>DoesRepeat</code>, <code>W_delta</code>, the repeat period), &sect;A2.4 and
+&sect;D4.6 for the constellation repeat and the run duration.</p>
 </div>

@@ -2791,30 +2791,55 @@ var looks = RandomLooks(300);
 
 // ---- V5: the Orbit Design tab view model, headless ----
 {
-    var vmO = new OrbitDesignViewModel();   // defaults: 1200 km, i 53, e 0
+    var vmO = new OrbitDesignViewModel();   // defaults: 1200 km, i 53, e 0; fixed mode
     var expO = OrbitDesign.RepeatSolutions(1200.0, 0.0, 53.0, 120, take: 10);
+    // Fixed mode auto-declares the nearest pair as the checked top row.
+    bool autoOk = vmO.CheckOrbitsText == expO[0].Orbits.ToString()
+        && vmO.CheckDaysText == expO[0].NodalDays.ToString()
+        && vmO.Solutions.Count == expO.Count
+        && vmO.Solutions[0].IsUserEntry
+        && Math.Abs(vmO.Solutions[0].Solution.AltitudeKm - expO[0].AltitudeKm) < 1e-6
+        && ReferenceEquals(vmO.SelectedSolution, vmO.Solutions[0]);
+    // Adjusting mode with a cleared pair is the pure scan.
+    vmO.DeclareAtTargetAltitude = false;
+    vmO.CheckOrbitsText = ""; vmO.CheckDaysText = "";
     bool rowsOk = vmO.Solutions.Count == expO.Count && vmO.Solutions.Count > 0
         && vmO.Solutions[0].Solution == expO[0]
-        && ReferenceEquals(vmO.SelectedSolution, vmO.Solutions[0]);
+        && vmO.SelectedSolution == vmO.Solutions[0];
 
     bool textsOk = vmO.Case2Text.Contains("rpt_prd_dd=") && vmO.KeepRangeValid
         && vmO.Case1Text.Contains("2*S_pass - S_grid")
         && vmO.Case3Text.Contains("f_precess='Y'")
+        && vmO.KeepRangeHintText.Contains("max ")
         && vmO.BuildCopyText().Contains("[Case 2 station-kept repeating]");
 
     vmO.KeepRangeDeg = vmO.SelectedSolution!.Solution.MaxKeepRangeDeg + 1.0;
-    bool invalidCaught = !vmO.KeepRangeValid;
+    bool invalidCaught = !vmO.KeepRangeValid
+        && vmO.KeepRangeHintText.Contains("out of bounds");
     vmO.KeepRangeDeg = 0.5;
     bool validAgain = vmO.KeepRangeValid;
 
+    // Proof by flight (adjusting mode): the exact altitude closes the track.
     bool trackOk = vmO.TrackSegments.Count > 0
         && vmO.TrackSegments.Sum(seg => seg.Count) > vmO.SelectedSolution.Solution.Orbits * 100
         && vmO.TrackClosureDeg < 0.05;
+    // Back in fixed mode (the pair re-fills from the nearest) the closure
+    // gap IS the free-flight drift the station keeping absorbs.
+    vmO.DeclareAtTargetAltitude = true;
+    bool trackDriftOk = Math.Abs(vmO.TrackClosureDeg
+        - Math.Abs(vmO.SelectedSolution.Solution.DriftDegPerCycleAtTarget)) < 0.02;
+
+    // Whole-shell overlay building block: every satellite contributes.
+    int soloSegs = vmO.TrackSegments.Count;
+    vmO.PlaneCount = 2; vmO.SatsPerPlane = 2;
+    bool shellTrackOk = vmO.BuildShellTrackSegments(150000).Count >= 2 * soloSegs;
 
     Check("V5 Orbit Design view model: rows, previews, keep_rnge validation, track closure",
-        rowsOk && textsOk && invalidCaught && validAgain && trackOk,
+        autoOk && rowsOk && textsOk && invalidCaught && validAgain && trackOk && trackDriftOk
+        && shellTrackOk,
         $"rows={vmO.Solutions.Count} closure={vmO.TrackClosureDeg:F4} " +
-        $"invalidCaught={invalidCaught} texts={textsOk}");
+        $"invalidCaught={invalidCaught} texts={textsOk} auto={autoOk} driftGap={trackDriftOk} " +
+        $"shell={shellTrackOk}");
 }
 
 // ---- V6: the Home tab view model, headless ----
@@ -2829,6 +2854,8 @@ var looks = RandomLooks(300);
     bool okV6 = vmH.Functions.Count == 4
         && vmH.Functions.Select(f => f.TabIndex).SequenceEqual(new[] { 1, 2, 3, 4 })
         && vmH.Functions.All(f => f.Title.Length > 0 && f.Description.Length > 40)
+        && vmH.Tools.Count == 5
+        && vmH.Tools.All(t => t.Key.Length > 0 && t.Title.Length > 0 && t.Description.Length > 40)
         && vmH.UserGuidePath is not null && File.Exists(vmH.UserGuidePath)
         && vmH.ParameterCardsPath is not null && File.Exists(vmH.ParameterCardsPath)
         && vmH.OrbitCasesPath is not null && File.Exists(vmH.OrbitCasesPath)
@@ -2902,7 +2929,8 @@ var looks = RandomLooks(300);
     bool tablesOk = vmC.OrbitRows.Count == 3 && vmC.PhaseRows.Count == 15
         && vmC.OrbitRows[0].StationKeeping
         && vmC.OrbitRows[0].KeepRangeDeg == vmC.KeepRangeDeg
-        && vmC.OrbitRows[0].RepeatPeriod == sol.RptPrd
+        && vmC.OrbitRows[0].RepeatPeriod == sol.RptPrdAtTarget
+        && vmC.OrbitRows[0].RptPrdText.Contains("d ")
         && Math.Abs(vmC.OrbitRows[1].LanDeg - vmC.OrbitRows[0].LanDeg - 120.0) < 1e-9
         && Math.Abs(vmC.PhaseRows[1].PhaseAngDeg - 72.0) < 1e-9;
 
@@ -2941,8 +2969,8 @@ var looks = RandomLooks(300);
 
     var shellB = OrbitDesignFileCodec.ToShell(OrbitDesignFileCodec.Load(dj));
     bool shellOk = shellB.StationKeeping
-        && shellB.RepeatPeriod == vmS.SelectedSolution!.Solution.RptPrd
-        && Math.Abs(shellB.AltitudeKm - vmS.SelectedSolution.Solution.AltitudeKm) < 1e-9;
+        && shellB.RepeatPeriod == vmS.SelectedSolution!.Solution.RptPrdAtTarget
+        && Math.Abs(shellB.AltitudeKm - vmS.TargetAltitudeKm) < 1e-9;
 
     var b = new SnsBuilderViewModel { NtcId = 900555001, SatName = "V10SAT" };
     b.AddShellFile(tmpD);
@@ -2996,12 +3024,14 @@ var looks = RandomLooks(300);
         && vmV.Solutions[0].IsUserEntry && vmV.Solutions[0].WithinBand
         && ReferenceEquals(vmV.SelectedSolution, vmV.Solutions[0])
         && vmV.Solutions.Count(r => r.Orbits == refW.Orbits && r.NodalDays == refW.NodalDays) == 1
-        && vmV.CheckStatusText.Contains("closes at")
+        && vmV.CheckStatusText.Contains("declared at")
+        && vmV.CheckStatusText.Contains("closes by itself at")
         && vmV.Case2Text.Contains("rpt_prd_dd=");
     vmV.CheckOrbitsText = (refW.Orbits * 2).ToString();
     vmV.CheckDaysText = (refW.NodalDays * 2).ToString();
     bool vmReduceOk = vmV.CheckStatusText.Contains("reduces to")
         && vmV.Solutions[0].Orbits == refW.Orbits;
+    vmV.DeclareAtTargetAltitude = false;   // fixed mode would re-fill an empty pair
     vmV.CheckOrbitsText = ""; vmV.CheckDaysText = "";
     bool clearOk = vmV.CheckStatusText.Length == 0
         && vmV.Solutions.Count == baseCount && !vmV.Solutions[0].IsUserEntry;
@@ -3032,7 +3062,7 @@ var looks = RandomLooks(300);
     string j12 = vmP.BuildDesignJson();
     var d12 = OrbitDesignFileCodec.Load(j12);
     var sh12 = OrbitDesignFileCodec.ToShell(d12);
-    bool fileOk = d12.SchemaVersion == 3 && d12.PrecessionDegPerSec == -2.5e-5
+    bool fileOk = d12.SchemaVersion == 6 && d12.PrecessionDegPerSec == -2.5e-5
         && sh12.PrecessionSupplied && sh12.PrecessionRateDegPerSec == -2.5e-5;
 
     var vmQ = new OrbitDesignViewModel();
@@ -3094,10 +3124,19 @@ var looks = RandomLooks(300);
     doc.RemoveSelected(); doc.RemoveSelected(); doc.RemoveSelected();
     bool removeOk = doc.Shells.Count == 1;
 
+    // The constellation-track overlay spans every shell of the document.
+    doc.ShowConstellationTrack = true;
+    int ov1 = doc.OverlaySegments.Count;
+    doc.AddShell();
+    bool overlayOk = ov1 > 0 && doc.OverlaySegments.Count > ov1;
+    doc.ShowConstellationTrack = false;
+    bool overlayOffOk = doc.OverlaySegments.Count == 0;
+
     Check("V13 multi-shell document: independence, combined preview, round-trip, v3 load",
-        startOk && independentOk && combinedOk && selectedOnlyOk && roundOk && v3Ok && dupOk && removeOk,
+        startOk && independentOk && combinedOk && selectedOnlyOk && roundOk && v3Ok && dupOk && removeOk
+        && overlayOk && overlayOffOk,
         $"start={startOk} indep={independentOk} comb={combinedOk} sel={selectedOnlyOk} " +
-        $"round={roundOk} v3={v3Ok} dup={dupOk} rm={removeOk}");
+        $"round={roundOk} v3={v3Ok} dup={dupOk} rm={removeOk} overlay={overlayOk}");
 }
 
 // ---- V14: the builder consumes a whole design document ----
@@ -3122,6 +3161,756 @@ var looks = RandomLooks(300);
         && nb.Orbits.Select(o => o.OrbId).Distinct().Count() == 5;
     Check("V14 builder loads a schema-4 document: one file, all shells", okV14,
         $"entries={bb.Shells.Count} orb={nb.Orbits.Count} ph={nb.Phases.Count}");
+}
+
+// ---- V15: the operating-parameters designer ----
+{
+    var vmR = new OpParamsViewModel
+    {
+        SatName = "V15SAT", NtcIdText = "900555003", ParamIdText = "21",
+        LowFreqText = "19700", HighFreqText = "20200",
+        EsDensityText = "0.01", EsDistanceText = "10",
+        EsLatMinText = "-70", EsLatMaxText = "70",
+        MaxCoFreqSatText = "8", MinAngleAtSatText = "5",
+        MinExcludeText = "0 -70 3\n0 0 5\n0 70 3",
+        MinElevText = "0 0 10\n0 180 12\n45 0 15",
+    };
+    var pSet = vmR.BuildSet();
+    bool parseOk = pSet.MinExclude.Count == 1 && pSet.MinExclude[0].ByLat.Count == 3
+        && pSet.MinElev.Count == 2 && pSet.MinElev[0].ByAz.Count == 2
+        && pSet.MaxCoFreqSat == 8 && pSet.EsDensityPerKm2 == 0.01
+        && vmR.SummaryText.Contains("param_id 21");
+
+    // File round-trip and XML identity: set -> json -> set writes the
+    // same bytes the writer produces from the original.
+    var pBack = OpParamsFileCodec.ToSet(OpParamsFileCodec.Load(
+        OpParamsFileCodec.Save(OpParamsFileCodec.FromSet(pSet))));
+    string expDir = Path.Combine(AppContext.BaseDirectory, "exp");
+    Directory.CreateDirectory(expDir);
+    string x1 = Path.Combine(expDir, "v15a.xml"), x2 = Path.Combine(expDir, "v15b.xml");
+    string x3 = Path.Combine(expDir, "v15c.xml");
+    OperParamsXmlWriter.Write(x1, pSet);
+    OperParamsXmlWriter.Write(x2, pBack);
+    vmR.ExportXml(x3);
+    string t1 = File.ReadAllText(x1);
+    bool xmlOk = t1 == File.ReadAllText(x2) && t1 == File.ReadAllText(x3)
+        && t1.Contains("min_exclude") && t1.Contains("max_co_freq_sat=\"8\"");
+
+    // VM load repopulates the texts to the same set.
+    var vmR2 = new OpParamsViewModel();
+    vmR2.LoadJson(vmR.BuildJson());
+    bool loadOk = vmR2.BuildJson() == vmR.BuildJson();
+
+    // Writer encoding rules surface through export: min_duration 0 rejected.
+    bool guardOk = false;
+    vmR.MinDurationText = "0 0";
+    try { vmR.ExportXml(Path.Combine(expDir, "v15d.xml")); }
+    catch (ArgumentException) { guardOk = true; }
+
+    // Parse errors are line-precise and land in StatusText.
+    vmR.MinDurationText = "";
+    vmR.MinElevText = "0 nonsense 10";
+    bool errOk = vmR.StatusText.Contains("min_elev line 1");
+
+    Check("V15 operating-parameters designer: parse, json/xml identity, guards",
+        parseOk && xmlOk && loadOk && guardOk && errOk,
+        $"parse={parseOk} xml={xmlOk} load={loadOk} guard={guardOk} err={errOk}");
+}
+
+// ---- V16: the simulation runner -- validation plus a real tiny run ----
+{
+    var doc16 = new OrbitDesignDocumentViewModel();
+    doc16.AddShell();
+    string p16 = Path.Combine(AppContext.BaseDirectory, "exp", "v16.orbitdesign.json");
+    Directory.CreateDirectory(Path.GetDirectoryName(p16)!);
+    File.WriteAllText(p16, doc16.BuildDocumentJson());
+
+    var sim = new SimulationViewModel { DesignPath = p16 };
+    sim.ValidateInputs();
+    bool goodOk = sim.StatusText.StartsWith("ready:") && sim.StatusText.Contains("2 shell(s)")
+        && sim.RunEnabled;
+    sim.DurationDaysText = "junk";
+    sim.ValidateInputs();
+    bool badNumOk = sim.StatusText.StartsWith("invalid:");
+    sim.DurationDaysText = "2";
+    sim.DesignPath = Path.Combine(AppContext.BaseDirectory, "exp", "missing.json");
+    sim.ValidateInputs();
+    bool badPathOk = sim.StatusText.StartsWith("invalid:");
+
+    // A real (tiny) run: a 1x2 shell, 20 minutes at 60 s on the coarse
+    // grid; the three CDFs land on disk with monotone percent columns.
+    var docT = new OrbitDesignDocumentViewModel();
+    docT.Shells[0].PlaneCount = 1; docT.Shells[0].SatsPerPlane = 2;
+    string pT = Path.Combine(AppContext.BaseDirectory, "exp", "v16tiny.orbitdesign.json");
+    File.WriteAllText(pT, docT.BuildDocumentJson());
+    sim.DesignPath = pT;
+    sim.DurationDaysText = (20.0 / 1440.0).ToString(System.Globalization.CultureInfo.InvariantCulture);
+    sim.StepSecText = "60";
+    sim.ServiceCellKm = 900.0;
+    string base16 = Path.Combine(AppContext.BaseDirectory, "exp", "v16sim");
+    string sum16 = sim.RunCore(sim.BuildSetup(), base16);
+    bool ranOk = sum16.StartsWith("done:");
+    bool filesOk = File.Exists(base16 + ".down.csv") && File.Exists(base16 + ".is.csv")
+        && File.Exists(base16 + ".up.csv");
+    var body16 = File.ReadAllLines(base16 + ".down.csv")
+        .SkipWhile(l => l.StartsWith("#")).Skip(1)
+        .Select(l => double.Parse(l.Split(',')[1], System.Globalization.CultureInfo.InvariantCulture))
+        .ToArray();
+    bool cdfOk = body16.Length > 0
+        && body16.Zip(body16.Skip(1), (a, b) => a >= b).All(x => x);
+
+    Check("V16 simulation runner: validation, tiny run, three monotone CDFs",
+        goodOk && badNumOk && badPathOk && ranOk && filesOk && cdfOk,
+        $"good={goodOk} badNum={badNumOk} badPath={badPathOk} ran={ranOk} files={filesOk} cdf={cdfOk}");
+}
+
+// ---- V17: Case-2 declaration at the operator's own altitude ----
+{
+    var vmT = new OrbitDesignViewModel();     // DeclareAtTargetAltitude defaults true
+    var st = vmT.SelectedSolution!.Solution;  // 13/1 near 1205 km
+    var (_, tnT) = OrbitDesign.NodalPassGeometry(
+        OrbitalConstants.EarthRadiusKm + vmT.TargetAltitudeKm, 0.0, 53.0);
+    bool secOk = Math.Abs(st.RepeatSecondsAtTarget - st.Orbits * tnT) < 1e-6
+        && st.RptPrdAtTarget == OrbitDesign.DecomposePeriod(st.Orbits * tnT)
+        && st.RptPrdAtTarget != st.RptPrd;
+
+    vmT.CaseChoice = 1;
+    var shT = vmT.BuildShell();
+    bool defOk = Math.Abs(shT.AltitudeKm - vmT.TargetAltitudeKm) < 1e-12
+        && shT.RepeatPeriod == st.RptPrdAtTarget
+        && vmT.Case2Text.Contains("absorbs")
+        && !vmT.AdjustAltitudeChoice;
+
+    vmT.DeclareAtTargetAltitude = false;
+    var shE = vmT.BuildShell();
+    bool exactOk = Math.Abs(shE.AltitudeKm - st.AltitudeKm) < 1e-12
+        && shE.RepeatPeriod == st.RptPrd
+        && vmT.Case2Text.Contains("zero correction")
+        && vmT.AdjustAltitudeChoice;
+
+    vmT.DeclareAtTargetAltitude = true;
+    string jT = vmT.BuildDesignJson();
+    var dT = OrbitDesignFileCodec.Load(jT);
+    var shF = OrbitDesignFileCodec.ToShell(dT);
+    bool fileOk17 = dT.SchemaVersion == 6 && dT.DeclareAtTargetAltitude
+        && dT.RptDays == st.RptPrdAtTarget.Days && dT.RptSeconds == st.RptPrdAtTarget.Seconds
+        && Math.Abs(shF.AltitudeKm - vmT.TargetAltitudeKm) < 1e-12
+        && shF.RepeatPeriod == st.RptPrdAtTarget;
+
+    // A legacy file (flag absent = false, exact rpt stored) reproduces the
+    // exact-altitude declaration unchanged.
+    var shOld = OrbitDesignFileCodec.ToShell(dT with
+    {
+        DeclareAtTargetAltitude = false,
+        RptDays = st.RptPrd.Days, RptHours = st.RptPrd.Hours,
+        RptMinutes = st.RptPrd.Minutes, RptSeconds = st.RptPrd.Seconds,
+    });
+    bool oldOk = Math.Abs(shOld.AltitudeKm - st.AltitudeKm) < 1e-12
+        && shOld.RepeatPeriod == st.RptPrd;
+
+    // Fixed mode auto-fills the nearest pair at start; picking a scan row
+    // loads its pair, which rides to the top as the checked row.
+    var vmU = new OrbitDesignViewModel();
+    bool autoFillOk = vmU.CheckOrbitsText.Length > 0 && vmU.Solutions[0].IsUserEntry
+        && ReferenceEquals(vmU.SelectedSolution, vmU.Solutions[0]);
+    var pick = vmU.Solutions[1];
+    vmU.SelectedSolution = pick;
+    bool syncOk = vmU.CheckOrbitsText == pick.Orbits.ToString()
+        && vmU.CheckDaysText == pick.NodalDays.ToString()
+        && vmU.Solutions[0].IsUserEntry && vmU.Solutions[0].Orbits == pick.Orbits
+        && ReferenceEquals(vmU.SelectedSolution, vmU.Solutions[0]);
+    // Adjusting mode selects rows without promoting them.
+    vmU.DeclareAtTargetAltitude = false;
+    var pick2 = vmU.Solutions.First(r => !r.IsUserEntry);
+    vmU.SelectedSolution = pick2;
+    bool noSyncOk = ReferenceEquals(vmU.SelectedSolution, pick2)
+        && vmU.CheckOrbitsText == pick.Orbits.ToString();
+
+    Check("V17 Case-2 at-target declaration: default, rpt_prd@target, file, legacy, auto-fill",
+        secOk && defOk && exactOk && fileOk17 && oldOk && autoFillOk && syncOk && noSyncOk,
+        $"sec={secOk} def={defOk} exact={exactOk} file={fileOk17} old={oldOk} " +
+        $"auto={autoFillOk} sync={syncOk} noSync={noSyncOk}");
+}
+
+// ---- V18: constellation repeat period (A2.4) and harmonization ----
+{
+    var docR = new OrbitDesignDocumentViewModel();
+    bool singleOk = docR.ConstellationRepeatText.Contains("P_repeat")
+        && docR.ConstellationRepeatText.Contains("1x shell 1");
+
+    docR.AddShell();
+    docR.SelectedShell.CaseChoice = 0;
+    bool mixedOk = docR.ConstellationRepeatText.Contains("mix");
+    docR.SelectedShell.CaseChoice = 1;
+    docR.SelectedShell.TargetAltitudeKm = 800.0;
+    long t1 = docR.Shells[0].DeclaredRptSeconds!.Value;
+    long t2 = docR.Shells[1].DeclaredRptSeconds!.Value;
+    bool distinctOk = t1 != t2;
+
+    docR.HarmonizeRptPrd();
+    long p18 = docR.Shells[0].HarmonizedRptSeconds!.Value;
+    bool harmOk = p18 % t1 == 0 && p18 % t2 == 0
+        && docR.Shells[0].BuildShell().RepeatPeriod == OrbitDesign.DecomposePeriod(p18)
+        && docR.Shells[1].BuildShell().RepeatPeriod == OrbitDesign.DecomposePeriod(p18)
+        && docR.ConstellationRepeatText.Contains("1x shell 2");
+
+    // The harmonization persists through the document file.
+    var docR2 = new OrbitDesignDocumentViewModel();
+    docR2.LoadDocumentJson(docR.BuildDocumentJson());
+    bool persistOk = docR2.Shells[1].HarmonizedRptSeconds == p18
+        && docR2.Shells[1].BuildShell().RepeatPeriod == OrbitDesign.DecomposePeriod(p18)
+        && docR2.BuildDocumentJson() == docR.BuildDocumentJson();
+
+    // A new pair invalidates the override on that shell.
+    docR.Shells[0].CheckDaysText = "2";
+    bool clearOk = docR.Shells[0].HarmonizedRptSeconds is null;
+
+    Check("V18 constellation repeat: P_repeat readout, mixed warning, harmonize, persistence",
+        singleOk && mixedOk && distinctOk && harmOk && persistOk && clearOk,
+        $"single={singleOk} mixed={mixedOk} distinct={distinctOk} harm={harmOk} " +
+        $"persist={persistOk} clear={clearOk}");
+}
+
+// ---- V19: builder v2 link scopes and earth stations ----
+{
+    var vb = new OrbitDesignDocumentViewModel();
+    vb.Shells[0].PlaneCount = 2; vb.Shells[0].SatsPerPlane = 3;
+    string pb = Path.Combine(AppContext.BaseDirectory, "exp", "v19.orbitdesign.json");
+    Directory.CreateDirectory(Path.GetDirectoryName(pb)!);
+    File.WriteAllText(pb, vb.BuildDocumentJson());
+
+    var b19 = new SnsBuilderViewModel { NtcId = 900555003, SatName = "V19SAT" };
+    b19.AddShellFile(pb);
+    b19.Masks.Add(new MaskEntry { MaskId = 1, FilePath = "a.xml", FMask = "P", FMaskType = "A",
+        FreqMinMhz = 19700, FreqMaxMhz = 20200, LinkOrbIdText = "1" });
+    b19.Masks.Add(new MaskEntry { MaskId = 2, FilePath = "b.xml", FMask = "S", FMaskType = "A",
+        FreqMinMhz = 19700, FreqMaxMhz = 20200, LinkOrbIdText = "2", LinkSatIdText = "3" });
+    b19.Masks.Add(new MaskEntry { MaskId = 6, FilePath = "c.xml", FMask = "E", FMaskType = "O",
+        FreqMinMhz = 27500, FreqMaxMhz = 28600, LinkEsIdText = "5" });
+    b19.EarthStations.Add(new EsEntry { EAsId = 5, StnName = "GATE-1", LatText = "45", LonText = "7", AntDiamText = "2.4" });
+    b19.Frequencies.Add(new FreqEntry { EmiRcp = "E", FreqMinMhz = 19700, FreqMaxMhz = 20200 });
+
+    var n19 = b19.BuildNotice();
+    bool linkOk = n19.Scenarios[0].PfdMaskLinks.Count == 2
+        && n19.Scenarios[0].PfdMaskLinks[0].OrbId == 1 && n19.Scenarios[0].PfdMaskLinks[0].SatOrbId is null
+        && n19.Scenarios[0].PfdMaskLinks[1].OrbId == 2 && n19.Scenarios[0].PfdMaskLinks[1].SatOrbId == 3
+        && n19.Scenarios[0].EsMaskLinks[0].EAsId == 5;
+    bool esOk = n19.EarthStations.Count == 1 && n19.EarthStations[0].StnType == 'S'
+        && n19.EarthStations[0].LatDeg == 45.0 && n19.EarthStations[0].AntDiamM == 2.4
+        && b19.SummaryText().Contains("1 earth station(s)");
+
+    // Guards: an orb link to a missing plane; an e_as link with no station.
+    bool orbGuardOk = false;
+    b19.Masks[0].LinkOrbIdText = "9";
+    try { b19.BuildNotice(); } catch (InvalidOperationException) { orbGuardOk = true; }
+    b19.Masks[0].LinkOrbIdText = "1";
+    bool esGuardOk = false;
+    b19.EarthStations.Clear();
+    try { b19.BuildNotice(); } catch (InvalidOperationException) { esGuardOk = true; }
+
+    Check("V19 builder link scopes: per-plane, per-satellite, specific ES, guards",
+        linkOk && esOk && orbGuardOk && esGuardOk,
+        $"link={linkOk} es={esOk} orbGuard={orbGuardOk} esGuard={esGuardOk}");
+}
+
+// ---- V20: shell names and document reordering ----
+{
+    var d20 = new OrbitDesignDocumentViewModel();
+    d20.SelectedShell.ShellName = "ALPHA";
+    d20.AddShell();
+    d20.SelectedShell.ShellName = "BETA";
+    d20.SelectedShell.TargetAltitudeKm = 800.0;
+    bool nameOk = d20.Shells[0].ShellSummary.StartsWith("ALPHA")
+        && d20.Shells[1].ShellSummary.StartsWith("BETA");
+
+    // Reorder: BETA first; the combined notice renumbers with the order.
+    double apogBefore = d20.BuildCombinedNotice().Orbits[0].ApogeeKm;
+    d20.MoveSelectedUp();
+    bool moveOk = ReferenceEquals(d20.Shells[0], d20.SelectedShell)
+        && d20.ShellHeaderText == "editing shell 1 of 2"
+        && Math.Abs(d20.BuildCombinedNotice().Orbits[0].ApogeeKm - apogBefore) > 1.0;
+
+    // Names and order survive the document file.
+    var d20b = new OrbitDesignDocumentViewModel();
+    d20b.LoadDocumentJson(d20.BuildDocumentJson());
+    var s20 = OrbitDesignFileCodec.Load(d20b.Shells[0].BuildDesignJson());
+    bool persistOk = d20b.Shells[0].ShellName == "BETA" && d20b.Shells[1].ShellName == "ALPHA"
+        && s20.SchemaVersion == 6 && s20.Summary.StartsWith("BETA");
+
+    d20.MoveSelectedDown();
+    bool backOk = d20.Shells[1].ShellName == "BETA";
+
+    Check("V20 shell names and reordering: summary, orb order, persistence",
+        nameOk && moveOk && persistOk && backOk,
+        $"name={nameOk} move={moveOk} persist={persistOk} back={backOk}");
+}
+
+// ---- V21: operating parameters derived from the simulated system ----
+{
+    var docD = new OrbitDesignDocumentViewModel();
+    docD.Shells[0].PlaneCount = 1; docD.Shells[0].SatsPerPlane = 2;
+    string pD = Path.Combine(AppContext.BaseDirectory, "exp", "v21.orbitdesign.json");
+    Directory.CreateDirectory(Path.GetDirectoryName(pD)!);
+    File.WriteAllText(pD, docD.BuildDocumentJson());
+
+    var vmD21 = new OpParamsViewModel
+    {
+        SatName = "V21SAT", NtcIdText = "900555004", ParamIdText = "31",
+        LowFreqText = "19700", HighFreqText = "20200",
+        DeriveDesignPath = pD,
+        DeriveMinElevText = "10", DeriveAlphaText = "8",
+        DeriveDurationDaysText = (90.0 / 1440.0).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        DeriveStepSecText = "60", DeriveCellKmText = "900",
+    };
+    var r21 = vmD21.DeriveCore();
+    var set21 = r21.Set;
+    bool measuredOk = r21.LinkSamples > 0
+        && set21.MinElev.Count > 0
+        && set21.MinElev.All(me => me.ByAz.All(v => v.ElevDeg >= 10.0 - 1e-9))
+        && set21.MaxCoFreqByLat.All(v => v.Value >= 1)
+        && set21.MaxCoFreqSat >= 1
+        && set21.EsLatMinDeg >= 29.0 && set21.EsLatMaxDeg <= 61.0;
+    // The enforced exclusion floors any derived min_exclude ring.
+    bool alphaOk = set21.MinExclude.Count == 0
+        || set21.MinExclude[0].ByLat.All(v => v.AlphaDeg >= 8.0 - 1e-9);
+
+    // The measured envelope fills the designer and exports as valid XML,
+    // identical to writing the set directly.
+    vmD21.ApplySet(set21);
+    string x21 = Path.Combine(AppContext.BaseDirectory, "exp", "v21.xml");
+    vmD21.ExportXml(x21);
+    string x21b = Path.Combine(AppContext.BaseDirectory, "exp", "v21b.xml");
+    OperParamsXmlWriter.Write(x21b, set21);
+    string t21 = File.ReadAllText(x21);
+    bool exportOk = t21 == File.ReadAllText(x21b) && t21.Contains("min_elev");
+
+    Check("V21 derived operating parameters: measured envelope, designer fill, XML",
+        measuredOk && alphaOk && exportOk,
+        $"samples={r21.LinkSamples} measured={measuredOk} alpha={alphaOk} export={exportOk}");
+}
+
+// ---- V22: the operation profile -- codec, composition, profile-driven derive ----
+{
+    var prof = new OperationProfile(
+        Name: "V22",
+        Downlink: new DownlinkProfile(FrequencyGhz: 19.7, GainPeakDbi: 34.0, TxEirpDbw: 12.0,
+            MinAngleAtSatDeg: 4.0),
+        Uplink: new UplinkProfile(FrequencyGhz: 29.5, EsPowerDbw: 3.0, EsDishM: 1.2,
+            MinAngleAtEsDeg: 9.0),
+        MinElevDeg: 12.0,
+        ServiceLatMinDeg: 30.0, ServiceLatMaxDeg: 60.0, CellKm: 900.0,
+        TrackingPolicy: "MaxGsoSeparation",
+        NcoPerCell: 2, MaxCoFreqSat: 6,
+        DemandLinksPerCell: 2, ActivityFactor: 0.8, ActivityPeriodSec: 120.0,
+        IlluminationDutyCycle: 0.5,
+        AlphaExclDeg: 7.0,
+        MinElevByLat: new[] { new ProfileLatRow(45.0, 15.0) });
+    var prof2 = OperationProfileCodec.Load(OperationProfileCodec.Save(prof));
+    bool codecOk = prof2.Down.FrequencyGhz == 19.7 && prof2.Down.GainPeakDbi == 34.0
+        && prof2.Up.FrequencyGhz == 29.5 && prof2.Up.EsPowerDbw == 3.0 && prof2.Up.EsDishM == 1.2
+        && prof2.TrackingPolicy == "MaxGsoSeparation" && prof2.NcoPerCell == 2
+        && prof2.IlluminationDutyCycle == 0.5 && prof2.AlphaExclDeg == 7.0
+        && prof2.MinElevByLat!.Count == 1 && prof2.MinElevByLat[0].Value == 15.0;
+
+    var comp = OperationComposer.Compose(prof2, 1200.0);
+    bool compOk = comp.Enforced.ElevAngleHeaderDeg == 12.0
+        && comp.Enforced.MinElev.Count == 1
+        && comp.Enforced.MinExclude.Count == 1
+        && comp.Enforced.MinExclude[0].ByLat.All(v => v.AlphaDeg == 7.0)
+        && comp.Enforced.MaxCoFreqHeader == 2 && comp.Enforced.MaxCoFreqSat == 6
+        && comp.Scene.FrequencyGHz == 19.7 && comp.Scene.GmDbi == 34.0
+        && comp.Scene.TxEirpDbw == 12.0 && comp.Scene.AlphaExclDeg == 7.0
+        && comp.Policy == SelectionPolicy.MaxGsoSeparation
+        && comp.IlluminationDutyCycle == 0.5
+        && comp.Geography.Cells.All(c => c.DemandLinks == 2 && c.ActivityFactor == 0.8)
+        // Per-direction link discipline: each composition carries its side's angles.
+        && comp.Enforced.MinAngleAtSatDeg == 4.0 && comp.Enforced.MinAngleAtEsDeg is null
+        && OperationComposer.Compose(prof2, 1200.0, LinkDirection.Up)
+            .Enforced.MinAngleAtEsDeg == 9.0;
+
+    bool shellsOk = OperationComposer.ApplyToShells(prof2 with { OperationalFraction = 0.5 },
+        new[] { new ConstellationShell
+            { AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 2 } })
+        [0].OperationalFraction == 0.5;
+
+    // Profile-driven derivation end to end (the profile IS the system).
+    var docE = new OrbitDesignDocumentViewModel();
+    docE.Shells[0].PlaneCount = 1; docE.Shells[0].SatsPerPlane = 2;
+    string pE = Path.Combine(AppContext.BaseDirectory, "exp", "v22.orbitdesign.json");
+    Directory.CreateDirectory(Path.GetDirectoryName(pE)!);
+    File.WriteAllText(pE, docE.BuildDocumentJson());
+    var dprof = new OperationProfile(Name: "V22D", MinElevDeg: 10.0, AlphaExclDeg: 8.0, CellKm: 900.0);
+    string profPath = Path.Combine(AppContext.BaseDirectory, "exp", "v22.opprofile.json");
+    File.WriteAllText(profPath, OperationProfileCodec.Save(dprof));
+
+    var vm22 = new OpParamsViewModel
+    {
+        SatName = "V22SAT", NtcIdText = "900555005", ParamIdText = "41",
+        DeriveDesignPath = pE, DeriveProfilePath = profPath,
+        DeriveDurationDaysText = (90.0 / 1440.0).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        DeriveStepSecText = "60",
+    };
+    var r22 = vm22.DeriveCore();
+    bool deriveOk = r22.LinkSamples > 0
+        && r22.Set.MinElev.All(me => me.ByAz.All(v => v.ElevDeg >= 10.0 - 1e-9))
+        && (r22.Set.MinExclude.Count == 0
+            || r22.Set.MinExclude[0].ByLat.All(v => v.AlphaDeg >= 8.0 - 1e-9));
+
+    Check("V22 operation profile: codec, composition, shells, profile-driven derive",
+        codecOk && compOk && shellsOk && deriveOk,
+        $"codec={codecOk} comp={compOk} shells={shellsOk} derive={deriveOk} samples={r22.LinkSamples}");
+}
+
+// ---- V23: the compliance sweep -- per-latitude verdicts and margins ----
+{
+    var docC = new OrbitDesignDocumentViewModel();
+    docC.Shells[0].PlaneCount = 1; docC.Shells[0].SatsPerPlane = 2;
+    string pC = Path.Combine(AppContext.BaseDirectory, "exp", "v23.orbitdesign.json");
+    Directory.CreateDirectory(Path.GetDirectoryName(pC)!);
+    File.WriteAllText(pC, docC.BuildDocumentJson());
+    var profC = new OperationProfile(Name: "V23", MinElevDeg: 10.0, CellKm: 900.0);
+    string ppC = Path.Combine(AppContext.BaseDirectory, "exp", "v23.opprofile.json");
+    File.WriteAllText(ppC, OperationProfileCodec.Save(profC));
+
+    var cvm = new ComplianceViewModel
+    {
+        DesignPath = pC, ProfilePath = ppC,
+        LatFromText = "40", LatToText = "50", LatStepText = "10",
+        DurationDaysText = (60.0 / 1440.0).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        StepSecText = "60",
+    };
+    // Verdict-permissive limit: everything passes, margins non-negative.
+    var sweepP = cvm.BuildSweep();
+    var rowsP = ComplianceViewModel.RunSweep(sweepP, 0.0);
+    bool passOk = rowsP.Count == 2 && rowsP.All(r => r.Pass)
+        && rowsP.All(r => r.WorstMarginDb >= 0.0);
+
+    // Impossible limit: any epfd at all fails it, with a negative margin.
+    cvm.LimitsText = "-300 0.001\n-250 0.002";
+    var sweepF = cvm.BuildSweep();
+    var rowsF = ComplianceViewModel.RunSweep(sweepF, 0.0);
+    bool failOk = rowsF.Count == 2 && rowsF.All(r => !r.Pass)
+        && rowsF.All(r => r.WorstMarginDb < 0.0);
+    bool summaryOk = ComplianceViewModel.SummarizeRows(rowsP).StartsWith("COMPLIANT")
+        && ComplianceViewModel.SummarizeRows(rowsF).StartsWith("EXCEEDED");
+
+    Check("V23 compliance sweep: verdicts and margins across the latitude grid",
+        passOk && failOk && summaryOk,
+        $"pass={passOk} fail={failOk} summary={summaryOk} " +
+        $"marginP={rowsP[0].WorstMarginDb:F1} marginF={rowsF[0].WorstMarginDb:F1}");
+
+    // ---- V24: the exclusion advisor terminates both ways ----
+    var adviceP = ComplianceViewModel.Advise(sweepP, 1.0, 5.0);
+    bool foundOk = adviceP.FoundAlpha == 0.0 && adviceP.Iterations == 1
+        && adviceP.FailingAtStart.Count == 0;
+    var adviceF = ComplianceViewModel.Advise(sweepF, 2.0, 4.0);
+    bool cappedOk = adviceF.FoundAlpha is null && adviceF.Iterations == 3
+        && adviceF.FailingAtStart.Count == 2;
+    Check("V24 exclusion advisor: immediate pass, capped walk",
+        foundOk && cappedOk,
+        $"found={foundOk} capped={cappedOk} itP={adviceP.Iterations} itF={adviceF.Iterations}");
+}
+
+// ---- V25: MIN_DURATION admission -- only sustainable links are made ----
+{
+    var shells25 = new[] { new ConstellationShell
+        { AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 2 } };
+    var con25 = new Constellation(shells25);
+    var geo25 = ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, 900.0);
+    var scene25 = new PfdMaskViewModel
+        { AltitudeKm = 1200.0, FrequencyGHz = 19.7, MinElevDeg = 10.0, RefBwKHz = 40.0 };
+    double dur25 = 5400.0;
+    const int hold25 = 900;
+    var op0 = new OperatingParamsSet
+        { SatName = "T", LowFreqMhz = 19700, HighFreqMhz = 19700, ElevAngleHeaderDeg = 10.0 };
+    var opD = new OperatingParamsSet
+        { SatName = "T", LowFreqMhz = 19700, HighFreqMhz = 19700, ElevAngleHeaderDeg = 10.0,
+          MinDurationSecHeader = hold25 };
+    var s0 = new Scheduler(con25, geo25, op0, new ScenePointing(scene25), dur25);
+    var sD = new Scheduler(con25, geo25, opD, new ScenePointing(scene25), dur25);
+
+    var cellPos25 = geo25.Cells.ToDictionary(c => c.CellId, c =>
+    {
+        double la = c.LatDeg * Math.PI / 180.0, lo = c.LonDeg * Math.PI / 180.0;
+        double r = OrbitalConstants.EarthRadiusKm;
+        return new Vec3(r * Math.Cos(la) * Math.Cos(lo), r * Math.Cos(la) * Math.Sin(lo), r * Math.Sin(la));
+    });
+    var idxByNum25 = new Dictionary<int, int>();
+    for (int i = 0; i < con25.SatelliteCount; i++)
+        idxByNum25[con25.StateAt(i, 0.0, dur25).SatelliteNumber] = i;
+
+    long links0 = 0, linksD = 0;
+    bool sustainOk = true;
+    for (double t = 0.0; t < dur25; t += 60.0)
+    {
+        links0 += s0.Step(t).Links.Count;
+        var b = sD.Step(t);
+        linksD += b.Links.Count;
+        // Every FRESH link must still clear the elevation floor after the
+        // hold (the admission's own look-ahead, recomputed independently).
+        foreach (var l in b.Links.Where(l => l.StartTimeSec == t))
+        {
+            double tEnd = Math.Min(t + hold25, dur25);
+            var st = con25.StateAt(idxByNum25[l.SatelliteNumber], tEnd, dur25);
+            if (GeoMath.ElevationAngleDeg(st.PositionEcefKm, cellPos25[l.CellId]) < 10.0 - 1e-6)
+                sustainOk = false;
+        }
+    }
+    bool filterOk = linksD < links0;   // near pass ends the admission must bite
+
+    Check("V25 MIN_DURATION admission: fresh links sustainable, filter bites",
+        sustainOk && filterOk && links0 > 0,
+        $"links0={links0} linksD={linksD} sustain={sustainOk}");
+}
+
+// ---- V26: per-cell Nco cap and the handover policies' effects ----
+{
+    var shells26 = new[] { new ConstellationShell
+        { AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 2, SatsPerPlane = 3 } };
+    var con26 = new Constellation(shells26);
+    var scene26 = new PfdMaskViewModel
+        { AltitudeKm = 1200.0, FrequencyGHz = 19.7, MinElevDeg = 10.0, RefBwKHz = 40.0 };
+    double dur26 = 7200.0;
+
+    // (a) MAX_CO_FREQ per cell caps the served links below the demand.
+    var cells26 = ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, 900.0).Cells
+        .Select(c => c with { DemandLinks = 2 }).ToList();
+    var geoD2 = new ServiceGeography(cells26, 900.0);
+    int MaxPerCell(OperatingParamsSet ops)
+    {
+        var s = new Scheduler(con26, geoD2, ops, new ScenePointing(scene26), dur26);
+        int worst = 0;
+        for (double t = 0.0; t < dur26; t += 60.0)
+            foreach (var g in s.Step(t).Links.GroupBy(l => l.CellId))
+                worst = Math.Max(worst, g.Count());
+        return worst;
+    }
+    static OperatingParamsSet Ops26(int? nco = null, int? holdSec = null) => new()
+    {
+        SatName = "T", LowFreqMhz = 19700, HighFreqMhz = 19700, ElevAngleHeaderDeg = 10.0,
+        MaxCoFreqHeader = nco, MinDurationSecHeader = holdSec,
+    };
+    int cap1 = MaxPerCell(Ops26(nco: 1));
+    int cap2 = MaxPerCell(Ops26(nco: 2));
+    bool ncoOk = cap1 == 1 && cap2 == 2;
+
+    // (b, c) Policies. Sparse constellations never see a better satellite
+    // while one serves (probed: zero opportunities), so build the flip
+    // deliberately: two satellites chase each other 8 deg apart in ONE
+    // plane -- mid-pass the trailer overtakes the leader in elevation
+    // while both stay feasible. Free election must switch; hold-until-
+    // forced must not; a long dwell suppresses the switch too.
+    var conPol = new Constellation(new[]
+    {
+        new ConstellationShell { AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1 },
+        new ConstellationShell { AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1, InPlaneOffsetDeg = 8.0 },
+    });
+    double durPol = 3600.0;
+    var geoD1 = ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, 900.0);
+    (long Vol, long Links) Voluntary(OperatingParamsSet ops, SelectionPolicy pol)
+    {
+        var s = new Scheduler(conPol, geoD1, ops, new ScenePointing(scene26), durPol, null, pol);
+        long v = 0, k = 0;
+        for (double t = 0.0; t < durPol; t += 60.0)
+        {
+            var st = s.Step(t);
+            v += st.VoluntaryHandovers;
+            k += st.Links.Count;
+        }
+        return (v, k);
+    }
+    var free = Voluntary(Ops26(), SelectionPolicy.HighestElevation);
+    var huf = Voluntary(Ops26(), SelectionPolicy.HoldUntilForced);
+    var dwell = Voluntary(Ops26(holdSec: 900), SelectionPolicy.HighestElevation);
+    bool policyOk = free.Vol > 0 && huf.Vol == 0 && huf.Links > 0 && dwell.Vol <= free.Vol;
+
+    Check("V26 Nco per cell and handover policies: cap, hold-until-forced, dwell",
+        ncoOk && policyOk,
+        $"cap1={cap1} cap2={cap2} volFree={free.Vol} volHuf={huf.Vol} " +
+        $"volDwell={dwell.Vol} linksHuf={huf.Links}");
+}
+
+// ---- V27: play session -- candidates exposed, active links a subset ----
+{
+    var doc27 = new OrbitDesignDocumentViewModel();
+    doc27.Shells[0].PlaneCount = 1; doc27.Shells[0].SatsPerPlane = 2;
+    string p27 = Path.Combine(AppContext.BaseDirectory, "exp", "v27.orbitdesign.json");
+    Directory.CreateDirectory(Path.GetDirectoryName(p27)!);
+    File.WriteAllText(p27, doc27.BuildDocumentJson());
+
+    var sim27 = new SimulationViewModel
+    {
+        DesignPath = p27,
+        DurationDaysText = (30.0 / 1440.0).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        StepSecText = "60",
+        ServiceCellKm = 900.0,
+    };
+    var ps27 = sim27.BuildPlaySession();
+    bool sessionOk = ps27.SatCount == 2 && ps27.StepSec == 60.0
+        && ps27.Geo.Cells.Count > 0;
+
+    long cand27 = 0, act27 = 0;
+    bool subsetOk = true;
+    for (double t = 0.0; t < ps27.DurationSec; t += ps27.StepSec)
+    {
+        var st = ps27.Scheduler.Step(t);
+        cand27 += st.CandidateLinks.Count;
+        act27 += st.Links.Count;
+        foreach (var l in st.Links)
+            if (!st.CandidateLinks.Any(c => c.CellId == l.CellId
+                && c.SatelliteNumber == l.SatelliteNumber))
+                subsetOk = false;
+    }
+    bool linkOk = act27 > 0 && cand27 >= act27;
+
+    Check("V27 play session: candidate links exposed, granted links a subset",
+        sessionOk && subsetOk && linkOk,
+        $"session={sessionOk} subset={subsetOk} cand={cand27} act={act27}");
+}
+
+// ---- V28: declared-mask downlink footprint (S.1503-4 D5.1.4.1) ----
+{
+    string expDir = Path.Combine(AppContext.BaseDirectory, "exp");
+    Directory.CreateDirectory(expDir);
+
+    // A constant az/el mask: every read returns exactly P.
+    static string ConstMaskXml(double pDb) => FormattableString.Invariant($"""
+        <?xml version="1.0"?>
+        <srs>
+          <satellite_system sat_name="V28" ntc_id="1">
+            <pfd_mask mask_id="1" low_freq_mhz="11700" high_freq_mhz="12700" refbw_khz="40" type="azimuth_elevation">
+              <by_a a="0">
+                <by_b b="-90"><pfd c="-90">{pDb}</pfd><pfd c="90">{pDb}</pfd></by_b>
+                <by_b b="90"><pfd c="-90">{pDb}</pfd><pfd c="90">{pDb}</pfd></by_b>
+              </by_a>
+            </pfd_mask>
+          </satellite_system>
+        </srs>
+        """);
+    string mask110 = Path.Combine(expDir, "v28const110.xml");
+    string mask120 = Path.Combine(expDir, "v28const120.xml");
+    File.WriteAllText(mask110, ConstMaskXml(-110.0));
+    File.WriteAllText(mask120, ConstMaskXml(-120.0));
+
+    var ant28 = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 12000.0, 0.6);
+    double gmax28 = ant28.MaxGain;
+    var limits28 = new List<radlimits.LimitPoint>
+    {
+        new radlimits.LimitPoint { EPFD = -300.0, Perc = 0.001 },
+        new radlimits.LimitPoint { EPFD = 0.0, Perc = 100.0 },
+    };
+    static OperatingParamsSet Free28(double minElev = 0.0) => new()
+    { SatName = "M", LowFreqMhz = 11700, HighFreqMhz = 12700, ElevAngleHeaderDeg = minElev };
+
+    // (a) exactness: single sat overhead ES(0,0), GSO far at 60 E -- the
+    // run must equal P + Grx(phi) - Gmax, and shifting the mask by -10 dB
+    // must shift the run by exactly -10 dB.
+    var one28 = new Constellation(new[] { new ConstellationShell
+    { AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1 } });
+    var victim28 = new EpfdDownVictim { EsLatDeg = 0, EsLonDeg = 0, GsoLonDeg = 60, Antenna = ant28 };
+    var es28 = GeodeticToEcef(0, 0, 0);
+    double gso60 = 60.0 * Math.PI / 180.0;
+    var gsoP = new Vec3(GsoGeometry.GsoRadiusKm * Math.Cos(gso60), GsoGeometry.GsoRadiusKm * Math.Sin(gso60), 0.0);
+    var dirEsGso28 = (gsoP - es28).Normalized();
+    double HandTerm(Constellation c, int i, double p)
+    {
+        var pos = c.StateAt(i, 0.0, 1.0).PositionEcefKm;
+        var toSat = (pos - es28).Normalized();
+        double phi = Math.Acos(Math.Clamp(Vec3.Dot(dirEsGso28, toSat), -1.0, 1.0)) * 180.0 / Math.PI;
+        return p + ant28.GetAntGain(phi, 0.0) - gmax28;
+    }
+    var r110 = EpfdDownMask.Run(one28, MaskFootprint.LoadFile(mask110), Free28(), victim28, 1.0, 1, limits28);
+    var r120 = EpfdDownMask.Run(one28, MaskFootprint.LoadFile(mask120), Free28(), victim28, 1.0, 1, limits28);
+    bool exactOk = Math.Abs(r110.MaxEpfdDb - HandTerm(one28, 0, -110.0)) < 1e-9
+                && Math.Abs(r110.MaxEpfdDb - r120.MaxEpfdDb - 10.0) < 1e-9;
+
+    // (b) MAX_CO_FREQ cap at the victim: two neighbouring satellites, the
+    // capped run keeps exactly the highest single entry.
+    var two28 = new Constellation(new[]
+    {
+        new ConstellationShell { AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1 },
+        new ConstellationShell { AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1, InPlaneOffsetDeg = 8.0 },
+    });
+    double h0 = HandTerm(two28, 0, -110.0), h1 = HandTerm(two28, 1, -110.0);
+    var freeCap = Free28(); var cap1 = Free28(); cap1.MaxCoFreqHeader = 1;
+    var rFree = EpfdDownMask.Run(two28, MaskFootprint.LoadFile(mask110), freeCap, victim28, 1.0, 1, limits28);
+    var rCap = EpfdDownMask.Run(two28, MaskFootprint.LoadFile(mask110), cap1, victim28, 1.0, 1, limits28);
+    double handSum = 10.0 * Math.Log10(Math.Pow(10.0, h0 / 10.0) + Math.Pow(10.0, h1 / 10.0));
+    bool notMainBeam = Math.Max(h0, h1) + gmax28 + 110.0 <= gmax28 - 30.0;   // Grx <= Gmax - 30 for both
+    bool capOk = notMainBeam
+              && Math.Abs(rFree.MaxEpfdDb - handSum) < 1e-9
+              && Math.Abs(rCap.MaxEpfdDb - Math.Max(h0, h1)) < 1e-9
+              && rFree.MaxEpfdDb > rCap.MaxEpfdDb;
+
+    // (c) exclusion zone: alpha0 = 90 puts the overhead satellite (alpha 0)
+    // inside the zone; with its receive gain below the main-beam threshold
+    // the step is quiet -- the D5.2 switch-off.
+    var excl28 = Free28();
+    var ring28 = new MinExcludeByOrbit { OrbId = 0 };
+    ring28.ByLat.Add((-90.0, 90.0)); ring28.ByLat.Add((90.0, 90.0));
+    excl28.MinExclude.Add(ring28);
+    double grxOverDb = HandTerm(one28, 0, 0.0) + gmax28;   // Grx(phi) alone
+    bool gateBelow = grxOverDb <= Math.Min(gmax28 - 30.0, ant28.GetAntGain(90.0, 0.0));
+    var rExcl = EpfdDownMask.Run(one28, MaskFootprint.LoadFile(mask110), excl28, victim28, 1.0, 1, limits28);
+    bool exclOk = gateBelow && rExcl.QuietSteps == 1 && double.IsNegativeInfinity(rExcl.MaxEpfdDb);
+
+    // (d) the acceptance direction through the full runner, alpha/dLong
+    // kind: a mask exported from the scene must bound the live composition
+    // run at t = 0 (satellite exactly on the lat-0 block) for several ES.
+    var vm28 = new PfdMaskViewModel();
+    string maskAD = Path.Combine(expDir, "v28ad.xml");
+    var optsAD = new MaskXmlExportOptions
+    {
+        SatName = "V28", NtcId = 2, MaskId = 1, RefBwKHz = 40,
+        LatMinDeg = -10, LatMaxDeg = 10, LatStepDeg = 10,
+        BStepDeg = 5, CStepDeg = 5,
+        Kind = MaskPlotKind.AlphaDeltaLong, Format = MaskExportFormat.Xml, OutputPath = maskAD,
+    };
+    MaskXmlExport.GenerateAsync(new ReachableEnvelopeSampler(vm28, optsAD, 53.0),
+        optsAD, null, CancellationToken.None).GetAwaiter().GetResult();
+    var fpAD = MaskFootprint.LoadFile(maskAD);
+    bool envOk = fpAD.Kind == MaskPlotKind.AlphaDeltaLong;
+    foreach (var (esLat, esLon) in new[] { (0.0, 0.0), (5.0, 3.0), (-8.0, 10.0) })
+    {
+        var v = new EpfdDownVictim { EsLatDeg = esLat, EsLonDeg = esLon, GsoLonDeg = 0, Antenna = ant28 };
+        var live = EpfdDown.Run(one28, new ScenePointing(vm28), v, 1.0, 1, limits28);
+        var masked = EpfdDownMask.Run(one28, fpAD, Free28(), v, 1.0, 1, limits28);
+        if (masked.MaxEpfdDb < live.MaxEpfdDb - 0.05001) { envOk = false; break; }
+    }
+
+    // (e) plumbing: profile field round-trips, composes through, and the
+    // runner writes .down/.up but no .is under the mask footprint.
+    var profM = new OperationProfile(Name: "m28",
+        Downlink: new DownlinkProfile(FootprintSource: "mask", MaskXmlPath: mask110));
+    var profM2 = OperationProfileCodec.Load(OperationProfileCodec.Save(profM));
+    var compM = OperationComposer.Compose(profM2, 1200.0);
+    string profPath = Path.Combine(expDir, "v28.opprofile.json");
+    File.WriteAllText(profPath, OperationProfileCodec.Save(profM));
+
+    var doc28 = new OrbitDesignDocumentViewModel();
+    doc28.Shells[0].PlaneCount = 1; doc28.Shells[0].SatsPerPlane = 2;
+    string p28 = Path.Combine(expDir, "v28.orbitdesign.json");
+    File.WriteAllText(p28, doc28.BuildDocumentJson());
+    var sim28 = new SimulationViewModel
+    {
+        DesignPath = p28, ProfilePath = profPath,
+        DurationDaysText = (20.0 / 1440.0).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        StepSecText = "60", ServiceCellKm = 900.0,
+    };
+    sim28.ValidateInputs();
+    bool validOk = sim28.StatusText.Contains("declared mask");
+    string base28 = Path.Combine(expDir, "v28sim");
+    string summary28 = sim28.RunCore(sim28.BuildSetup(), base28);
+    bool runOk = File.Exists(base28 + ".down.csv") && File.Exists(base28 + ".up.csv")
+              && !File.Exists(base28 + ".is.csv") && summary28.Contains("is n/a (mask footprint)");
+    bool plumbOk = profM2 == profM && profM2.Down.FootprintSource == "mask"
+                && compM.UsesMaskFootprint && compM.DownlinkMaskXmlPath == mask110
+                && validOk && runOk;
+
+    Check("V28 declared-mask footprint: exact read, cap, exclusion, envelope, plumbing",
+        exactOk && capOk && exclOk && envOk && plumbOk,
+        $"exact={exactOk} cap={capOk} excl={exclOk} env={envOk} plumb={plumbOk} " +
+        $"h0={h0:F2} h1={h1:F2} free={rFree.MaxEpfdDb:F2} cap1={rCap.MaxEpfdDb:F2}");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

@@ -7,7 +7,7 @@ pattern is the **Taylor circular illumination function** of Recommendation
 **ITU-R S.1528-1 §1.4** (2025 revision), which gives a realistic side-lobe
 shape rather than an envelope.
 
-Two tabs:
+Functions (each a tab or tool window, launched from the Home page):
 
 - **Composite gain map** — the original composer: place a beam set, switch
   beams on/off, and view the composite gain heatmap on a world map.
@@ -16,9 +16,28 @@ Two tabs:
   §D6.4.4), with per-beam power control, frequency-reuse aggregation, a
   GSO-arc exclusion zone, and export to S.1503-4 mask **XML** and tabular
   **CSV**.
+- **Mask Viewer** — read any S.1503-4 mask XML back the way EPFD tools do.
+- **Orbit Design** — prototype the SNS v10 orbit declaration, shell by
+  shell, from repeat solving to a saved multi-shell design document.
+- **SNS v10 builder** — assemble complete SRS + Masks databases from
+  designs, mask XMLs, operating-parameter sets and earth stations.
+- **Operation profile** — the real system's operating characteristics
+  (payload, coverage, scheduling, activity) as one saved element feeding
+  the runner, the deriver and the compliance loop; the downlink footprint
+  source is an explicit choice — live beam composition, or a declared
+  PFD mask XML that simulations read the examination's way (§D5.1.4.1).
+- **Operating parameters designer** — author the declared operating
+  constraints (the R set) directly, or derive them by simulating the real
+  system and enveloping what it actually does; export as R-set XML.
+- **Simulation runner** — run epfd(down)/(is)/(up) directly from a design
+  document and write the CDFs.
+- **Compliance loop** — sweep epfd(down) victims across a latitude grid,
+  verdict against the entered limit with the examination's own
+  comparison, and walk the exclusion angle to the smallest compliant
+  value, written back into the operation profile.
 
-See the **[user guide](docs/user-guide.md)** for a full walk-through of both
-tabs and every control.
+See the **[user guide](docs/user-guide.md)** for a full walk-through of
+every function and control.
 
 Layout:
 
@@ -128,27 +147,52 @@ table edges — with fully unreachable regions blank.
 
 ### Orbit Design
 
-Prototypes the SNS v10 orbit parameters. Enter a target altitude,
-inclination and eccentricity: the tab lists the repeating-ground-track
-candidates near it (k orbits per m nodal days, the exact altitude for each,
-the cycle as the ready `rpt_prd_dd/hh/mm/ss` fields, the equator spacing and
-the largest `keep_rnge` that keeps swept tracks distinct), previews the SNS
-fields for all three station-keeping cases — including the Case-1 artificial
-precession numbers and the spacing the examination run actually measures —
-and draws one full propagated cycle of the selected candidate over the
-coastline map, with start/end markers that coincide when the track closes.
-Three sub-tabs share the state: the repeat solver, the station-keeping
-cases, and a Walker-shell constellation panel with live SNS orbit/phase
-tables; designs save and reload as `*.orbitdesign.json` files (including
-the selected candidate). Tooltips share their text with the parameter
-cards.
+Prototypes the SNS v10 orbit declaration, shell by shell — one document
+holds every shell of the constellation. Four sub-tabs share the state:
+**Start here** (the shells list — named, ordered, add/duplicate/remove —
+and the target orbit every case starts from), the **Repeat solver** (mode
+first: *fixed altitude* declares a repeat pair at your own altitude,
+auto-filled with the nearest, station keeping absorbing the drift;
+*adjusting altitude* solves the exact closing altitudes; then the
+`keep_rnge` tolerance, the candidate grid with both cycle readings, and
+one propagated declared cycle over the coastline map — closure 0 at the
+exact altitude, the free-flight drift at the target, with a
+whole-constellation overlay), the **Station-keeping cases** (the three
+S.1503-4 cases previewed as ready SNS fields — Case 1 purely
+informational, Case 3 with an optional admin-supplied precession rate)
+and the **Constellation** (Walker shell to live SNS orbit/phase tables,
+selected shell or all shells combined, with the constellation repeat
+period P_repeat and one-click `rpt_prd` harmonization across shells).
+Designs save and reload as `*.orbitdesign.json` documents (every shell,
+selected candidates included); tooltips share their text with the
+parameter cards.
 
 ### SNS v10 builder (window)
 
 Assembles complete SNS v10 datasets (SRS + Masks databases) from separate
-elements — orbit-design files as shells, mask XMLs, operating-parameter
-sets and the scenario frequency ranges — cloned from donor schemas and
-written through the verified writer.
+elements — orbit-design documents as shells, mask XMLs with per-row link
+scope (whole constellation, per plane, per satellite, or a specific earth
+station), declared earth stations (`e_as_stn`), operating-parameter sets
+and the scenario frequency ranges — cloned from donor schemas and written
+through the verified writer.
+
+### Operating parameters designer (window)
+
+Authors one non-GSO operating-parameter set (the `f_mask R` element):
+the header quantities and the four per-latitude arrays, round-tripped
+through `*.opparams.json` and exported as byte-convention R-set XML —
+entered directly, or **derived from simulation**: fly the real system,
+measure every granted link, and envelope the measurements into the
+declared set the way the pfd/e.i.r.p. masks envelope the payload.
+
+### Simulation runner (window)
+
+Runs the epfd(down) / epfd(is) / epfd(up) simulation directly from a
+design document over the scheduler-driven operation model. **Play**
+animates the operation on the world map (satellites, candidate and
+active links, live counts); **Quick run** executes the accelerated
+simulation with no UI updates and writes the three CDF CSVs in
+S.1503-4 D7.1.2 bins.
 
 Full details and the maths for every control are in the
 **[user guide](docs/user-guide.md)**.
@@ -179,8 +223,10 @@ dotnet run --project tests/radians.beamlab.checks
 Headless business-logic checks against independent invariants — the α
 solver vs brute force, frame round-trips, reuse colourings, aggregation
 ordering, export round-trips and envelope binning, peak retention on coarse
-grids, Taylor-kernel bounds, array-steered beams, and the mask-viewer's
-§D5.1.5 reads. Prints PASS/FAIL per check; exit code 0 iff all pass. A few
+grids, Taylor-kernel bounds, array-steered beams, the mask-viewer's
+§D5.1.5 reads, and the Orbit Design suite (repeat solver, cases,
+multi-shell documents, builder and simulation runner). Prints PASS/FAIL
+per check; exit code 0 iff all pass. A few
 checks use a local ITU reference filing and skip cleanly when it is absent.
 
 `countries.json` is searched in the working directory, the application

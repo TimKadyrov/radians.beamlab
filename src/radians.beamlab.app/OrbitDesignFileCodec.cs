@@ -11,9 +11,13 @@ namespace radians.beamlab.app;
 /// Design input plus the SELECTED repeat candidate, so a consumer (the SNS
 /// builder, a simulation) reproduces exactly the chosen design without
 /// re-running the solver. SchemaVersion 2 added the selected-candidate
-/// fields; version 3 added the Case-3 admin-supplied precession rate.
-/// Older files load with the newer fields empty (precession empty means
-/// the plain-J2 default).
+/// fields; version 3 added the Case-3 admin-supplied precession rate;
+/// version 4 added DeclareAtTargetAltitude (the stored rpt_* fields hold
+/// the DECLARED decomposition either way); version 5 added
+/// HarmonizedRptSeconds (the constellation repeat period declared as
+/// this shell's rpt_prd); version 6 added ShellName. Older files load
+/// with the newer fields empty/false, reproducing their original
+/// behaviour.
 /// </summary>
 public sealed record OrbitDesignData(
     int SchemaVersion, double TargetAltitudeKm, double InclinationDeg, double Eccentricity,
@@ -23,18 +27,22 @@ public sealed record OrbitDesignData(
     double KeepRangeDeg, int NOrbits, string VictimBeamwidthText,
     double? SelectedAltitudeKm = null, int? SelectedOrbits = null, int? SelectedNodalDays = null,
     int? RptDays = null, int? RptHours = null, int? RptMinutes = null, int? RptSeconds = null,
-    double? PrecessionDegPerSec = null)
+    double? PrecessionDegPerSec = null, bool DeclareAtTargetAltitude = false,
+    long? HarmonizedRptSeconds = null, string ShellName = "")
 {
-    /// <summary>One-line summary for list displays.</summary>
+    /// <summary>One-line summary for list displays, at the declared altitude.</summary>
     public string Summary
     {
         get
         {
+            double alt = CaseChoice == 1 && !DeclareAtTargetAltitude
+                ? SelectedAltitudeKm ?? TargetAltitudeKm
+                : TargetAltitudeKm;
             string s = FormattableString.Invariant(
-                $"{PlaneCount}x{SatsPerPlane} @ {SelectedAltitudeKm ?? TargetAltitudeKm:F1} km / i {InclinationDeg:F1}, case {CaseChoice + 1}");
-            return SelectedOrbits is int k
-                ? s + FormattableString.Invariant($", repeat {k}/{SelectedNodalDays}")
-                : s;
+                $"{PlaneCount}x{SatsPerPlane} @ {alt:F1} km / i {InclinationDeg:F1}, case {CaseChoice + 1}");
+            if (SelectedOrbits is int k)
+                s += FormattableString.Invariant($", repeat {k}/{SelectedNodalDays}");
+            return ShellName.Trim().Length > 0 ? ShellName.Trim() + " — " + s : s;
         }
     }
 }
@@ -77,9 +85,11 @@ public static class OrbitDesignFileCodec
     /// </summary>
     public static ConstellationShell ToShell(OrbitDesignData d)
     {
-        // Only a Case-2 (repeating) design needs the solved candidate; free
-        // drift and a supplied precession fly the target orbit as-is.
-        double alt = d.CaseChoice == 1
+        // Cases 1 and 3 fly the target orbit as-is; a Case-2 design also
+        // declares at the target altitude by default, adopting the solved
+        // candidate's exact altitude only when opted out (the stored rpt_*
+        // fields already hold the matching declared decomposition).
+        double alt = d.CaseChoice == 1 && !d.DeclareAtTargetAltitude
             ? d.SelectedAltitudeKm ?? d.TargetAltitudeKm
             : d.TargetAltitudeKm;
         double? opHt = double.TryParse(d.OpHeightText, NumberStyles.Float,

@@ -1,0 +1,243 @@
+<Window x:Class="radians.beamlab.app.OperationProfileWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Operation profile"
+        Height="640" Width="940"
+        Background="#E9F4F8" Foreground="#000000"
+        FontFamily="Gibson, Segoe UI" FontSize="12">
+    <Window.Resources>
+        <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#000000"/><Setter Property="Margin" Value="0,2,0,2"/></Style>
+        <Style TargetType="TextBox"><Setter Property="Background" Value="#ffffff"/><Setter Property="Foreground" Value="#000000"/><Setter Property="BorderBrush" Value="#8BC4CD"/><Setter Property="Padding" Value="3"/><Setter Property="Margin" Value="0,1,0,1"/></Style>
+        <Style TargetType="Button"><Setter Property="Background" Value="#ffffff"/><Setter Property="Foreground" Value="#0076A1"/><Setter Property="BorderBrush" Value="#0076A1"/><Setter Property="Padding" Value="6,3"/><Setter Property="Margin" Value="0,2,4,2"/></Style>
+        <Style TargetType="ComboBox"><Setter Property="Margin" Value="0,1,0,1"/></Style>
+        <Style TargetType="GroupBox"><Setter Property="Foreground" Value="#0B516F"/><Setter Property="BorderBrush" Value="#D1EBF5"/><Setter Property="Margin" Value="0,4,0,4"/><Setter Property="Padding" Value="6"/></Style>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="12">
+        <TextBlock TextWrapping="Wrap" Foreground="#698089"
+                   Text="The real system's operating characteristics as one saved element (*.opprofile.json) — the input to the simulation runner, the R-set deriver and the compliance loop. Empty optional fields keep the scene defaults; the exclusion can stay 0 — it is the compliance loop's output. The list of parameters grows with the model."/>
+
+        <StackPanel Orientation="Horizontal" Margin="0,6,0,2">
+            <TextBlock Text="Profile name" VerticalAlignment="Center" Margin="0,0,6,0"/>
+            <TextBox Width="180" Text="{Binding Name, UpdateSourceTrigger=LostFocus}"/>
+            <TextBlock Text="Direction" VerticalAlignment="Center" Margin="14,0,6,0"/>
+            <ComboBox Width="130" SelectedValuePath="Tag" SelectedValue="{Binding SelectedDirection}"
+                      ToolTip="Which direction's inputs are shown below; the profile file always carries both sides.">
+                <ComboBoxItem Content="Downlink" Tag="Downlink"/>
+                <ComboBoxItem Content="Uplink" Tag="Uplink"/>
+            </ComboBox>
+        </StackPanel>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="450"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                <GroupBox Header="Downlink — space-station payload / beams"
+                          Visibility="{Binding IsDownlinkSelected, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="190"/><ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Footprint source"/>
+                        <ComboBox  x:Name="FootprintCombo" Grid.Row="0" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding FootprintSource}"
+                                   ToolTip="Where the downlink footprint toward a victim comes from in simulations: beam composition computes it live from the shaped beams below; PFD mask reads the declared mask XML the examination's way (S.1503-4 sec. D5.1.4.1 - nearest-latitude table, exclusion-zone and Nco selection from the declared set). The beam fields still shape the scheduler's coverage geometry in both modes.">
+                            <ComboBoxItem Content="beam composition (shaped)" Tag="composition"/>
+                            <ComboBoxItem Content="PFD mask (declared XML)" Tag="mask"/>
+                        </ComboBox>
+                        <TextBlock Grid.Row="1" Text="PFD mask XML"/>
+                        <Grid Grid.Row="1" Grid.Column="1" IsEnabled="{Binding IsMaskFootprint}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Text="{Binding MaskXmlPathText, UpdateSourceTrigger=LostFocus}"
+                                     ToolTip="The declared S.1503-4 PFD mask XML (either mask type) read when the source is set to PFD mask."/>
+                            <Button Grid.Column="1" Content="…" Margin="4,1,0,1" Click="OnBrowseMaskClick"/>
+                        </Grid>
+                        <TextBlock Grid.Row="2" Text="Downlink frequency (GHz)"/>
+                        <TextBox   x:Name="FreqBox" Grid.Row="2" Grid.Column="1" Text="{Binding FrequencyGhzText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="3" Text="Peak gain (dBi)"/>
+                        <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding GainPeakText, UpdateSourceTrigger=LostFocus}" ToolTip="Per-beam peak gain Gm (dBi); empty keeps the scene default."/>
+                        <TextBlock Grid.Row="4" Text="Beam cell radius (km)"/>
+                        <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding BeamCellRadiusText, UpdateSourceTrigger=LostFocus}" ToolTip="Ground cell radius one beam serves (km) - sets the beam layout density; empty keeps the scene default."/>
+                        <TextBlock Grid.Row="5" Text="Taylor SLR (dB)"/>
+                        <TextBox   Grid.Row="5" Grid.Column="1" Text="{Binding TaylorSlrText, UpdateSourceTrigger=LostFocus}" ToolTip="S.1528-1 sec. 1.4 Taylor side-lobe ratio (dB); empty keeps the scene default."/>
+                        <TextBlock Grid.Row="6" Text="Taylor nbar"/>
+                        <TextBox   Grid.Row="6" Grid.Column="1" Text="{Binding TaylorNbarText, UpdateSourceTrigger=LostFocus}" ToolTip="Taylor nbar (number of secondary lobes); empty keeps the scene default."/>
+                        <TextBlock Grid.Row="7" Text="Pattern floor (dBi)"/>
+                        <TextBox   Grid.Row="7" Grid.Column="1" Text="{Binding PatternFloorText, UpdateSourceTrigger=LostFocus}" ToolTip="Far-out side-lobe floor LF (dBi); empty keeps the scene default."/>
+                        <TextBlock Grid.Row="8" Text="Tx e.i.r.p. (dBW)"/>
+                        <TextBox   Grid.Row="8" Grid.Column="1" Text="{Binding TxEirpText, UpdateSourceTrigger=LostFocus}" ToolTip="Per-beam transmit e.i.r.p. (dBW in the reference bandwidth); empty keeps the scene default."/>
+                        <TextBlock Grid.Row="9" Text="Power mode"/>
+                        <ComboBox  Grid.Row="9" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding PowerMode}">
+                            <ComboBoxItem Content="(scene default)" Tag=""/>
+                            <ComboBoxItem Content="constant e.i.r.p." Tag="eirp"/>
+                            <ComboBoxItem Content="constant boresight PFD" Tag="pfd"/>
+                        </ComboBox>
+                        <TextBlock Grid.Row="10" Text="Aggregation"/>
+                        <ComboBox  Grid.Row="10" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding Aggregation}">
+                            <ComboBoxItem Content="(scene default)" Tag=""/>
+                            <ComboBoxItem Content="all co-frequency power sum" Tag="powersum"/>
+                            <ComboBoxItem Content="frequency-reuse worst colour" Tag="cochannel"/>
+                        </ComboBox>
+                        <TextBlock Grid.Row="11" Text="Reuse cluster index"/>
+                        <TextBox   Grid.Row="11" Grid.Column="1" Text="{Binding ReuseClusterText, UpdateSourceTrigger=LostFocus}" ToolTip="Frequency-reuse cluster index of the scene's cluster list (used with the worst-colour aggregation); empty keeps the scene default."/>
+                        <TextBlock Grid.Row="12" Text="Ref bandwidth (kHz)"/>
+                        <TextBox   Grid.Row="12" Grid.Column="1" Text="{Binding RefBwText, UpdateSourceTrigger=LostFocus}" ToolTip="Reference bandwidth of the pfd/e.i.r.p. quantities (kHz); the masks and epfd use 40 kHz."/>
+                        <TextBlock Grid.Row="13" Text="Min angle at sat (deg)"/>
+                        <TextBox   x:Name="DlAngleSatBox" Grid.Row="13" Grid.Column="1" Text="{Binding DlAngleSatText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="14" Text="Min angle at ES (deg)"/>
+                        <TextBox   x:Name="DlAngleEsBox" Grid.Row="14" Grid.Column="1" Text="{Binding DlAngleEsText, UpdateSourceTrigger=LostFocus}"/>
+                    </Grid>
+                </GroupBox>
+
+                <GroupBox Header="Uplink — earth-station transmit"
+                          Visibility="{Binding IsUplinkSelected, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="190"/><ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                            <RowDefinition/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Uplink frequency (GHz)"/>
+                        <TextBox   x:Name="UlFreqBox" Grid.Row="0" Grid.Column="1" Text="{Binding UlFrequencyGhzText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="1" Text="ES power ceiling (dBW)"/>
+                        <TextBox   x:Name="EsPowerBox" Grid.Row="1" Grid.Column="1" Text="{Binding EsPowerText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="2" Text="Power control ref elev (deg)"/>
+                        <TextBox   x:Name="PowerRefBox" Grid.Row="2" Grid.Column="1" Text="{Binding PowerRefElevText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="3" Text="ES dish diameter (m)"/>
+                        <TextBox   x:Name="EsDishBox" Grid.Row="3" Grid.Column="1" Text="{Binding EsDishText, UpdateSourceTrigger=LostFocus}"
+                                   ToolTip="S.1428 pattern diameter of the transmitting earth stations; empty leaves it to the run's own field."/>
+                        <TextBlock Grid.Row="4" Text="Min angle at sat (deg)"/>
+                        <TextBox   x:Name="UlAngleSatBox" Grid.Row="4" Grid.Column="1" Text="{Binding UlAngleSatText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="5" Text="Min angle at ES (deg)"/>
+                        <TextBox   x:Name="UlAngleEsBox" Grid.Row="5" Grid.Column="1" Text="{Binding UlAngleEsText, UpdateSourceTrigger=LostFocus}"/>
+                    </Grid>
+                </GroupBox>
+
+                <GroupBox Header="Coverage / service">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="190"/><ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Min elevation (deg)"/>
+                        <TextBox   x:Name="MinElevBox" Grid.Row="0" Grid.Column="1" Text="{Binding MinElevText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="1" Text="Service lat min / max"/>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
+                            <TextBox x:Name="LatBox" Width="70" Text="{Binding LatMinText, UpdateSourceTrigger=LostFocus}"/>
+                            <TextBox Width="70" Margin="6,1,0,1" Text="{Binding LatMaxText, UpdateSourceTrigger=LostFocus}"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="2" Text="Service lon min / max"/>
+                        <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
+                            <TextBox Width="70" Text="{Binding LonMinText, UpdateSourceTrigger=LostFocus}"/>
+                            <TextBox Width="70" Margin="6,1,0,1" Text="{Binding LonMaxText, UpdateSourceTrigger=LostFocus}"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="3" Text="Cell (km) / coverage (km)"/>
+                        <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal">
+                            <TextBox x:Name="CellBox" Width="70" Text="{Binding CellKmText, UpdateSourceTrigger=LostFocus}"/>
+                            <TextBox Width="70" Margin="6,1,0,1" Text="{Binding CoverageRadiusText, UpdateSourceTrigger=LostFocus}"
+                                     ToolTip="Serving-coverage radius; empty = the cell pitch."/>
+                        </StackPanel>
+                    </Grid>
+                </GroupBox>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1">
+                <GroupBox Header="Operation / scheduling">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="190"/><ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                            <RowDefinition/><RowDefinition/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Tracking strategy"/>
+                        <ComboBox  x:Name="PolicyCombo" Grid.Row="0" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding TrackingPolicy}"
+                                   ToolTip="Parameters each strategy uses: all three obey the feasibility gates (min elevation, exclusion, Nco, per-direction min angles). Highest elevation and max GSO separation rank candidates by elevation or by alpha and hand over voluntarily after the hold time below; hold-until-forced never hands over voluntarily and uses no extra parameter.">
+                            <ComboBoxItem Content="highest elevation" Tag="HighestElevation"/>
+                            <ComboBoxItem Content="max GSO separation" Tag="MaxGsoSeparation"/>
+                            <ComboBoxItem Content="minimum handovers (hold until forced)" Tag="HoldUntilForced"/>
+                        </ComboBox>
+                        <TextBlock Grid.Row="1" Text="Nco per cell / per satellite"/>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
+                            <TextBox x:Name="NcoBox" Width="70" Text="{Binding NcoText, UpdateSourceTrigger=LostFocus}"/>
+                            <TextBox x:Name="NcoSatBox" Width="70" Margin="6,1,0,1" Text="{Binding MaxCoFreqSatText, UpdateSourceTrigger=LostFocus}"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="2" Text="Hold before handover (s)"/>
+                        <TextBox   x:Name="HoldBox" Grid.Row="2" Grid.Column="1" Text="{Binding MinHoldText, UpdateSourceTrigger=LostFocus}"
+                                   ToolTip="Two roles when set: the strategies' dwell (highest-elevation and max-GSO-separation only hand over voluntarily after this many seconds on the current satellite; hold-until-forced ignores it) and the admission rule — a new link is only made toward a satellite that stays feasible for at least this long."/>
+                        <TextBlock Grid.Row="3" Text="Demand links per cell"/>
+                        <TextBox   x:Name="DemandBox" Grid.Row="3" Grid.Column="1" Text="{Binding DemandLinksText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="4" Text="Activity factor / period (s)"/>
+                        <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
+                            <TextBox x:Name="ActivityBox" Width="70" Text="{Binding ActivityFactorText, UpdateSourceTrigger=LostFocus}"/>
+                            <TextBox Width="70" Margin="6,1,0,1" Text="{Binding ActivityPeriodText, UpdateSourceTrigger=LostFocus}"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="5" Text="Operational fraction"/>
+                        <TextBox   x:Name="FractionBox" Grid.Row="5" Grid.Column="1" Text="{Binding OperationalFractionText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="6" Text="Illumination duty cycle"/>
+                        <TextBox   x:Name="DutyBox" Grid.Row="6" Grid.Column="1" Text="{Binding DutyText, UpdateSourceTrigger=LostFocus}"/>
+                    </Grid>
+                </GroupBox>
+
+                <GroupBox Header="Exclusion (the loop's output; 0 = none yet)">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="190"/><ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Exclusion alpha (deg)"/>
+                        <TextBox x:Name="AlphaBox" Grid.Column="1" Text="{Binding AlphaText, UpdateSourceTrigger=LostFocus}"/>
+                    </Grid>
+                </GroupBox>
+
+                <GroupBox Header="Per-latitude overrides — ES (service) latitude rows">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.ColumnSpan="3" TextWrapping="Wrap" Foreground="#698089" FontSize="11"
+                                   Text="One node per line: the earth-station latitude (deg), a space, the value. Values interpolate linearly between rows; outside the rows the scalar field on the left applies."/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="min elevation — lat(deg) elev(deg)" FontSize="11"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Nco — lat(deg) links" FontSize="11" Margin="6,2,0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="2" Text="exclusion — lat(deg) alpha(deg)" FontSize="11" Margin="6,2,0,2"/>
+                        <TextBox Grid.Row="2" Grid.Column="0" AcceptsReturn="True" Height="70" FontFamily="Consolas"
+                                 VerticalScrollBarVisibility="Auto" x:Name="MinElevByLatBox" Text="{Binding MinElevByLatText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" AcceptsReturn="True" Height="70" FontFamily="Consolas" Margin="6,1,0,1"
+                                 VerticalScrollBarVisibility="Auto" x:Name="NcoByLatBox" Text="{Binding NcoByLatText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBox Grid.Row="2" Grid.Column="2" AcceptsReturn="True" Height="70" FontFamily="Consolas" Margin="6,1,0,1"
+                                 VerticalScrollBarVisibility="Auto" x:Name="AlphaByLatBox" Text="{Binding AlphaByLatText, UpdateSourceTrigger=LostFocus}"/>
+                    </Grid>
+                </GroupBox>
+            </StackPanel>
+        </Grid>
+
+        <GroupBox Header="File">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Save profile…" Click="OnSaveClick"/>
+                    <Button Content="Load profile…" Click="OnLoadClick"/>
+                </StackPanel>
+                <TextBlock Text="{Binding SummaryText}" Foreground="#698089" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding StatusText}" Foreground="#CC3F4D" TextWrapping="Wrap"/>
+            </StackPanel>
+        </GroupBox>
+    </StackPanel>
+    </ScrollViewer>
+</Window>

@@ -8,6 +8,9 @@ namespace radians.beamlab.app;
 /// <summary>One launcher entry on the Home tab.</summary>
 public sealed record HomeFunction(string Title, string Description, int TabIndex);
 
+/// <summary>One tool card on the Home tab; Key selects the window to open.</summary>
+public sealed record HomeTool(string Key, string Title, string Description);
+
 /// <summary>
 /// The Home tab: the app's front door -- one card per function (opening its
 /// tab), links to the local documentation, and the version. Pure state; the
@@ -33,6 +36,30 @@ public sealed class HomeViewModel
             "candidates with exact altitudes and rpt_prd fields, the keep_rnge " +
             "bound, artificial-precession numbers, and the propagated one-cycle " +
             "track drawn to visible closure.", 4),
+    };
+
+    public IReadOnlyList<HomeTool> Tools { get; } = new[]
+    {
+        new HomeTool("profile", "Operation profile",
+            "The real system's operating characteristics as one saved element -- " +
+            "payload per direction, coverage, scheduling, activity -- feeding the " +
+            "simulation runner, the R-set deriver and the compliance loop."),
+        new HomeTool("compliance", "Compliance loop",
+            "Sweep epfd(down) victims across a latitude grid, verdict each point " +
+            "against the entered Article 22 limit with the examination's own " +
+            "comparison, and walk the exclusion angle to the smallest compliant value."),
+        new HomeTool("opparams", "Operating parameters (R set)",
+            "Author the declared operating constraints directly, or derive them " +
+            "by simulating the system and enveloping what it actually does; " +
+            "round-trip the set and export the R-set XML the builder registers."),
+        new HomeTool("simulation", "Simulation runner",
+            "Run the epfd(down)/(is)/(up) simulation directly from a design " +
+            "document over the scheduler-driven operation model and write the " +
+            "three CDF CSVs in the examination's bins."),
+        new HomeTool("builder", "SNS v10 builder",
+            "Assemble complete SNS v10 datasets (SRS + Masks databases) from " +
+            "orbit-design documents, mask XMLs with per-row link scope, declared " +
+            "earth stations and operating-parameter sets."),
     };
 
     /// <summary>Local docs, when running inside the repo tree; null hides the link.</summary>

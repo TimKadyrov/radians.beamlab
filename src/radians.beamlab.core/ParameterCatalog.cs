@@ -56,7 +56,7 @@ public static class ParameterCatalog
             }),
         new(ParameterGroup.Declared, "MIN_DURATION", "s · [lat]",
             "MinDurationByLat / header · min_duration",
-            "Minimum tracking dwell once a link is made: voluntary handover to a better satellite waits out the dwell; only infeasibility forces one. Non-zero selects the track-duration examination algorithm (BL-D1).",
+            "Minimum tracking dwell once a link is made: voluntary handover to a better satellite waits out the dwell; only infeasibility forces one. Non-zero also gates admission — a new link is only made toward a satellite that stays above the elevation floor and outside the exclusion for the whole duration — and selects the track-duration examination algorithm (BL-D1).",
             new[]
             {
                 "mutually exclusive with MIN_ANGLE_AT_ES — a band declares one regime",
@@ -157,8 +157,8 @@ public static class ParameterCatalog
                 "never enters the mask samplers: peak vs average is the point",
             }),
         new(ParameterGroup.Truth, "SelectionPolicy", "enum",
-            "Scheduler(…, policy) · HighestElevation | MaxGsoSeparation",
-            "Which feasible satellite serves: the highest-elevation default, or the one farthest from the GSO arc. Both obey every declared bound; the difference between their CDFs prices the arc-avoidance strategy.",
+            "Scheduler(…, policy) · HighestElevation | MaxGsoSeparation | HoldUntilForced",
+            "Which feasible satellite serves: the highest-elevation default, the one farthest from the GSO arc, or hold-until-forced — no voluntary handover while the link stays feasible. All obey every declared bound; the differences between their CDFs price the strategies.",
             new[]
             {
                 "MaxGsoSeparation maximises the same α that MIN_EXCLUDE bounds",

@@ -31,8 +31,20 @@ public partial class HomeView : UserControl
         if (sender is Button { Tag: int index }) OpenTab?.Invoke(index);
     }
 
-    private void OnSnsBuilderClick(object sender, RoutedEventArgs e)
-        => new SnsBuilderWindow { Owner = Window.GetWindow(this) }.Show();
+    private void OnToolOpenClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string key }) return;
+        Window w = key switch
+        {
+            "profile" => new OperationProfileWindow(),
+            "compliance" => new ComplianceWindow(),
+            "opparams" => new OpParamsWindow(),
+            "simulation" => new SimulationWindow(),
+            _ => new SnsBuilderWindow(),
+        };
+        w.Owner = Window.GetWindow(this);
+        w.Show();
+    }
 
     private void OnGuideClick(object sender, RoutedEventArgs e) => Shell(_vm.UserGuidePath);
     private void OnCardsClick(object sender, RoutedEventArgs e) => Shell(_vm.ParameterCardsPath);

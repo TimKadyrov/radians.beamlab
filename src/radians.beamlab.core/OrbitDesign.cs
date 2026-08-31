@@ -15,12 +15,16 @@ public sealed record RepeatSolution
     public required double AltitudeDeltaKm { get; init; }
     /// <summary>Cycle duration k * T_nodal at the exact altitude (s).</summary>
     public required double RepeatSeconds { get; init; }
+    /// <summary>Cycle duration k * T_nodal at the TARGET altitude (s) -- what an at-altitude declaration files.</summary>
+    public required double RepeatSecondsAtTarget { get; init; }
     /// <summary>Residual node drift per cycle when flown at the TARGET altitude instead (deg).</summary>
     public required double DriftDegPerCycleAtTarget { get; init; }
     /// <summary>Equator spacing between adjacent tracks, 360/k (deg).</summary>
     public required double EquatorSpacingDeg { get; init; }
     /// <summary>SNS rpt_prd_dd/hh/mm/ss decomposition of RepeatSeconds.</summary>
     public required (int Days, int Hours, int Minutes, int Seconds) RptPrd { get; init; }
+    /// <summary>SNS rpt_prd_dd/hh/mm/ss decomposition of RepeatSecondsAtTarget.</summary>
+    public required (int Days, int Hours, int Minutes, int Seconds) RptPrdAtTarget { get; init; }
     /// <summary>Largest keep_rnge that keeps swept tracks distinct: half the spacing (deg).</summary>
     public required double MaxKeepRangeDeg { get; init; }
 }
@@ -133,7 +137,7 @@ public static class OrbitDesign
         int take = 8, double searchBandKm = 400.0)
     {
         double aTarget = OrbitalConstants.EarthRadiusKm + targetAltitudeKm;
-        var (spassTarget, _) = NodalPassGeometry(aTarget, eccentricity, inclinationDeg);
+        var (spassTarget, tNodalTarget) = NodalPassGeometry(aTarget, eccentricity, inclinationDeg);
 
         var results = new List<RepeatSolution>();
         for (int k = 1; k <= maxOrbitsPerCycle; k++)
@@ -155,9 +159,11 @@ public static class OrbitDesign
                 AltitudeKm = aExact - OrbitalConstants.EarthRadiusKm,
                 AltitudeDeltaKm = aExact - aTarget,
                 RepeatSeconds = repeatSec,
+                RepeatSecondsAtTarget = k * tNodalTarget,
                 DriftDegPerCycleAtTarget = k * spassTarget - 360.0 * m,
                 EquatorSpacingDeg = 360.0 / k,
                 RptPrd = DecomposePeriod(repeatSec),
+                RptPrdAtTarget = DecomposePeriod(k * tNodalTarget),
                 MaxKeepRangeDeg = 180.0 / k,
             });
         }
@@ -182,7 +188,7 @@ public static class OrbitDesign
         int k = orbits / g, m = nodalDays / g;
 
         double aTarget = OrbitalConstants.EarthRadiusKm + targetAltitudeKm;
-        var (spassTarget, _) = NodalPassGeometry(aTarget, eccentricity, inclinationDeg);
+        var (spassTarget, tNodalTarget) = NodalPassGeometry(aTarget, eccentricity, inclinationDeg);
         const double loAltKm = 100.0, hiAltKm = 30000.0;
         double aExact = SolveAltitudeForSPass(360.0 * m / k,
             OrbitalConstants.EarthRadiusKm + 0.5 * (loAltKm + hiAltKm),
@@ -200,9 +206,11 @@ public static class OrbitDesign
                 AltitudeKm = aExact - OrbitalConstants.EarthRadiusKm,
                 AltitudeDeltaKm = aExact - aTarget,
                 RepeatSeconds = repeatSec,
+                RepeatSecondsAtTarget = k * tNodalTarget,
                 DriftDegPerCycleAtTarget = k * spassTarget - 360.0 * m,
                 EquatorSpacingDeg = 360.0 / k,
                 RptPrd = DecomposePeriod(repeatSec),
+                RptPrdAtTarget = DecomposePeriod(k * tNodalTarget),
                 MaxKeepRangeDeg = 180.0 / k,
             };
         }
@@ -260,14 +268,18 @@ public static class OrbitDesign
     /// <summary>
     /// Case 2 (station-kept repeating track): keep_rnge must stay below half
     /// the track spacing or the swept deadbands of adjacent tracks overlap.
+    /// atTargetAltitude declares the cycle at the target altitude (station
+    /// keeping absorbs the drift) instead of the exact closing altitude.
     /// </summary>
-    public static SnsOrbitFieldsPreview Case2Fields(RepeatSolution solution, double keepRangeDeg)
+    public static SnsOrbitFieldsPreview Case2Fields(RepeatSolution solution, double keepRangeDeg,
+        bool atTargetAltitude = false)
     {
         if (keepRangeDeg <= 0.0 || keepRangeDeg >= solution.MaxKeepRangeDeg)
             throw new ArgumentOutOfRangeException(nameof(keepRangeDeg),
                 $"keep_rnge must lie in (0, {solution.MaxKeepRangeDeg:F3}) deg for a " +
                 $"{solution.Orbits}-orbit cycle (half the {solution.EquatorSpacingDeg:F3} deg spacing)");
-        return new('Y', keepRangeDeg, 'N', null, solution.RptPrd);
+        return new('Y', keepRangeDeg, 'N', null,
+            atTargetAltitude ? solution.RptPrdAtTarget : solution.RptPrd);
     }
 
     /// <summary>Case 3 (administration-supplied precession).</summary>

@@ -1,0 +1,133 @@
+<Window x:Class="radians.beamlab.app.ComplianceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Compliance loop"
+        Height="640" Width="860"
+        Background="#E9F4F8" Foreground="#000000"
+        FontFamily="Gibson, Segoe UI" FontSize="12">
+    <Window.Resources>
+        <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#000000"/><Setter Property="Margin" Value="0,2,0,2"/></Style>
+        <Style TargetType="TextBox"><Setter Property="Background" Value="#ffffff"/><Setter Property="Foreground" Value="#000000"/><Setter Property="BorderBrush" Value="#8BC4CD"/><Setter Property="Padding" Value="3"/><Setter Property="Margin" Value="0,1,0,1"/></Style>
+        <Style TargetType="Button"><Setter Property="Background" Value="#ffffff"/><Setter Property="Foreground" Value="#0076A1"/><Setter Property="BorderBrush" Value="#0076A1"/><Setter Property="Padding" Value="6,3"/><Setter Property="Margin" Value="0,2,4,2"/></Style>
+        <Style TargetType="GroupBox"><Setter Property="Foreground" Value="#0B516F"/><Setter Property="BorderBrush" Value="#D1EBF5"/><Setter Property="Margin" Value="0,4,0,4"/><Setter Property="Padding" Value="6"/></Style>
+        <Style TargetType="DataGrid">
+            <Setter Property="Background" Value="#ffffff"/><Setter Property="Foreground" Value="#000000"/>
+            <Setter Property="BorderBrush" Value="#D1EBF5"/><Setter Property="RowBackground" Value="#ffffff"/>
+            <Setter Property="AlternatingRowBackground" Value="#E9F4F8"/><Setter Property="HeadersVisibility" Value="Column"/>
+        </Style>
+    </Window.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="12">
+        <TextBlock TextWrapping="Wrap" Foreground="#698089"
+                   Text="Steps 4-7 of the workflow (docs/compliance-loop-plan.md): sweep epfd(down) victims across a latitude grid, verdict each point against the entered limit with the examination's own comparison, and — when exceeded — walk the exclusion angle to the smallest compliant value and write it back into the operation profile."/>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="430"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                <GroupBox Header="System under test">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Design document"/>
+                        <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding DesignPath, UpdateSourceTrigger=LostFocus}"/>
+                        <Button    Grid.Row="0" Grid.Column="2" Content="…" Margin="4,1,0,1" Click="OnBrowseDesignClick"/>
+                        <TextBlock Grid.Row="1" Text="Operation profile"/>
+                        <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding ProfilePath, UpdateSourceTrigger=LostFocus}"/>
+                        <Button    Grid.Row="1" Grid.Column="2" Content="…" Margin="4,1,0,1" Click="OnBrowseProfileClick"/>
+                    </Grid>
+                </GroupBox>
+
+                <GroupBox Header="Victim sweep">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/><ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="ES lat from / to / step"/>
+                        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                            <TextBox Width="56" Text="{Binding LatFromText, UpdateSourceTrigger=LostFocus}"/>
+                            <TextBox Width="56" Margin="6,1,0,1" Text="{Binding LatToText, UpdateSourceTrigger=LostFocus}"/>
+                            <TextBox Width="56" Margin="6,1,0,1" Text="{Binding LatStepText, UpdateSourceTrigger=LostFocus}"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="1" Text="ES lon / GSO offset (deg)"/>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
+                            <TextBox Width="56" Text="{Binding EsLonText, UpdateSourceTrigger=LostFocus}"/>
+                            <TextBox Width="56" Margin="6,1,0,1" Text="{Binding GsoOffsetText, UpdateSourceTrigger=LostFocus}"
+                                     ToolTip="Wanted GSO longitude = ES longitude + this offset."/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="2" Text="ES dish (m)"/>
+                        <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding DishMText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="3" Text="Duration (days) / step (s)"/>
+                        <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal">
+                            <TextBox Width="70" Text="{Binding DurationDaysText, UpdateSourceTrigger=LostFocus}"/>
+                            <TextBox Width="70" Margin="6,1,0,1" Text="{Binding StepSecText, UpdateSourceTrigger=LostFocus}"/>
+                        </StackPanel>
+                    </Grid>
+                </GroupBox>
+
+                <GroupBox Header="Limit — one point per line: epfd_db percent_time">
+                    <StackPanel>
+                        <TextBox AcceptsReturn="True" Height="80" VerticalScrollBarVisibility="Auto"
+                                 FontFamily="Consolas" Text="{Binding LimitsText, UpdateSourceTrigger=LostFocus}"
+                                 ToolTip="The applicable Article 22 epfd(down) table rows for the band and dish (epfd in dBW/m2 in the reference bandwidth, percent of time it may be exceeded). The template pair is wide and verdict-permissive — replace it with the real limit."/>
+                        <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11"
+                                   Text="Verdicts use the examination's own limit comparison; the margin column reads the CDF at each limit percentage (positive = room to spare)."/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Exclusion advisor">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="alpha step / cap (deg)" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox Width="56" Text="{Binding AlphaStepText, UpdateSourceTrigger=LostFocus}"/>
+                            <TextBox Width="56" Margin="6,1,0,1" Text="{Binding AlphaMaxText, UpdateSourceTrigger=LostFocus}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Suggest exclusion" IsEnabled="{Binding RunEnabled}" Click="OnAdviseClick"
+                                    ToolTip="Walks the global exclusion angle upward from the profile's value, one full sweep per step, until every latitude passes or the cap is reached."/>
+                            <Button Content="Apply to profile" IsEnabled="{Binding ApplyEnabled}" Click="OnApplyClick"
+                                    ToolTip="Writes the found exclusion angle into the operation profile file — from there, derive the R set and export the masks."/>
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1">
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Run sweep" IsEnabled="{Binding RunEnabled}" Click="OnRunClick"/>
+                    <Button Content="Export table…" Click="OnExportClick"/>
+                </StackPanel>
+                <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="420">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="ES lat" Binding="{Binding LatText}" Width="60"/>
+                        <DataGridTextColumn Header="max epfd (dB)" Binding="{Binding MaxText}" Width="100"/>
+                        <DataGridTextColumn Header="worst margin (dB)" Binding="{Binding MarginText}" Width="120"/>
+                        <DataGridTextColumn Header="verdict" Binding="{Binding PassText}" Width="70"/>
+                        <DataGridTextColumn Header="quiet" Binding="{Binding QuietSteps}" Width="60"/>
+                    </DataGrid.Columns>
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Pass}" Value="False">
+                                    <Setter Property="Foreground" Value="#CC3F4D"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                </DataGrid>
+                <TextBlock Text="{Binding StatusText}" Foreground="#698089" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Grid>
+    </StackPanel>
+    </ScrollViewer>
+</Window>
