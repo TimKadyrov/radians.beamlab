@@ -26,15 +26,11 @@ public partial class HomeView : UserControl
         SolverGuideButton.IsEnabled = _vm.RepeatSolverPath is not null;
     }
 
-    private void OnOpenClick(object sender, RoutedEventArgs e)
+    private void OnCardOpenClick(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: int index }) OpenTab?.Invoke(index);
-    }
-
-    private void OnToolOpenClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { Tag: string key }) return;
-        Window w = key switch
+        if (sender is not Button { Tag: HomeCard card }) return;
+        if (card.TabIndex >= 0) { OpenTab?.Invoke(card.TabIndex); return; }
+        Window w = card.Key switch
         {
             "profile" => new OperationProfileWindow(),
             "compliance" => new ComplianceWindow(),

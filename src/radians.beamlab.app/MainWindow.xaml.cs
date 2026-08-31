@@ -24,6 +24,7 @@ public partial class MainWindow : Window
         Loaded += OnLoaded;
     }
 
+
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         HomeTab.OpenTab = i => MainTabs.SelectedIndex = i;

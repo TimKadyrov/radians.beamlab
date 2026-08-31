@@ -84,18 +84,18 @@ a{color:var(--g1)} a:hover{color:#1983AA}
   <div class="kicker">radians.beamlab &middot; non-GSO system description</div>
   <h1>BeamLab Parameter Cards</h1>
   <p class="lede">Every input operating parameter the simulator implements &mdash; the declared
-  S.1503-4 bounds it projects onto, the richer truth-side operation model behind them, and the
+  S.1503-4 bounds it projects onto, the richer real-system operation model behind them, and the
   per-shell orbit declarations &mdash; each with where it lives, what enforces it, and how it
   couples to the others.</p>
   <div class="legend">
     <span class="g"><span class="swatch" style="background:var(--g1)"></span>Declared bounds (R set)</span>
-    <span class="g"><span class="swatch" style="background:var(--g2)"></span>Truth-side operation</span>
+    <span class="g"><span class="swatch" style="background:var(--g2)"></span>Real-system operation</span>
     <span class="g"><span class="swatch" style="background:var(--g3)"></span>Orbit model</span>
     <span class="ops">&rarr; feeds &nbsp; &perp; excludes &nbsp; &and; min() &nbsp; &equiv; same metric</span>
   </div>
 
   <figure class="mapfig">
-  <svg viewBox="0 0 980 300" role="img" aria-label="Relations map: declared bounds, truth-side operation and orbit-model parameters with their load-bearing couplings" style="min-width:820px">
+  <svg viewBox="0 0 980 300" role="img" aria-label="Relations map: declared bounds, real-system operation and orbit-model parameters with their load-bearing couplings" style="min-width:820px">
     <defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
     <g fill="none" stroke="currentColor" style="color:var(--ink)">
       <rect x="14" y="30" width="372" height="252" rx="8" stroke="var(--g1)" stroke-dasharray="4 4" opacity=".5"/>
@@ -103,7 +103,7 @@ a{color:var(--g1)} a:hover{color:#1983AA}
       <rect x="806" y="30" width="160" height="252" rx="8" stroke="var(--g3)" stroke-dasharray="4 4" opacity=".5"/>
     </g>
     <text x="26" y="20" class="svgtxt" style="fill:var(--g1)">DECLARED BOUNDS</text>
-    <text x="458" y="20" class="svgtxt" style="fill:var(--g2)">TRUTH-SIDE OPERATION</text>
+    <text x="458" y="20" class="svgtxt" style="fill:var(--g2)">REAL-SYSTEM OPERATION</text>
     <text x="816" y="20" class="svgtxt" style="fill:var(--g3)">ORBIT MODEL</text>
     <g style="color:var(--ink)">
       <g font-family="IBM Plex Mono,monospace" font-size="11">
@@ -132,11 +132,11 @@ a{color:var(--g1)} a:hover{color:#1983AA}
       </g>
       <g stroke="currentColor" fill="none">
         <line x1="372" y1="56" x2="460" y2="56" stroke-dasharray="2 3"/>
-        <line x1="372" y1="96" x2="458" y2="96" marker-end="url(#ar)"/>
-        <line x1="372" y1="136" x2="458" y2="136" marker-end="url(#ar)"/>
+        <line x1="372" y1="96" x2="460" y2="96" stroke-dasharray="2 3"/>
+        <line x1="372" y1="136" x2="460" y2="136" stroke-dasharray="2 3"/>
       </g>
       <text x="416" y="48" text-anchor="middle" class="svglbl">&equiv; same &alpha; metric</text>
-      <text x="416" y="88" text-anchor="middle" class="svglbl">&rarr; ref. elevation</text>
+      <text x="416" y="88" text-anchor="middle" class="svglbl">&equiv; same elevation</text>
       <text x="416" y="128" text-anchor="middle" class="svglbl">&and; min() = slots</text>
       <line x1="186" y1="176" x2="214" y2="176" stroke="currentColor" stroke-dasharray="4 3"/>
       <text x="200" y="200" text-anchor="middle" class="svglbl">&perp; mutually exclusive</text>
@@ -153,6 +153,73 @@ a{color:var(--g1)} a:hover{color:#1983AA}
   its own.</figcaption>
   </figure>
 </header>
+
+<!-- ============ PIPELINE ============ -->
+<section>
+  <h2>The pipeline <span class="tag" style="background:var(--g2-tint); color:var(--g2)">input &rarr; simulation &rarr; output</span></h2>
+  <p class="sec-note">What one run consumes, what happens inside it, and what comes out &mdash; with the producer
+  loop that turns outputs back into declared inputs. Every box's parameters are the cards below.</p>
+  <figure class="mapfig">
+  <svg viewBox="0 0 980 344" role="img" aria-label="Pipeline: the orbit design document, operation profile, BR limits and victim geometry feed the simulation - propagation, scheduler, live composition or declared-mask read, epfd accumulation; outputs are CDFs, verdicts and margins, the derived R set, exported masks, the SNS dataset and margin figures; derived declarations feed back as inputs" style="min-width:820px">
+    <defs><marker id="par" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
+    <g fill="none" stroke="currentColor" style="color:var(--ink)">
+      <rect x="14" y="30" width="252" height="272" rx="8" stroke="var(--g3)" stroke-dasharray="4 4" opacity=".5"/>
+      <rect x="304" y="30" width="374" height="272" rx="8" stroke="var(--g2)" stroke-dasharray="4 4" opacity=".5"/>
+      <rect x="716" y="30" width="250" height="272" rx="8" stroke="var(--g1)" stroke-dasharray="4 4" opacity=".5"/>
+    </g>
+    <text x="26" y="20" class="svgtxt" style="fill:var(--g3)">INPUT</text>
+    <text x="316" y="20" class="svgtxt" style="fill:var(--g2)">SIMULATION</text>
+    <text x="726" y="20" class="svgtxt" style="fill:var(--g1)">OUTPUT</text>
+    <g style="color:var(--ink)">
+      <g font-family="IBM Plex Mono,monospace" font-size="10.5">
+        <rect x="28" y="44" width="224" height="24" rx="4" fill="var(--g3-tint)"/><text x="140" y="60" text-anchor="middle" fill="currentColor">orbit design (shells)</text>
+        <rect x="28" y="84" width="224" height="24" rx="4" fill="var(--g2-tint)"/><text x="140" y="100" text-anchor="middle" fill="currentColor">operation profile</text>
+        <rect x="28" y="124" width="224" height="24" rx="4" fill="var(--g1-tint)"/><text x="140" y="140" text-anchor="middle" fill="currentColor">BR limits DB (Art. 22)</text>
+        <rect x="28" y="164" width="224" height="24" rx="4" fill="none" stroke="currentColor" opacity=".6"/><text x="140" y="180" text-anchor="middle" fill="currentColor">victim geometry + dish</text>
+        <rect x="28" y="252" width="224" height="24" rx="4" fill="var(--g1-tint)" stroke="currentColor" stroke-dasharray="3 3"/><text x="140" y="268" text-anchor="middle" fill="currentColor">declared mask + R set</text>
+        <rect x="330" y="44" width="322" height="24" rx="4" fill="var(--g2-tint)"/><text x="491" y="60" text-anchor="middle" fill="currentColor">propagation &mdash; S.1503 cases</text>
+        <rect x="330" y="96" width="322" height="24" rx="4" fill="var(--g2-tint)"/><text x="491" y="112" text-anchor="middle" fill="currentColor">scheduler &mdash; declared gates &times; demand</text>
+        <rect x="330" y="160" width="152" height="36" rx="4" fill="var(--g2-tint)"/><text x="406" y="175" text-anchor="middle" fill="currentColor">live composition</text><text x="406" y="189" text-anchor="middle" fill="currentColor">(payload scene)</text>
+        <rect x="500" y="160" width="152" height="36" rx="4" fill="var(--g1-tint)"/><text x="576" y="175" text-anchor="middle" fill="currentColor">mask read</text><text x="576" y="189" text-anchor="middle" fill="currentColor">D5.1.4.1</text>
+        <rect x="330" y="236" width="322" height="24" rx="4" fill="var(--g2-tint)"/><text x="491" y="252" text-anchor="middle" fill="currentColor">epfd at the victim &mdash; D7.1.2 bins</text>
+        <rect x="730" y="44" width="222" height="24" rx="4" fill="var(--g1-tint)"/><text x="841" y="60" text-anchor="middle" fill="currentColor">CDFs down / is / up</text>
+        <rect x="730" y="82" width="222" height="24" rx="4" fill="var(--g1-tint)"/><text x="841" y="98" text-anchor="middle" fill="currentColor">verdicts + margins &mdash; D7.1.3</text>
+        <rect x="730" y="120" width="222" height="24" rx="4" fill="var(--g1-tint)"/><text x="841" y="136" text-anchor="middle" fill="currentColor">derived R set (envelope)</text>
+        <rect x="730" y="158" width="222" height="24" rx="4" fill="var(--g1-tint)"/><text x="841" y="174" text-anchor="middle" fill="currentColor">exported masks (envelope)</text>
+        <rect x="730" y="196" width="222" height="24" rx="4" fill="var(--g1-tint)"/><text x="841" y="212" text-anchor="middle" fill="currentColor">SNS v10 dataset &mdash; SRS + Masks</text>
+        <rect x="730" y="234" width="222" height="24" rx="4" fill="var(--g1-tint)"/><text x="841" y="250" text-anchor="middle" fill="currentColor">margin figures</text>
+      </g>
+      <g stroke="currentColor" fill="none">
+        <line x1="252" y1="56" x2="328" y2="56" marker-end="url(#par)"/>
+        <line x1="252" y1="96" x2="328" y2="106" marker-end="url(#par)"/>
+        <line x1="252" y1="136" x2="328" y2="244" marker-end="url(#par)" opacity=".55"/>
+        <line x1="252" y1="176" x2="328" y2="246" marker-end="url(#par)" opacity=".55"/>
+        <line x1="252" y1="264" x2="574" y2="200" marker-end="url(#par)" stroke-dasharray="3 3" opacity=".7"/>
+        <line x1="491" y1="68" x2="491" y2="94" marker-end="url(#par)"/>
+        <line x1="491" y1="120" x2="491" y2="158" marker-end="url(#par)"/>
+        <line x1="406" y1="196" x2="470" y2="234" marker-end="url(#par)"/>
+        <line x1="576" y1="196" x2="512" y2="234" marker-end="url(#par)"/>
+        <path d="M652 244 H692 V56 H726" marker-end="url(#par)"/>
+        <path d="M692 90 H726" marker-end="url(#par)"/>
+        <path d="M652 108 H684 V132 H726" marker-end="url(#par)" opacity=".7"/>
+        <path d="M455 160 V140 H706 V170 H726" marker-end="url(#par)" opacity=".7"/>
+      </g>
+      <text x="290" y="52" class="svglbl">shells</text>
+      <text x="258" y="112" class="svglbl">gates &middot; scene</text>
+      <text x="600" y="124" class="svglbl">measured links</text>
+      <text x="560" y="136" class="svglbl">envelope</text>
+      <text x="700" y="290" text-anchor="middle" class="svglbl">the producer loop: the advisor's alpha into the profile, the exported mask as the</text>
+      <text x="700" y="302" text-anchor="middle" class="svglbl">footprint source, R set + masks into the dataset builder &mdash; outputs become inputs</text>
+      <path d="M841 258 L841 322 L140 322 L140 278" stroke="currentColor" fill="none" stroke-dasharray="4 3" opacity=".6" marker-end="url(#par)"/>
+      <text x="490" y="318" text-anchor="middle" class="svglbl">declarations re-enter</text>
+    </g>
+  </svg>
+  <figcaption>One run, end to end. The dashed return edges are the producer loop &mdash; derived declarations
+  re-enter as inputs: the exported mask as the downlink footprint source (its dashed box), the advisor's exclusion
+  into the profile, and everything into the dataset builder. The two footprint branches are the projection margin's
+  two sides.</figcaption>
+  </figure>
+</section>
 
 <!-- ============ DECLARED ============ -->
 <section>
@@ -180,7 +247,8 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     <div class="chips"><span class="chip on">Scheduler gate</span><span class="chip on">Mask envelope</span></div>
     <p class="desc">The GSO-arc exclusion half-angle: a satellite whose cell-centre &alpha; sits inside it may not
     serve. Varies by latitude and per orbital plane (a per-<code>orb_id</code> row overrides the all-orbits row, and
-    when it varies every plane needs a value).</p>
+    when it varies every plane needs a value). Read by linear interpolation between latitude rows &mdash; the
+    Recommendation's rule for this array; the others read the nearest row.</p>
     <figure><svg viewBox="0 0 300 108" role="img" aria-label="Alpha is the angle at the earth station between a non-GSO satellite direction and the nearest point of the GSO arc; the exclusion zone is a band around the arc">
       <defs><marker id="a2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
       <g style="color:var(--ink)" stroke="currentColor" fill="none">
@@ -335,9 +403,34 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     <div class="name-row"><span class="pname">header &harr; arrays</span><span class="unit">precedence rule</span></div>
     <div class="where"><b>ElevAngleHeaderDeg, MaxCoFreqHeader, MinDurationSecHeader</b> vs the [lat] arrays</div>
     <div class="chips"><span class="chip on">DeclaredConstraints</span></div>
-    <p class="desc">Several quantities exist twice: as an XML header scalar and as a per-latitude array. The array
-    prevails inside the latitudes it covers; the header applies outside. The BL sets carry all three shapes
-    (arrays-only, header-only, both-with-different-values) so a consumer must implement the rule, not infer it.</p>
+    <p class="desc">Three declared quantities come in two shapes at once: min_elev, max_co_freq and min_duration
+    each have an XML header scalar and an optional per-latitude array. One rule resolves them &mdash; inside the
+    latitude span the array covers (its lowest row to its highest row) the array wins, read at the nearest row
+    (the Recommendation's own read rule); outside that span the header scalar applies. A missing header falls
+    back to the permissive
+    default: 0&nbsp;deg elevation, no cap, 0&nbsp;s &mdash; the Recommendation's "assumed to be zero if not
+    provided" convention, which it states for the min angles. Example, for min_elev: rows at lat 30 and 60 with a
+    10&nbsp;deg header &mdash; lat 45 reads the nearest row, lat 10 reads the header. The BL sets carry all three
+    shapes (arrays-only, header-only, both-with-different-values) so a consumer must implement the rule, not infer
+    it.</p>
+    <figure><svg viewBox="0 0 300 92" role="img" aria-label="Latitude axis: inside the array's span the nearest row wins; outside it the header scalar applies">
+      <g style="color:var(--ink)">
+        <line x1="14" y1="56" x2="286" y2="56" stroke="currentColor" opacity=".5"/>
+        <line x1="96" y1="42" x2="96" y2="62" stroke="var(--g1)" stroke-width="2"/>
+        <line x1="212" y1="42" x2="212" y2="62" stroke="var(--g1)" stroke-width="2"/>
+        <line x1="96" y1="34" x2="212" y2="34" stroke="var(--g1)"/>
+        <line x1="96" y1="34" x2="96" y2="40" stroke="var(--g1)"/>
+        <line x1="212" y1="34" x2="212" y2="40" stroke="var(--g1)"/>
+        <text x="154" y="26" text-anchor="middle" class="svgtxt" style="fill:var(--g1)">array span &mdash; nearest row wins</text>
+        <text x="96" y="76" text-anchor="middle" class="svgtxt">row 30</text>
+        <text x="212" y="76" text-anchor="middle" class="svgtxt">row 60</text>
+        <circle cx="150" cy="56" r="3" fill="var(--g1)"/>
+        <text x="150" y="90" text-anchor="middle" class="svglbl">lat 45 &rarr; nearest row</text>
+        <circle cx="40" cy="56" r="3" fill="currentColor"/>
+        <text x="40" y="44" text-anchor="middle" class="svglbl">lat 10 &rarr; header</text>
+        <text x="286" y="44" text-anchor="end" class="svglbl">no header &rarr; 0 / no cap / 0 s</text>
+      </g>
+    </svg><figcaption>The array rules its own span; everywhere else the header (or its permissive default) applies.</figcaption></figure>
     <ul class="rel">
       <li><span class="op">&rarr;</span><span>every <code>DeclaredConstraints</code> accessor resolves this precedence in one place</span></li>
       <li><span class="op">&rarr;</span><span>set 21 arrays-only &middot; set 22 both-different &middot; set 23 header-only</span></li>
@@ -349,7 +442,7 @@ a{color:var(--g1)} a:hover{color:#1983AA}
 
 <!-- ============ TRUTH ============ -->
 <section>
-  <h2>Truth-side operation <span class="tag" style="background:var(--g2-tint); color:var(--g2)">richer than the format</span></h2>
+  <h2>Real-system operation <span class="tag" style="background:var(--g2-tint); color:var(--g2)">richer than the format</span></h2>
   <p class="sec-note">The system description the declaration projects down from. Each of these changes the simulated
   statistics while staying at or below the declared envelopes &mdash; the gap they open is the measurable
   conservatism the examination cannot see.</p>
@@ -583,12 +676,16 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     <div class="name-row"><span class="pname">Aggregation &middot; ReuseClusterIndex</span><span class="unit">enum &middot; index</span></div>
     <div class="where"><b>PfdMaskViewModel.Aggregation / ReuseClusterIndex</b> &middot; power sum | co-channel worst colour</div>
     <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">How beams combine toward one direction: the all-co-frequency power sum, or the frequency-reuse
-    worst colour &mdash; only one cluster's co-channel beams sum, the reuse index picking the colouring. The
-    ordering is invariant: max single &le; co-channel &le; power sum.</p>
+    <p class="desc">How beams combine in the victim's reference bandwidth. The run models one frequency, and the
+    aggregation says which beams share that slot: the power sum of all beams is the FRF-1 payload, every beam
+    radiating the full band; under N-colour reuse the band is partitioned and only one colour's beams illuminate
+    the victim's slot &mdash; &sect;C2.3.1 sums the illuminating beams "in the co-frequency band". The victim's
+    sub-band is not declared, so the worst colour is taken: the envelope over where the carrier lands, matching
+    the masks. The index selects the cluster size N from {3, 4, 7}. The ordering is invariant: max single &le;
+    co-channel &le; power sum.</p>
     <ul class="rel">
       <li><span class="op">&rarr;</span><span>checks pin the K-colour adjacency and the ordering (C2, C3)</span></li>
-      <li><span class="op">&rarr;</span><span>a smaller co-channel population is the aggregation-side face of frequency reuse</span></li>
+      <li><span class="op">&rarr;</span><span>modelled in the truth run too: with co-channel declared, the epfd composite takes the worst colour (V32)</span></li>
     </ul>
   </div>
 
@@ -601,6 +698,96 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     everywhere.</p>
     <ul class="rel">
       <li><span class="op">&rarr;</span><span>the BR limits rows carry their own refbw &mdash; the compliance window shows both</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">EllRollOffDb</span><span class="unit">dB &middot; cell edge</span></div>
+    <div class="where"><b>PfdMaskViewModel.EllRollOffDb</b> &middot; profile EllRollOffDb</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Adjacent-beam crossover depth of the auto layout: each beam's width is derived so its pattern
+    sits this many dB below peak at the cell edge &mdash; the cell radius fixes the lattice pitch, the crossover
+    fixes how the beam fills its cell. Deeper crossover means narrower beams and colder cell edges; the scene
+    default is 3&nbsp;dB.</p>
+    <ul class="rel">
+      <li><span class="op">&perp;</span><span>beam count stays with <code>BeamCellRadiusKm</code> and <code>MIN_ELEV</code> &mdash; this knob shapes edge illumination, not population</span></li>
+      <li><span class="op">&rarr;</span><span>check H2 pins the crossover uniform across the lattice with array-steered beams</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">CrossoverDb</span><span class="unit">dB &middot; rings layout</span></div>
+    <div class="where"><b>SceneModel.CrossoverDb</b> &middot; profile CrossoverDb</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Adjacent-beam crossover level of the concentric-rings layout (negative dB; default &minus;3):
+    with auto hex off, successive rings are placed so neighbouring beams cross at this level &mdash; there it is
+    the pitch knob. The auto hex lattice ignores it; its pitch comes from the cell radius.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>active only when <code>AutoHex</code> is off &mdash; the rings layout's counterpart of <code>BeamCellRadiusKm</code></span></li>
+      <li><span class="op">&perp;</span><span>the hex lattice's edge behaviour is <code>EllRollOffDb</code> instead</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">ThetaBDeg</span><span class="unit">deg</span></div>
+    <div class="where"><b>SceneModel.ThetaBDeg</b> &middot; profile ThetaBDeg</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Half 3-dB beamwidth of the circular patterns &mdash; the direct width knob where the layout
+    does not derive width from a cell (&sect;1.4 circular, &sect;1.2/&sect;1.3 references). The elliptical auto
+    layout derives its widths from the ground cell instead.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>the composite tab's Fill-&theta;b-from-Gm estimates it from the peak gain</span></li>
+      <li><span class="op">&perp;</span><span>inert for the elliptical auto layout &mdash; <code>BeamCellRadiusKm</code> and <code>EllRollOffDb</code> rule there</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">AutoHex &middot; UvArrayBeams</span><span class="unit">flags</span></div>
+    <div class="where"><b>SceneModel.AutoMode / UvArrayBeams</b></div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">The layout switches: auto hex tessellation on or off (off = the concentric-rings layout), and
+    array-steered UV beams for the circular &sect;1.4 pattern &mdash; radial width &times;1/cos&nbsp;&theta;, the
+    phased-array broadening. Indeterminate in the profile keeps the scene defaults.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>checks H1/H2 pin the UV-beam geometry and the crossover uniformity it buys</span></li>
+      <li><span class="op">&rarr;</span><span>rings mode is where <code>CrossoverDb</code> bites</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">EllAlphaDeg &middot; EllBetaDeg</span><span class="unit">deg at sat</span></div>
+    <div class="where"><b>SceneModel.EllAlphaDeg / EllBetaDeg</b></div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">The Annex-2 elliptical cell half-axes subtended at the satellite (radial &alpha;, transverse
+    &beta;) &mdash; the manual parameterisation used when the elliptical pattern runs without the auto layout;
+    auto mode derives them from the ground-cell radius per position.</p>
+    <ul class="rel">
+      <li><span class="op">&and;</span><span>with <code>EllRollOffDb</code> they fix the aperture (Lr, Lt)</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">LnDb</span><span class="unit">dB rel. peak</span></div>
+    <div class="where"><b>SceneModel.LnDb</b> &middot; profile LnDb</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Near-in side-lobe level of the S.1528-0 &sect;1.2 envelope pattern (default &minus;15&nbsp;dB)
+    &mdash; that model's one shape knob; inert for the &sect;1.4 and &sect;1.3 kinds.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>&sect;1.2 is the envelope reference the APL APSREC409V01 family encodes</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">PatternKind</span><span class="unit">enum</span></div>
+    <div class="where"><b>SceneModel.PatternKind</b> &middot; profile PatternKind</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">The per-beam pattern model: S.1528-1 &sect;1.4 Taylor, circular or elliptical (the scene
+    default), or the S.1528-0 &sect;1.2 envelope and &sect;1.3 LEO/MEO/HEO references. It changes each beam's
+    shape and side lobes &mdash; the composite everywhere off boresight &mdash; while the lattice population stays
+    with the layout knobs. Empty keeps the scene default.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>the Taylor knobs (SLR, nbar, floor) apply to the &sect;1.4 kinds</span></li>
+      <li><span class="op">&perp;</span><span>the &sect;1.2/&sect;1.3 kinds are S.1528-0 reference patterns, not shaped illuminations</span></li>
     </ul>
   </div>
 

@@ -51,6 +51,11 @@ public sealed class ScenePointing : IBeamPointing
         var powers = PfdMaskField.BeamPowersDbw(_gen);
         if (_dutyDb != 0.0)
             for (int i = 0; i < powers.Length; i++) powers[i] += _dutyDb;
-        return new ResolvedBeamSet(_gen.Scene.Beams.ToList(), powers);
+        var beams = _gen.Scene.Beams.ToList();
+        // Declared co-channel N-colour reuse rides with the set, so the
+        // epfd composite models the aggregation the payload declares.
+        int? n = _gen.Aggregation == PfdAggregation.CoChannelSum ? _gen.ReuseClusterSize : null;
+        return new ResolvedBeamSet(beams, powers, n,
+            n is int nn ? BeamComposer.ReuseColors(beams, nn) : null);
     }
 }

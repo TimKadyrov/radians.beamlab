@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using radians.beamlab;
+using static radians.beamlab.GeoMath;
 
 namespace radians.beamlab.app;
 
@@ -13,7 +15,35 @@ namespace radians.beamlab.app;
 /// </summary>
 public sealed class OperationProfileViewModel : ObservableObject
 {
-    public OperationProfileViewModel() => Recompute();
+    public OperationProfileViewModel()
+    {
+        // First presentation mirrors the PFD-mask generator's current
+        // inputs as explicit values (Taylor elliptical and friends), so
+        // a fresh profile starts from the same payload the generator
+        // shows -- not from blanks. Loading a profile overwrites these.
+        var t = new PfdMaskViewModel();
+        var inv = CultureInfo.InvariantCulture;
+        _gainPeakText = t.GmDbi.ToString(inv);
+        _beamCellRadiusText = t.CellRadiusKm.ToString(inv);
+        _taylorSlrText = t.TaylorSlrDb.ToString(inv);
+        _taylorNbarText = t.TaylorNbar.ToString(inv);
+        _patternFloorText = t.LfDbi.ToString(inv);
+        _txEirpText = t.TxEirpDbw.ToString(inv);
+        _powerMode = t.IsConstantPfdMode ? "pfd" : "eirp";
+        _aggregation = t.IsCoChannelMode ? "cochannel" : "powersum";
+        _reuseClusterText = t.ReuseClusterIndex.ToString(inv);
+        _refBwText = t.RefBwKHz.ToString(inv);
+        _ellRollOffText = t.EllRollOffDb.ToString(inv);
+        _patternKind = t.Scene.PatternKind.ToString();
+        _thetaBText = t.Scene.ThetaBDeg.ToString(inv);
+        _autoHex = t.Scene.AutoMode;
+        _uvArrayBeams = t.Scene.UvArrayBeams;
+        _ellAlphaText = t.Scene.EllAlphaDeg.ToString(inv);
+        _ellBetaText = t.Scene.EllBetaDeg.ToString(inv);
+        _lnText = t.Scene.LnDb.ToString(inv);
+        _crossoverText = t.Scene.CrossoverDb.ToString(inv);
+        Recompute();
+    }
 
     // ---- identity / payload --------------------------------------------
 
@@ -69,10 +99,74 @@ public sealed class OperationProfileViewModel : ObservableObject
     public string Aggregation { get => _aggregation; set { if (SetField(ref _aggregation, value)) Recompute(); } }
 
     private string _reuseClusterText = "";
-    public string ReuseClusterText { get => _reuseClusterText; set { if (SetField(ref _reuseClusterText, value)) Recompute(); } }
+    public string ReuseClusterText
+    {
+        get => _reuseClusterText;
+        set
+        {
+            if (!SetField(ref _reuseClusterText, value)) return;
+            OnPropertyChanged(nameof(ReuseSelIndex));
+            Recompute();
+        }
+    }
+
+    /// <summary>
+    /// The generator tab's reuse selector: 0 = scene default, then the
+    /// cluster sizes 3 / 4 / 7 (stored as the index 0..2, exactly as the
+    /// tab's ReuseClusterIndex stores it).
+    /// </summary>
+    public int ReuseSelIndex
+    {
+        get => _reuseClusterText.Trim() switch { "0" => 1, "1" => 2, "2" => 3, _ => 0 };
+        set
+        {
+            string t = value switch { 1 => "0", 2 => "1", 3 => "2", _ => "" };
+            if (t == _reuseClusterText) return;
+            _reuseClusterText = t;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ReuseClusterText));
+            Recompute();
+        }
+    }
 
     private string _refBwText = "40";
     public string RefBwText { get => _refBwText; set { if (SetField(ref _refBwText, value)) Recompute(); } }
+
+    private string _ellRollOffText = "";
+    /// <summary>Edge-of-cell roll-off (dB); empty keeps the scene default.</summary>
+    public string EllRollOffText { get => _ellRollOffText; set { if (SetField(ref _ellRollOffText, value)) Recompute(); } }
+
+    private string _patternKind = "";
+    /// <summary>"" = scene default; else a BeamPatternKind name.</summary>
+    public string PatternKind { get => _patternKind; set { if (SetField(ref _patternKind, value)) Recompute(); } }
+
+    private string _thetaBText = "";
+    public string ThetaBText { get => _thetaBText; set { if (SetField(ref _thetaBText, value)) Recompute(); } }
+
+    private bool? _autoHex;
+    /// <summary>Auto hex tessellation; indeterminate keeps the scene default.</summary>
+    public bool? AutoHex { get => _autoHex; set { if (SetField(ref _autoHex, value)) Recompute(); } }
+
+    private bool? _uvArrayBeams;
+    /// <summary>Array-steered UV beams; indeterminate keeps the scene default.</summary>
+    public bool? UvArrayBeams { get => _uvArrayBeams; set { if (SetField(ref _uvArrayBeams, value)) Recompute(); } }
+
+    private string _ellAlphaText = "";
+    public string EllAlphaText { get => _ellAlphaText; set { if (SetField(ref _ellAlphaText, value)) Recompute(); } }
+
+    private string _ellBetaText = "";
+    public string EllBetaText { get => _ellBetaText; set { if (SetField(ref _ellBetaText, value)) Recompute(); } }
+
+    private string _lnText = "";
+    public string LnText { get => _lnText; set { if (SetField(ref _lnText, value)) Recompute(); } }
+
+    private string _crossoverText = "";
+    /// <summary>Rings-layout crossover level (dB, negative); empty keeps the scene default.</summary>
+    public string CrossoverText { get => _crossoverText; set { if (SetField(ref _crossoverText, value)) Recompute(); } }
+
+    private string _previewAltText = "1200";
+    /// <summary>Reference altitude (km) the composition preview is built at.</summary>
+    public string PreviewAltText { get => _previewAltText; set { if (SetField(ref _previewAltText, value)) Recompute(); } }
 
     private string _ulFrequencyGhzText = "29.5";
     public string UlFrequencyGhzText { get => _ulFrequencyGhzText; set { if (SetField(ref _ulFrequencyGhzText, value)) Recompute(); } }
@@ -192,18 +286,160 @@ public sealed class OperationProfileViewModel : ObservableObject
     private string _statusText = "";
     public string StatusText { get => _statusText; set => SetField(ref _statusText, value); }
 
+    private string _compositionText = "";
+    /// <summary>The final beam composition the payload fields produce, at the preview altitude.</summary>
+    public string CompositionText { get => _compositionText; private set => SetField(ref _compositionText, value); }
+
+    /// <summary>
+    /// One beam of the in-place composition sketch: boresight ground
+    /// point and its 3-dB outline, in local km east/north of the
+    /// sub-satellite point (no geographic map involved). Color is the
+    /// beam's reuse colour under a declared co-channel N plan, -1 when
+    /// the aggregation is the plain power sum.
+    /// </summary>
+    public sealed record PreviewBeam(double EKm, double NKm, bool On, int Color,
+        IReadOnlyList<double> OutlineEKm, IReadOnlyList<double> OutlineNKm);
+
+    private IReadOnlyList<PreviewBeam> _previewBeams = Array.Empty<PreviewBeam>();
+    public IReadOnlyList<PreviewBeam> PreviewBeams { get => _previewBeams; private set => SetField(ref _previewBeams, value); }
+
+    private double _previewFovKm;
+    /// <summary>Ground radius (km) of the served field of view at the profile's minimum elevation.</summary>
+    public double PreviewFovKm { get => _previewFovKm; private set => SetField(ref _previewFovKm, value); }
+
+    // Conditional visibility mirroring the composite gain tab, computed
+    // from the EFFECTIVE (composed) scene so "(scene default)" choices
+    // show the right inputs.
+    private bool _isEllipticalPattern;
+    public bool IsEllipticalPattern { get => _isEllipticalPattern; private set => SetField(ref _isEllipticalPattern, value); }
+
+    private bool _isEllipticalAutoMode;
+    public bool IsEllipticalAutoMode { get => _isEllipticalAutoMode; private set => SetField(ref _isEllipticalAutoMode, value); }
+
+    private bool _isEllipticalManualMode;
+    public bool IsEllipticalManualMode { get => _isEllipticalManualMode; private set => SetField(ref _isEllipticalManualMode, value); }
+
     private void Recompute()
     {
         try
         {
             StatusText = "";
-            SummaryText = Build().Summary;
+            var p = Build();
+            SummaryText = p.Summary;
+            // The final composition these fields produce: compose the scene
+            // at the preview altitude and count the built and active beams
+            // -- the same rebuild every simulation run performs per state.
+            double alt = Req(_previewAltText, "preview altitude");
+            var comp = OperationComposer.Compose(p, alt);
+            bool ell = comp.Scene.Scene.PatternKind == BeamPatternKind.Taylor_1p4_Ell;
+            IsEllipticalPattern = ell;
+            IsEllipticalAutoMode = ell && comp.Scene.Scene.AutoMode;
+            IsEllipticalManualMode = ell && !comp.Scene.Scene.AutoMode;
+            // A clean local frame for the sketch: sub-satellite (0, 0).
+            comp.Scene.Scene.SubSatLatDeg = 0.0;
+            comp.Scene.Scene.SubSatLonDeg = 0.0;
+            comp.Scene.RebuildForCompute();
+            var beams = comp.Scene.Scene.Beams;
+            int on = beams.Count(b => b.Weight > 0.0);
+            int? reuseN = comp.Scene.Aggregation == PfdAggregation.CoChannelSum
+                ? comp.Scene.ReuseClusterSize : null;
+            BuildPreviewBeams(beams, alt, p.MinElevDeg, reuseN);
+            CompositionText = FormattableString.Invariant(
+                $"final composition at {alt:F0} km: {beams.Count} spot beams built, {on} active (exclusion {p.AlphaExclDeg:F1} deg) - cell {comp.Scene.CellRadiusKm:F0} km, roll-off {comp.Scene.EllRollOffDb:F1} dB, {comp.Scene.Scene.PatternKind}, min elev {p.MinElevDeg:F1} deg");
         }
         catch (Exception ex)
         {
             SummaryText = "";
+            CompositionText = "";
+            PreviewBeams = Array.Empty<PreviewBeam>();
             StatusText = ex.Message;
         }
+    }
+
+    /// <summary>
+    /// The in-place sketch data: per beam, the boresight's ground point
+    /// and a 24-point 3-dB outline, both as ray-sphere hits from the
+    /// satellite, in local km east/north of the sub-satellite point.
+    /// The half-power angle per azimuth comes from the beam's OWN
+    /// pattern by bisection, so every pattern kind draws its true
+    /// footprint without per-model width formulas.
+    /// </summary>
+    private void BuildPreviewBeams(IReadOnlyList<Beam> beams,
+        double altitudeKm, double minElevDeg, int? reuseN)
+    {
+        double R = EarthRadiusKm;
+        var sat = GeodeticToEcef(0.0, 0.0, altitudeKm);
+        var colors = reuseN is int rn ? BeamComposer.ReuseColors(beams, rn) : null;
+        var list = new List<PreviewBeam>(beams.Count);
+        for (int bi = 0; bi < beams.Count; bi++)
+        {
+            var b = beams[bi];
+            if (RaySphereHit(sat, b.Boresight) is not { } g) continue;
+            double ce = R * Math.Atan2(g.Y, g.X);
+            double cn = R * Math.Asin(Math.Clamp(g.Z / g.Length, -1.0, 1.0));
+
+            var bs = b.Boresight;
+            var refR = b.RadialAxisEcef ?? PerpOf(bs);
+            var tr = Vec3.Cross(bs, refR);
+            // Two bisections (radial and transverse half-power angles),
+            // then the analytic ellipse between them -- exact for the
+            // two axes, a faithful sketch everywhere else, and an order
+            // of magnitude cheaper than bisecting every azimuth.
+            double thR = HalfPowerDeg(b, refR);
+            double thT = b.RadialAxisEcef is null ? thR : HalfPowerDeg(b, tr);
+            var oe = new List<double>(24);
+            var onl = new List<double>(24);
+            for (int k = 0; k < 24; k++)
+            {
+                double psi = 2.0 * Math.PI * k / 24.0;
+                double c = Math.Cos(psi), sn = Math.Sin(psi);
+                double thDeg = 1.0 / Math.Sqrt(c * c / (thR * thR) + sn * sn / (thT * thT));
+                var side = (refR * c + tr * sn).Normalized();
+                double thRad = thDeg * Math.PI / 180.0;
+                var dir = (bs * Math.Cos(thRad) + side * Math.Sin(thRad)).Normalized();
+                if (RaySphereHit(sat, dir) is { } h)
+                {
+                    oe.Add(R * Math.Atan2(h.Y, h.X));
+                    onl.Add(R * Math.Asin(Math.Clamp(h.Z / h.Length, -1.0, 1.0)));
+                }
+            }
+            list.Add(new PreviewBeam(ce, cn, b.Weight > 0.0,
+                colors is null ? -1 : colors[bi], oe, onl));
+        }
+        PreviewBeams = list;
+
+        double eps = minElevDeg * Math.PI / 180.0;
+        double gamma = Math.Acos(Math.Clamp(R / (R + altitudeKm) * Math.Cos(eps), -1.0, 1.0)) - eps;
+        PreviewFovKm = R * gamma;
+    }
+
+    /// <summary>Half-power (Gm - 3 dB) off-axis angle along one azimuth, by bisection on the beam's own gain.</summary>
+    private static double HalfPowerDeg(Beam b, Vec3 side)
+    {
+        double target = b.Pattern.Gm - 3.0;
+        double DirGain(double thDeg)
+        {
+            double th = thDeg * Math.PI / 180.0;
+            var d = (b.Boresight * Math.Cos(th) + side * Math.Sin(th)).Normalized();
+            return b.GainDbi(d);
+        }
+        double hi = 0.25;
+        while (hi < 45.0 && DirGain(hi) > target) hi *= 2.0;
+        double lo = hi / 2.0;
+        for (int i = 0; i < 24; i++)
+        {
+            double mid = 0.5 * (lo + hi);
+            if (DirGain(mid) > target) lo = mid; else hi = mid;
+        }
+        return 0.5 * (lo + hi);
+    }
+
+    private static Vec3 PerpOf(Vec3 v)
+    {
+        var z = new Vec3(0.0, 0.0, 1.0);
+        var c = Vec3.Cross(v, z);
+        if (c.Length < 1e-9) c = Vec3.Cross(v, new Vec3(0.0, 1.0, 0.0));
+        return c.Normalized();
     }
 
     /// <summary>The profile the fields describe; throws with a precise message on bad input.</summary>
@@ -218,7 +454,11 @@ public sealed class OperationProfileViewModel : ObservableObject
                 OptInt(_reuseClusterText, "reuse cluster"), Req(_refBwText, "ref bandwidth"),
                 Opt(_dlAngleSatText, "downlink min angle at sat"),
                 Opt(_dlAngleEsText, "downlink min angle at ES"),
-                _footprintSource.Trim(), _maskXmlPathText.Trim()),
+                _footprintSource.Trim(), _maskXmlPathText.Trim(),
+                Opt(_ellRollOffText, "edge roll-off"), _patternKind.Trim(),
+                Opt(_thetaBText, "beamwidth"), _autoHex, _uvArrayBeams,
+                Opt(_ellAlphaText, "ell alpha"), Opt(_ellBetaText, "ell beta"),
+                Opt(_lnText, "near-in side-lobe"), Opt(_crossoverText, "crossover")),
             new UplinkProfile(
                 Req(_ulFrequencyGhzText, "uplink frequency"),
                 Opt(_esPowerText, "ES power"), Opt(_powerRefElevText, "power control ref elev"),
@@ -265,6 +505,15 @@ public sealed class OperationProfileViewModel : ObservableObject
         DlAngleEsText = dl.MinAngleAtEsDeg?.ToString(inv) ?? "";
         FootprintSource = dl.FootprintSource;
         MaskXmlPathText = dl.MaskXmlPath;
+        EllRollOffText = dl.EllRollOffDb?.ToString(inv) ?? "";
+        PatternKind = dl.PatternKind;
+        ThetaBText = dl.ThetaBDeg?.ToString(inv) ?? "";
+        AutoHex = dl.AutoHex;
+        UvArrayBeams = dl.UvArrayBeams;
+        EllAlphaText = dl.EllAlphaDeg?.ToString(inv) ?? "";
+        EllBetaText = dl.EllBetaDeg?.ToString(inv) ?? "";
+        LnText = dl.LnDb?.ToString(inv) ?? "";
+        CrossoverText = dl.CrossoverDb?.ToString(inv) ?? "";
         var ul = p.Up;
         UlFrequencyGhzText = ul.FrequencyGhz.ToString(inv);
         EsPowerText = ul.EsPowerDbw?.ToString(inv) ?? "";

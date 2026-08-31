@@ -578,16 +578,7 @@ public sealed class PfdMaskField
     /// back to index % N.
     /// </summary>
     private static int[] BeamReuseColors(IReadOnlyList<Beam> beams, int n)
-    {
-        var colors = new int[beams.Count];
-        for (int i = 0; i < beams.Count; i++)
-        {
-            colors[i] = beams[i].LatticeI is int li && beams[i].LatticeJ is int lj
-                ? BeamComposer.HexReuseColor(li, lj, n)
-                : i % n;
-        }
-        return colors;
-    }
+        => BeamComposer.ReuseColors(beams, n);
 
     /// <summary>Auto-scale the colour ramp to the actual PFD range, skipping empty pixels.</summary>
     private void AutoScale(double[] pfdBuf)

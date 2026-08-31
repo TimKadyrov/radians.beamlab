@@ -2856,19 +2856,22 @@ var looks = RandomLooks(300);
     string homeStart = radians.beamlab.app.HomeViewModel.FindDocsDir(AppContext.BaseDirectory) is null
         ? @"C:\Projects\radians.beamlab" : AppContext.BaseDirectory;
     var vmH = new HomeViewModel(homeStart);
-    bool okV6 = vmH.Functions.Count == 4
-        && vmH.Functions.Select(f => f.TabIndex).SequenceEqual(new[] { 1, 2, 3, 4 })
-        && vmH.Functions.All(f => f.Title.Length > 0 && f.Description.Length > 40)
-        && vmH.Tools.Count == 5
-        && vmH.Tools.All(t => t.Key.Length > 0 && t.Title.Length > 0 && t.Description.Length > 40)
+    bool okV6 = vmH.PipelineCards.Count == 6
+        && vmH.PipelineCards[0].TabIndex == 4
+        && vmH.PipelineCards.Skip(1).Select(c => c.Key)
+            .SequenceEqual(new[] { "profile", "simulation", "compliance", "opparams", "builder" })
+        && vmH.OtherCards.Select(c => c.TabIndex).SequenceEqual(new[] { 1, 2, 3 })
+        && vmH.PipelineCards.Concat(vmH.OtherCards)
+            .All(c => c.Title.Length > 0 && c.Description.Length > 40)
+        && vmH.PipelineTitle.Contains("pipeline")
         && vmH.UserGuidePath is not null && File.Exists(vmH.UserGuidePath)
         && vmH.ParameterCardsPath is not null && File.Exists(vmH.ParameterCardsPath)
         && vmH.OrbitCasesPath is not null && File.Exists(vmH.OrbitCasesPath)
         && vmH.RepeatSolverPath is not null && File.Exists(vmH.RepeatSolverPath)
         && vmH.VersionText.StartsWith("v1.");
-    Check("V6 Home view model: four cards, docs resolved from the repo tree, version", okV6,
-        $"funcs={vmH.Functions.Count} guide={vmH.UserGuidePath is not null} " +
-        $"cards={vmH.ParameterCardsPath is not null} ver={vmH.VersionText}");
+    Check("V6 Home view model: pipeline + other cards in flow order, docs resolved, version", okV6,
+        $"pipeline={vmH.PipelineCards.Count} other={vmH.OtherCards.Count} " +
+        $"guide={vmH.UserGuidePath is not null} cards={vmH.ParameterCardsPath is not null} ver={vmH.VersionText}");
 }
 
 // ---- V7: Case-1 run length from the victim beam ----
@@ -2914,13 +2917,13 @@ var looks = RandomLooks(300);
     var missing = ParameterCatalog.All
         .Where(e => !norm.Contains(e.Name) || !norm.Contains(e.Description))
         .Select(e => e.Name).ToList();
-    bool okV8 = ParameterCatalog.All.Count == 35
+    bool okV8 = ParameterCatalog.All.Count == 42
         && ParameterCatalog.All.Count(e => e.Group == ParameterGroup.Declared) == 11
-        && ParameterCatalog.All.Count(e => e.Group == ParameterGroup.Truth) == 20
+        && ParameterCatalog.All.Count(e => e.Group == ParameterGroup.Truth) == 27
         && ParameterCatalog.All.Count(e => e.Group == ParameterGroup.Orbit) == 4
         && missing.Count == 0
         && ParameterCatalog.Find("MIN_EXCLUDE") is { } me && me.ToolTipText.Contains("- ");
-    Check("V8 parameter catalog: 35 entries locked verbatim to the card deck", okV8,
+    Check("V8 parameter catalog: 42 entries locked verbatim to the card deck", okV8,
         missing.Count > 0 ? "drifted: " + string.Join(", ", missing.Take(3))
                           : $"entries={ParameterCatalog.All.Count}");
 }
@@ -3925,6 +3928,111 @@ var looks = RandomLooks(300);
         exactOk && capOk && exclOk && envOk && plumbOk && guardOk,
         $"exact={exactOk} cap={capOk} excl={exclOk} env={envOk} plumb={plumbOk} guard={guardOk} " +
         $"h0={h0:F2} h1={h1:F2} free={rFree.MaxEpfdDb:F2} cap1={rCap.MaxEpfdDb:F2}");
+}
+
+// ---- V30: MIN_EXCLUDE reads by linear interpolation (Rec Part B) ----
+{
+    var p30 = new OperatingParamsSet { SatName = "X", LowFreqMhz = 1, HighFreqMhz = 2 };
+    var ring30 = new MinExcludeByOrbit { OrbId = 0 };
+    ring30.ByLat.Add((0.0, 4.0)); ring30.ByLat.Add((10.0, 8.0));
+    p30.MinExclude.Add(ring30);
+    bool interpOk =
+        Math.Abs(DeclaredConstraints.ExclusionAlphaDeg(p30, 5.0, 1) - 6.0) < 1e-12
+        && Math.Abs(DeclaredConstraints.ExclusionAlphaDeg(p30, 7.5, 1) - 7.0) < 1e-12
+        && Math.Abs(DeclaredConstraints.ExclusionAlphaDeg(p30, -5.0, 1) - 4.0) < 1e-12
+        && Math.Abs(DeclaredConstraints.ExclusionAlphaDeg(p30, 15.0, 1) - 8.0) < 1e-12;
+    Check("V30 MIN_EXCLUDE read: linear interpolation between latitude rows (Rec Part B)", interpOk,
+        FormattableString.Invariant(
+            $"mid={DeclaredConstraints.ExclusionAlphaDeg(p30, 5.0, 1):F3} q={DeclaredConstraints.ExclusionAlphaDeg(p30, 7.5, 1):F3} clamp={DeclaredConstraints.ExclusionAlphaDeg(p30, -5.0, 1):F1}/{DeclaredConstraints.ExclusionAlphaDeg(p30, 15.0, 1):F1}"));
+}
+
+// ---- V31: layout knobs in the profile + the composition preview ----
+{
+    var prof31 = new OperationProfile(Name: "v31",
+        Downlink: new DownlinkProfile(EllRollOffDb: 4.5, PatternKind: "Taylor_1p4",
+            ThetaBDeg: 2.5, AutoHex: false, UvArrayBeams: true,
+            EllAlphaDeg: 10.0, EllBetaDeg: 11.0, LnDb: -18.0, CrossoverDb: -4.0));
+    var prof31b = OperationProfileCodec.Load(OperationProfileCodec.Save(prof31));
+    var comp31 = OperationComposer.Compose(prof31b, 1200.0);
+    var sc31 = comp31.Scene.Scene;
+    bool wireOk = prof31b == prof31
+        && Math.Abs(comp31.Scene.EllRollOffDb - 4.5) < 1e-12
+        && sc31.PatternKind == BeamPatternKind.Taylor_1p4
+        && Math.Abs(sc31.ThetaBDeg - 2.5) < 1e-12
+        && !sc31.AutoMode && sc31.UvArrayBeams
+        && Math.Abs(sc31.EllAlphaDeg - 10.0) < 1e-12
+        && Math.Abs(sc31.EllBetaDeg - 11.0) < 1e-12
+        && Math.Abs(sc31.LnDb - -18.0) < 1e-12
+        && Math.Abs(sc31.CrossoverDb - -4.0) < 1e-12;
+
+    var vm31 = new OperationProfileViewModel();
+    bool previewOk = vm31.CompositionText.Contains("spot beams built")
+        && vm31.CompositionText.Contains("active")
+        && vm31.PreviewBeams.Count > 50
+        && vm31.PreviewBeams.All(b => b.OutlineEKm.Count >= 8)
+        && vm31.PreviewFovKm > 1000.0;
+    vm31.EllRollOffText = "6";
+    string with6 = vm31.CompositionText;
+    bool previewLive = with6.Contains("roll-off 6.0 dB");
+    // Visibility mirrors the composite tab: scene default is elliptical
+    // auto; a circular pattern hides the elliptical inputs.
+    bool visOk = vm31.IsEllipticalPattern && vm31.IsEllipticalAutoMode
+        && !vm31.IsEllipticalManualMode;
+    vm31.PatternKind = "Taylor_1p4";
+    visOk = visOk && !vm31.IsEllipticalPattern && !vm31.IsEllipticalAutoMode;
+    vm31.PatternKind = "Taylor_1p4_Ell";
+    vm31.AutoHex = false;
+    visOk = visOk && vm31.IsEllipticalManualMode && !vm31.IsEllipticalAutoMode;
+
+    Check("V31 layout knobs: pattern/layout wired through, preview and visibility live",
+        wireOk && previewOk && previewLive && visOk,
+        $"wire={wireOk} preview={previewOk} live={previewLive} vis={visOk}");
+}
+
+// ---- V32: declared co-channel reuse is modelled in the truth run ----
+{
+    var vm32 = new PfdMaskViewModel { IsCoChannelMode = true };   // N = 3 (default index)
+    var one32 = new Constellation(new[] { new ConstellationShell
+    { AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1 } });
+    var ant32 = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 12000.0, 0.6);
+    var victim32 = new EpfdDownVictim { EsLatDeg = 0, EsLonDeg = 0, GsoLonDeg = 0, Antenna = ant32 };
+    var limits32 = new List<radlimits.LimitPoint>
+    {
+        new radlimits.LimitPoint { EPFD = -300.0, Perc = 0.001 },
+        new radlimits.LimitPoint { EPFD = 0.0, Perc = 100.0 },
+    };
+
+    var st32 = one32.StateAt(0, 0.0, 1.0);
+    var set32 = new ScenePointing(vm32).Resolve(st32);
+    bool carryOk = set32.CoChannelN == 3 && set32.ReuseColors is { } cc32
+        && cc32.Count == set32.Beams.Count && cc32.Distinct().Count() == 3;
+
+    var resCo = EpfdDown.Run(one32, new ScenePointing(vm32), victim32, 1.0, 1, limits32);
+    var resPs = EpfdDown.Run(one32, new ScenePointing(new PfdMaskViewModel()), victim32, 1.0, 1, limits32);
+
+    // Hand value at t=0 (sat overhead, phi = 0 so Grx = Gmax): worst-colour
+    // eirp minus spreading equals the run's epfd exactly.
+    var gen32 = new PfdMaskViewModel();
+    vm32.CopySettingsTo(gen32);
+    gen32.Scene.SubSatLatDeg = st32.SubSatLatDeg;
+    gen32.Scene.SubSatLonDeg = st32.SubSatLonDeg;
+    gen32.Scene.AltitudeKm = st32.AltitudeKm;
+    gen32.Scene.BodyYawDeg = st32.HeadingDeg;
+    gen32.RebuildForCompute();
+    var pow32 = PfdMaskField.BeamPowersDbw(gen32);
+    var es32 = GeodeticToEcef(0, 0, 0);
+    var toEs32 = (es32 - st32.PositionEcefKm).Normalized();
+    int n32 = gen32.ReuseClusterSize;
+    double eirpCo = BeamComposer.MaxCoChannelEirpDbw(gen32.Scene.Beams, toEs32, pow32,
+        BeamComposer.ReuseColors(gen32.Scene.Beams, n32), n32);
+    double dM32 = (es32 - st32.PositionEcefKm).Length * 1000.0;
+    double pfdCo = eirpCo - 10.0 * Math.Log10(4.0 * Math.PI * dM32 * dM32);
+
+    bool exactOk32 = Math.Abs(resCo.MaxEpfdDb - pfdCo) < 1e-9;
+    bool orderOk32 = resCo.MaxEpfdDb < resPs.MaxEpfdDb - 0.5;
+    Check("V32 co-channel reuse modelled in the truth run: worst-colour exact, below power sum",
+        carryOk && exactOk32 && orderOk32,
+        $"carry={carryOk} co={resCo.MaxEpfdDb:F3} hand={pfdCo:F3} powersum={resPs.MaxEpfdDb:F3}");
 }
 
 // ---- V29: BR limits database read + hand-entry cross-check ----

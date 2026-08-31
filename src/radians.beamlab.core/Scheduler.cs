@@ -11,8 +11,10 @@ namespace radians.beamlab;
 /// from), so the scheduler's bounds and the declaration cannot drift apart.
 /// Header/array duality follows EPS Sec. 6.7.2.2: the array prevails inside
 /// the latitude span it covers, the header applies outside it. Within an
-/// array the nearest-latitude block is used (the Sec. D5 convention);
-/// min_elev interpolates linearly in azimuth, clamped at the ends.
+/// array the nearest-latitude block is used (the Part B convention);
+/// min_elev interpolates linearly in azimuth, clamped at the ends, and
+/// MIN_EXCLUDE alone is read by linear interpolation between latitude
+/// rows (its own Part B rule).
 /// </summary>
 public static class DeclaredConstraints
 {
@@ -75,14 +77,27 @@ public static class DeclaredConstraints
     /// <summary>
     /// Exclusion-zone angle alpha0 (deg) at latitude for the given orbit
     /// (SRS orb_id, per plane): an orbit-specific min_exclude array overrides
-    /// the all-orbits (c = 0) array; absent = 0 (no exclusion).
+    /// the all-orbits (c = 0) array; absent = 0 (no exclusion). Unlike the
+    /// other arrays, MIN_EXCLUDE is read by LINEAR INTERPOLATION between
+    /// latitude rows, clamped at the ends -- the Recommendation's own rule
+    /// for this array ("derived using linear interpolation between data
+    /// points", Part B).
     /// </summary>
     public static double ExclusionAlphaDeg(OperatingParamsSet p, double latDeg, int orbId)
     {
         var specific = p.MinExclude.FirstOrDefault(e => e.OrbId == orbId && e.ByLat.Count > 0);
         var chosen = specific ?? p.MinExclude.FirstOrDefault(e => e.OrbId == 0 && e.ByLat.Count > 0);
         if (chosen is null) return 0.0;
-        return Nearest(chosen.ByLat, v => v.LatDeg, latDeg).AlphaDeg;
+        var rows = chosen.ByLat.OrderBy(v => v.LatDeg).ToList();
+        if (rows.Count == 1 || latDeg <= rows[0].LatDeg) return rows[0].AlphaDeg;
+        if (latDeg >= rows[^1].LatDeg) return rows[^1].AlphaDeg;
+        for (int i = 1; i < rows.Count; i++)
+        {
+            if (latDeg > rows[i].LatDeg) continue;
+            double f = (latDeg - rows[i - 1].LatDeg) / (rows[i].LatDeg - rows[i - 1].LatDeg);
+            return rows[i - 1].AlphaDeg + f * (rows[i].AlphaDeg - rows[i - 1].AlphaDeg);
+        }
+        return rows[^1].AlphaDeg;
     }
 
     private static T Nearest<T>(IReadOnlyList<T> items, Func<T, double> key, double v)

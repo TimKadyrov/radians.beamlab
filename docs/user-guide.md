@@ -36,12 +36,20 @@ outline is used.
 
 ## Home
 
-The app opens on a launcher page: one card per function (the Open button
-activates its tab) and one card per tool window — the operation profile,
-the compliance loop, the R-set designer, the simulation runner and the
-SNS v10 builder — plus links to this guide and to the parameter cards
-(`docs/parameter-cards.html`, per-parameter reference with relations),
-and the version. Switching tabs never resets a function's state — the
+The app opens on a launcher page in two sections. **EPFD pipeline —
+truth to declarations** holds the producer loop in flow order: Orbit
+Design, Operation profile, Simulation runner, Compliance loop,
+Operating parameters (R set), SNS v10 builder — submit the truth,
+simulate it, derive the declarations that demonstrate compliance,
+assemble the dataset. **Other tools** below holds the composition and
+mask utilities: the Composite gain map, the PFD Mask Generator and the
+Mask Viewer. Each card's Open button activates its tab or window. Below
+them: links to this guide and to the parameter cards
+(`docs/parameter-cards.html`, per-parameter reference with relations;
+its **pipeline diagram** shows the whole tool at a glance — what a run
+consumes, what happens inside the simulation, what comes out, and the
+producer loop that turns outputs back into declared inputs), and the
+version. Switching tabs never resets a function's state — the
 numbered tabs below describe the functions in their card order.
 
 ## Tab 1 — Composite gain map
@@ -537,15 +545,27 @@ same text as `docs/parameter-cards.html`, kept identical by a check):
   truth; *PFD mask* points at a declared S.1503-4 mask XML that
   simulations read the examination's way, §D5.1.4.1 over §D5.1.5 reads;
   the beam fields still shape the scheduler's coverage geometry in both
-  modes); then the *payload* block, which shapes the scene and every
-  exported mask (frequency, peak gain, beam cell radius, Taylor SLR/n̄,
-  pattern floor, per-beam Tx power density in the reference bandwidth —
-  per-beam boresight e.i.r.p. density = power density + peak gain —
-  power mode,
-  aggregation and reuse cluster, reference bandwidth); then the *link
-  discipline* pair (min angles at satellite/ES), which the scheduler
-  enforces and the R set declares. Optional fields empty keep the scene
-  defaults.
+  modes); then the *payload*, whose **Beam pattern** and **Beam layout**
+  groups mirror the Composite gain tab input for input — showing and
+  hiding by mode exactly as the tab does, driven by the *effective*
+  (composed) pattern and layout so "(scene default)" choices reveal the
+  right inputs (pattern model,
+  peak gain, θ_b, floor, Taylor SLR/n̄, the auto-hex and UV-array
+  switches, beam cell radius, elliptical half-axes, edge roll-off, §1.2
+  LN; rings crossover level — minimum elevation is not repeated, it
+  comes from Coverage), plus the transmit side (per-beam Tx power
+  density in the reference bandwidth — per-beam boresight e.i.r.p.
+  density = power density + peak gain — power mode, aggregation and the
+  reuse cluster size N picked from {3, 4, 7} as on the generator tab —
+  and the aggregation is **modelled in the runs**: with co-channel
+  reuse declared, the epfd composite takes the worst colour instead of
+  the all-beam power sum, matching what the masks envelope —
+  reference bandwidth); then the *link discipline* pair (min angles at
+  satellite/ES), which the scheduler enforces and the R set declares. A
+  fresh profile opens **pre-filled with the PFD-mask generator's own
+  defaults** (Taylor elliptical and friends) rather than blanks;
+  emptying a field (or an indeterminate checkbox) falls back to the
+  scene default.
 - **Uplink** — the transmit chain feeding epfd(up) (frequency, ES power
   ceiling, range-based power-control reference elevation, S.1428 dish),
   then its own link-discipline pair.
@@ -559,6 +579,16 @@ same text as `docs/parameter-cards.html`, kept identical by a check):
   in the R set (left at 0 until the compliance loop finds it).
   Per-latitude rows gate the scheduler only until mask inheritance
   lands — setting them raises a warning where figures are made.
+- **Composition preview** — the payload these fields produce, live: the
+  built spot-beam count (cell radius + min elevation + altitude decide
+  it; the roll-off shapes each beam within its cell), the active count
+  after the exclusion-ring and serving gates, at a chosen preview
+  altitude (a run uses each shell's own operating height). Which beams
+  actually transmit at an instant is the scheduler's decision. An
+  **in-place sketch** draws the beams right there — 3-dB outlines and
+  boresight dots in local kilometres around the sub-satellite point,
+  the dashed rim marking the served field of view, gated-off beams in
+  grey; no geographic map.
 
 The parameter list is open and grows with the model.
 

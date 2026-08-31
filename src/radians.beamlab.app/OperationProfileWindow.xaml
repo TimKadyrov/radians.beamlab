@@ -38,68 +38,157 @@
             <StackPanel Grid.Column="0" Margin="0,0,10,0">
                 <GroupBox Header="Downlink"
                           Visibility="{Binding IsDownlinkSelected, Converter={StaticResource BoolToVis}}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="190"/><ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
-                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
-                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
-                            <RowDefinition/><RowDefinition/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="Footprint source"/>
-                        <ComboBox  x:Name="FootprintCombo" Grid.Row="0" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding FootprintSource}">
-                            <ComboBoxItem Content="beam composition (shaped)" Tag="composition"/>
-                            <ComboBoxItem Content="PFD mask (declared XML)" Tag="mask"/>
-                        </ComboBox>
-                        <TextBlock Grid.Row="1" Text="PFD mask XML"/>
-                        <Grid Grid.Row="1" Grid.Column="1" IsEnabled="{Binding IsMaskFootprint}">
+                    <StackPanel>
+                        <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="190"/><ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox x:Name="MaskPathBox" Text="{Binding MaskXmlPathText, UpdateSourceTrigger=LostFocus}"/>
-                            <Button Grid.Column="1" Content="…" Margin="4,1,0,1" Click="OnBrowseMaskClick"/>
+                            <Grid.RowDefinitions>
+                                <RowDefinition/><RowDefinition/><RowDefinition/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Footprint source"/>
+                            <ComboBox  x:Name="FootprintCombo" Grid.Row="0" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding FootprintSource}">
+                                <ComboBoxItem Content="beam composition (shaped)" Tag="composition"/>
+                                <ComboBoxItem Content="PFD mask (declared XML)" Tag="mask"/>
+                            </ComboBox>
+                            <TextBlock Grid.Row="1" Text="PFD mask XML"/>
+                            <Grid Grid.Row="1" Grid.Column="1" IsEnabled="{Binding IsMaskFootprint}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="MaskPathBox" Text="{Binding MaskXmlPathText, UpdateSourceTrigger=LostFocus}"/>
+                                <Button Grid.Column="1" Content="…" Margin="4,1,0,1" Click="OnBrowseMaskClick"/>
+                            </Grid>
+                            <TextBlock Grid.Row="2" Text="Downlink frequency (GHz)"/>
+                            <TextBox   x:Name="FreqBox" Grid.Row="2" Grid.Column="1" Text="{Binding FrequencyGhzText, UpdateSourceTrigger=LostFocus}"/>
                         </Grid>
-                        <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Foreground="#0B516F" FontSize="11" FontStyle="Italic" Margin="0,6,0,0"
-                                   Text="payload — shapes the scene and every exported mask"/>
-                        <TextBlock Grid.Row="3" Text="Downlink frequency (GHz)"/>
-                        <TextBox   x:Name="FreqBox" Grid.Row="3" Grid.Column="1" Text="{Binding FrequencyGhzText, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="4" Text="Peak gain (dBi)"/>
-                        <TextBox   x:Name="GainBox" Grid.Row="4" Grid.Column="1" Text="{Binding GainPeakText, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="5" Text="Beam cell radius (km)"/>
-                        <TextBox   x:Name="CellRadBox" Grid.Row="5" Grid.Column="1" Text="{Binding BeamCellRadiusText, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="6" Text="Taylor SLR (dB)"/>
-                        <TextBox   x:Name="SlrBox" Grid.Row="6" Grid.Column="1" Text="{Binding TaylorSlrText, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="7" Text="Taylor nbar"/>
-                        <TextBox   x:Name="NbarBox" Grid.Row="7" Grid.Column="1" Text="{Binding TaylorNbarText, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="8" Text="Pattern floor (dBi)"/>
-                        <TextBox   x:Name="FloorBox" Grid.Row="8" Grid.Column="1" Text="{Binding PatternFloorText, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="9" Text="Tx power density (dBW/ref BW)"/>
-                        <TextBox   x:Name="EirpBox" Grid.Row="9" Grid.Column="1" Text="{Binding TxEirpText, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="10" Text="Power mode"/>
-                        <ComboBox  x:Name="PowerModeCombo" Grid.Row="10" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding PowerMode}">
-                            <ComboBoxItem Content="(scene default)" Tag=""/>
-                            <ComboBoxItem Content="constant e.i.r.p." Tag="eirp"/>
-                            <ComboBoxItem Content="constant boresight PFD" Tag="pfd"/>
-                        </ComboBox>
-                        <TextBlock Grid.Row="11" Text="Aggregation"/>
-                        <ComboBox  x:Name="AggCombo" Grid.Row="11" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding Aggregation}">
-                            <ComboBoxItem Content="(scene default)" Tag=""/>
-                            <ComboBoxItem Content="all co-frequency power sum" Tag="powersum"/>
-                            <ComboBoxItem Content="frequency-reuse worst colour" Tag="cochannel"/>
-                        </ComboBox>
-                        <TextBlock Grid.Row="12" Text="Reuse cluster index"/>
-                        <TextBox   x:Name="ReuseBox" Grid.Row="12" Grid.Column="1" Text="{Binding ReuseClusterText, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="13" Text="Ref bandwidth (kHz)"/>
-                        <TextBox   x:Name="RefBwBox" Grid.Row="13" Grid.Column="1" Text="{Binding RefBwText, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="14" Grid.ColumnSpan="2" Foreground="#0B516F" FontSize="11" FontStyle="Italic" Margin="0,6,0,0"
+
+                        <TextBlock Foreground="#0B516F" FontSize="11" FontStyle="Italic" Margin="0,6,0,0"
+                                   Text="payload — shapes the scene and every exported mask; the two groups mirror the composite gain tab"/>
+
+                        <GroupBox Header="Beam pattern">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/><ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                                    <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                                    <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                                    <RowDefinition/><RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Text="Pattern model"/>
+                                <ComboBox  x:Name="PatternCombo" Grid.Row="0" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding PatternKind}">
+                                    <ComboBoxItem Content="(scene default)" Tag=""/>
+                                    <ComboBoxItem Content="S.1528-1 §1.4 Taylor (circular, θb)" Tag="Taylor_1p4"/>
+                                    <ComboBoxItem Content="S.1528-1 §1.4 Taylor (elliptical, α/β/roll-off)" Tag="Taylor_1p4_Ell"/>
+                                    <ComboBoxItem Content="S.1528-0 §1.2 envelope (APL APSREC409V01)" Tag="Envelope_1p2"/>
+                                    <ComboBoxItem Content="S.1528-0 §1.3 LEO (APL APSREC411V01)" Tag="Leo_1p3"/>
+                                    <ComboBoxItem Content="S.1528-0 §1.3 MEO (APL APSREC410V01)" Tag="Meo_1p3"/>
+                                    <ComboBoxItem Content="S.1528-0 §1.3 HEO (APL APSREC4XXV01)" Tag="Heo_1p3"/>
+                                </ComboBox>
+                                <TextBlock Grid.Row="1" Text="Peak gain Gm (dBi)"/>
+                                <TextBox   x:Name="GainBox" Grid.Row="1" Grid.Column="1" Text="{Binding GainPeakText, UpdateSourceTrigger=LostFocus}"/>
+                                <TextBlock Grid.Row="2" Text="Half 3-dB beamwidth θb (deg)"/>
+                                <TextBox   x:Name="ThetaBBox" Grid.Row="2" Grid.Column="1" Text="{Binding ThetaBText, UpdateSourceTrigger=LostFocus}"/>
+                                <TextBlock Grid.Row="3" Text="Far-out / null floor LF (dBi)"/>
+                                <TextBox   x:Name="FloorBox" Grid.Row="3" Grid.Column="1" Text="{Binding PatternFloorText, UpdateSourceTrigger=LostFocus}"/>
+                                <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Text="§1.4 Taylor only:" Foreground="#698089" FontSize="11" Margin="0,4,0,0"/>
+                                <TextBlock Grid.Row="5" Text="Side-lobe ratio SLR (dB)"/>
+                                <TextBox   x:Name="SlrBox" Grid.Row="5" Grid.Column="1" Text="{Binding TaylorSlrText, UpdateSourceTrigger=LostFocus}"/>
+                                <TextBlock Grid.Row="6" Text="n&#772; secondary lobes (2..6)"/>
+                                <TextBox   x:Name="NbarBox" Grid.Row="6" Grid.Column="1" Text="{Binding TaylorNbarText, UpdateSourceTrigger=LostFocus}"/>
+                                <TextBlock Grid.Row="7" Grid.ColumnSpan="2" Text="Layout:" Foreground="#698089" FontSize="11" Margin="0,4,0,0"/>
+                                <CheckBox  x:Name="AutoHexCheck" Grid.Row="8" Grid.ColumnSpan="2" IsThreeState="True"
+                                           IsChecked="{Binding AutoHex}" Content="Auto hex tessellation (3GPP NTN UV-plane / Annex 2 ground-plane)"/>
+                                <CheckBox  x:Name="UvCheck" Grid.Row="9" Grid.ColumnSpan="2" Margin="18,2,0,2" IsThreeState="True"
+                                           IsChecked="{Binding UvArrayBeams}" Content="Array-steered UV beams (§1.4 circular: radial width ×1/cos θ)"/>
+                                <TextBlock Grid.Row="10" Text="Target ground-cell radius (km) — elliptical only" TextWrapping="Wrap"
+                                           Visibility="{Binding IsEllipticalAutoMode, Converter={StaticResource BoolToVis}}"/>
+                                <TextBox   x:Name="CellRadBox" Grid.Row="10" Grid.Column="1" Text="{Binding BeamCellRadiusText, UpdateSourceTrigger=LostFocus}"
+                                           Visibility="{Binding IsEllipticalAutoMode, Converter={StaticResource BoolToVis}}"/>
+                                <TextBlock Grid.Row="11" Grid.ColumnSpan="2" Text="§1.4 elliptical (Annex 2 cell parameterisation):" Foreground="#698089" FontSize="11" Margin="0,4,0,0"
+                                           Visibility="{Binding IsEllipticalPattern, Converter={StaticResource BoolToVis}}"/>
+                                <TextBlock Grid.Row="12" Text="Half-radial cell axis α (deg subtended at sat)" TextWrapping="Wrap"
+                                           Visibility="{Binding IsEllipticalManualMode, Converter={StaticResource BoolToVis}}"/>
+                                <TextBox   x:Name="EllABox" Grid.Row="12" Grid.Column="1" Text="{Binding EllAlphaText, UpdateSourceTrigger=LostFocus}"
+                                           Visibility="{Binding IsEllipticalManualMode, Converter={StaticResource BoolToVis}}"/>
+                                <TextBlock Grid.Row="13" Text="Half-transverse cell axis β (deg subtended at sat)" TextWrapping="Wrap"
+                                           Visibility="{Binding IsEllipticalManualMode, Converter={StaticResource BoolToVis}}"/>
+                                <TextBox   x:Name="EllBBox" Grid.Row="13" Grid.Column="1" Text="{Binding EllBetaText, UpdateSourceTrigger=LostFocus}"
+                                           Visibility="{Binding IsEllipticalManualMode, Converter={StaticResource BoolToVis}}"/>
+                                <TextBlock Grid.Row="14" Text="Edge-of-cell roll-off (dB) — Annex 2: 3 / 5 / 7" TextWrapping="Wrap"
+                                           Visibility="{Binding IsEllipticalPattern, Converter={StaticResource BoolToVis}}"/>
+                                <TextBox   x:Name="RollOffBox" Grid.Row="14" Grid.Column="1" Text="{Binding EllRollOffText, UpdateSourceTrigger=LostFocus}"
+                                           Visibility="{Binding IsEllipticalPattern, Converter={StaticResource BoolToVis}}"/>
+                                <TextBlock Grid.Row="15" Grid.ColumnSpan="2" Text="§1.2 envelope only:" Foreground="#698089" FontSize="11" Margin="0,4,0,0"/>
+                                <TextBlock Grid.Row="16" Text="Near-in side-lobe LN (dB rel. peak)" TextWrapping="Wrap"/>
+                                <TextBox   x:Name="LnBox" Grid.Row="16" Grid.Column="1" Text="{Binding LnText, UpdateSourceTrigger=LostFocus}"/>
+                            </Grid>
+                        </GroupBox>
+
+                        <GroupBox Header="Beam layout (concentric rings)">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="180"/><ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/><RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Text="Adjacent-beam crossover level (dB, negative)" TextWrapping="Wrap"/>
+                                <TextBox   x:Name="CrossBox" Grid.Row="0" Grid.Column="1" Text="{Binding CrossoverText, UpdateSourceTrigger=LostFocus}"/>
+                                <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Foreground="#698089" FontSize="11" TextWrapping="Wrap"
+                                           Text="minimum elevation is not repeated here — it comes from Coverage / service"/>
+                            </Grid>
+                        </GroupBox>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="190"/><ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Tx power density (dBW/ref BW)"/>
+                            <TextBox   x:Name="EirpBox" Grid.Row="0" Grid.Column="1" Text="{Binding TxEirpText, UpdateSourceTrigger=LostFocus}"/>
+                            <TextBlock Grid.Row="1" Text="Power mode"/>
+                            <ComboBox  x:Name="PowerModeCombo" Grid.Row="1" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding PowerMode}">
+                                <ComboBoxItem Content="(scene default)" Tag=""/>
+                                <ComboBoxItem Content="constant e.i.r.p." Tag="eirp"/>
+                                <ComboBoxItem Content="constant boresight PFD" Tag="pfd"/>
+                            </ComboBox>
+                            <TextBlock Grid.Row="2" Text="Aggregation"/>
+                            <ComboBox  x:Name="AggCombo" Grid.Row="2" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding Aggregation}">
+                                <ComboBoxItem Content="(scene default)" Tag=""/>
+                                <ComboBoxItem Content="Power sum of all beams (aggregate mask)" Tag="powersum"/>
+                                <ComboBoxItem Content="Co-channel sum, N-colour reuse (worst colour)" Tag="cochannel"/>
+                            </ComboBox>
+                            <TextBlock Grid.Row="3" Text="Reuse cluster size N"/>
+                            <ComboBox  x:Name="ReuseBox" Grid.Row="3" Grid.Column="1" SelectedIndex="{Binding ReuseSelIndex}">
+                                <ComboBoxItem Content="(scene default)"/>
+                                <ComboBoxItem Content="3"/>
+                                <ComboBoxItem Content="4"/>
+                                <ComboBoxItem Content="7"/>
+                            </ComboBox>
+                            <TextBlock Grid.Row="4" Text="Ref bandwidth (kHz)"/>
+                            <TextBox   x:Name="RefBwBox" Grid.Row="4" Grid.Column="1" Text="{Binding RefBwText, UpdateSourceTrigger=LostFocus}"/>
+                        </Grid>
+
+                        <TextBlock Foreground="#0B516F" FontSize="11" FontStyle="Italic" Margin="0,6,0,0"
                                    Text="link discipline — scheduler gates, declared in the R set"/>
-                        <TextBlock Grid.Row="15" Text="Min angle at sat (deg)"/>
-                        <TextBox   x:Name="DlAngleSatBox" Grid.Row="15" Grid.Column="1" Text="{Binding DlAngleSatText, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBlock Grid.Row="16" Text="Min angle at ES (deg)"/>
-                        <TextBox   x:Name="DlAngleEsBox" Grid.Row="16" Grid.Column="1" Text="{Binding DlAngleEsText, UpdateSourceTrigger=LostFocus}"/>
-                    </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="190"/><ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition/><RowDefinition/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Min angle at sat (deg)"/>
+                            <TextBox   x:Name="DlAngleSatBox" Grid.Row="0" Grid.Column="1" Text="{Binding DlAngleSatText, UpdateSourceTrigger=LostFocus}"/>
+                            <TextBlock Grid.Row="1" Text="Min angle at ES (deg)"/>
+                            <TextBox   x:Name="DlAngleEsBox" Grid.Row="1" Grid.Column="1" Text="{Binding DlAngleEsText, UpdateSourceTrigger=LostFocus}"/>
+                        </Grid>
+                    </StackPanel>
                 </GroupBox>
 
                 <GroupBox Header="Uplink"
@@ -158,6 +247,23 @@
                                      ToolTip="Serving-coverage radius; empty = the cell pitch."/>
                         </StackPanel>
                     </Grid>
+                </GroupBox>
+
+                <GroupBox Header="Composition preview — the payload these fields produce">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Preview altitude (km)" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox Width="70" Text="{Binding PreviewAltText, UpdateSourceTrigger=LostFocus}"
+                                     ToolTip="Reference altitude the preview composes at; a run uses each shell's own operating height from the design document."/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding CompositionText}" Foreground="#0B516F" TextWrapping="Wrap"
+                                   ToolTip="Built = the auto-layout lattice (cell radius + min elevation + altitude decide the count; the roll-off shapes each beam within its cell); active = built minus the exclusion-ring and serving gates. Which of these actually transmit at an instant is the scheduler's decision, not the payload's."/>
+                        <Border Margin="0,6,0,0" BorderBrush="#D1EBF5" BorderThickness="1" Background="#ffffff" Height="250">
+                            <Canvas x:Name="PreviewCanvas" ClipToBounds="True"/>
+                        </Border>
+                        <TextBlock Foreground="#698089" FontSize="11" TextWrapping="Wrap"
+                                   Text="in-place sketch: 3-dB beam outlines and boresights in local km around the sub-satellite point; dashed rim = served field of view at the minimum elevation; grey = gated off. With co-channel N-colour reuse declared, outline colours are the N reuse colours."/>
+                    </StackPanel>
                 </GroupBox>
             </StackPanel>
 
@@ -219,7 +325,7 @@
                             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.ColumnSpan="3" TextWrapping="Wrap" Foreground="#698089" FontSize="11"
-                                   Text="One node per line: the earth-station latitude (deg), a space, the value. Values interpolate linearly between rows; outside the rows the scalar field on the left applies. Per-latitude exclusion rows gate the scheduler only until mask inheritance lands — setting them raises a warning in the compliance and simulation windows."/>
+                                   Text="One node per line: the earth-station latitude (deg), a space, the value. Read as the Recommendation reads them: min elevation and Nco at the nearest row, exclusion by linear interpolation between rows; outside the rows the scalar field on the left applies. Per-latitude exclusion rows gate the scheduler only until mask inheritance lands — setting them raises a warning in the compliance and simulation windows."/>
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="min elevation — lat(deg) elev(deg)" FontSize="11"/>
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="Nco — lat(deg) links" FontSize="11" Margin="6,2,0,2"/>
                         <TextBlock Grid.Row="1" Grid.Column="2" Text="exclusion — lat(deg) alpha(deg)" FontSize="11" Margin="6,2,0,2"/>

@@ -95,6 +95,33 @@ public static class BeamComposer
     }
 
     /// <summary>
+    /// Per-beam reuse colours for an N-colour plan: hex-lattice colouring
+    /// where the beams carry axial indices (<see cref="Beam.LatticeI"/>/J),
+    /// index % N otherwise (manual ring layouts).
+    /// </summary>
+    public static int[] ReuseColors(IReadOnlyList<Beam> beams, int n)
+    {
+        var colors = new int[beams.Count];
+        for (int i = 0; i < beams.Count; i++)
+        {
+            colors[i] = beams[i].LatticeI is int li && beams[i].LatticeJ is int lj
+                ? HexReuseColor(li, lj, n)
+                : i % n;
+        }
+        return colors;
+    }
+
+    /// <summary>
+    /// The composite a resolved beam set declares: the worst-colour
+    /// co-channel sum when the set carries an N-colour plan, the all-beam
+    /// power sum otherwise.
+    /// </summary>
+    public static double ResolvedEirpDbw(ResolvedBeamSet set, Vec3 test)
+        => set.CoChannelN is int n && set.ReuseColors is { } colors
+            ? MaxCoChannelEirpDbw(set.Beams, test, set.PowersDbw, colors, n)
+            : CompositeEirpDbw(set.Beams, test, set.PowersDbw);
+
+    /// <summary>
     /// Frequency-reuse colour of a hex-lattice cell at axial indices (i, j),
     /// for a reuse cluster of size <paramref name="n"/>. For N = 3, 4 and 7
     /// (the standard hex cluster sizes) no two adjacent cells share a colour;

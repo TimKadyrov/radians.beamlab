@@ -38,7 +38,7 @@ public static class ParameterCatalog
             }),
         new(ParameterGroup.Declared, "MIN_EXCLUDE", "deg α · [lat][orb_id]",
             "MinExcludeByOrbit · min_exclude/exclusion_zone_angle",
-            "The GSO-arc exclusion half-angle: a satellite whose cell-centre α sits inside it may not serve. Varies by latitude and per orbital plane (a per-orb_id row overrides the all-orbits row, and when it varies every plane needs a value).",
+            "The GSO-arc exclusion half-angle: a satellite whose cell-centre α sits inside it may not serve. Varies by latitude and per orbital plane (a per-orb_id row overrides the all-orbits row, and when it varies every plane needs a value). Read by linear interpolation between latitude rows — the Recommendation's rule for this array; the others read the nearest row.",
             new[]
             {
                 "SelectionPolicy.MaxGsoSeparation maximises this same α metric",
@@ -110,7 +110,7 @@ public static class ParameterCatalog
             }),
         new(ParameterGroup.Declared, "header ↔ arrays", "precedence rule",
             "ElevAngleHeaderDeg, MaxCoFreqHeader, MinDurationSecHeader vs the [lat] arrays",
-            "Several quantities exist twice: as an XML header scalar and as a per-latitude array. The array prevails inside the latitudes it covers; the header applies outside. The BL sets carry all three shapes (arrays-only, header-only, both-with-different-values) so a consumer must implement the rule, not infer it.",
+            "Three declared quantities come in two shapes at once: min_elev, max_co_freq and min_duration each have an XML header scalar and an optional per-latitude array. One rule resolves them — inside the latitude span the array covers (its lowest row to its highest row) the array wins, read at the nearest row (the Recommendation's own read rule); outside that span the header scalar applies. A missing header falls back to the permissive default: 0 deg elevation, no cap, 0 s — the Recommendation's \"assumed to be zero if not provided\" convention, which it states for the min angles. Example, for min_elev: rows at lat 30 and 60 with a 10 deg header — lat 45 reads the nearest row, lat 10 reads the header. The BL sets carry all three shapes (arrays-only, header-only, both-with-different-values) so a consumer must implement the rule, not infer it.",
             new[]
             {
                 "every DeclaredConstraints accessor resolves this precedence in one place",
@@ -236,11 +236,11 @@ public static class ParameterCatalog
             }),
         new(ParameterGroup.Truth, "Aggregation · ReuseClusterIndex", "enum · index",
             "PfdMaskViewModel.Aggregation / ReuseClusterIndex · power sum | co-channel worst colour",
-            "How beams combine toward one direction: the all-co-frequency power sum, or the frequency-reuse worst colour — only one cluster's co-channel beams sum, the reuse index picking the colouring. The ordering is invariant: max single ≤ co-channel ≤ power sum.",
+            "How beams combine in the victim's reference bandwidth. The run models one frequency, and the aggregation says which beams share that slot: the power sum of all beams is the FRF-1 payload, every beam radiating the full band; under N-colour reuse the band is partitioned and only one colour's beams illuminate the victim's slot — §C2.3.1 sums the illuminating beams \"in the co-frequency band\". The victim's sub-band is not declared, so the worst colour is taken: the envelope over where the carrier lands, matching the masks. The index selects the cluster size N from {3, 4, 7}. The ordering is invariant: max single ≤ co-channel ≤ power sum.",
             new[]
             {
                 "checks pin the K-colour adjacency and the ordering (C2, C3)",
-                "a smaller co-channel population is the aggregation-side face of frequency reuse",
+                "modelled in the truth run too: with co-channel declared, the epfd composite takes the worst colour (V32)",
             }),
         new(ParameterGroup.Truth, "RefBwKHz", "kHz",
             "PfdMaskViewModel.RefBwKHz · mask refbw_khz",
@@ -248,6 +248,60 @@ public static class ParameterCatalog
             new[]
             {
                 "the BR limits rows carry their own refbw — the compliance window shows both",
+            }),
+        new(ParameterGroup.Truth, "EllRollOffDb", "dB · cell edge",
+            "PfdMaskViewModel.EllRollOffDb · profile EllRollOffDb",
+            "Adjacent-beam crossover depth of the auto layout: each beam's width is derived so its pattern sits this many dB below peak at the cell edge — the cell radius fixes the lattice pitch, the crossover fixes how the beam fills its cell. Deeper crossover means narrower beams and colder cell edges; the scene default is 3 dB.",
+            new[]
+            {
+                "beam count stays with BeamCellRadiusKm and MIN_ELEV — this knob shapes edge illumination, not population",
+                "check H2 pins the crossover uniform across the lattice with array-steered beams",
+            }),
+        new(ParameterGroup.Truth, "CrossoverDb", "dB · rings layout",
+            "SceneModel.CrossoverDb · profile CrossoverDb",
+            "Adjacent-beam crossover level of the concentric-rings layout (negative dB; default −3): with auto hex off, successive rings are placed so neighbouring beams cross at this level — there it is the pitch knob. The auto hex lattice ignores it; its pitch comes from the cell radius.",
+            new[]
+            {
+                "active only when AutoHex is off — the rings layout's counterpart of BeamCellRadiusKm",
+                "the hex lattice's edge behaviour is EllRollOffDb instead",
+            }),
+        new(ParameterGroup.Truth, "ThetaBDeg", "deg",
+            "SceneModel.ThetaBDeg · profile ThetaBDeg",
+            "Half 3-dB beamwidth of the circular patterns — the direct width knob where the layout does not derive width from a cell (§1.4 circular, §1.2/§1.3 references). The elliptical auto layout derives its widths from the ground cell instead.",
+            new[]
+            {
+                "the composite tab's Fill-θb-from-Gm estimates it from the peak gain",
+                "inert for the elliptical auto layout — BeamCellRadiusKm and EllRollOffDb rule there",
+            }),
+        new(ParameterGroup.Truth, "AutoHex · UvArrayBeams", "flags",
+            "SceneModel.AutoMode / UvArrayBeams",
+            "The layout switches: auto hex tessellation on or off (off = the concentric-rings layout), and array-steered UV beams for the circular §1.4 pattern — radial width ×1/cos θ, the phased-array broadening. Indeterminate in the profile keeps the scene defaults.",
+            new[]
+            {
+                "checks H1/H2 pin the UV-beam geometry and the crossover uniformity it buys",
+                "rings mode is where CrossoverDb bites",
+            }),
+        new(ParameterGroup.Truth, "EllAlphaDeg · EllBetaDeg", "deg at sat",
+            "SceneModel.EllAlphaDeg / EllBetaDeg",
+            "The Annex-2 elliptical cell half-axes subtended at the satellite (radial α, transverse β) — the manual parameterisation used when the elliptical pattern runs without the auto layout; auto mode derives them from the ground-cell radius per position.",
+            new[]
+            {
+                "with EllRollOffDb they fix the aperture (Lr, Lt)",
+            }),
+        new(ParameterGroup.Truth, "LnDb", "dB rel. peak",
+            "SceneModel.LnDb · profile LnDb",
+            "Near-in side-lobe level of the S.1528-0 §1.2 envelope pattern (default −15 dB) — that model's one shape knob; inert for the §1.4 and §1.3 kinds.",
+            new[]
+            {
+                "§1.2 is the envelope reference the APL APSREC409V01 family encodes",
+            }),
+        new(ParameterGroup.Truth, "PatternKind", "enum",
+            "SceneModel.PatternKind · profile PatternKind",
+            "The per-beam pattern model: S.1528-1 §1.4 Taylor, circular or elliptical (the scene default), or the S.1528-0 §1.2 envelope and §1.3 LEO/MEO/HEO references. It changes each beam's shape and side lobes — the composite everywhere off boresight — while the lattice population stays with the layout knobs. Empty keeps the scene default.",
+            new[]
+            {
+                "the Taylor knobs (SLR, nbar, floor) apply to the §1.4 kinds",
+                "the §1.2/§1.3 kinds are S.1528-0 reference patterns, not shaped illuminations",
             }),
         new(ParameterGroup.Truth, "FootprintSource", "enum",
             "DownlinkProfile.FootprintSource · composition | mask (+ MaskXmlPath)",

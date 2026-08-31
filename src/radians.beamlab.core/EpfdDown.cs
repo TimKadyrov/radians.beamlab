@@ -123,7 +123,7 @@ public static class EpfdDown
                 if (accIs is not null && !EarthBlocked(pos, gsoIs))
                 {
                     var toGso = (gsoIs - pos).Normalized();
-                    double eirpIs = BeamComposer.CompositeEirpDbw(sat.Beams.Beams, toGso, sat.Beams.PowersDbw);
+                    double eirpIs = BeamComposer.ResolvedEirpDbw(sat.Beams, toGso);
                     if (!double.IsNegativeInfinity(eirpIs))
                     {
                         double dIsM = (gsoIs - pos).Length * 1000.0;
@@ -139,7 +139,7 @@ public static class EpfdDown
                 if (ElevationAngleDeg(pos, es) <= 0.0) continue;   // below the ES horizon
 
                 var toEs = (es - pos).Normalized();
-                double eirp = BeamComposer.CompositeEirpDbw(sat.Beams.Beams, toEs, sat.Beams.PowersDbw);
+                double eirp = BeamComposer.ResolvedEirpDbw(sat.Beams, toEs);
                 if (double.IsNegativeInfinity(eirp)) continue;
 
                 double distM = (es - pos).Length * 1000.0;

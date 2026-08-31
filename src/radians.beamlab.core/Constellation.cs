@@ -140,7 +140,16 @@ public sealed record SatelliteState(
     double AltitudeKm, double RadiusKm, double HeadingDeg, double TimeSeconds);
 
 /// <summary>A satellite's beam set with per-beam powers, resolved at one instant.</summary>
-public sealed record ResolvedBeamSet(IReadOnlyList<Beam> Beams, IReadOnlyList<double> PowersDbw);
+/// <summary>
+/// A satellite's resolved beams with per-beam transmit powers. When the
+/// payload declares co-channel N-colour reuse, <paramref name="CoChannelN"/>
+/// carries the cluster size and <paramref name="ReuseColors"/> the per-beam
+/// colouring (index-aligned) -- the epfd composite then takes the worst
+/// colour instead of the all-beam power sum, so the declared aggregation is
+/// modelled in the truth run, not only in the masks.
+/// </summary>
+public sealed record ResolvedBeamSet(IReadOnlyList<Beam> Beams, IReadOnlyList<double> PowersDbw,
+    int? CoChannelN = null, IReadOnlyList<int>? ReuseColors = null);
 
 /// <summary>
 /// Yields the beam set for a satellite state (simulation spec Sec. 4.1:

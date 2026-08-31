@@ -7,7 +7,10 @@
             <TextBlock Text="Non-GSO system description, S.1503-4 mask production and orbit prototyping."
                        Foreground="#698089" Margin="0,2,0,14"/>
 
-            <ItemsControl ItemsSource="{Binding Functions}">
+            <TextBlock Text="{Binding PipelineTitle}" FontSize="17" FontWeight="SemiBold" Margin="0,4,0,2"/>
+            <TextBlock Text="Submit the truth, simulate it, derive the declarations that demonstrate compliance, assemble the dataset — in flow order."
+                       Foreground="#698089" Margin="0,0,0,8"/>
+            <ItemsControl ItemsSource="{Binding PipelineCards}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
@@ -21,14 +24,15 @@
                                 <TextBlock Text="{Binding Description}" TextWrapping="Wrap"
                                            Foreground="#698089" Margin="0,4,0,8" MinHeight="60"/>
                                 <Button Content="Open" Width="80" HorizontalAlignment="Left"
-                                        Tag="{Binding TabIndex}" Click="OnOpenClick"/>
+                                        Tag="{Binding}" Click="OnCardOpenClick"/>
                             </StackPanel>
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <ItemsControl ItemsSource="{Binding Tools}">
+            <TextBlock Text="Other tools" FontSize="17" FontWeight="SemiBold" Margin="0,10,0,8"/>
+            <ItemsControl ItemsSource="{Binding OtherCards}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
@@ -42,7 +46,7 @@
                                 <TextBlock Text="{Binding Description}" TextWrapping="Wrap"
                                            Foreground="#698089" Margin="0,4,0,8" MinHeight="60"/>
                                 <Button Content="Open" Width="80" HorizontalAlignment="Left"
-                                        Tag="{Binding Key}" Click="OnToolOpenClick"/>
+                                        Tag="{Binding}" Click="OnCardOpenClick"/>
                             </StackPanel>
                         </Border>
                     </DataTemplate>

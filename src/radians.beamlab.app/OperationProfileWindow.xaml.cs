@@ -13,6 +13,89 @@ public partial class OperationProfileWindow : Window
         InitializeComponent();
         DataContext = _vm;
         WireToolTips();
+        _vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(OperationProfileViewModel.PreviewBeams))
+                RedrawPreview();
+        };
+        PreviewCanvas.SizeChanged += (_, _) => RedrawPreview();
+        Loaded += (_, _) => RedrawPreview();
+    }
+
+    /// <summary>
+    /// The in-place composition sketch: 3-dB outlines and boresight dots
+    /// in local km, the dashed rim marking the served field of view. No
+    /// geographic map -- the frame is the sub-satellite tangent plane.
+    /// </summary>
+    private void RedrawPreview()
+    {
+        var canvas = PreviewCanvas;
+        canvas.Children.Clear();
+        double w = canvas.ActualWidth, h = canvas.ActualHeight;
+        var beams = _vm.PreviewBeams;
+        if (w < 40 || h < 40 || beams.Count == 0 || _vm.PreviewFovKm <= 0) return;
+
+        double scale = Math.Min(w, h) / 2.0 / (_vm.PreviewFovKm * 1.06);
+        double cx = w / 2.0, cy = h / 2.0;
+        double X(double eKm) => cx + eKm * scale;
+        double Y(double nKm) => cy - nKm * scale;
+
+        double rimPx = _vm.PreviewFovKm * scale;
+        canvas.Children.Add(new System.Windows.Shapes.Ellipse
+        {
+            Width = 2 * rimPx, Height = 2 * rimPx,
+            Stroke = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(0x8B, 0xC4, 0xCD)),
+            StrokeThickness = 1, StrokeDashArray = new System.Windows.Media.DoubleCollection { 4, 3 },
+        });
+        System.Windows.Controls.Canvas.SetLeft(canvas.Children[^1] as System.Windows.UIElement, cx - rimPx);
+        System.Windows.Controls.Canvas.SetTop(canvas.Children[^1] as System.Windows.UIElement, cy - rimPx);
+
+        var onBrush = new System.Windows.Media.SolidColorBrush(
+            System.Windows.Media.Color.FromRgb(0x15, 0x80, 0x7B));
+        var onDot = new System.Windows.Media.SolidColorBrush(
+            System.Windows.Media.Color.FromRgb(0x00, 0x76, 0xA1));
+        var offBrush = new System.Windows.Media.SolidColorBrush(
+            System.Windows.Media.Color.FromRgb(0xB9, 0xCD, 0xD4));
+        // Reuse colours (up to N = 7) when co-channel reuse is declared.
+        var reuse = new System.Windows.Media.SolidColorBrush[]
+        {
+            new(System.Windows.Media.Color.FromRgb(0x15, 0x80, 0x7B)),
+            new(System.Windows.Media.Color.FromRgb(0x00, 0x76, 0xA1)),
+            new(System.Windows.Media.Color.FromRgb(0x8A, 0x5C, 0xA8)),
+            new(System.Windows.Media.Color.FromRgb(0xC0, 0x6E, 0x27)),
+            new(System.Windows.Media.Color.FromRgb(0xB2, 0x3A, 0x64)),
+            new(System.Windows.Media.Color.FromRgb(0x6B, 0x8E, 0x23)),
+            new(System.Windows.Media.Color.FromRgb(0x7A, 0x5C, 0x43)),
+        };
+
+        foreach (bool onPass in new[] { false, true })
+            foreach (var b in beams)
+            {
+                if (b.On != onPass) continue;
+                var stroke = !b.On ? offBrush
+                    : b.Color >= 0 ? reuse[b.Color % reuse.Length]
+                    : onBrush;
+                var pl = new System.Windows.Shapes.Polyline
+                {
+                    Stroke = stroke,
+                    StrokeThickness = b.On ? 1.2 : 0.8,
+                };
+                for (int i = 0; i < b.OutlineEKm.Count; i++)
+                    pl.Points.Add(new Point(X(b.OutlineEKm[i]), Y(b.OutlineNKm[i])));
+                if (b.OutlineEKm.Count > 2)
+                    pl.Points.Add(new Point(X(b.OutlineEKm[0]), Y(b.OutlineNKm[0])));
+                canvas.Children.Add(pl);
+
+                var dot = new System.Windows.Shapes.Ellipse
+                {
+                    Width = 3, Height = 3,
+                    Fill = !b.On ? offBrush : b.Color >= 0 ? stroke : onDot,
+                };
+                System.Windows.Controls.Canvas.SetLeft(dot, X(b.EKm) - 1.5);
+                System.Windows.Controls.Canvas.SetTop(dot, Y(b.NKm) - 1.5);
+                canvas.Children.Add(dot);
+            }
     }
 
     /// <summary>
@@ -37,6 +120,15 @@ public partial class OperationProfileWindow : Window
         AggCombo.ToolTip = Cat("Aggregation · ReuseClusterIndex");
         ReuseBox.ToolTip = Cat("Aggregation · ReuseClusterIndex");
         RefBwBox.ToolTip = Cat("RefBwKHz");
+        PatternCombo.ToolTip = Cat("PatternKind");
+        ThetaBBox.ToolTip = Cat("ThetaBDeg");
+        AutoHexCheck.ToolTip = Cat("AutoHex · UvArrayBeams");
+        UvCheck.ToolTip = Cat("AutoHex · UvArrayBeams");
+        EllABox.ToolTip = Cat("EllAlphaDeg · EllBetaDeg");
+        EllBBox.ToolTip = Cat("EllAlphaDeg · EllBetaDeg");
+        RollOffBox.ToolTip = Cat("EllRollOffDb");
+        LnBox.ToolTip = Cat("LnDb");
+        CrossBox.ToolTip = Cat("CrossoverDb");
         EsDishBox.ToolTip = Cat("EsDishM");
         MinElevBox.ToolTip = Cat("MIN_ELEV");
         MinElevByLatBox.ToolTip = Cat("MIN_ELEV");

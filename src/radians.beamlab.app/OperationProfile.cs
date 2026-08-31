@@ -28,7 +28,13 @@ public sealed record DownlinkProfile(
     double? TxEirpDbw = null, string PowerMode = "", string Aggregation = "",
     int? ReuseClusterIndex = null, double RefBwKHz = 40.0,
     double? MinAngleAtSatDeg = null, double? MinAngleAtEsDeg = null,
-    string FootprintSource = "composition", string MaskXmlPath = "");
+    string FootprintSource = "composition", string MaskXmlPath = "",
+    // The composite-gain tab's Beam pattern / Beam layout inputs, 1:1
+    // (minimum elevation excluded -- it lives on the operation card).
+    double? EllRollOffDb = null, string PatternKind = "",
+    double? ThetaBDeg = null, bool? AutoHex = null, bool? UvArrayBeams = null,
+    double? EllAlphaDeg = null, double? EllBetaDeg = null, double? LnDb = null,
+    double? CrossoverDb = null);
 
 /// <summary>Earth-to-space side: the transmitting earth stations and their link discipline.</summary>
 public sealed record UplinkProfile(
@@ -169,6 +175,17 @@ public static class OperationComposer
         if (dl.Aggregation == "cochannel") scene.IsCoChannelMode = true;
         else if (dl.Aggregation == "powersum") scene.IsPowerSumMode = true;
         if (dl.ReuseClusterIndex is int rc) scene.ReuseClusterIndex = rc;
+        if (dl.EllRollOffDb is double xo) scene.EllRollOffDb = xo;
+        if (dl.PatternKind is { Length: > 0 } pks
+            && Enum.TryParse<BeamPatternKind>(pks, out var pk))
+            scene.Scene.PatternKind = pk;
+        if (dl.ThetaBDeg is double tb) scene.Scene.ThetaBDeg = tb;
+        if (dl.AutoHex is bool ah) scene.Scene.AutoMode = ah;
+        if (dl.UvArrayBeams is bool uv) scene.Scene.UvArrayBeams = uv;
+        if (dl.EllAlphaDeg is double ea) scene.Scene.EllAlphaDeg = ea;
+        if (dl.EllBetaDeg is double eb) scene.Scene.EllBetaDeg = eb;
+        if (dl.LnDb is double ln) scene.Scene.LnDb = ln;
+        if (dl.CrossoverDb is double co) scene.Scene.CrossoverDb = co;
 
         var cells = ServiceGeography.Grid(p.ServiceLatMinDeg, p.ServiceLatMaxDeg,
                 p.ServiceLonMinDeg, p.ServiceLonMaxDeg, p.CellKm).Cells
