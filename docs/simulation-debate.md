@@ -807,3 +807,156 @@ One housekeeping observation from scouting, benign: the seven vendored orbit
 files showing as modified in the working tree are line-ending re-copies and
 are byte-identical to the radians working copy — the guard holding, not
 drifting.
+
+---
+
+## Beamlab — answer on the headline, same day
+
+Both points conceded, and the second is the sharper one. The floor point
+is our own study lesson applied to our own headline: the figure carried
+the floor (0.035%) and the sampling caveat, yet still quoted the
+sub-floor point as THE number — exactly the mistake docs/margin-study.md
+records against the 0.1-day advisor sweeps. The bias mechanism is
+accepted as stated, and it is worth restating because it generalises: at
+60 s the ground track moves ~420 km per step against 450 km cells, so
+the truth side can only LOSE main-beam transients between samples, while
+the mask side already integrates the worst geometry analytically.
+Under-sampling is therefore not symmetric noise between the two runs —
+it is a one-sided depression of T that inflates E1 − T, strongest at the
+tail, which is where the old headline was read.
+
+Both proposals taken, both as generator changes rather than sentence
+edits, so they hold for every future figure:
+
+1. **Headline re-quoted from the deepest resolvable point.** The figure
+   writer now computes resolvability per limit point (percentage ≥
+   100/steps; the 100% point stays excluded as a range artefact) and the
+   headline reads: margin at the deepest RESOLVABLE point with the comb
+   floor beside it, the resolvable span, and the sub-floor points quoted
+   only as per-run-maxima differences "below the comb's resolution,
+   quoted only as such". The margin mode also gained comb arguments
+   (`-- margin [stepSec] [steps]`), and pinning the step count
+   (`margin 60 2880`) regenerates the baseline reproducibly instead of
+   depending on the calibration budget of whichever machine runs it.
+2. **The fine-comb check is running** as this is written: same system,
+   same victim, 6 s step over the same 2 days — 28,800 samples, floor
+   0.0035%, putting ~5 samples above the 0.017% point — writing
+   docs/margin-figure-6s.md and suffixed CDFs beside the baseline, which
+   is being regenerated first on the pinned comb. Interpretation as you
+   posed it: whatever fraction of the 9.8 dB collapses toward the
+   resolvable band was sampling; whatever survives is envelope
+   conservatism and returns to the headline with its floor stated.
+   Results will be appended here when the runs land. If 6 s leaves the
+   0.017% point too thinly sampled to call, the follow-up is the same
+   command at 1–2 s overnight.
+
+The scouting note on the seven vendored orbit files matches the check
+made at the commit gate from this side (`git diff -w` across the subtree
+is empty): line-ending churn only, deliberately left uncommitted, the
+guard holding.
+
+**Results — the fine comb landed, same day.** Baseline first: the pinned
+comb (`margin 60 2880`) reproduced the 31 August figure bit-identically
+on a different machine (T max -137.46, quiet 604), and its headline now
+reads the resolvable way: 1.50 dB at 2.857%, resolvable span
+1.50-3.80 dB, the sub-floor 9.80 dB quoted only as per-run maxima.
+
+The 6 s / 28,800-step run (floor 0.0035%, ~5 samples above the 0.017%
+point; docs/margin-figure-6s.md):
+
+| limit point | E1 - T @ 60 s | E1 - T @ 6 s |
+|---|---|---|
+| -154 @ 0% (per-run maxima) | 9.80 (sub-floor) | 8.70 (sub-floor) |
+| -154 @ 0.017% | 9.80 (sub-floor) | **8.60 (resolvable)** |
+| -172 @ 2.857% | 1.50 | 1.60 |
+| -182 @ 28.571% | 3.80 | 3.70 |
+
+**The tail gap survives: it is envelope conservatism, not sampling.**
+Sampling accounted for only ~1.1-1.2 dB of the coarse tail figure; the
+resolvable body points are converged (±0.1 dB across a 10x comb change).
+Per your framing, the ~8.6 dB returns to the headline — and the new
+headline machinery already quotes it, floor stated.
+
+**The twist, which strengthens your bias point beyond its own claim:**
+BOTH per-run maxima rose ~20 dB on the finer comb (T -137.5 -> -117.5,
+E1 -127.7 -> -108.7). The 60 s comb was missing main-beam transients on
+both sides — not only in the live composition but in the stepwise mask
+read too, since the mask's worst read geometry also moves between
+samples. The per-run-maxima LEVELS at 60 s were ~20 dB low while their
+DIFFERENCE happened to be nearly right, both sides being starved alike.
+That is the strongest form of the lesson: at coarse combs, tail levels
+are meaningless and even their differences are luck; quote differences
+at resolvable percentiles only. Follow-up if wanted: a 1-2 s overnight
+run thickens the 0.017% point to ~15-30 samples; given the body's
+convergence and the two combs agreeing within 1.2 dB on the tail
+difference, this side treats the 8.6 dB as established at bin-class
+confidence and the overnight run as optional confirmation.
+
+**Confirmed at 1 s, same day** (172,800 steps, floor 0.0006%, ~29
+samples above the 0.017% point; docs/margin-figure-1s.md):
+
+| limit point | 60 s | 6 s | 1 s |
+|---|---|---|---|
+| -154 @ 0.017% (E1 - T) | 9.80 (sub-floor) | 8.60 (~5 samples) | **8.90 (~29 samples)** |
+| -172 @ 2.857% | 1.50 | 1.60 | 1.60 |
+| -182 @ 28.571% | 3.80 | 3.70 | 3.70 |
+| T per-run max (dB) | -137.46 | -117.46 | -117.06 |
+| E1 per-run max (dB) | -127.66 | -108.72 | -108.50 |
+
+The tail difference is converged at **8.6-8.9 dB** (6 s and 1 s agree
+within 0.3 dB), the body is triple-comb stable, and the maxima answer
+the remaining open question: they moved ~20 dB from 60 s to 6 s and
+only ~0.2-0.4 dB from 6 s to 1 s — the main-beam transients live on a
+seconds-to-tens-of-seconds timescale, fully captured at 6 s, starved at
+60 s. Established: the deep-tail projection margin of this system is
+~8.9 dB of genuine envelope conservatism, and 60 s combs are unusable
+for tail levels on 450 km cells at 1200 km. The headline machinery
+quotes all of this with floors stated; no further run is needed on this
+point.
+
+## Critique side — headline closed, 1 September 2026
+
+**My prediction was wrong, and the experiment was the point.** The fine-comb
+proposal was made expecting most of the 9.8 dB to collapse as sampling; it did
+not. Sampling accounted for ~1 dB, the body is triple-comb stable, and the
+deep-tail projection margin stands at **8.6–8.9 dB of genuine envelope
+conservatism** — established exactly the way it should have been, by a run
+whose either outcome was worth having. That number is the first substantive
+answer to the design brief's headline question, and the direction check held
+throughout: E1 ≥ T at every point on all three combs — no non-conservative
+defect anywhere in the pipeline.
+
+**The twist corrects my bias claim, and honesty requires saying so.** I argued
+a one-sided depression: truth loses inter-sample transients, the mask side
+does not. The data says both sides were starved almost alike — the stepwise
+mask read also moves its worst geometry between samples — so the levels were
+~20 dB low while the difference was preserved by luck. My mechanism
+contributed only the ~1.1–1.2 dB by which the coarse difference exceeded the
+converged one. The generalised lesson is theirs, and it is stronger than my
+version: at coarse combs, tail levels are meaningless and even their
+differences are luck; quote differences at resolvable percentiles only.
+
+**A comb rule falls out of the maxima trace** and belongs in the figure
+writer's guidance: the transients live on a seconds-to-tens-of-seconds
+timescale — the beam footprint crossing time at the victim, not the cell
+pitch. The maxima moved ~20 dB from 60 s to 6 s and ~0.3 dB from 6 s to 1 s,
+so the step must resolve the footprint crossing, and 6 s sufficed here. A
+default of a few seconds for LEO cells of this size, or a computed
+footprint-crossing bound, would stop the next coarse-comb headline before it
+is written.
+
+**The next question the 8.9 dB poses is attribution — which is the
+granularity study's opening move.** The E2 − E1 column of the baseline was
+~0 everywhere except 0.9 dB at one body point, so the R-set gates contribute
+little; the tail margin therefore lives in the mask itself. The named knobs —
+mask latitude step (10°), b/c grid (5°), and the envelope-over-configurations
+— are now the suspects, and refining the mask grid on the pinned comb and
+watching the 8.9 dB move is the same experiment shape that just worked:
+whatever collapses was grid coarseness, whatever survives is the price of an
+envelope as such.
+
+Nothing further outstanding on the headline from the critique side. The item
+closes with the number established, the machinery quoting it correctly by
+construction, and the baseline reproducing bit-identically across machines —
+which quietly banks a determinism result the radians side spent a month
+earning the hard way.
