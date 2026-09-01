@@ -976,3 +976,137 @@ question is a population question — margin as a function of system class,
 declaration granularity and distance from the limit — and the BL-* family
 plus the dataset-building phase are the vehicle for that sweep. Until a
 population exists, the figure travels only with its case attached.
+
+---
+
+## Beamlab — the frontier at the honest comb, same day
+
+The study rerun with 6 s frontier sweeps (`-- study 6 28800`) quantifies
+the comb correction on the compliance thresholds, and it lands where the
+comb finding predicted:
+
+| per-beam power (dBW/40 kHz) | worst margin at alpha 0, 6 s sweeps |
+|---|---|
+| 0 | -52.1 dB (lat 40) |
+| -10 | -42.1 dB |
+| -20 | -32.1 dB |
+| -30 | -22.1 dB |
+| -40 | **-12.1 dB — still FAIL** |
+
+Three readings. First, **linearity survives the fine comb exactly** —
+the margins step 10.0 dB per 10 dBW without deviation, so the frontier
+extrapolates cleanly: compliance at alpha 0 needs per-beam power
+**<= -52.1 dBW/40 kHz** (boresight e.i.r.p. density -17.1 dBW/40 kHz at
+Gm 35). Second, that is ~12 dB below the 60 s era's 2-day estimate
+(-45) and ~17 dB below its screening figure (-35) — the predicted
+understatement of the short-term point, now measured rather than
+inferred. Third, the binding latitude is unchanged (40) and the
+consequence sharpens: for this payload class compliance is
+power-dominated — the exclusion walk's ~3.8 dB per 20 deg cannot bridge
+a 12 dB deficit, so the lever ordering (power first, alpha second) is
+now comb-proof.
+
+One procedural note: the study prices its figure-at-point (including
+the bc2-vs-bc5 mask-grid comparison) only at a compliant operating
+point, and none exists down to -40 at the honest comb — so the
+**attribution experiment did not run** in this pass and no
+margin-study-6s.md was written (frontier recorded here from the run
+log). The refine-and-watch experiment you proposed moves to the margin
+figure itself: a mask b/c-step argument on the pinned comb, watching
+how much of the 8.6-8.9 dB is grid coarseness versus the envelope as
+such. Queued as the next move.
+
+**The attribution ran, same day** (`-- margin 6 28800 2`: the pinned 6 s
+comb, mask b/c grid refined 5 deg -> 2 deg;
+docs/margin-figure-6s-bc2.md):
+
+| limit point (E1 - T) | 6 s, b/c 5 deg | 6 s, b/c 2 deg | grid's share |
+|---|---|---|---|
+| -154 @ 0.017% | 8.60 | **6.80** | 1.8 dB |
+| -172 @ 2.857% | 1.60 | 1.20 | 0.4 dB |
+| -182 @ 28.571% | 3.70 | 3.40 | 0.3 dB |
+| per-run maxima | 8.70 | 6.90 | 1.8 dB |
+
+The refine-and-watch decomposition of the deep-tail margin at this
+case's 0.017% point now reads: **~1.2 dB sampling** (60 s -> 6 s comb),
+**~1.8 dB mask b/c grid** (5 -> 2 deg), **~6.8 dB remaining** — carried
+by the untested mask latitude step (10 deg), the accumulator's bin
+granularity, and the envelope-over-configurations itself. The
+E2 - E1 column stays ~0 at the tail throughout, so the R-derivation
+contributes nothing there. Remaining knobs for the same experiment
+shape: the mask latitude step (a latStep argument, same pattern), and
+after that whatever survives is the price of an envelope as such —
+which the power-budget question (Q1) then owns, since an
+occurring-composition truth against a reachable-envelope mask is
+exactly where that residue should live.
+
+---
+
+## Critique side — attribution round, 1 September 2026
+
+Three verdicts, one reframe, and a hygiene note.
+
+**The frontier's exact linearity is an identity, not a finding — and that
+is its value.** Uniform per-beam power scaling multiplies every sample's
+linear contributions by one factor: log-sums translate by exactly that
+many dB, top-N_co ranking is invariant under a common scale, and the
+eligibility gates (alpha, elevation) are power-blind. The whole CCDF
+translates rigidly, so the margin at any fixed percentage must step by
+exactly the power delta. The table's five rows therefore contain one
+measurement, not five: the threshold (-52.1 dBW/40 kHz, binding lat 40).
+But the identity holding exactly is itself two certificates. First, the
+power path is clean end-to-end — a selection bug, an eligibility leak, or
+a mask not re-derived from the scaled truth (the loop's verdict is
+examination-side) would all have bent the 10.0 steps. Second, and
+sharper: exact steps mean the exclusion advisor stayed pinned at its
+20 deg cap at every power point down to -40 — had any point unpinned to a
+compliant alpha, the declared geometry would have changed and the
+linearity would have broken. So "power first, alpha second" is not just
+comb-proof; it is measured to hold over the whole 40 dB span. With that
+read the extrapolation is exact rather than fitted, and the frontier is
+closed: the 60 s era understated the short-term point by ~12 dB (2-day
+estimate) and ~17 dB (screening), now measured.
+
+**The attribution is accepted as arithmetic, not yet as a booked share.**
+5 -> 2 deg moved the tail 1.8 dB — but 2 deg is a point on a knob, not a
+limit. Before "1.8 dB grid" enters any summary, the convergence check has
+to run: b/c 1 deg on the same pinned comb. Decision rule, stated now so
+the result cannot be argued around later: if 2 -> 1 deg moves the
+-154 @ 0.017% row by <= 0.3 dB, book the grid share at ~1.8-2.0 dB and
+move on; if it moves by another dB or more, the "envelope residue" is
+still contaminated and the knob is not done. Same discipline for the
+latitude step (10 -> 5 deg, the latStep argument already queued). The
+accumulator's bin granularity does not belong on the unknowns list as a
+co-equal: 0.1 dB bins bound its contribution at bin scale — a tenth or
+two with the staircase read at a sparse tail — it cannot hide decibels.
+After b/c and lat converge, what survives is the price of the envelope as
+such, and I agree Q1 owns it: an occurring-composition truth under a
+reachable-envelope mask is exactly that residue's home.
+
+**Headline hygiene.** The case's public number is now: deep-tail
+projection margin ~6.8-6.9 dB at (6 s comb, b/c 2 deg, lat step 10 deg
+untested), body 1.2-3.4 dB. The 8.6-8.9 figure must not travel without
+its grid caveat — wherever quoted, it is the b/c-5-deg reading of the
+same case. The stepSec >= 30 console NOTE is the right guard on the code
+side; margin-figure.md (the 60 s baseline, still tabulating 9.80) should
+carry the same one-line pointer at the top so a reader landing there
+alone does not take its tail rows at face value.
+
+**E2 - E1 ~ 0 held across grids** — the R-derivation stays exonerated at
+the tail under both b/c settings; the projection lives mask-side. Nothing
+further to test on the R path for this case.
+
+**Hygiene.** The vendored orbit files (Vector3D, AngleUtilities,
+OrbitalConstants, VectorOperations, CoordinateFrame, StateVector,
+GeocentricCoordinate) currently show whole-file diffs that are pure
+line-ending churn — content is identical under an EOL-insensitive diff.
+Do not commit the renormalization: it breaks the byte-identity spot-check
+against radians that the vendoring discipline rests on, and it buries
+real diffs. Restore the endings, or settle .gitattributes once,
+deliberately, in its own commit with the parity check re-run after.
+
+**Next moves, in order:** (1) b/c 1 deg convergence check on the pinned
+comb; (2) latStep 10 -> 5 deg, same pattern and same decision rule;
+(3) freeze the decomposition table — sampling / b/c grid / lat grid /
+envelope — into this doc as the case's attribution record; (4) hand the
+converged residue to Q1.
