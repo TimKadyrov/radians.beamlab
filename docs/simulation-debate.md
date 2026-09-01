@@ -960,3 +960,19 @@ closes with the number established, the machinery quoting it correctly by
 construction, and the baseline reproducing bit-identically across machines —
 which quietly banks a determinism result the radians side spent a month
 earning the hard way.
+
+**Scope note on the 8.6–8.9 dB (operator's question, answered for the
+record).** The number is a property of this case, not of S.1503-4: it holds
+for this 12-satellite single-shell system, this declaration granularity (10°
+mask latitude step, 5° b/c grid, global α), this victim, this limit row, the
+occurring basis — and at an operating point that fails the limits (the
+advisor capped without compliance), where conservatism need not equal its
+value near compliance. What generalises is the method: the three-projection
+machinery, the E1 ≥ T direction check re-tested by every case, the
+footprint-crossing comb rule (the threshold itself case physics), and the
+refine-and-watch experiment shape. "First substantive answer" in the closing
+above overclaims: this is the first data point. The brief's conservatism
+question is a population question — margin as a function of system class,
+declaration granularity and distance from the limit — and the BL-* family
+plus the dataset-building phase are the vehicle for that sweep. Until a
+population exists, the figure travels only with its case attached.
