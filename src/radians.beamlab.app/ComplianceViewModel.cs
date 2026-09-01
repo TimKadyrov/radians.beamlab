@@ -132,8 +132,18 @@ public sealed class ComplianceViewModel : ObservableObject
             foreach (var r in rows) Rows.Add(r);
             string gap = OperationComposer.PerLatExclusionSceneGap(sweep.Profile) is string g
                 ? g + " -- " : "";
+            // epfd is exactly dB-for-dB in per-beam power (the envelope
+            // study's linear frontier), so the worst margin doubles as
+            // the TxEirpDbw headroom -- for the live composition only
+            // (a declared mask is fixed; power moves need a new mask).
+            double worstAll = rows.Min(r => r.WorstMarginDb);
+            string headroom = sweep.Profile.Down.FootprintSource != "mask"
+                && double.IsFinite(worstAll)
+                ? string.Create(CultureInfo.InvariantCulture,
+                    $" -- power headroom {worstAll:+0.0;-0.0} dB on per-beam TxEirpDbw (dB-for-dB)")
+                : "";
             StatusText = gap + (sweep.Profile.Down.FootprintSource == "mask"
-                ? "declared-mask footprint -- " : "") + SummarizeRows(rows);
+                ? "declared-mask footprint -- " : "") + SummarizeRows(rows) + headroom;
         }
         catch (Exception ex) { StatusText = "sweep failed: " + ex.Message; }
         finally { IsRunning = false; }
@@ -362,9 +372,15 @@ public sealed class ComplianceViewModel : ObservableObject
             Rows.Clear();
             foreach (var r in advice.FinalRows) Rows.Add(r);
             FoundAlphaDeg = advice.FoundAlpha;
+            bool livePower = sweep.Profile.Down.FootprintSource != "mask"
+                && double.IsFinite(advice.WorstMarginEndDb);
             StatusText = advice.FoundAlpha is double a
                 ? string.Create(CultureInfo.InvariantCulture,
                     $"compliant at alpha = {a:F1} deg after {advice.Iterations} sweep(s)")
+                  + (livePower
+                        ? string.Create(CultureInfo.InvariantCulture,
+                            $"; power headroom {advice.WorstMarginEndDb:+0.0;-0.0} dB on per-beam TxEirpDbw (dB-for-dB)")
+                        : "")
                   + (advice.FailingAtStart.Count > 0
                      && advice.FailingAtStart.Count < advice.FinalRows.Count
                         ? string.Create(CultureInfo.InvariantCulture,
@@ -378,7 +394,11 @@ public sealed class ComplianceViewModel : ObservableObject
                         ? " -- raise the cap to continue the walk"
                      : advice.WorstMarginStartDb - advice.WorstMarginEndDb > 0.5
                         ? " -- a larger exclusion worsens this geometry"
-                        : " -- the exclusion angle is not the binding lever; adjust the system");
+                        : " -- the exclusion angle is not the binding lever; adjust the system")
+                  + (livePower
+                        ? string.Create(CultureInfo.InvariantCulture,
+                            $"; a {-advice.WorstMarginEndDb:F1} dB per-beam power reduction reaches the limit at the final alpha (dB-for-dB)")
+                        : "");
         }
         catch (Exception ex) { StatusText = "advise failed: " + ex.Message; }
         finally { IsRunning = false; }

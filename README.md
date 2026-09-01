@@ -29,8 +29,9 @@ Functions (each a tab or tool window, launched from the Home page):
 - **Operating parameters designer** — author the declared operating
   constraints (the R set) directly, or derive them by simulating the real
   system and enveloping what it actually does; export as R-set XML.
-- **Simulation runner** — run epfd(down)/(is)/(up) directly from a design
-  document and write the CDFs.
+- **Simulation runner** — run epfd(down)/(is)/(up) from an orbit design
+  document and an operation profile (both required) and write the CDFs;
+  an R-set file optionally swaps in the declared gates.
 - **Compliance loop** — sweep epfd(down) victims across a latitude grid,
   verdict against the entered limit with the examination's own
   comparison, and walk the exclusion angle to the smallest compliant
@@ -187,12 +188,14 @@ declared set the way the pfd/e.i.r.p. masks envelope the payload.
 
 ### Simulation runner (window)
 
-Runs the epfd(down) / epfd(is) / epfd(up) simulation directly from a
-design document over the scheduler-driven operation model. **Play**
-animates the operation on the world map (satellites, candidate and
-active links, live counts); **Quick run** executes the accelerated
-simulation with no UI updates and writes the three CDF CSVs in
-S.1503-4 D7.1.2 bins.
+Runs the epfd(down) / epfd(is) / epfd(up) simulation from an orbit
+design document and an operation profile — the space segment and the
+operated system, both required; an optional R-set file swaps the
+scheduler's gates for the declared constraints. **▶ play**
+and **⏩ accelerated play** share one continuous animated timeline on
+the world map (satellites, candidate and active links, live counts) —
+switchable mid-run; **Write CDFs** executes the statistics run with no
+UI updates and writes the three CDF CSVs in S.1503-4 D7.1.2 bins.
 
 Full details and the maths for every control are in the
 **[user guide](docs/user-guide.md)**.

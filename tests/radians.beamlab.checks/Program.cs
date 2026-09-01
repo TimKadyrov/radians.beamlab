@@ -3233,7 +3233,17 @@ var looks = RandomLooks(300);
     Directory.CreateDirectory(Path.GetDirectoryName(p16)!);
     File.WriteAllText(p16, doc16.BuildDocumentJson());
 
+    // The operation profile is mandatory: the system side comes from it
+    // (a coarse 900 km grid keeps the run tiny).
+    string prof16 = Path.Combine(AppContext.BaseDirectory, "exp", "v16.opprofile.json");
+    File.WriteAllText(prof16, OperationProfileCodec.Save(
+        new OperationProfile(Name: "v16", CellKm: 900.0)));
+
     var sim = new SimulationViewModel { DesignPath = p16 };
+    sim.ValidateInputs();
+    bool noProfOk = sim.StatusText.StartsWith("invalid:")
+        && sim.StatusText.Contains("operation profile");
+    sim.ProfilePath = prof16;
     sim.ValidateInputs();
     bool goodOk = sim.StatusText.StartsWith("ready:") && sim.StatusText.Contains("2 shell(s)")
         && sim.RunEnabled;
@@ -3254,7 +3264,6 @@ var looks = RandomLooks(300);
     sim.DesignPath = pT;
     sim.DurationDaysText = (20.0 / 1440.0).ToString(System.Globalization.CultureInfo.InvariantCulture);
     sim.StepSecText = "60";
-    sim.ServiceCellKm = 900.0;
     string base16 = Path.Combine(AppContext.BaseDirectory, "exp", "v16sim");
     string sum16 = sim.RunCore(sim.BuildSetup(), base16);
     bool ranOk = sum16.StartsWith("done:");
@@ -3267,9 +3276,9 @@ var looks = RandomLooks(300);
     bool cdfOk = body16.Length > 0
         && body16.Zip(body16.Skip(1), (a, b) => a >= b).All(x => x);
 
-    Check("V16 simulation runner: validation, tiny run, three monotone CDFs",
-        goodOk && badNumOk && badPathOk && ranOk && filesOk && cdfOk,
-        $"good={goodOk} badNum={badNumOk} badPath={badPathOk} ran={ranOk} files={filesOk} cdf={cdfOk}");
+    Check("V16 simulation runner: mandatory profile, validation, tiny run, three monotone CDFs",
+        noProfOk && goodOk && badNumOk && badPathOk && ranOk && filesOk && cdfOk,
+        $"noProf={noProfOk} good={goodOk} badNum={badNumOk} badPath={badPathOk} ran={ranOk} files={filesOk} cdf={cdfOk}");
 }
 
 // ---- V17: Case-2 declaration at the operator's own altitude ----
@@ -3461,14 +3470,19 @@ var looks = RandomLooks(300);
     Directory.CreateDirectory(Path.GetDirectoryName(pD)!);
     File.WriteAllText(pD, docD.BuildDocumentJson());
 
+    // The system under measurement comes from a profile (mandatory):
+    // min elev 10, exclusion 8, coarse 900 km grid.
+    string prof21 = Path.Combine(AppContext.BaseDirectory, "exp", "v21.opprofile.json");
+    File.WriteAllText(prof21, OperationProfileCodec.Save(new OperationProfile(
+        Name: "v21", MinElevDeg: 10.0, AlphaExclDeg: 8.0, CellKm: 900.0)));
+
     var vmD21 = new OpParamsViewModel
     {
         SatName = "V21SAT", NtcIdText = "900555004", ParamIdText = "31",
         LowFreqText = "19700", HighFreqText = "20200",
-        DeriveDesignPath = pD,
-        DeriveMinElevText = "10", DeriveAlphaText = "8",
+        DeriveDesignPath = pD, DeriveProfilePath = prof21,
         DeriveDurationDaysText = (90.0 / 1440.0).ToString(System.Globalization.CultureInfo.InvariantCulture),
-        DeriveStepSecText = "60", DeriveCellKmText = "900",
+        DeriveStepSecText = "60",
     };
     var r21 = vmD21.DeriveCore();
     var set21 = r21.Set;
@@ -3746,12 +3760,14 @@ var looks = RandomLooks(300);
     Directory.CreateDirectory(Path.GetDirectoryName(p27)!);
     File.WriteAllText(p27, doc27.BuildDocumentJson());
 
+    string prof27 = Path.Combine(AppContext.BaseDirectory, "exp", "v27.opprofile.json");
+    File.WriteAllText(prof27, OperationProfileCodec.Save(
+        new OperationProfile(Name: "v27", CellKm: 900.0)));
     var sim27 = new SimulationViewModel
     {
-        DesignPath = p27,
+        DesignPath = p27, ProfilePath = prof27,
         DurationDaysText = (30.0 / 1440.0).ToString(System.Globalization.CultureInfo.InvariantCulture),
         StepSecText = "60",
-        ServiceCellKm = 900.0,
     };
     var ps27 = sim27.BuildPlaySession();
     bool sessionOk = ps27.SatCount == 2 && ps27.StepSec == 60.0
@@ -3888,7 +3904,7 @@ var looks = RandomLooks(300);
 
     // (e) plumbing: profile field round-trips, composes through, and the
     // runner writes .down/.up but no .is under the mask footprint.
-    var profM = new OperationProfile(Name: "m28",
+    var profM = new OperationProfile(Name: "m28", CellKm: 900.0,
         Downlink: new DownlinkProfile(FootprintSource: "mask", MaskXmlPath: mask110));
     var profM2 = OperationProfileCodec.Load(OperationProfileCodec.Save(profM));
     var compM = OperationComposer.Compose(profM2, 1200.0);
@@ -3903,7 +3919,7 @@ var looks = RandomLooks(300);
     {
         DesignPath = p28, ProfilePath = profPath,
         DurationDaysText = (20.0 / 1440.0).ToString(System.Globalization.CultureInfo.InvariantCulture),
-        StepSecText = "60", ServiceCellKm = 900.0,
+        StepSecText = "60",
     };
     sim28.ValidateInputs();
     bool validOk = sim28.StatusText.Contains("declared mask");

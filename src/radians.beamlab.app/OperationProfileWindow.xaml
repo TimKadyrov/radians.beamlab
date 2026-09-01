@@ -240,7 +240,8 @@
                             <TextBox x:Name="LonBox" Width="70" Text="{Binding LonMinText, UpdateSourceTrigger=LostFocus}"/>
                             <TextBox Width="70" Margin="6,1,0,1" Text="{Binding LonMaxText, UpdateSourceTrigger=LostFocus}"/>
                         </StackPanel>
-                        <TextBlock Grid.Row="3" Text="Cell (km) / coverage (km)"/>
+                        <TextBlock Grid.Row="3" Text="Service cell (km) / coverage (km)" TextWrapping="Wrap"
+                                   ToolTip="The DEMAND grid — not the beam. Distinct from the payload's target ground-cell radius in Beam layout, which sizes each beam; this pitch grids the served cells the scheduler assigns, becomes the derived es_distance, and (empty coverage) doubles as the covering radius."/>
                         <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal">
                             <TextBox x:Name="CellBox" Width="70" Text="{Binding CellKmText, UpdateSourceTrigger=LostFocus}"/>
                             <TextBox Width="70" Margin="6,1,0,1" Text="{Binding CoverageRadiusText, UpdateSourceTrigger=LostFocus}"
@@ -262,7 +263,7 @@
                             <Canvas x:Name="PreviewCanvas" ClipToBounds="True"/>
                         </Border>
                         <TextBlock Foreground="#698089" FontSize="11" TextWrapping="Wrap"
-                                   Text="in-place sketch: 3-dB beam outlines and boresights in local km around the sub-satellite point; dashed rim = served field of view at the minimum elevation; grey = gated off. With co-channel N-colour reuse declared, outline colours are the N reuse colours."/>
+                                   Text="in-place sketch: 3-dB beam outlines and boresights in local km around the sub-satellite point; inner dashed rim = served field of view at the minimum elevation, outer faint ring = the 0-elevation horizon; grey = gated off. With co-channel N-colour reuse declared, beams are filled translucently with the N reuse colours."/>
                     </StackPanel>
                 </GroupBox>
             </StackPanel>

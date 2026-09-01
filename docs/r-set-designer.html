@@ -1,0 +1,201 @@
+<title>Inside the R Set</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,400;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Italic.woff2") format("woff2");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-SemiBold.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}
+:root{
+  --paper:#E9F4F8; --card:#FFFFFF; --ink:#000000; --muted:#698089;
+  --line:#D1EBF5; --line-soft:#E0F1F8;
+  --g1:#0076A1; --g2:#15807B; --g3:#0B516F;
+  --g1-tint:rgba(0,118,161,.10); --g2-tint:rgba(21,128,123,.10); --g3-tint:rgba(11,81,111,.10);
+  --code-bg:#E4F2F9; --bad:#CC3F4D;
+  --measure:44rem;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#003F57; --card:#154E66; --ink:#FFFFFF; --muted:#A9C6D2;
+    --line:#2E6479; --line-soft:#24576A;
+    --g1:#6FCBEF; --g2:#57C4BC; --g3:#99D7EF;
+    --g1-tint:rgba(111,203,239,.16); --g2-tint:rgba(87,196,188,.15); --g3-tint:rgba(153,215,239,.15);
+    --code-bg:#0F4459; --bad:#E57384;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#003F57; --card:#154E66; --ink:#FFFFFF; --muted:#A9C6D2;
+  --line:#2E6479; --line-soft:#24576A;
+  --g1:#6FCBEF; --g2:#57C4BC; --g3:#99D7EF;
+  --g1-tint:rgba(111,203,239,.16); --g2-tint:rgba(87,196,188,.15); --g3-tint:rgba(153,215,239,.15);
+  --code-bg:#0F4459; --bad:#E57384;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Gibson","Segoe UI",system-ui,sans-serif; font-size:15.5px; line-height:1.6}
+.wrap{max-width:880px; margin:0 auto; padding:40px 28px 72px}
+.kicker{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--g1)}
+h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; margin:.25em 0 .35em; text-wrap:balance; max-width:var(--measure)}
+.lede{color:var(--muted); margin:0 0 8px; max-width:var(--measure); font-family:"Bitter",Georgia,serif; font-style:italic}
+h2{font-size:21px; font-weight:600; letter-spacing:-.01em; margin:2.2em 0 .4em; text-wrap:balance; max-width:var(--measure)}
+p{max-width:var(--measure)}
+ul{max-width:var(--measure)}
+code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--code-bg); padding:0 4px; border-radius:3px}
+.tech{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--g1); border-radius:5px; padding:12px 16px; margin:14px 0; font-size:13.5px; max-width:var(--measure)}
+.tech .t{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; font-weight:600}
+.tech p{font-size:13.5px; margin:6px 0 0}
+figure{margin:18px 0; padding:14px 10px 8px; background:var(--card); border:1px solid var(--line); border-radius:6px; overflow-x:auto; max-width:var(--measure)}
+figure svg{display:block; max-width:100%; height:auto; margin:0 auto}
+figcaption{font-size:12px; color:var(--muted); text-align:center; margin-top:8px; font-family:"Bitter",Georgia,serif; font-style:italic}
+.svgtxt{font-family:"IBM Plex Mono",monospace; font-size:12.5px; fill:currentColor}
+.svglbl{font-family:"Gibson","Segoe UI",sans-serif; font-size:12px; fill:var(--muted)}
+table.ex{border-collapse:collapse; font-size:13px; margin:14px 0; max-width:var(--measure)}
+table.ex th{font-family:"IBM Plex Mono",monospace; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); text-align:left; padding:4px 10px; border-bottom:1px solid var(--line)}
+table.ex td{padding:4px 10px; text-align:left; border-bottom:1px solid var(--line-soft); vertical-align:top}
+table.ex td:first-child{font-family:"IBM Plex Mono",monospace; font-size:12.5px; white-space:nowrap}
+.foot{margin-top:44px; font-size:12.5px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; max-width:var(--measure)}
+a{color:var(--g1)} a:hover{color:#1983AA}
+</style>
+
+<div class="wrap">
+<div class="kicker">radians.beamlab &middot; operating parameters designer</div>
+<h1>Inside the R Set</h1>
+<p class="lede">The R&nbsp;set is the filing's promise about how the system points and
+schedules &mdash; the operating constraints the EPFD examination enforces alongside the
+pfd and e.i.r.p. masks. This page explains what it declares (and deliberately does not),
+how the examination reads it, and the two ways the designer authors it.</p>
+
+<h2>What the R&nbsp;set declares</h2>
+<p>Not a watt of it is about transmission. Powers, e.i.r.p. and the shape of the emissions
+are enveloped by the pfd and e.i.r.p. <em>masks</em>; the R&nbsp;set declares the
+<strong>pointing and scheduling discipline</strong> the operation keeps &mdash; the promises
+that decide when a non-GSO satellite may serve at all, and how many may do so together.</p>
+<table class="ex">
+  <tr><th>quantity</th><th>the promise</th></tr>
+  <tr><td>min_elev</td><td>no link below this elevation (per latitude and azimuth; header elsewhere)</td></tr>
+  <tr><td>min_exclude</td><td>no transmission inside this GSO-arc angle (per latitude, per orbit)</td></tr>
+  <tr><td>max_co_freq</td><td>at most this many co-frequency satellites toward one cell (per latitude)</td></tr>
+  <tr><td>max_co_freq_sat</td><td>at most this many co-frequency beams from one satellite</td></tr>
+  <tr><td>min_duration</td><td>a link, once made, is held at least this long (per latitude; header elsewhere)</td></tr>
+  <tr><td>min_angle_at_sat / _es</td><td>co-frequency links stay at least this far apart in angle</td></tr>
+  <tr><td>es_density &middot; es_distance</td><td>how densely the system's earth stations deploy, and how far apart</td></tr>
+  <tr><td>es_lat_min / _max</td><td>the latitude span the earth stations occupy</td></tr>
+</table>
+<p>The header quantities are single numbers; four of them can also be declared as
+<strong>per-latitude arrays</strong> that refine the promise where the geometry differs
+&mdash; a polar system's elevation floor at the equator is not its floor at 70&deg;.</p>
+
+<h2>How the examination reads it</h2>
+<div class="tech"><div class="t">Tech &middot; header vs arrays</div>
+<p>Where an array covers the earth station's latitude, the array row governs; elsewhere
+the header value fills in, and an <em>absent</em> header is permissive &mdash; no
+constraint is assumed on the operator's behalf. Per Part&nbsp;B of Recommendation ITU-R
+S.1503-4's R&nbsp;table, <code>min_elev</code>, <code>max_co_freq</code> and
+<code>min_duration</code> are read at the <strong>nearest latitude row</strong>, while
+<code>min_exclude</code> is read by <strong>linear interpolation</strong> between rows;
+the minimum angles are taken as zero when not provided.</p></div>
+<p>Two consequences are worth carrying around. A quantity you leave undeclared costs you
+nothing at examination time but promises nothing either; and an array only reaches as far
+as its rows &mdash; outside the declared latitude span the header (or permissiveness)
+takes over. Declare what the operation actually does, where it actually does it.</p>
+
+<h2>Two ways to author it</h2>
+
+<figure>
+<svg viewBox="0 0 700 330" role="img" aria-label="Manual entry and simulation-derived envelopes both fill the designer's fields; the reviewed set exports as R-set XML for the SNS builder and round-trips as JSON usable by the simulation runner as declared gates">
+  <defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
+  <g style="color:var(--ink)">
+    <!-- manual path -->
+    <rect x="14" y="36" width="212" height="56" rx="5" fill="none" stroke="currentColor"/>
+    <text x="26" y="58" class="svgtxt">Manual entry</text>
+    <text x="26" y="75" class="svglbl">values known a priori</text>
+
+    <!-- derived path -->
+    <rect x="14" y="150" width="212" height="112" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
+    <text x="26" y="172" class="svgtxt">Derive from simulation</text>
+    <text x="26" y="190" class="svglbl">orbit design document</text>
+    <text x="26" y="205" class="svglbl">+ operation profile (required)</text>
+    <text x="26" y="226" class="svglbl">fly under the scheduler,</text>
+    <text x="26" y="241" class="svglbl">envelope every granted link</text>
+
+    <!-- designer -->
+    <rect x="298" y="106" width="152" height="96" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="312" y="130" class="svgtxt">designer fields</text>
+    <text x="312" y="150" class="svglbl">review &amp; hand-tighten;</text>
+    <text x="312" y="165" class="svglbl">every field editable</text>
+    <text x="312" y="180" class="svglbl">before export</text>
+
+    <line x1="226" y1="64" x2="294" y2="130" stroke="currentColor" marker-end="url(#ar)"/>
+    <text x="240" y="76" class="svglbl">type the values</text>
+    <line x1="226" y1="206" x2="294" y2="172" stroke="var(--g1)" stroke-width="1.5" marker-end="url(#ar)" style="color:var(--g1)"/>
+    <text x="240" y="222" class="svglbl">measured envelope</text>
+
+    <!-- outputs -->
+    <line x1="450" y1="134" x2="538" y2="94" stroke="currentColor" marker-end="url(#ar)"/>
+    <rect x="524" y="48" width="162" height="56" rx="5" fill="none" stroke="currentColor"/>
+    <text x="536" y="70" class="svgtxt">R-set XML</text>
+    <text x="536" y="88" class="svglbl">SNS builder: f_mask R row</text>
+
+    <line x1="450" y1="174" x2="538" y2="214" stroke="currentColor" marker-end="url(#ar)"/>
+    <rect x="524" y="204" width="162" height="86" rx="5" fill="none" stroke="currentColor"/>
+    <text x="536" y="226" class="svgtxt">.opparams.json</text>
+    <text x="536" y="244" class="svglbl">round-trips the designer;</text>
+    <text x="536" y="259" class="svglbl">simulation runner:</text>
+    <text x="536" y="274" class="svglbl">declared-gates override</text>
+  </g>
+</svg>
+<figcaption>Both paths end in the same editable fields &mdash; a derived set is a proposal,
+not a verdict. The reviewed set exports as byte-convention R-set XML and round-trips as
+JSON.</figcaption>
+</figure>
+
+<p><strong>Manual entry</strong> is for values known a priori &mdash; copying an existing
+filing, or writing a deliberately conservative envelope. Every header quantity is a box,
+every array a few lines of text, and each field's tooltip is its parameter card.</p>
+<p><strong>Derive from simulation</strong> is the intended path when the declarations are
+not known: point at the orbit design document and the operation profile &mdash; the profile
+is required, because it is the system under measurement, transmission basics included
+&mdash; and fly the operation under the scheduler. Everything every granted link actually
+did is then enveloped into a declared set.</p>
+
+<h2>What the derivation writes</h2>
+<ul>
+<li><strong>Measured minima become floors</strong> &mdash; the smallest link elevation per
+latitude band, floored to 0.1&deg;; the smallest GSO offset per band, declared as an
+exclusion row <em>only where an exclusion actually shaped operations</em>. A near-zero
+floor that no rule enforced is geometry, not a promise, and is not declared.</li>
+<li><strong>Measured maxima are carried</strong> &mdash; the most co-frequency links any
+cell received per band, the most one satellite carried, the smallest angular separations
+observed between simultaneous links.</li>
+<li><strong>The deployment comes from the geography</strong> &mdash; the served-latitude
+span, the cell pitch as <code>es_distance</code>, and <code>es_density</code> as one
+station per cell-pitch square.</li>
+<li><strong>Quantities never observed stay undeclared</strong> &mdash; the deriver writes
+arrays, not guesses; a header it did not measure is left empty rather than invented.</li>
+</ul>
+<p>The derived set is usually <em>tighter</em> than the profile's own rules, because a real
+operation rarely rides its limits: a 10&deg; elevation gate produces links at 10.3&deg;,
+and 10.3&deg; is what gets declared. That is the same doctrine the pfd and e.i.r.p. masks
+follow &mdash; declarations as envelopes of the simulated truth.</p>
+<div class="tech"><div class="t">Tech &middot; the writer's encoding rules</div>
+<p>Export enforces the R-set XML conventions: <code>min_duration</code> is never written
+as 0 (omit it to select the classic algorithm), <code>min_angle_at_es</code> is rejected
+when <code>min_duration</code> is declared, and <code>es_density</code> /
+<code>es_distance</code> must be declared together or both omitted.</p></div>
+
+<h2>Where the set goes</h2>
+<p>The exported XML registers in the <strong>SNS builder</strong> as an <code>f_mask R</code>
+row of the dataset. The JSON round-trips the designer &mdash; and the
+<strong>Simulation runner</strong> accepts it as the optional alternative gate source:
+the scheduler obeys the declared constraints instead of the profile's enforced gates,
+so the same truth payload can be flown under its own discipline and under the declared
+one, and the two CDFs show what the declaration costs or allows.</p>
+
+<div class="foot">
+Companion pages: <a href="simulation-runner.html">Inside the Simulation Runner</a> &middot;
+<a href="compliance-loop.html">Inside the Compliance Loop</a> &middot;
+<a href="orbit-design-cases.html">The Three Orbit Cases</a> &middot;
+<a href="repeat-solver.html">Inside the Repeat Solver</a>. This page opens from the
+<em>What goes in the R set?</em> button in the Operating parameters designer.
+</div>
+</div>

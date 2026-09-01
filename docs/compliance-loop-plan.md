@@ -111,6 +111,12 @@ tooltip). Per grid point: one `EpfdDown.Run` against the limit points,
 `CompareWithLimits` verdict, and a dB margin read off the CDF at each
 limit percentage (worst margin reported). Output: a per-latitude table
 (max epfd, worst margin, pass/fail), an overall verdict, CSV export.
+The summary also prints the **power headroom**: epfd is exactly
+dB-for-dB in per-beam TxEirpDbw (the envelope study's linear frontier),
+so the worst margin doubles as the per-beam power headroom at the swept
+exclusion — live-composition footprint only (a declared mask is fixed;
+a power move needs the mask regenerated). The advisor prints it at its
+endpoints too.
 
 ## Stage C — adjustment advisor and completion
 
@@ -196,6 +202,45 @@ scene exports the mask — step 8.
   fires a warning in the compliance and simulation windows whenever a
   profile carries per-latitude rows the scene cannot express, and V28
   pins it — the misleading-figure state cannot be entered unknowingly.
+- **OPEN (operator, 2026-09-01): per-latitude alpha table from the
+  global walk.** The advisor's linear walk already verdicts every
+  latitude at every swept alpha, so a per-latitude minimal-alpha table
+  (smallest walked alpha at which each latitude's row passes) falls out
+  of the existing run at no extra simulation cost. Not implemented yet;
+  kept open together with the scene/export ground-latitude gating item
+  above — writing per-latitude rows into the enforced profile before the
+  scene can express them would trade the global over-constraint for the
+  mask gap. Candidate intermediate: emit the table as *advice only*
+  (UI/CSV; Apply keeps writing the global alpha), quantifying how much
+  each latitude is over-constrained without changing the enforced truth.
+  Two correctness caveats when it lands: per-latitude monotonicity is
+  not guaranteed (a larger exclusion can worsen a geometry — the trend
+  machinery exists for exactly this), so a row's alpha must stay passing
+  for the rest of the walk, not just first-cross; and MIN_EXCLUDE is
+  read by linear interpolation between rows, so latitudes between the
+  sweep grid carry interpolated declarations the sweep never verdicted —
+  a filing-grade table wants midpoint verdict passes too.
+- **OPEN (operator, 2026-09-01): advisor-parameter taxonomy.** Which
+  other global parameters the sweep/advisor machinery could serve, by
+  tier. The test any axis must pass is the alpha test: a single scalar
+  the sweep re-runs at, a discipline or capability the real system can
+  genuinely operate at, and a found value written back into enforced
+  operation — never a paper fit. Tier 1, walkable disciplines (the
+  existing walk as-is): MinElevDeg (also re-sizes the beam lattice, so
+  possibly non-monotone — the trend machinery covers it), NcoPerCell /
+  MaxCoFreqSat (integer walk); the separation angles qualify formally
+  but are weak levers for epfd(down). Tier 2, linear capability bounds
+  (no walk needed — one sweep's worst margin is the answer):
+  TxEirpDbw (**now reported** as the power-headroom line),
+  PatternFloorDbi (same dB-for-dB family at the far-off-axis end).
+  Tier 3, price-only, never advise (doctrine): ActivityFactor,
+  IlluminationDutyCycle, DemandLinks, service cell/coverage — demand
+  and realism parameters come from measurement; the loop may A/B their
+  dB worth (that IS the granularity study), not tune them to pass.
+  Victim-side axes (GSO offset — separately re-scoped — ES longitude,
+  dish) are sweep grid dimensions, not advised parameters. The
+  multi-knob form is the tracked (power, alpha) frontier, affordable
+  precisely because the power axis is linear.
 
 ## Checks
 

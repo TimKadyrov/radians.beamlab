@@ -12,11 +12,24 @@ public partial class OpParamsWindow : Window
 {
     private readonly OpParamsViewModel _vm = new();
 
+    private readonly string? _guidePath;
+
     public OpParamsWindow()
     {
         InitializeComponent();
         DataContext = _vm;
+        string? docs = HomeViewModel.FindDocsDir(AppContext.BaseDirectory);
+        string? guide = docs is null ? null : System.IO.Path.Combine(docs, "r-set-designer.html");
+        _guidePath = guide is not null && System.IO.File.Exists(guide) ? guide : null;
+        GuideBtn.IsEnabled = _guidePath is not null;
         WireToolTips();
+    }
+
+    private void OnGuideClick(object sender, RoutedEventArgs e)
+    {
+        if (_guidePath is null) return;
+        System.Diagnostics.Process.Start(
+            new System.Diagnostics.ProcessStartInfo(_guidePath) { UseShellExecute = true });
     }
 
     private void WireToolTips()

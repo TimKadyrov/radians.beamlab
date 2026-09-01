@@ -1,0 +1,177 @@
+<title>Inside the Compliance Loop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,400;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Italic.woff2") format("woff2");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-SemiBold.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}
+:root{
+  --paper:#E9F4F8; --card:#FFFFFF; --ink:#000000; --muted:#698089;
+  --line:#D1EBF5; --line-soft:#E0F1F8;
+  --g1:#0076A1; --g2:#15807B; --g3:#0B516F;
+  --g1-tint:rgba(0,118,161,.10); --g2-tint:rgba(21,128,123,.10); --g3-tint:rgba(11,81,111,.10);
+  --code-bg:#E4F2F9; --bad:#CC3F4D;
+  --measure:44rem;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#003F57; --card:#154E66; --ink:#FFFFFF; --muted:#A9C6D2;
+    --line:#2E6479; --line-soft:#24576A;
+    --g1:#6FCBEF; --g2:#57C4BC; --g3:#99D7EF;
+    --g1-tint:rgba(111,203,239,.16); --g2-tint:rgba(87,196,188,.15); --g3-tint:rgba(153,215,239,.15);
+    --code-bg:#0F4459; --bad:#E57384;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#003F57; --card:#154E66; --ink:#FFFFFF; --muted:#A9C6D2;
+  --line:#2E6479; --line-soft:#24576A;
+  --g1:#6FCBEF; --g2:#57C4BC; --g3:#99D7EF;
+  --g1-tint:rgba(111,203,239,.16); --g2-tint:rgba(87,196,188,.15); --g3-tint:rgba(153,215,239,.15);
+  --code-bg:#0F4459; --bad:#E57384;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Gibson","Segoe UI",system-ui,sans-serif; font-size:15.5px; line-height:1.6}
+.wrap{max-width:880px; margin:0 auto; padding:40px 28px 72px}
+.kicker{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--g1)}
+h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; margin:.25em 0 .35em; text-wrap:balance; max-width:var(--measure)}
+.lede{color:var(--muted); margin:0 0 8px; max-width:var(--measure); font-family:"Bitter",Georgia,serif; font-style:italic}
+h2{font-size:21px; font-weight:600; letter-spacing:-.01em; margin:2.2em 0 .4em; text-wrap:balance; max-width:var(--measure)}
+p{max-width:var(--measure)}
+ul{max-width:var(--measure)}
+code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--code-bg); padding:0 4px; border-radius:3px}
+.tech{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--g1); border-radius:5px; padding:12px 16px; margin:14px 0; font-size:13.5px; max-width:var(--measure)}
+.tech .t{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; font-weight:600}
+.tech p{font-size:13.5px; margin:6px 0 0}
+figure{margin:18px 0; padding:14px 10px 8px; background:var(--card); border:1px solid var(--line); border-radius:6px; overflow-x:auto; max-width:var(--measure)}
+figure svg{display:block; max-width:100%; height:auto; margin:0 auto}
+figcaption{font-size:12px; color:var(--muted); text-align:center; margin-top:8px; font-family:"Bitter",Georgia,serif; font-style:italic}
+.svgtxt{font-family:"IBM Plex Mono",monospace; font-size:12.5px; fill:currentColor}
+.svglbl{font-family:"Gibson","Segoe UI",sans-serif; font-size:12px; fill:var(--muted)}
+.foot{margin-top:44px; font-size:12.5px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; max-width:var(--measure)}
+a{color:var(--g1)} a:hover{color:#1983AA}
+</style>
+
+<div class="wrap">
+<div class="kicker">radians.beamlab &middot; compliance loop</div>
+<h1>Inside the Compliance Loop</h1>
+<p class="lede">The loop answers two questions about the operated system: does it meet the
+Article&nbsp;22 epfd(down) limits, latitude by latitude &mdash; and if not, what is the
+smallest GSO-exclusion discipline that does? Whatever it finds is written back into the
+operation profile, so the declaration and the flown behaviour stay one thing.</p>
+
+<h2>The loop, end to end</h2>
+
+<figure>
+<svg viewBox="0 0 700 296" role="img" aria-label="The compliance loop: profile and orbit design feed a latitude sweep whose verdict table either loops back through the alpha advisor or, once compliant, writes the found exclusion back into the profile">
+  <defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
+  <g style="color:var(--ink)">
+    <rect x="14" y="116" width="158" height="66" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="26" y="138" class="svgtxt">system under test</text>
+    <text x="26" y="156" class="svglbl">operation profile +</text>
+    <text x="26" y="171" class="svglbl">orbit design document</text>
+
+    <rect x="222" y="116" width="152" height="66" rx="5" fill="none" stroke="currentColor"/>
+    <text x="234" y="138" class="svgtxt">latitude sweep</text>
+    <text x="234" y="156" class="svglbl">one truth run per</text>
+    <text x="234" y="171" class="svglbl">victim latitude</text>
+
+    <rect x="424" y="116" width="130" height="66" rx="5" fill="none" stroke="currentColor"/>
+    <text x="436" y="138" class="svgtxt">verdict table</text>
+    <text x="436" y="156" class="svglbl">margin per latitude,</text>
+    <text x="436" y="171" class="svglbl">PASS / FAIL</text>
+
+    <line x1="172" y1="149" x2="218" y2="149" stroke="currentColor" marker-end="url(#ar)"/>
+    <line x1="374" y1="149" x2="420" y2="149" stroke="currentColor" marker-end="url(#ar)"/>
+
+    <!-- advisor loop (top, dashed) -->
+    <path d="M489 116 V56 H298 V112" fill="none" stroke="currentColor" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+    <text x="300" y="48" class="svglbl">not compliant: alpha += step, sweep again (the walk is the trajectory)</text>
+
+    <!-- write-back (bottom, accent) -->
+    <path d="M489 182 V244 H93 V186" fill="none" stroke="var(--g1)" stroke-width="1.5" marker-end="url(#ar)" style="color:var(--g1)"/>
+    <text x="120" y="264" class="svglbl">compliant: Apply writes the found alpha into the profile — enforced, never advisory</text>
+
+    <!-- outputs -->
+    <line x1="554" y1="149" x2="596" y2="149" stroke="currentColor" marker-end="url(#ar)"/>
+    <text x="602" y="138" class="svglbl">worst margin +</text>
+    <text x="602" y="153" class="svglbl">power headroom,</text>
+    <text x="602" y="168" class="svglbl">CSV table</text>
+  </g>
+</svg>
+<figcaption>The dashed top edge is the advisor's walk; the accented bottom edge is the
+write-back invariant. After Apply, the hand-off continues outside this window: derive the
+R&nbsp;set and export the masks from the updated profile.</figcaption>
+</figure>
+
+<h2>The sweep</h2>
+<p>A victim earth station is planted at each latitude of a grid (default 0&ndash;70&deg; in
+10&deg; steps) at your chosen ES longitude, with the wanted GSO satellite at a fixed
+longitude offset and an S.1428 dish. Each victim gets the same truth run the Simulation
+runner performs &mdash; the live scheduled beam composition, or, when the profile declares
+the mask footprint source, the examination's own read of the declared PFD mask
+(Recommendation ITU-R S.1503-4 &sect;D5.1.4.1). Each latitude becomes one row: the maximum
+epfd seen, the verdict, and the worst dB margin. <strong>Export table&hellip;</strong>
+writes the rows as CSV.</p>
+<div class="tech"><div class="t">Tech &middot; verdict and margin</div>
+<p>The verdict is the examination's own comparison: at every limit point, the simulated
+level exceeded for the allowed percentage of time must not pass the limit level
+(S.1503-4 &sect;D7.1.3, over the &sect;D7.1.2 CDF bins). The margin at one point is the
+limit epfd minus the measured epfd at that point's percentage; the row reports the minimum
+over the points &mdash; positive means room to spare, and the worst row is the binding
+latitude.</p></div>
+
+<h2>The limits</h2>
+<p>The sweep verdicts against the limit points in the text box &mdash; one
+<code>epfd_db percent</code> line per point. Type them from the applicable Article&nbsp;22
+table, or load them: point at the BR limits database and <strong>Load</strong> reads the
+rows applicable to the profile's downlink carrier and the shells' lowest operating height;
+pick a row and <strong>Use</strong> fills the text. Each row names its reference bandwidth
+and its own reference dish diameter &mdash; set the victim dish to the row's diameter, since
+that is the antenna the limit was written for. Latitude-dependent short-term rows cannot fit
+the flat text and are shown for hand transcription of your latitude band.</p>
+
+<h2>The advisor</h2>
+<p><strong>Suggest exclusion</strong> walks the global exclusion angle from the profile's
+current value upward in your step, re-running the full sweep at each value, and stops at
+the first fully compliant angle. The walk is deliberately <em>linear</em>, not a bisection,
+because the walk itself is an output: every intermediate sweep is a point on the
+margin-versus-alpha trajectory, and the failure report uses it &mdash; the worst margin at
+the end, the latitude holding it, and whether it was improving, worsening or not moving
+with alpha. From the trend it says what to do next: raise the cap and keep walking, accept
+that a larger exclusion worsens this geometry, or recognise that the exclusion is not the
+binding lever and the system itself must change.</p>
+<p><strong>Apply to profile</strong> then writes the found angle into the profile file.
+That is the loop's invariant: the advisor's exclusion becomes scheduler-enforced operation,
+never an advisory note &mdash; otherwise the projection margin between mask and truth would
+measure a fiction. When only some latitudes failed at the start, the report also notes that
+per-latitude alpha rows would be the finer declaration (an open item, tracked with the
+scene-gating work it depends on).</p>
+<div class="tech"><div class="t">Tech &middot; the power headroom line</div>
+<p>epfd moves exactly dB-for-dB with the per-beam transmit power density &mdash; the payload
+envelope study's linear frontier &mdash; so every sweep's worst margin doubles as the
+<code>TxEirpDbw</code> headroom: how much per-beam power the payload may add (or must shed)
+at the swept exclusion. The summary prints it after every sweep and at the advisor's
+endpoints. Live-composition footprint only: a declared mask is a fixed file, and a power
+change would need the mask regenerated.</p></div>
+
+<h2>Reading the depth honestly</h2>
+<p>The defaults &mdash; 0.1&nbsp;day at 60&nbsp;s, 144 steps per sweep &mdash; are
+<em>screening-grade</em>, chosen so a fifteen-step walk stays affordable. Short-term limit
+points at very small percentages need far longer runs to even resolve: a point at 0.017%
+of the time is decided by a handful of deepest samples, on the order of six thousand steps
+or more. The loop's job at screening depth is to locate the compliant region, the binding
+latitude and the trend; the final word belongs to a long run at the found angle. The window
+also warns when the profile carries per-latitude exclusion rows the payload's single scene
+ring cannot express &mdash; a verdict computed in that state names its gap rather than
+hiding it.</p>
+
+<div class="foot">
+Companion pages: <a href="simulation-runner.html">Inside the Simulation Runner</a> &middot;
+<a href="r-set-designer.html">Inside the R Set</a> &middot;
+<a href="orbit-design-cases.html">The Three Orbit Cases</a> &middot;
+<a href="repeat-solver.html">Inside the Repeat Solver</a>. This page opens from the
+<em>How is compliance judged?</em> button in the Compliance loop window.
+</div>
+</div>

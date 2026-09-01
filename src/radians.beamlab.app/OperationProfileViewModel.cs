@@ -307,6 +307,10 @@ public sealed class OperationProfileViewModel : ObservableObject
     /// <summary>Ground radius (km) of the served field of view at the profile's minimum elevation.</summary>
     public double PreviewFovKm { get => _previewFovKm; private set => SetField(ref _previewFovKm, value); }
 
+    private double _previewHorizonKm;
+    /// <summary>Ground radius (km) of the 0-elevation contour (the horizon).</summary>
+    public double PreviewHorizonKm { get => _previewHorizonKm; private set => SetField(ref _previewHorizonKm, value); }
+
     // Conditional visibility mirroring the composite gain tab, computed
     // from the EFFECTIVE (composed) scene so "(scene default)" choices
     // show the right inputs.
@@ -411,6 +415,8 @@ public sealed class OperationProfileViewModel : ObservableObject
         double eps = minElevDeg * Math.PI / 180.0;
         double gamma = Math.Acos(Math.Clamp(R / (R + altitudeKm) * Math.Cos(eps), -1.0, 1.0)) - eps;
         PreviewFovKm = R * gamma;
+        // The same formula at eps = 0: the horizon (0-elevation) contour.
+        PreviewHorizonKm = R * Math.Acos(Math.Clamp(R / (R + altitudeKm), -1.0, 1.0));
     }
 
     /// <summary>Half-power (Gm - 3 dB) off-axis angle along one azimuth, by bisection on the beam's own gain.</summary>

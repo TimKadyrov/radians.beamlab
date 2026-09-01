@@ -110,43 +110,31 @@
         <GroupBox Header="Derive from simulation">
             <StackPanel>
                 <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
-                           Text="The intended path: fly the real system (its constellation, its own minimum elevation and exclusion behaviour), measure what every granted link actually does, and envelope the measurements into the declared set — minima floored, maxima carried, unobserved quantities left undeclared. Fills every field above for review."/>
+                           Text="The intended path: fly the real system — the orbit design document places the satellites, the operation profile says everything they do (payload, power, gates, geography) — measure what every granted link actually does, and envelope the measurements into the declared set — minima floored, maxima carried, unobserved quantities left undeclared. Fills every field above for review."/>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="190"/><ColumnDefinition Width="220"/>
                         <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                        <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
-                        <RowDefinition/>
+                        <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Design document"/>
+                    <TextBlock Grid.Row="0" Text="Orbit design document"/>
                     <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding DeriveDesignPath, UpdateSourceTrigger=LostFocus}"/>
                     <Button    Grid.Row="0" Grid.Column="2" Content="Browse…" Margin="4,1,0,1" Click="OnDeriveBrowseClick"/>
-                    <TextBlock Grid.Row="5" Text="Operation profile (optional)"/>
-                    <TextBox   Grid.Row="5" Grid.Column="1" Text="{Binding DeriveProfilePath, UpdateSourceTrigger=LostFocus}"
-                               ToolTip="An *.opprofile.json; when set the whole system side comes from it and the min-elev/alpha/area fields above are ignored."/>
-                    <Button    Grid.Row="5" Grid.Column="2" Content="Browse…" Margin="4,1,0,1" Click="OnDeriveProfileBrowseClick"/>
-                    <TextBlock Grid.Row="1" Text="System min elevation (deg)"/>
-                    <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding DeriveMinElevText, UpdateSourceTrigger=LostFocus}"
-                               ToolTip="What the real operation enforces; the derived min_elev floors what was actually flown."/>
-                    <TextBlock Grid.Row="2" Text="System exclusion alpha (deg)"/>
-                    <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding DeriveAlphaText, UpdateSourceTrigger=LostFocus}"
-                               ToolTip="The real GSO exclusion ring; 0 = none enforced. A min_exclude array is derived only where an exclusion actually shaped operations."/>
-                    <TextBlock Grid.Row="3" Text="Duration (days) / step (s)"/>
-                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal">
+                    <TextBlock Grid.Row="1" Text="Operation profile"/>
+                    <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding DeriveProfilePath, UpdateSourceTrigger=LostFocus}"
+                               ToolTip="An *.opprofile.json — required. The whole system side (payload, transmission basics, gates, service geography, activity) comes from it; there are no stand-in fields."/>
+                    <Button    Grid.Row="1" Grid.Column="2" Content="Browse…" Margin="4,1,0,1" Click="OnDeriveProfileBrowseClick"/>
+                    <TextBlock Grid.Row="2" Text="Duration (days) / step (s)"/>
+                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
                         <TextBox Width="100" Text="{Binding DeriveDurationDaysText, UpdateSourceTrigger=LostFocus}"/>
                         <TextBox Width="100" Margin="6,1,0,1" Text="{Binding DeriveStepSecText, UpdateSourceTrigger=LostFocus}"/>
                     </StackPanel>
-                    <TextBlock Grid.Row="4" Text="Service lat min/max · band · cell (km)"/>
-                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
-                        <TextBox Width="46" Text="{Binding DeriveLatMinText, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBox Width="46" Margin="6,1,0,1" Text="{Binding DeriveLatMaxText, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBox Width="46" Margin="6,1,0,1" Text="{Binding DeriveLatBandText, UpdateSourceTrigger=LostFocus}"
-                                 ToolTip="Latitude band width of the derived per-latitude arrays."/>
-                        <TextBox Width="56" Margin="6,1,0,1" Text="{Binding DeriveCellKmText, UpdateSourceTrigger=LostFocus}"
-                                 ToolTip="Service-grid cell pitch; also the derived es_distance, with es_density = 1/cell^2."/>
-                    </StackPanel>
+                    <TextBlock Grid.Row="3" Text="Latitude band (deg)"/>
+                    <TextBox   Grid.Row="3" Grid.Column="1" Width="100" HorizontalAlignment="Left"
+                               Text="{Binding DeriveLatBandText, UpdateSourceTrigger=LostFocus}"
+                               ToolTip="Latitude band width of the derived per-latitude arrays."/>
                 </Grid>
                 <Button Content="Derive &amp; fill" HorizontalAlignment="Left" IsEnabled="{Binding DeriveEnabled}"
                         Click="OnDeriveClick"
@@ -160,6 +148,8 @@
                     <Button Content="Save set (JSON)…" Click="OnSaveClick"/>
                     <Button Content="Load set…" Click="OnLoadClick"/>
                     <Button Content="Export R XML…" Click="OnExportClick"/>
+                    <Button x:Name="GuideBtn" Content="What goes in the R set?" IsEnabled="False" Click="OnGuideClick"
+                            ToolTip="Opens the accompanying page: what the R set declares (and deliberately does not), how the examination reads header vs arrays, and the two authoring paths."/>
                 </StackPanel>
                 <TextBlock Text="{Binding SummaryText}" Foreground="#698089" TextWrapping="Wrap"/>
                 <TextBlock Text="{Binding StatusText}" Foreground="#CC3F4D" TextWrapping="Wrap"/>

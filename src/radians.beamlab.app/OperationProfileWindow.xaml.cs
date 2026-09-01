@@ -23,9 +23,11 @@ public partial class OperationProfileWindow : Window
     }
 
     /// <summary>
-    /// The in-place composition sketch: 3-dB outlines and boresight dots
-    /// in local km, the dashed rim marking the served field of view. No
-    /// geographic map -- the frame is the sub-satellite tangent plane.
+    /// The in-place composition sketch: 3-dB outlines (translucent-filled
+    /// by reuse colour) and boresight dots in local km, the inner dashed
+    /// rim marking the served field of view at the minimum elevation and
+    /// the outer one the 0-elevation horizon. No geographic map -- the
+    /// frame is the sub-satellite tangent plane.
     /// </summary>
     private void RedrawPreview()
     {
@@ -35,21 +37,30 @@ public partial class OperationProfileWindow : Window
         var beams = _vm.PreviewBeams;
         if (w < 40 || h < 40 || beams.Count == 0 || _vm.PreviewFovKm <= 0) return;
 
-        double scale = Math.Min(w, h) / 2.0 / (_vm.PreviewFovKm * 1.06);
+        double outerKm = Math.Max(_vm.PreviewHorizonKm, _vm.PreviewFovKm);
+        double scale = Math.Min(w, h) / 2.0 / (outerKm * 1.06);
         double cx = w / 2.0, cy = h / 2.0;
         double X(double eKm) => cx + eKm * scale;
         double Y(double nKm) => cy - nKm * scale;
 
-        double rimPx = _vm.PreviewFovKm * scale;
-        canvas.Children.Add(new System.Windows.Shapes.Ellipse
+        var ringBrush = new System.Windows.Media.SolidColorBrush(
+            System.Windows.Media.Color.FromRgb(0x8B, 0xC4, 0xCD));
+        void Ring(double radiusKm, System.Windows.Media.DoubleCollection dash, double opacity)
         {
-            Width = 2 * rimPx, Height = 2 * rimPx,
-            Stroke = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromRgb(0x8B, 0xC4, 0xCD)),
-            StrokeThickness = 1, StrokeDashArray = new System.Windows.Media.DoubleCollection { 4, 3 },
-        });
-        System.Windows.Controls.Canvas.SetLeft(canvas.Children[^1] as System.Windows.UIElement, cx - rimPx);
-        System.Windows.Controls.Canvas.SetTop(canvas.Children[^1] as System.Windows.UIElement, cy - rimPx);
+            double px = radiusKm * scale;
+            var ring = new System.Windows.Shapes.Ellipse
+            {
+                Width = 2 * px, Height = 2 * px,
+                Stroke = ringBrush, StrokeThickness = 1,
+                StrokeDashArray = dash, Opacity = opacity,
+            };
+            System.Windows.Controls.Canvas.SetLeft(ring, cx - px);
+            System.Windows.Controls.Canvas.SetTop(ring, cy - px);
+            canvas.Children.Add(ring);
+        }
+        // Outer: the 0-elevation horizon; inner: the served rim at min elev.
+        Ring(_vm.PreviewHorizonKm, new System.Windows.Media.DoubleCollection { 2, 3 }, 0.75);
+        Ring(_vm.PreviewFovKm, new System.Windows.Media.DoubleCollection { 4, 3 }, 1.0);
 
         var onBrush = new System.Windows.Media.SolidColorBrush(
             System.Windows.Media.Color.FromRgb(0x15, 0x80, 0x7B));
@@ -68,6 +79,14 @@ public partial class OperationProfileWindow : Window
             new(System.Windows.Media.Color.FromRgb(0x6B, 0x8E, 0x23)),
             new(System.Windows.Media.Color.FromRgb(0x7A, 0x5C, 0x43)),
         };
+        // Translucent fill from the stroke colour so neighbouring reuse
+        // colours read as patches, not just hairlines.
+        static System.Windows.Media.SolidColorBrush FillOf(
+            System.Windows.Media.SolidColorBrush b, byte alpha)
+        {
+            var c = b.Color;
+            return new(System.Windows.Media.Color.FromArgb(alpha, c.R, c.G, c.B));
+        }
 
         foreach (bool onPass in new[] { false, true })
             foreach (var b in beams)
@@ -76,15 +95,14 @@ public partial class OperationProfileWindow : Window
                 var stroke = !b.On ? offBrush
                     : b.Color >= 0 ? reuse[b.Color % reuse.Length]
                     : onBrush;
-                var pl = new System.Windows.Shapes.Polyline
+                var pl = new System.Windows.Shapes.Polygon
                 {
                     Stroke = stroke,
                     StrokeThickness = b.On ? 1.2 : 0.8,
+                    Fill = FillOf(stroke, b.On ? (byte)0x40 : (byte)0x1C),
                 };
                 for (int i = 0; i < b.OutlineEKm.Count; i++)
                     pl.Points.Add(new Point(X(b.OutlineEKm[i]), Y(b.OutlineNKm[i])));
-                if (b.OutlineEKm.Count > 2)
-                    pl.Points.Add(new Point(X(b.OutlineEKm[0]), Y(b.OutlineNKm[0])));
                 canvas.Children.Add(pl);
 
                 var dot = new System.Windows.Shapes.Ellipse

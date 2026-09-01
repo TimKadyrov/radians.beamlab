@@ -36,7 +36,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition/><RowDefinition/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="Design document"/>
+                        <TextBlock Grid.Row="0" Text="Orbit design document"/>
                         <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding DesignPath, UpdateSourceTrigger=LostFocus}"/>
                         <Button    Grid.Row="0" Grid.Column="2" Content="…" Margin="4,1,0,1" Click="OnBrowseDesignClick"/>
                         <TextBlock Grid.Row="1" Text="Operation profile"/>
@@ -129,6 +129,8 @@
                 <StackPanel Orientation="Horizontal">
                     <Button Content="Run sweep" IsEnabled="{Binding RunEnabled}" Click="OnRunClick"/>
                     <Button Content="Export table…" Click="OnExportClick"/>
+                    <Button x:Name="GuideBtn" Content="How is compliance judged?" IsEnabled="False" Click="OnGuideClick"
+                            ToolTip="Opens the accompanying page: the sweep and its verdicts, the limits, the advisor's walk and write-back, the power headroom line, and how deep a screening run really reads."/>
                 </StackPanel>
                 <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="420">
                     <DataGrid.Columns>

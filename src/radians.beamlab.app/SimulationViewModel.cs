@@ -11,13 +11,13 @@ namespace radians.beamlab.app;
 
 /// <summary>
 /// The simulation runner: runs the epfd(down) / epfd(is) / epfd(up)
-/// simulation directly from a design document over the scheduler-driven
-/// operation model -- the dataset generator's composition, interactive.
-/// One run writes the three CDF CSVs (S.1503-4 D7.1.2 bins, 0.1 dB) next
-/// to the chosen base name. The service geography is the generator's
-/// fixed grid (30..60 N, -20..20 E, 450 km cells); operating parameters
-/// come from an optional *.opparams.json (empty = permissive defaults at
-/// the entered minimum elevation, no exclusion zone).
+/// simulation from an orbit design document (the space segment) and an
+/// operation profile (the operated system -- payload, transmission
+/// basics, gates, geography, activity), interactive. One run writes the
+/// three CDF CSVs (S.1503-4 D7.1.2 bins, 0.1 dB) next to the chosen
+/// base name. An optional *.opparams.json swaps ONLY the scheduler's
+/// gates for the declared R constraints -- the truth payload flown
+/// under the declared discipline.
 /// </summary>
 public sealed class SimulationViewModel : ObservableObject
 {
@@ -25,20 +25,22 @@ public sealed class SimulationViewModel : ObservableObject
     public string DesignPath { get => _designPath; set => SetField(ref _designPath, value); }
 
     private string _opParamsPath = "";
-    /// <summary>Optional operating-parameter set (*.opparams.json); empty = permissive defaults.</summary>
+    /// <summary>
+    /// Optional operating-parameter set (*.opparams.json): an alternative
+    /// gate source. When set the scheduler obeys the declared
+    /// pointing/scheduling constraints instead of the profile's enforced
+    /// gates; the transmission side still comes from the profile.
+    /// </summary>
     public string OpParamsPath { get => _opParamsPath; set => SetField(ref _opParamsPath, value); }
 
     private string _profilePath = "";
     /// <summary>
-    /// Optional operation profile (*.opprofile.json). When set it supplies
-    /// the whole system side -- scene, gates, geography, policy, duty --
-    /// and overrides the frequency, minimum elevation and opparams fields;
-    /// the remaining inputs describe only the victim and the run.
+    /// The operation profile (*.opprofile.json) -- required. It supplies
+    /// the whole system side: scene, transmission basics, gates,
+    /// geography, policy, duty and the downlink frequency; the remaining
+    /// inputs describe only the victim and the run.
     /// </summary>
     public string ProfilePath { get => _profilePath; set => SetField(ref _profilePath, value); }
-
-    private string _frequencyGhzText = "19.7";
-    public string FrequencyGhzText { get => _frequencyGhzText; set => SetField(ref _frequencyGhzText, value); }
 
     private string _gsoLonText = "10";
     /// <summary>Victim GSO longitude (deg E) -- the wanted satellite for down, the victim for up/is.</summary>
@@ -52,15 +54,11 @@ public sealed class SimulationViewModel : ObservableObject
     public string EsLonText { get => _esLonText; set => SetField(ref _esLonText, value); }
 
     private string _esDishMText = "0.6";
-    /// <summary>S.1428 dish diameter (m) for the victim ES and the transmitting ES.</summary>
+    /// <summary>
+    /// S.1428 dish diameter (m) for the victim ES; also the transmitting
+    /// ES when the profile's uplink side declares no dish of its own.
+    /// </summary>
     public string EsDishMText { get => _esDishMText; set => SetField(ref _esDishMText, value); }
-
-    private string _esPowerDbwText = "0";
-    /// <summary>Uplink ES power ceiling (dBW) into the range-based power control.</summary>
-    public string EsPowerDbwText { get => _esPowerDbwText; set => SetField(ref _esPowerDbwText, value); }
-
-    private string _minElevText = "10";
-    public string MinElevText { get => _minElevText; set => SetField(ref _minElevText, value); }
 
     private string _durationDaysText = "2";
     public string DurationDaysText { get => _durationDaysText; set => SetField(ref _durationDaysText, value); }
@@ -91,11 +89,13 @@ public sealed class SimulationViewModel : ObservableObject
                 ? string.Create(CultureInfo.InvariantCulture,
                     $"; downlink footprint: declared mask ({(m.Kind == MaskPlotKind.AlphaDeltaLong ? "alpha/dLong" : "az/el")}, {m.BlockCount} lat block(s), refbw {m.RefBwKHz:F0} kHz -- no .is.csv)")
                 : "";
-            string gap = s.Profile is { } pg && OperationComposer.PerLatExclusionSceneGap(pg) is string g
+            string gap = OperationComposer.PerLatExclusionSceneGap(s.Profile) is string g
                 ? " -- " + g : "";
+            string gates = s.DeclaredOverride is not null
+                ? "; gates: declared R set (override)" : "";
             StatusText = string.Create(CultureInfo.InvariantCulture,
-                $"ready: {s.Shells.Length} shell(s), {s.SatCount} satellites; victim ES {s.EsLat}/{s.EsLon}, GSO {s.GsoLon} degE; {s.Steps} steps of {s.StepSec} s -- Run writes .down/.is/.up.csv")
-                + fp + gap;
+                $"ready: {s.Shells.Length} shell(s), {s.SatCount} satellites; victim ES {s.EsLat}/{s.EsLon}, GSO {s.GsoLon} degE; {s.Steps} steps of {s.StepSec} s -- Write CDFs writes .down/.is/.up.csv")
+                + gates + fp + gap;
         }
         catch (Exception ex) { StatusText = "invalid: " + ex.Message; }
     }
@@ -178,27 +178,29 @@ public sealed class SimulationViewModel : ObservableObject
                 string.Create(inv, $"victim GSO sat lon={setup.GsoLon}, boresight {setup.EsLat}/{setup.EsLon}, S.672 40.7 dBi / 1.55 deg / Ls -20"),
                 down.IsAccumulator, down.Steps, down.IsQuietSteps, down.MaxEpfdIsDb);
 
-        // The up scheduler enforces the UPLINK side's link discipline.
-        var upDeclared = setup.Profile is { } profU
-            ? OperationComposer.Compose(profU, sceneAlt, LinkDirection.Up).Enforced
-            : declared;
+        // The up scheduler enforces the UPLINK side's link discipline;
+        // a declared R override governs both directions.
+        var prof = setup.Profile;
+        var upDeclared = setup.DeclaredOverride
+            ?? OperationComposer.Compose(prof, sceneAlt, LinkDirection.Up).Enforced;
         var scheduler = new Scheduler(con, geo, upDeclared, new ScenePointing(scene, duty),
             simDur, coverageKm, policy);
-        // The uplink side transmits at ITS OWN frequency and dish when a
-        // profile declares them.
-        double ulFreqMhz = (setup.Profile?.Up.FrequencyGhz ?? setup.FreqGhz) * 1000.0;
-        double ulDishM = setup.Profile?.Up.EsDishM ?? setup.DishM;
+        // The uplink transmission basics come from the profile's own side.
+        double ulFreqMhz = prof.Up.FrequencyGhz * 1000.0;
+        double ulDishM = prof.Up.EsDishM ?? setup.DishM;
+        double esPowerDbw = prof.Up.EsPowerDbw ?? 0.0;
+        double refElevDeg = prof.Up.PowerControlRefElevDeg
+            ?? declared.ElevAngleHeaderDeg ?? prof.MinElevDeg;
         var esModel = new EpfdUpEsModel
         {
-            PowerDbw = setup.Profile?.Up.EsPowerDbw ?? setup.EsPowerDbw,
+            PowerDbw = esPowerDbw,
             Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, ulFreqMhz, ulDishM),
-            PowerControlRefElevDeg = setup.Profile?.Up.PowerControlRefElevDeg
-                ?? declared.ElevAngleHeaderDeg ?? setup.MinElev,
+            PowerControlRefElevDeg = refElevDeg,
         };
         var up = EpfdUp.Run(con, scheduler, geo, isVictim, esModel,
             setup.StepSec, setup.Steps, PermissiveLimits(), simDur);
         WriteCdf(outputBase + ".up.csv", "epfd(up)",
-            string.Create(inv, $"ES power {setup.EsPowerDbw} dBW, power control ref elev {declared.ElevAngleHeaderDeg ?? setup.MinElev} deg"),
+            string.Create(inv, $"ES power {esPowerDbw} dBW, power control ref elev {refElevDeg} deg"),
             up.Accumulator, up.Steps, up.QuietSteps, up.MaxEpfdDb);
 
         string isPart = down.IsAccumulator is null
@@ -217,39 +219,23 @@ public sealed class SimulationViewModel : ObservableObject
         ServiceGeography Geo, SelectionPolicy Policy, double Duty, double? CoverageKm,
         MaskFootprint? DownMask = null);
 
-    // The truth side comes from the operation profile when one is set;
-    // the loose-field fallback is the generator's composition (first
-    // shell's operating height, the declared exclusion's widest ring).
+    // The truth side always comes from the operation profile; a supplied
+    // R set swaps ONLY the scheduler's gates for the declared constraints.
     private static Stack BuildStack(Setup setup)
     {
         var sh0 = setup.Shells[0];
         double sceneAlt = sh0.OperatingHeightKm ?? sh0.AltitudeKm;
-        if (setup.Profile is { } prof)
+        var comp = OperationComposer.Compose(setup.Profile, sceneAlt);
+        MaskFootprint? downMask = null;
+        if (comp.UsesMaskFootprint)
         {
-            var comp = OperationComposer.Compose(prof, sceneAlt);
-            MaskFootprint? downMask = null;
-            if (comp.UsesMaskFootprint)
-            {
-                if (comp.DownlinkMaskXmlPath.Trim().Length == 0)
-                    throw new InvalidOperationException(
-                        "the profile declares a PFD-mask footprint but names no mask XML");
-                downMask = MaskFootprint.LoadFile(comp.DownlinkMaskXmlPath);
-            }
-            return new Stack(comp.Enforced, comp.Scene, comp.Geography, comp.Policy,
-                comp.IlluminationDutyCycle, comp.CoverageRadiusKm, downMask);
+            if (comp.DownlinkMaskXmlPath.Trim().Length == 0)
+                throw new InvalidOperationException(
+                    "the profile declares a PFD-mask footprint but names no mask XML");
+            downMask = MaskFootprint.LoadFile(comp.DownlinkMaskXmlPath);
         }
-        var scene = new PfdMaskViewModel
-        {
-            AltitudeKm = sceneAlt,
-            FrequencyGHz = setup.FreqGhz,
-            MinElevDeg = setup.MinElev,
-            AlphaExclDeg = setup.Declared.MinExclude
-                .SelectMany(e => e.ByLat).Select(v => v.AlphaDeg).DefaultIfEmpty(0.0).Max(),
-            RefBwKHz = 40.0,
-        };
-        return new Stack(setup.Declared, scene,
-            ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, setup.CellKm),
-            SelectionPolicy.HighestElevation, 1.0, null);
+        return new Stack(setup.DeclaredOverride ?? comp.Enforced, comp.Scene, comp.Geography,
+            comp.Policy, comp.IlluminationDutyCycle, comp.CoverageRadiusKm, downMask);
     }
 
     /// <summary>Everything the animated map needs to march the operation step by step.</summary>
@@ -269,47 +255,37 @@ public sealed class SimulationViewModel : ObservableObject
     }
 
     public sealed record Setup(ConstellationShell[] Shells, int SatCount,
-        OperatingParamsSet Declared, double FreqGhz, double GsoLon, double EsLat, double EsLon,
-        double DishM, double EsPowerDbw, double MinElev, long Steps, double StepSec, double CellKm,
-        OperationProfile? Profile = null);
-
-    /// <summary>Cell size of the fixed service grid (km); the checks shrink runs, not the grid.</summary>
-    public double ServiceCellKm { get; set; } = 450.0;
+        OperatingParamsSet? DeclaredOverride, double FreqGhz, double GsoLon, double EsLat,
+        double EsLon, double DishM, long Steps, double StepSec, OperationProfile Profile);
 
     public Setup BuildSetup()
     {
         if (_designPath.Trim().Length == 0)
-            throw new InvalidOperationException("pick a design document first");
+            throw new InvalidOperationException("pick an orbit design document first");
+        if (_profilePath.Trim().Length == 0)
+            throw new InvalidOperationException(
+                "pick an operation profile -- the system side (payload, gates, geography) comes from it");
         var doc = OrbitDesignFileCodec.LoadDocument(File.ReadAllText(_designPath));
         var shells = doc.Shells.Select(OrbitDesignFileCodec.ToShell).ToArray();
         int sats = doc.Shells.Sum(d => Math.Max(1, d.PlaneCount) * Math.Max(1, d.SatsPerPlane));
 
-        OperationProfile? prof = _profilePath.Trim().Length > 0
-            ? OperationProfileCodec.Load(File.ReadAllText(_profilePath))
-            : null;
-        if (prof is not null) shells = OperationComposer.ApplyToShells(prof, shells);
+        var prof = OperationProfileCodec.Load(File.ReadAllText(_profilePath));
+        shells = OperationComposer.ApplyToShells(prof, shells);
 
-        double freq = prof?.Down.FrequencyGhz ?? Num(_frequencyGhzText, "frequency");
-        double minElev = prof?.MinElevDeg ?? Num(_minElevText, "minimum elevation");
-        var declared = _opParamsPath.Trim().Length > 0
+        var declaredOverride = _opParamsPath.Trim().Length > 0
             ? OpParamsFileCodec.ToSet(OpParamsFileCodec.Load(File.ReadAllText(_opParamsPath)))
-            : new OperatingParamsSet
-            {
-                SatName = "SIM", LowFreqMhz = freq * 1000.0, HighFreqMhz = freq * 1000.0,
-                ElevAngleHeaderDeg = minElev,
-            };
+            : null;
 
         double days = Num(_durationDaysText, "duration");
         double step = Num(_stepSecText, "time step");
         double dish = Num(_esDishMText, "dish diameter");
-        if (freq <= 0.0 || days <= 0.0 || step <= 0.0 || dish <= 0.0)
-            throw new InvalidOperationException("frequency, duration, step and dish must be positive");
+        if (days <= 0.0 || step <= 0.0 || dish <= 0.0)
+            throw new InvalidOperationException("duration, step and dish must be positive");
         long steps = Math.Max(1, (long)(days * 86400.0 / step));
 
-        return new Setup(shells, sats, declared, freq,
+        return new Setup(shells, sats, declaredOverride, prof.Down.FrequencyGhz,
             Num(_gsoLonText, "GSO longitude"), Num(_esLatText, "ES latitude"),
-            Num(_esLonText, "ES longitude"), dish,
-            Num(_esPowerDbwText, "ES power"), minElev, steps, step, ServiceCellKm, prof);
+            Num(_esLonText, "ES longitude"), dish, steps, step, prof);
     }
 
     // Permissive limits: the deliverable is the CDF, not a verdict.

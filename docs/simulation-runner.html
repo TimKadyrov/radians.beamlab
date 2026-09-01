@@ -1,0 +1,232 @@
+<title>Inside the Simulation Runner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,400;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Italic.woff2") format("woff2");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-SemiBold.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}
+:root{
+  --paper:#E9F4F8; --card:#FFFFFF; --ink:#000000; --muted:#698089;
+  --line:#D1EBF5; --line-soft:#E0F1F8;
+  --g1:#0076A1; --g2:#15807B; --g3:#0B516F;
+  --g1-tint:rgba(0,118,161,.10); --g2-tint:rgba(21,128,123,.10); --g3-tint:rgba(11,81,111,.10);
+  --code-bg:#E4F2F9; --bad:#CC3F4D;
+  --measure:44rem;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#003F57; --card:#154E66; --ink:#FFFFFF; --muted:#A9C6D2;
+    --line:#2E6479; --line-soft:#24576A;
+    --g1:#6FCBEF; --g2:#57C4BC; --g3:#99D7EF;
+    --g1-tint:rgba(111,203,239,.16); --g2-tint:rgba(87,196,188,.15); --g3-tint:rgba(153,215,239,.15);
+    --code-bg:#0F4459; --bad:#E57384;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#003F57; --card:#154E66; --ink:#FFFFFF; --muted:#A9C6D2;
+  --line:#2E6479; --line-soft:#24576A;
+  --g1:#6FCBEF; --g2:#57C4BC; --g3:#99D7EF;
+  --g1-tint:rgba(111,203,239,.16); --g2-tint:rgba(87,196,188,.15); --g3-tint:rgba(153,215,239,.15);
+  --code-bg:#0F4459; --bad:#E57384;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Gibson","Segoe UI",system-ui,sans-serif; font-size:15.5px; line-height:1.6}
+.wrap{max-width:880px; margin:0 auto; padding:40px 28px 72px}
+.kicker{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--g1)}
+h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; margin:.25em 0 .35em; text-wrap:balance; max-width:var(--measure)}
+.lede{color:var(--muted); margin:0 0 8px; max-width:var(--measure); font-family:"Bitter",Georgia,serif; font-style:italic}
+h2{font-size:21px; font-weight:600; letter-spacing:-.01em; margin:2.2em 0 .4em; text-wrap:balance; max-width:var(--measure)}
+p{max-width:var(--measure)}
+ul{max-width:var(--measure)}
+code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--code-bg); padding:0 4px; border-radius:3px}
+.tech{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--g1); border-radius:5px; padding:12px 16px; margin:14px 0; font-size:13.5px; max-width:var(--measure)}
+.tech .t{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; font-weight:600}
+.tech p{font-size:13.5px; margin:6px 0 0}
+figure{margin:18px 0; padding:14px 10px 8px; background:var(--card); border:1px solid var(--line); border-radius:6px; overflow-x:auto; max-width:var(--measure)}
+figure svg{display:block; max-width:100%; height:auto; margin:0 auto}
+figcaption{font-size:12px; color:var(--muted); text-align:center; margin-top:8px; font-family:"Bitter",Georgia,serif; font-style:italic}
+.svgtxt{font-family:"IBM Plex Mono",monospace; font-size:12.5px; fill:currentColor}
+.svglbl{font-family:"Gibson","Segoe UI",sans-serif; font-size:12px; fill:var(--muted)}
+table.ex{border-collapse:collapse; font-size:13px; margin:14px 0; max-width:var(--measure)}
+table.ex th{font-family:"IBM Plex Mono",monospace; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); text-align:left; padding:4px 10px; border-bottom:1px solid var(--line)}
+table.ex td{padding:4px 10px; text-align:left; border-bottom:1px solid var(--line-soft); vertical-align:top}
+table.ex td:first-child{font-family:"IBM Plex Mono",monospace; font-size:12.5px; white-space:nowrap}
+.foot{margin-top:44px; font-size:12.5px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; max-width:var(--measure)}
+a{color:var(--g1)} a:hover{color:#1983AA}
+</style>
+
+<div class="wrap">
+<div class="kicker">radians.beamlab &middot; simulation runner</div>
+<h1>Inside the Simulation Runner</h1>
+<p class="lede">The runner flies your constellation as an operated system and writes the
+epfd statistics a filing is judged by. This page explains which input supplies what,
+why the operation profile is mandatory, and what the optional R&nbsp;set changes when
+you add it.</p>
+
+<h2>One run, three files</h2>
+<p>A simulation needs two different kinds of truth: <em>where the satellites are</em>,
+and <em>what they do</em>. The window keeps them in separate files so each can be
+authored, reviewed and swapped on its own &mdash; and both are required. A third file
+&mdash; the declared operating parameters &mdash; is optional: when present it swaps
+the scheduler's gates for the declared constraints.</p>
+
+<figure>
+<svg viewBox="0 0 700 342" role="img" aria-label="Three input files feed the runner: the orbit design document supplies the space segment, the operation profile supplies the operated system, and the operating params act as fallback gates; the runner drives the play timeline and the CDF files">
+  <defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
+  <g style="color:var(--ink)">
+    <!-- input boxes -->
+    <rect x="14" y="24" width="214" height="66" rx="5" fill="none" stroke="currentColor"/>
+    <text x="26" y="46" class="svgtxt">Orbit design document</text>
+    <text x="26" y="63" class="svglbl">.orbitdesign.json</text>
+    <text x="26" y="79" class="svglbl">shells &middot; planes &middot; phasing</text>
+
+    <rect x="14" y="122" width="214" height="66" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
+    <text x="26" y="144" class="svgtxt">Operation profile</text>
+    <text x="26" y="161" class="svglbl">.opprofile.json</text>
+    <text x="26" y="177" class="svglbl">payload &middot; gates &middot; geography &middot; activity</text>
+
+    <rect x="14" y="220" width="214" height="66" rx="5" fill="none" stroke="currentColor" stroke-dasharray="5 4"/>
+    <text x="26" y="242" class="svgtxt">Operating params (R)</text>
+    <text x="26" y="259" class="svglbl">.opparams.json</text>
+    <text x="26" y="275" class="svglbl">declared gates &mdash; optional override</text>
+
+    <!-- arrows into the runner -->
+    <line x1="228" y1="57" x2="356" y2="130" stroke="currentColor" marker-end="url(#ar)"/>
+    <text x="244" y="66" class="svglbl">where the satellites are</text>
+    <line x1="228" y1="155" x2="356" y2="155" stroke="var(--g1)" stroke-width="1.5" marker-end="url(#ar)" style="color:var(--g1)"/>
+    <text x="244" y="149" class="svglbl">what the system does</text>
+    <line x1="228" y1="253" x2="356" y2="180" stroke="currentColor" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+    <text x="244" y="266" class="svglbl">alternative gates</text>
+
+    <!-- runner -->
+    <rect x="360" y="106" width="180" height="98" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="374" y="130" class="svgtxt">Simulation runner</text>
+    <text x="374" y="150" class="svglbl">scheduler marches the</text>
+    <text x="374" y="165" class="svglbl">operation; epfd summed</text>
+    <text x="374" y="180" class="svglbl">at the victim each step</text>
+
+    <!-- victim / run fields -->
+    <rect x="360" y="252" width="180" height="52" rx="5" fill="none" stroke="currentColor"/>
+    <text x="374" y="272" class="svgtxt">victim &amp; run fields</text>
+    <text x="374" y="289" class="svglbl">GSO lon &middot; ES &middot; dish &middot; steps</text>
+    <line x1="450" y1="252" x2="450" y2="208" stroke="currentColor" marker-end="url(#ar)"/>
+
+    <!-- outputs -->
+    <line x1="540" y1="135" x2="588" y2="98" stroke="currentColor" marker-end="url(#ar)"/>
+    <rect x="560" y="52" width="126" height="58" rx="5" fill="none" stroke="currentColor"/>
+    <text x="572" y="74" class="svgtxt">&#9654; / &#9193; play</text>
+    <text x="572" y="92" class="svglbl">one timeline, no stats</text>
+
+    <line x1="540" y1="175" x2="588" y2="212" stroke="currentColor" marker-end="url(#ar)"/>
+    <rect x="560" y="200" width="126" height="58" rx="5" fill="none" stroke="currentColor"/>
+    <text x="572" y="222" class="svgtxt">Write CDFs&#8230;</text>
+    <text x="572" y="240" class="svglbl">.down / .is / .up csv</text>
+  </g>
+</svg>
+<figcaption>The orbit design document places the satellites; the operation profile says what
+they do &mdash; both required. The R&nbsp;set is optional: when present the scheduler obeys the
+declared gates instead of the profile's.</figcaption>
+</figure>
+
+<h2>The orbit design document</h2>
+<p>An <code>*.orbitdesign.json</code> saved from the <strong>Orbit Design</strong> tab. It is
+the space segment and nothing else: every shell's orbit geometry, planes, phasing and repeat
+declaration, from which the runner rebuilds the constellation and propagates each satellite.
+It says nothing about payload, power or scheduling &mdash; deliberately, so the same
+constellation can be flown under different operations.</p>
+<p>One quiet coupling: the first shell's operating height anchors the payload's
+beam-layout altitude &mdash; the profile carries no altitude of its own.</p>
+
+<h2>The operation profile</h2>
+<p>An <code>*.opprofile.json</code> saved from the <strong>Operation profile</strong> window.
+This is the operated system in one file: the payload (beam pattern, layout, transmit power,
+frequency-reuse aggregation), the link discipline the real system enforces (minimum
+elevation, GSO exclusion, capacity caps, minimum hold), the service geography, the
+scheduling policy, the activity duty &mdash; and the downlink footprint source, which picks
+between the live scheduled beam composition and a declared PFD mask.</p>
+<p>The profile is <strong>required</strong> &mdash; the runner refuses to fly without one,
+and there is deliberately no stand-in payload behind it: a run that is meant to say
+anything about a real system must be a run of <em>that</em> system, transmission basics
+included. The profile supplies the whole system side &mdash; the downlink frequency and
+the minimum elevation among it &mdash; so the remaining fields describe only the victim
+and the run.</p>
+<div class="tech"><div class="t">Tech &middot; the mask footprint path</div>
+<p>With <em>declared PFD mask</em> as the footprint source, epfd(down) is computed the
+examination's way: the mask XML is read per Recommendation ITU-R S.1503-4 &sect;D5.1.4.1,
+interpolating the latitude blocks as &sect;D5.1.5 prescribes. No epfd(is) byproduct is
+written on this path &mdash; the in-space direction needs the e.i.r.p. masks, which a pfd
+mask does not carry.</p></div>
+
+<h2>The operating params (R&nbsp;set) &mdash; alternative gates</h2>
+<p>An <code>*.opparams.json</code> from the <strong>Operating parameters designer</strong> &mdash;
+the declared constraints, and the one optional input. When set, the scheduler obeys the
+<em>declared</em> pointing and scheduling constraints &mdash; minimum elevation per latitude,
+the exclusion angle, the co-frequency caps &mdash; instead of the profile's enforced gates,
+in both link directions. The payload, its power and everything else transmission-side still
+come from the profile: the truth payload flown under the declared discipline.</p>
+<p>That comparison is the point. Run the same profile twice &mdash; once on its own gates,
+once under the derived R&nbsp;set &mdash; and the two CDFs show what the declared envelope
+costs or allows relative to the operation it was measured from.</p>
+<div class="tech"><div class="t">Tech &middot; how the gates are read</div>
+<p>The per-latitude arrays are read the way S.1503-4 Part&nbsp;B defines for the R&nbsp;set:
+minimum elevation at the nearest latitude row, the exclusion angle by linear interpolation
+between rows. Quantities the set does not declare fall back to its header values, and an
+absent header is permissive.</p></div>
+
+<h2>Who supplies what</h2>
+<table class="ex">
+  <tr><th>quantity</th><th>source</th></tr>
+  <tr><td>satellites</td><td>the orbit design document (shells, planes, phasing)</td></tr>
+  <tr><td>payload &amp; power</td><td>the profile's composed scene (pattern, layout, transmit power, reuse)</td></tr>
+  <tr><td>frequency</td><td>the profile &mdash; downlink and uplink each declare their own</td></tr>
+  <tr><td>scheduler gates</td><td>the profile's enforced set; the R&nbsp;set instead, when one is given</td></tr>
+  <tr><td>service area</td><td>the profile's geography (latitude span, cell pitch)</td></tr>
+  <tr><td>scheduling</td><td>the profile's policy, capacity caps and activity duty</td></tr>
+  <tr><td>uplink ES</td><td>the profile's uplink side (power, control reference, dish)</td></tr>
+  <tr><td>victim &amp; sampling</td><td>the window's remaining fields</td></tr>
+</table>
+
+<h2>The victim and the run</h2>
+<p>The loose fields below the file pickers describe the other side of the interference
+geometry and the sampling of the run:</p>
+<ul>
+<li><strong>Victim GSO longitude</strong> &mdash; the wanted satellite for epfd(down), the
+victim satellite for epfd(up) and epfd(is).</li>
+<li><strong>Victim ES latitude / longitude</strong> &mdash; the earth station the downlink
+statistics are collected at; also the in-space victim's boresight point.</li>
+<li><strong>ES dish diameter</strong> &mdash; the S.1428 pattern diameter of the victim
+earth station (down); it also stands in for the transmitting earth station (up) when the
+profile's uplink side declares no dish of its own.</li>
+<li><strong>Duration / time step</strong> &mdash; how long and how finely the operation is
+marched. Statistics of rare deep events need runs long enough, and steps fine enough, to
+catch them.</li>
+</ul>
+<p>The uplink transmit power, its power-control reference elevation and its frequency are
+transmission basics and come from the profile's uplink side, not from this window.</p>
+
+<h2>&#9654;, &#9193; and Write CDFs</h2>
+<p>The two icons animate <strong>one continuous timeline</strong>: &#9654; advances one
+simulation step per tick with everything drawn &mdash; satellites, candidate links (thin) and
+granted links (thick) &mdash; and &#9193; advances many steps per tick, drawing sparsely.
+Pressing the other icon mid-run only changes the pace; the clock and the scheduler state
+carry on. Neither collects statistics.</p>
+<p><strong>Write CDFs&#8230;</strong> is the statistics run: no map updates, the full step
+count on a worker thread, and three CSV files &mdash; <code>.down</code>, <code>.is</code>
+and <code>.up</code> &mdash; each a cumulative distribution of epfd at the victim.</p>
+<div class="tech"><div class="t">Tech &middot; the CDF files</div>
+<p>Levels are binned in the 0.1&nbsp;dB bins of S.1503-4 &sect;D7.1.2, and each file reports
+the step count, the quiet steps (nothing visible or transmitting) and the maximum epfd seen.
+The runner deliberately stops at the distribution: verdicts against a limit &mdash; the
+&sect;D7.1.3 comparison &mdash; belong to the compliance loop, which reuses these same
+mechanics victim by victim.</p></div>
+
+<div class="foot">
+Companion pages: <a href="r-set-designer.html">Inside the R Set</a> &middot;
+<a href="compliance-loop.html">Inside the Compliance Loop</a> &middot;
+<a href="orbit-design-cases.html">The Three Orbit Cases</a> &middot;
+<a href="repeat-solver.html">Inside the Repeat Solver</a>. This page opens from the
+<em>What feeds the run?</em> button in the Simulation runner window.
+</div>
+</div>

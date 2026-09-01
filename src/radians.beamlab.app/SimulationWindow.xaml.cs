@@ -24,12 +24,25 @@ public partial class SimulationWindow : Window
     private DispatcherTimer? _timer;
     private double _tSec;
 
+    private readonly string? _guidePath;
+
     public SimulationWindow()
     {
         InitializeComponent();
         DataContext = _vm;
+        string? docs = HomeViewModel.FindDocsDir(AppContext.BaseDirectory);
+        string? guide = docs is null ? null : System.IO.Path.Combine(docs, "simulation-runner.html");
+        _guidePath = guide is not null && System.IO.File.Exists(guide) ? guide : null;
+        GuideBtn.IsEnabled = _guidePath is not null;
         SizeChanged += (_, _) => { if (_session is not null) DrawStatic(); };
         Closed += (_, _) => _timer?.Stop();
+    }
+
+    private void OnGuideClick(object sender, RoutedEventArgs e)
+    {
+        if (_guidePath is null) return;
+        System.Diagnostics.Process.Start(
+            new System.Diagnostics.ProcessStartInfo(_guidePath) { UseShellExecute = true });
     }
 
     private void OnBrowseClick(object sender, RoutedEventArgs e)
@@ -81,16 +94,31 @@ public partial class SimulationWindow : Window
         await _vm.RunAsync(baseName);
     }
 
-    // ---- normal play: the visible operation --------------------------
+    // ---- the animated timeline: play / accelerated play ---------------
 
-    private void OnPlayClick(object sender, RoutedEventArgs e)
+    /// <summary>Simulation steps advanced per tick in accelerated mode.</summary>
+    private const int FastForwardStepsPerTick = 50;
+
+    private bool _fastForward;
+
+    private void OnPlayClick(object sender, RoutedEventArgs e) => StartOrSwitch(fastForward: false);
+
+    private void OnFfClick(object sender, RoutedEventArgs e) => StartOrSwitch(fastForward: true);
+
+    /// <summary>
+    /// One continuous timeline for both speeds: the first press starts the
+    /// session; a press of the other icon mid-run only changes the pace --
+    /// the clock, the scheduler state and the drawn frame carry on.
+    /// </summary>
+    private void StartOrSwitch(bool fastForward)
     {
+        _fastForward = fastForward;
+        if (_timer is not null) return;   // running: pace switched, nothing else
         try { _session = _vm.BuildPlaySession(); }
         catch (Exception ex) { _vm.StatusText = "invalid: " + ex.Message; return; }
         _coastlines ??= new CoastlineDataProvider();
         _tSec = 0.0;
         DrawStatic();
-        PlayBtn.IsEnabled = false;
         StopBtn.IsEnabled = true;
         QuickBtn.IsEnabled = false;
         _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
@@ -104,7 +132,6 @@ public partial class SimulationWindow : Window
     {
         _timer?.Stop();
         _timer = null;
-        PlayBtn.IsEnabled = true;
         StopBtn.IsEnabled = false;
         QuickBtn.IsEnabled = true;
         PlayStatus.Text = string.Create(CultureInfo.InvariantCulture,
@@ -115,6 +142,14 @@ public partial class SimulationWindow : Window
     {
         if (_session is not { } s) { StopPlay("stopped"); return; }
         if (_tSec >= s.DurationSec) { StopPlay("finished"); return; }
+        // Accelerated mode advances many steps per tick and draws only the
+        // last one -- the same timeline, sparsely rendered.
+        int n = _fastForward ? FastForwardStepsPerTick : 1;
+        for (int i = 0; i < n - 1 && _tSec + s.StepSec < s.DurationSec; i++)
+        {
+            s.Scheduler.Step(_tSec);
+            _tSec += s.StepSec;
+        }
         DrawFrame(s, _tSec);
         _tSec += s.StepSec;
     }
@@ -214,7 +249,7 @@ public partial class SimulationWindow : Window
             LiveCanvas.Children.Add(dot);
         }
 
-        PlayStatus.Text = string.Create(CultureInfo.InvariantCulture,
+        PlayStatus.Text = (_fastForward ? "⏩ " : "▶ ") + string.Create(CultureInfo.InvariantCulture,
             $"t = {tSec / 3600.0:F2} h · {step.Links.Count} active / {step.CandidateLinks.Count} candidate link(s) · {step.UnservedCellLinks} unserved");
     }
 }

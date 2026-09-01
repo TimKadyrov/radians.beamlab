@@ -516,17 +516,22 @@ declared, and `es_density`/`es_distance` must be declared together or
 both omitted. Every field carries the parameter-card help text.
 
 **Derive from simulation.** The intended path when the declarations are
-not known a priori: point at a design document, state the real system's
-own operating behaviour (its minimum serving elevation and exclusion
-ring), and fly it over the service grid. Every granted link's measured
+not known a priori: point at an orbit design document and the operation
+profile — required, because the profile IS the system under measurement
+(payload, transmission basics, gates, service geography; there are no
+stand-in fields) — and fly it. Every granted link's measured
 elevation, GSO offset, per-cell and per-satellite link counts and
 inter-link angles are enveloped into the declared set — minima floored
-to 0.1°, maxima carried, `es_density`/`es_distance` taken from the grid,
+to 0.1°, maxima carried, `es_density`/`es_distance` taken from the
+profile's service grid,
 an exclusion array derived only where an exclusion actually shaped
 operations, and quantities never observed left undeclared. The result
 fills the designer for review, then saves or exports like any
 hand-entered set — declarations as envelopes of the simulated truth,
-exactly the way the pfd/e.i.r.p. masks are made.
+exactly the way the pfd/e.i.r.p. masks are made. The **What goes in
+the R set?** button opens the accompanying page
+(`docs/r-set-designer.html`): what the set declares and deliberately
+does not, header-vs-arrays reading, and both authoring paths.
 
 ---
 
@@ -613,7 +618,11 @@ transcription (the flat text cannot express them). Each point is verdicted with 
 examination's own §D7.1.3 comparison (pass iff the measured exceedance
 at every limit epfd stays within the allowed percentage) and reported
 with the worst dB margin read off the CDF (positive = room to spare);
-failing rows show red, and the table exports to CSV. **Suggest
+failing rows show red, and the table exports to CSV. The summary also
+prints the **power headroom**: epfd moves exactly dB-for-dB with the
+per-beam Tx power density, so the worst margin doubles as the TxEirpDbw
+headroom at the swept exclusion (live-composition footprint only — a
+declared mask is fixed). **Suggest
 exclusion** walks the global exclusion angle upward from the profile's
 value — one full sweep per step, up to a cap — to the smallest compliant
 α, noting when only some latitudes failed (per-latitude α rows are then
@@ -625,31 +634,45 @@ examination's own down algorithm against the declared mask and R-set
 gates instead of the live composition — the direct check of what the
 examination will compute from the filing; the advisor's α walk then
 tightens the declared exclusion zone while the mask file stays fixed.
+The **How is compliance judged?** button opens the accompanying page
+(`docs/compliance-loop.html`): the sweep and its verdicts, the limits,
+the advisor's walk and write-back, and how deep a screening run reads.
 
 ---
 
 ## Simulation runner (window)
 
 *Tools → Simulation runner.* Runs the epfd(down) / epfd(is) / epfd(up)
-simulation directly from a design document — no databases needed — over
-the scheduler-driven operation model, the same composition the
-validation dataset used. Two modes: **Play** animates the operation on
-the world map — satellites moving, the service cells, thin lines for
-every *candidate* (feasible) link and thick lines for the *active*
-(granted) ones, with a live count — without collecting statistics;
-**Quick run** is the accelerated simulation with no UI updates,
-producing the CDFs. Inputs: the design document, an optional
-operating-parameter set (`*.opparams.json` from the R-set designer;
-empty = permissive defaults at the entered minimum elevation, no
-exclusion zone), the victim (GSO longitude; ES latitude/longitude, which
-also serve as the up/is victim's boresight; S.1428 dish diameter), the
-uplink ES power ceiling (range-based power control keeps each link below
-it), frequency, duration and time step. **Run** executes on a worker
-thread and writes three CDF CSVs in S.1503-4 D7.1.2 bins (0.1 dB):
+simulation from an orbit design document and an operation profile — no
+databases needed — over the scheduler-driven operation model, the same
+composition the validation dataset used. The **What feeds the run?** button opens the
+accompanying page (`docs/simulation-runner.html`) explaining which
+input supplies what and what fills in when an input is left empty. The animated map runs one continuous
+timeline with two paces side by side: **▶ Play** draws every step —
+satellites moving, the service cells, thin lines for every *candidate*
+(feasible) link and thick lines for the *active* (granted) ones, with
+a live count — and **⏩ accelerated play** advances the same timeline
+many steps per tick with sparse redraws; switch between the icons at
+any moment, **⏹** stops. Neither collects statistics — **Write CDFs**
+is the full statistics run with no UI updates, producing the CDFs.
+Inputs: the orbit design document (the space segment — where the
+satellites are) and the operation profile (`*.opprofile.json` — what
+the system does), **both required**: the profile supplies the whole
+system side including the transmission basics (payload, power,
+frequencies) and there is deliberately no stand-in payload behind it.
+An optional operating-parameter set (`*.opparams.json` from the R-set
+designer) is an **alternative gate source**: when set, the scheduler
+obeys the declared pointing/scheduling constraints instead of the
+profile's enforced gates, in both directions — the truth payload flown
+under the declared discipline. The remaining fields describe the victim
+and the run: GSO longitude; ES latitude/longitude, which also serve as
+the up/is victim's boresight; the S.1428 dish diameter (victim dish;
+also the transmitting ES when the profile's uplink side declares no
+dish); duration and time step. **Write CDFs…** executes on a
+worker thread and writes three CDF CSVs in S.1503-4 D7.1.2 bins (0.1 dB):
 `base.down.csv`, `base.is.csv` (the byproduct at the GSO satellite
-victim — S.672, 40.7 dBi / 1.55°) and `base.up.csv`. The service
-geography is fixed at the generator's grid (30–60°N, ±20°E, 450 km
-cells) — keep the victim ES inside it. When the operation profile
+victim — S.672, 40.7 dBi / 1.55°) and `base.up.csv`. Keep the victim
+ES inside the profile's service area. When the operation profile
 declares the *PFD mask* footprint source, epfd(down) is computed the
 examination's way from the declared mask (§D5.1.4.1) instead of the
 live composition; there is then no `.is.csv` — the intersatellite

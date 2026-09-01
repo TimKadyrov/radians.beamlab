@@ -197,21 +197,15 @@ public sealed class OpParamsViewModel : ObservableObject
     private string _deriveDesignPath = "";
     public string DeriveDesignPath { get => _deriveDesignPath; set => SetField(ref _deriveDesignPath, value); }
 
+    // The profile IS the system under measurement: it carries the
+    // transmission basics (payload, power, gates, geography), so the
+    // derivation refuses to fly a stand-in system without one.
     private string _deriveProfilePath = "";
     /// <summary>
-    /// Optional operation profile (*.opprofile.json); when set it supplies
-    /// the whole system side and the loose min-elev/alpha/area fields
-    /// below are ignored.
+    /// The operation profile (*.opprofile.json) -- required; it supplies
+    /// the whole system side of the derivation.
     /// </summary>
     public string DeriveProfilePath { get => _deriveProfilePath; set => SetField(ref _deriveProfilePath, value); }
-
-    private string _deriveMinElevText = "10";
-    /// <summary>The REAL system's minimum serving elevation (deg), enforced by its operation.</summary>
-    public string DeriveMinElevText { get => _deriveMinElevText; set => SetField(ref _deriveMinElevText, value); }
-
-    private string _deriveAlphaText = "0";
-    /// <summary>The REAL system's GSO exclusion half-angle (deg); 0 = none enforced.</summary>
-    public string DeriveAlphaText { get => _deriveAlphaText; set => SetField(ref _deriveAlphaText, value); }
 
     private string _deriveDurationDaysText = "0.25";
     public string DeriveDurationDaysText { get => _deriveDurationDaysText; set => SetField(ref _deriveDurationDaysText, value); }
@@ -222,15 +216,6 @@ public sealed class OpParamsViewModel : ObservableObject
     private string _deriveLatBandText = "15";
     /// <summary>Latitude band width (deg) of the derived per-latitude arrays.</summary>
     public string DeriveLatBandText { get => _deriveLatBandText; set => SetField(ref _deriveLatBandText, value); }
-
-    private string _deriveLatMinText = "30";
-    public string DeriveLatMinText { get => _deriveLatMinText; set => SetField(ref _deriveLatMinText, value); }
-
-    private string _deriveLatMaxText = "60";
-    public string DeriveLatMaxText { get => _deriveLatMaxText; set => SetField(ref _deriveLatMaxText, value); }
-
-    private string _deriveCellKmText = "450";
-    public string DeriveCellKmText { get => _deriveCellKmText; set => SetField(ref _deriveCellKmText, value); }
 
     private bool _isDeriving;
     public bool IsDeriving
@@ -271,70 +256,29 @@ public sealed class OpParamsViewModel : ObservableObject
     public OpParamsDeriver.Result DeriveCore()
     {
         if (_deriveDesignPath.Trim().Length == 0)
-            throw new InvalidOperationException("pick a design document first");
+            throw new InvalidOperationException("pick an orbit design document first");
+        if (_deriveProfilePath.Trim().Length == 0)
+            throw new InvalidOperationException(
+                "pick an operation profile -- the system side (payload, gates, geography) comes from it");
         var doc = OrbitDesignFileCodec.LoadDocument(System.IO.File.ReadAllText(_deriveDesignPath));
         var shells = doc.Shells.Select(OrbitDesignFileCodec.ToShell).ToArray();
 
-        double daysP = ParseDouble(_deriveDurationDaysText, "duration") ?? 0.25;
-        double stepP = ParseDouble(_deriveStepSecText, "step") ?? 60.0;
-        double latBandP = ParseDouble(_deriveLatBandText, "lat band") ?? 15.0;
-        if (_deriveProfilePath.Trim().Length > 0)
-        {
-            // The profile IS the system: measure its emergent behaviour.
-            var prof = OperationProfileCodec.Load(System.IO.File.ReadAllText(_deriveProfilePath));
-            shells = OperationComposer.ApplyToShells(prof, shells);
-            var comp = OperationComposer.Compose(prof,
-                shells[0].OperatingHeightKm ?? shells[0].AltitudeKm);
-            return OpParamsDeriver.Derive(new Constellation(shells), comp.Geography,
-                comp.Enforced, comp.Scene, daysP * 86400.0, stepP, latBandP,
-                _satName, ParseInt(_ntcIdText, "ntc_id") ?? 0, ParseInt(_paramIdText, "param_id") ?? 1,
-                prof.Down.FrequencyGhz * 1000.0, prof.Down.FrequencyGhz * 1000.0,
-                comp.Policy, comp.CoverageRadiusKm, comp.IlluminationDutyCycle);
-        }
-        var con = new Constellation(shells);
-
-        double minElev = ParseDouble(_deriveMinElevText, "min elevation") ?? 10.0;
-        double alpha = ParseDouble(_deriveAlphaText, "exclusion alpha") ?? 0.0;
         double days = ParseDouble(_deriveDurationDaysText, "duration") ?? 0.25;
         double step = ParseDouble(_deriveStepSecText, "step") ?? 60.0;
         double latBand = ParseDouble(_deriveLatBandText, "lat band") ?? 15.0;
-        double latMin = ParseDouble(_deriveLatMinText, "lat min") ?? 30.0;
-        double latMax = ParseDouble(_deriveLatMaxText, "lat max") ?? 60.0;
-        double cellKm = ParseDouble(_deriveCellKmText, "cell size") ?? 450.0;
-        if (days <= 0.0 || step <= 0.0 || latBand <= 0.0 || cellKm <= 0.0 || latMax <= latMin)
-            throw new InvalidOperationException("duration, step, band and cell must be positive; lat max > lat min");
-        double lowMhz = ParseDouble(_lowFreqText, "low_freq_mhz") ?? 10700.0;
-        double highMhz = ParseDouble(_highFreqText, "high_freq_mhz") ?? lowMhz;
+        if (days <= 0.0 || step <= 0.0 || latBand <= 0.0)
+            throw new InvalidOperationException("duration, step and band must be positive");
 
-        // The enforcement set IS the real system's behaviour: its own
-        // minimum elevation and (when present) its own exclusion ring.
-        var enforced = new OperatingParamsSet
-        {
-            SatName = "TRUTH", LowFreqMhz = lowMhz, HighFreqMhz = highMhz,
-            ElevAngleHeaderDeg = minElev,
-        };
-        if (alpha > 0.0)
-        {
-            var ring = new MinExcludeByOrbit { OrbId = 0 };
-            ring.ByLat.Add((-90.0, alpha));
-            ring.ByLat.Add((90.0, alpha));
-            enforced.MinExclude.Add(ring);
-        }
-
-        var sh0 = shells[0];
-        var scene = new PfdMaskViewModel
-        {
-            AltitudeKm = sh0.OperatingHeightKm ?? sh0.AltitudeKm,
-            FrequencyGHz = lowMhz / 1000.0,
-            MinElevDeg = minElev,
-            AlphaExclDeg = alpha,
-            RefBwKHz = 40.0,
-        };
-        var geo = ServiceGeography.Grid(latMin, latMax, -20.0, 20.0, cellKm);
-        return OpParamsDeriver.Derive(con, geo, enforced, scene,
-            days * 86400.0, step, latBand,
+        // The profile IS the system: measure its emergent behaviour.
+        var prof = OperationProfileCodec.Load(System.IO.File.ReadAllText(_deriveProfilePath));
+        shells = OperationComposer.ApplyToShells(prof, shells);
+        var comp = OperationComposer.Compose(prof,
+            shells[0].OperatingHeightKm ?? shells[0].AltitudeKm);
+        return OpParamsDeriver.Derive(new Constellation(shells), comp.Geography,
+            comp.Enforced, comp.Scene, days * 86400.0, step, latBand,
             _satName, ParseInt(_ntcIdText, "ntc_id") ?? 0, ParseInt(_paramIdText, "param_id") ?? 1,
-            lowMhz, highMhz);
+            prof.Down.FrequencyGhz * 1000.0, prof.Down.FrequencyGhz * 1000.0,
+            comp.Policy, comp.CoverageRadiusKm, comp.IlluminationDutyCycle);
     }
 
     // ---- parsing helpers ------------------------------------------------
