@@ -102,13 +102,14 @@ public sealed class SimulationViewModel : ObservableObject
 
     /// <summary>
     /// Runs the three simulations on a worker thread and writes the CDFs
-    /// as outputBase + ".down.csv" / ".is.csv" / ".up.csv".
+    /// as outputBase + ".down.csv" / ".is.csv" / ".up.csv". Returns true
+    /// when the run completed (the caller then opens the CDF viewer).
     /// </summary>
-    public async Task RunAsync(string outputBase)
+    public async Task<bool> RunAsync(string outputBase)
     {
         Setup setup;
         try { setup = BuildSetup(); }
-        catch (Exception ex) { StatusText = "invalid: " + ex.Message; return; }
+        catch (Exception ex) { StatusText = "invalid: " + ex.Message; return false; }
 
         IsRunning = true;
         StatusText = string.Create(CultureInfo.InvariantCulture,
@@ -117,8 +118,9 @@ public sealed class SimulationViewModel : ObservableObject
         {
             string summary = await Task.Run(() => RunCore(setup, outputBase));
             StatusText = summary;
+            return true;
         }
-        catch (Exception ex) { StatusText = "run failed: " + ex.Message; }
+        catch (Exception ex) { StatusText = "run failed: " + ex.Message; return false; }
         finally { IsRunning = false; }
     }
 

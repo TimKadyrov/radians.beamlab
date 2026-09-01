@@ -1,6 +1,6 @@
 <title>Inside the Compliance Loop</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,400;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
 @font-face{font-family:"Gibson";src:url("fonts/Gibson-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Gibson";src:url("fonts/Gibson-Italic.woff2") format("woff2");font-weight:400;font-style:italic;font-display:swap}
@@ -31,12 +31,12 @@
   --code-bg:#0F4459; --bad:#E57384;
 }
 *{box-sizing:border-box}
-body{margin:0; background:var(--paper); color:var(--ink);
+body{margin:0; border-top:4px solid var(--g1); background:var(--paper); color:var(--ink);
   font-family:"Gibson","Segoe UI",system-ui,sans-serif; font-size:15.5px; line-height:1.6}
 .wrap{max-width:880px; margin:0 auto; padding:40px 28px 72px}
-.kicker{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--g1)}
+.kicker{font-size:13px; font-weight:600; color:var(--muted)}
 h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; margin:.25em 0 .35em; text-wrap:balance; max-width:var(--measure)}
-.lede{color:var(--muted); margin:0 0 8px; max-width:var(--measure); font-family:"Bitter",Georgia,serif; font-style:italic}
+.lede{color:var(--muted); margin:0 0 8px; max-width:var(--measure)}
 h2{font-size:21px; font-weight:600; letter-spacing:-.01em; margin:2.2em 0 .4em; text-wrap:balance; max-width:var(--measure)}
 p{max-width:var(--measure)}
 ul{max-width:var(--measure)}
@@ -46,7 +46,7 @@ code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--cod
 .tech p{font-size:13.5px; margin:6px 0 0}
 figure{margin:18px 0; padding:14px 10px 8px; background:var(--card); border:1px solid var(--line); border-radius:6px; overflow-x:auto; max-width:var(--measure)}
 figure svg{display:block; max-width:100%; height:auto; margin:0 auto}
-figcaption{font-size:12px; color:var(--muted); text-align:center; margin-top:8px; font-family:"Bitter",Georgia,serif; font-style:italic}
+figcaption{font-size:12px; color:var(--muted); text-align:center; margin-top:8px}
 .svgtxt{font-family:"IBM Plex Mono",monospace; font-size:12.5px; fill:currentColor}
 .svglbl{font-family:"Gibson","Segoe UI",sans-serif; font-size:12px; fill:var(--muted)}
 .foot{margin-top:44px; font-size:12.5px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; max-width:var(--measure)}
@@ -148,6 +148,19 @@ never an advisory note &mdash; otherwise the projection margin between mask and 
 measure a fiction. When only some latitudes failed at the start, the report also notes that
 per-latitude alpha rows would be the finer declaration (an open item, tracked with the
 scene-gating work it depends on).</p>
+<div class="tech"><div class="t">Tech &middot; promotion: from tendency to promise</div>
+<p>The alpha walk is one instance of a general recipe, because the filing carries no
+scheduling strategy &mdash; a behaviour reaches the declarations only as an enforced gate.
+<em>Observe</em> the tendency in the flown truth; <em>harden</em> it into the profile field
+the scheduler enforces (<code>MinHoldSec</code>, <code>MinElevDeg</code>,
+<code>AlphaExclDeg</code>, the Nco caps); <em>verify</em> the truth cost &mdash; re-sweep,
+and fly the truth payload under the declared R (the runner's override mode is the
+before/after instrument); <em>declare</em> it through the R&nbsp;set, now backed by
+enforcement. Beware the elevation case: derived min_elev rows above the enforced floor are
+the envelope of one finite run, not a promise, until the floor itself is promoted. And a
+declared min_duration bites at admission &mdash; a link is only made toward a satellite
+that stays feasible for the whole promised dwell &mdash; while flipping the examination to
+the track-duration algorithm. Today only the alpha promotion is automated.</p></div>
 <div class="tech"><div class="t">Tech &middot; the power headroom line</div>
 <p>epfd moves exactly dB-for-dB with the per-beam transmit power density &mdash; the payload
 envelope study's linear frontier &mdash; so every sweep's worst margin doubles as the

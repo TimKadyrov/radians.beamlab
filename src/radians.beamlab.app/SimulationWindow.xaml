@@ -20,7 +20,7 @@
         <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,10,0">
         <StackPanel>
             <TextBlock TextWrapping="Wrap" Foreground="#698089"
-                       Text="Runs the epfd(down)/(is)/(up) simulation from an orbit design document (the space segment) and an operation profile (the operated system). ▶ plays the operation on the map (satellites, candidate and active links) and ⏩ accelerates the same continuous timeline — switch between them mid-run; neither collects statistics. Write CDFs executes the full statistics run with no UI updates and writes the three CDF CSVs."/>
+                       Text="Runs the epfd(down)/(is)/(up) simulation from an orbit design document (the space segment) and an operation profile (the operated system). ▶ plays the operation on the map (satellites, candidate and active links) and ⏩ accelerates the same continuous timeline without touching the map — switch between them mid-run; neither collects statistics. Write CDFs executes the full statistics run with no UI updates and writes the three CDF CSVs."/>
 
             <GroupBox Header="Inputs">
                 <Grid>
@@ -62,6 +62,8 @@
                 <Button Content="Validate inputs" Click="OnValidateClick"/>
                 <Button x:Name="QuickBtn" Content="Write CDFs…" IsEnabled="{Binding RunEnabled}" Click="OnRunClick"
                         ToolTip="The statistics run: no UI updates; picks a base name, runs down (+is byproduct) and up on a worker thread, and writes base.down.csv / base.is.csv / base.up.csv."/>
+                <Button Content="View CDFs…" Click="OnViewCdfsClick"
+                        ToolTip="Open existing CDF CSV files (this window's Write CDFs output, or any run's) in the CDF viewer — pick one or more."/>
                 <Button x:Name="GuideBtn" Content="What feeds the run?" IsEnabled="False" Click="OnGuideClick"
                         ToolTip="Opens the accompanying page explaining which input supplies what: the orbit design document, the operation profile, the operating params and the loose fields."/>
             </StackPanel>
@@ -78,7 +80,7 @@
                 <Button x:Name="PlayBtn" Content="▶" FontSize="14" Width="34" Click="OnPlayClick"
                         ToolTip="Play: one simulation step per tick, satellites and links drawn live. Switches an accelerated run back to normal pace on the same timeline."/>
                 <Button x:Name="FfBtn" Content="⏩" FontSize="14" Width="34" Click="OnFfClick"
-                        ToolTip="Accelerated play: the same continuous timeline, many steps per tick with sparse redraws. Switch back to ▶ at any moment."/>
+                        ToolTip="Accelerated play: the same continuous timeline, many steps per tick with no map updates — the last frame stays and only the status clock moves. Switch back to ▶ at any moment."/>
                 <Button x:Name="StopBtn" Content="⏹" FontSize="14" Width="34" IsEnabled="False" Click="OnStopClick"/>
                 <TextBlock x:Name="PlayStatus" VerticalAlignment="Center" Margin="10,0,0,0"
                            Foreground="#0B516F"/>

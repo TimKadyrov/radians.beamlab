@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -91,7 +92,49 @@ public partial class SimulationWindow : Window
         string baseName = dlg.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
             ? dlg.FileName[..^4]
             : dlg.FileName;
-        await _vm.RunAsync(baseName);
+        if (!await _vm.RunAsync(baseName)) return;
+        // Show what was just written: one viewer over the run's curves.
+        var series = new List<CdfSeries>();
+        foreach (var (sfx, label) in new[]
+            { (".down.csv", "epfd(down)"), (".is.csv", "epfd(is)"), (".up.csv", "epfd(up)") })
+            if (System.IO.File.Exists(baseName + sfx))
+                series.Add(CdfSeries.LoadCsv(baseName + sfx, label));
+        if (series.Count > 0)
+            new CdfWindow(series)
+            {
+                Owner = this,
+                Title = "CDF viewer — " + System.IO.Path.GetFileName(baseName),
+            }.Show();
+    }
+
+    /// <summary>Direction label from a runner file name; the bare name otherwise.</summary>
+    private static string CdfLabel(string path)
+    {
+        string n = System.IO.Path.GetFileNameWithoutExtension(path);
+        if (n.EndsWith(".down", StringComparison.OrdinalIgnoreCase)) return "epfd(down)";
+        if (n.EndsWith(".is", StringComparison.OrdinalIgnoreCase)) return "epfd(is)";
+        if (n.EndsWith(".up", StringComparison.OrdinalIgnoreCase)) return "epfd(up)";
+        return n;
+    }
+
+    private void OnViewCdfsClick(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = "CDF CSV (*.csv)|*.csv",
+            Multiselect = true,
+        };
+        if (dlg.ShowDialog() != true || dlg.FileNames.Length == 0) return;
+        try
+        {
+            var series = dlg.FileNames.Select(f => CdfSeries.LoadCsv(f, CdfLabel(f))).ToList();
+            new CdfWindow(series)
+            {
+                Owner = this,
+                Title = "CDF viewer — " + System.IO.Path.GetFileName(dlg.FileNames[0]),
+            }.Show();
+        }
+        catch (Exception ex) { _vm.StatusText = "CDF load failed: " + ex.Message; }
     }
 
     // ---- the animated timeline: play / accelerated play ---------------
@@ -142,13 +185,21 @@ public partial class SimulationWindow : Window
     {
         if (_session is not { } s) { StopPlay("stopped"); return; }
         if (_tSec >= s.DurationSec) { StopPlay("finished"); return; }
-        // Accelerated mode advances many steps per tick and draws only the
-        // last one -- the same timeline, sparsely rendered.
-        int n = _fastForward ? FastForwardStepsPerTick : 1;
-        for (int i = 0; i < n - 1 && _tSec + s.StepSec < s.DurationSec; i++)
+        if (_fastForward)
         {
-            s.Scheduler.Step(_tSec);
-            _tSec += s.StepSec;
+            // Accelerated mode advances many steps per tick with NO map
+            // updates: the last drawn frame stays until play resumes;
+            // only the status line moves.
+            ScheduleStep? last = null;
+            for (int i = 0; i < FastForwardStepsPerTick && _tSec < s.DurationSec; i++)
+            {
+                last = s.Scheduler.Step(_tSec);
+                _tSec += s.StepSec;
+            }
+            if (last is { } st)
+                PlayStatus.Text = string.Create(CultureInfo.InvariantCulture,
+                    $"⏩ t = {_tSec / 3600.0:F2} h · {st.Links.Count} active / {st.CandidateLinks.Count} candidate link(s) · {st.UnservedCellLinks} unserved (map paused)");
+            return;
         }
         DrawFrame(s, _tSec);
         _tSec += s.StepSec;

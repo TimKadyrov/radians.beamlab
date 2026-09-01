@@ -1,6 +1,6 @@
 <title>Inside the Simulation Runner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,400;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
 @font-face{font-family:"Gibson";src:url("fonts/Gibson-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Gibson";src:url("fonts/Gibson-Italic.woff2") format("woff2");font-weight:400;font-style:italic;font-display:swap}
@@ -31,12 +31,12 @@
   --code-bg:#0F4459; --bad:#E57384;
 }
 *{box-sizing:border-box}
-body{margin:0; background:var(--paper); color:var(--ink);
+body{margin:0; border-top:4px solid var(--g1); background:var(--paper); color:var(--ink);
   font-family:"Gibson","Segoe UI",system-ui,sans-serif; font-size:15.5px; line-height:1.6}
 .wrap{max-width:880px; margin:0 auto; padding:40px 28px 72px}
-.kicker{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--g1)}
+.kicker{font-size:13px; font-weight:600; color:var(--muted)}
 h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; margin:.25em 0 .35em; text-wrap:balance; max-width:var(--measure)}
-.lede{color:var(--muted); margin:0 0 8px; max-width:var(--measure); font-family:"Bitter",Georgia,serif; font-style:italic}
+.lede{color:var(--muted); margin:0 0 8px; max-width:var(--measure)}
 h2{font-size:21px; font-weight:600; letter-spacing:-.01em; margin:2.2em 0 .4em; text-wrap:balance; max-width:var(--measure)}
 p{max-width:var(--measure)}
 ul{max-width:var(--measure)}
@@ -46,7 +46,7 @@ code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--cod
 .tech p{font-size:13.5px; margin:6px 0 0}
 figure{margin:18px 0; padding:14px 10px 8px; background:var(--card); border:1px solid var(--line); border-radius:6px; overflow-x:auto; max-width:var(--measure)}
 figure svg{display:block; max-width:100%; height:auto; margin:0 auto}
-figcaption{font-size:12px; color:var(--muted); text-align:center; margin-top:8px; font-family:"Bitter",Georgia,serif; font-style:italic}
+figcaption{font-size:12px; color:var(--muted); text-align:center; margin-top:8px}
 .svgtxt{font-family:"IBM Plex Mono",monospace; font-size:12.5px; fill:currentColor}
 .svglbl{font-family:"Gibson","Segoe UI",sans-serif; font-size:12px; fill:var(--muted)}
 table.ex{border-collapse:collapse; font-size:13px; margin:14px 0; max-width:var(--measure)}
@@ -209,12 +209,17 @@ transmission basics and come from the profile's uplink side, not from this windo
 <h2>&#9654;, &#9193; and Write CDFs</h2>
 <p>The two icons animate <strong>one continuous timeline</strong>: &#9654; advances one
 simulation step per tick with everything drawn &mdash; satellites, candidate links (thin) and
-granted links (thick) &mdash; and &#9193; advances many steps per tick, drawing sparsely.
+granted links (thick) &mdash; and &#9193; advances many steps per tick <em>without touching
+the map</em>: the last drawn frame stays put and only the status clock and link counts move.
 Pressing the other icon mid-run only changes the pace; the clock and the scheduler state
 carry on. Neither collects statistics.</p>
 <p><strong>Write CDFs&#8230;</strong> is the statistics run: no map updates, the full step
 count on a worker thread, and three CSV files &mdash; <code>.down</code>, <code>.is</code>
-and <code>.up</code> &mdash; each a cumulative distribution of epfd at the victim.</p>
+and <code>.up</code> &mdash; each a cumulative distribution of epfd at the victim. When the
+run completes, the <strong>CDF viewer</strong> opens over the written curves &mdash; epfd on
+a linear dB axis against percent of time exceeded on a log axis, one colour per
+direction; <strong>View CDFs&#8230;</strong> opens the same viewer over any existing CDF
+files.</p>
 <div class="tech"><div class="t">Tech &middot; the CDF files</div>
 <p>Levels are binned in the 0.1&nbsp;dB bins of S.1503-4 &sect;D7.1.2, and each file reports
 the step count, the quiet steps (nothing visible or transmitting) and the maximum epfd seen.

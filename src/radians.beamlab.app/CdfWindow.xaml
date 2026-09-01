@@ -1,0 +1,18 @@
+<Window x:Class="radians.beamlab.app.CdfWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="CDF viewer"
+        Height="520" Width="840"
+        Background="#E9F4F8" Foreground="#000000"
+        FontFamily="Gibson, Segoe UI" FontSize="12">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <TextBlock x:Name="HeaderText" Foreground="#0B516F" Margin="0,0,0,6"/>
+        <Border Grid.Row="1" BorderBrush="#D1EBF5" BorderThickness="1" Background="#ffffff">
+            <Canvas x:Name="PlotCanvas" ClipToBounds="True"/>
+        </Border>
+    </Grid>
+</Window>

@@ -1,6 +1,6 @@
 <title>BeamLab Parameter Cards</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,400;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
 @font-face{font-family:"Gibson";src:url("fonts/Gibson-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Gibson";src:url("fonts/Gibson-Italic.woff2") format("woff2");font-weight:400;font-style:italic;font-display:swap}
@@ -31,14 +31,14 @@
 }
 *{box-sizing:border-box}
 body{
-  margin:0; background:var(--paper); color:var(--ink);
+  margin:0; border-top:4px solid var(--g1); background:var(--paper); color:var(--ink);
   font-family:"Gibson","Segoe UI",system-ui,sans-serif; font-size:15px; line-height:1.55;
 }
 .wrap{max-width:1180px; margin:0 auto; padding:40px 28px 72px}
 header.top{border-bottom:2px solid var(--ink); padding-bottom:20px; margin-bottom:8px}
-.kicker{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--g1)}
+.kicker{font-size:13px; font-weight:600; color:var(--muted)}
 h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; margin:.25em 0 .3em; text-wrap:balance}
-.lede{max-width:68ch; color:var(--muted); margin:0; font-family:"Bitter",Georgia,serif; font-style:italic; font-size:15px}
+.lede{max-width:68ch; color:var(--muted); margin:0; font-size:15px}
 .legend{display:flex; flex-wrap:wrap; gap:18px; margin-top:18px; font-size:12.5px}
 .legend .g{display:flex; align-items:center; gap:7px}
 .swatch{width:14px; height:14px; border-radius:3px}
@@ -71,7 +71,7 @@ h2 .tag{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.1
 .rel code, .desc code{font-family:"IBM Plex Mono",monospace; font-size:.92em; background:var(--code-bg); padding:0 4px; border-radius:3px}
 figure{margin:4px 0 0; padding:10px 8px 6px; background:var(--paper); border:1px solid var(--line-soft); border-radius:5px}
 figure svg{display:block; max-width:100%; height:auto; margin:0 auto}
-figcaption{font-size:11.5px; color:var(--muted); text-align:center; margin-top:6px; font-family:"Bitter",Georgia,serif; font-style:italic}
+figcaption{font-size:11.5px; color:var(--muted); text-align:center; margin-top:6px}
 .mapfig{margin:26px 0 0; padding:18px 12px 10px; background:var(--card); border:1px solid var(--line); border-radius:6px; overflow-x:auto}
 .svgtxt{font-family:"IBM Plex Mono",monospace; font-size:11px; fill:currentColor}
 .svglbl{font-family:"Gibson","Segoe UI",sans-serif; font-size:10.5px; fill:var(--muted)}

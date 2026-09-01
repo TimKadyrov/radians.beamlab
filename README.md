@@ -192,10 +192,12 @@ Runs the epfd(down) / epfd(is) / epfd(up) simulation from an orbit
 design document and an operation profile — the space segment and the
 operated system, both required; an optional R-set file swaps the
 scheduler's gates for the declared constraints. **▶ play**
-and **⏩ accelerated play** share one continuous animated timeline on
-the world map (satellites, candidate and active links, live counts) —
+and **⏩ accelerated play** share one continuous timeline — ▶ animates
+the world map (satellites, candidate and active links, live counts),
+⏩ advances the same clock without updating the map —
 switchable mid-run; **Write CDFs** executes the statistics run with no
-UI updates and writes the three CDF CSVs in S.1503-4 D7.1.2 bins.
+UI updates, writes the three CDF CSVs in S.1503-4 D7.1.2 bins and
+opens the CDF viewer over the written curves.
 
 Full details and the maths for every control are in the
 **[user guide](docs/user-guide.md)**.

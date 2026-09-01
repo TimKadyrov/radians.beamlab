@@ -1,6 +1,6 @@
 <title>Inside the R Set</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,400;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
 @font-face{font-family:"Gibson";src:url("fonts/Gibson-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Gibson";src:url("fonts/Gibson-Italic.woff2") format("woff2");font-weight:400;font-style:italic;font-display:swap}
@@ -31,12 +31,12 @@
   --code-bg:#0F4459; --bad:#E57384;
 }
 *{box-sizing:border-box}
-body{margin:0; background:var(--paper); color:var(--ink);
+body{margin:0; border-top:4px solid var(--g1); background:var(--paper); color:var(--ink);
   font-family:"Gibson","Segoe UI",system-ui,sans-serif; font-size:15.5px; line-height:1.6}
 .wrap{max-width:880px; margin:0 auto; padding:40px 28px 72px}
-.kicker{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--g1)}
+.kicker{font-size:13px; font-weight:600; color:var(--muted)}
 h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; margin:.25em 0 .35em; text-wrap:balance; max-width:var(--measure)}
-.lede{color:var(--muted); margin:0 0 8px; max-width:var(--measure); font-family:"Bitter",Georgia,serif; font-style:italic}
+.lede{color:var(--muted); margin:0 0 8px; max-width:var(--measure)}
 h2{font-size:21px; font-weight:600; letter-spacing:-.01em; margin:2.2em 0 .4em; text-wrap:balance; max-width:var(--measure)}
 p{max-width:var(--measure)}
 ul{max-width:var(--measure)}
@@ -46,7 +46,7 @@ code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--cod
 .tech p{font-size:13.5px; margin:6px 0 0}
 figure{margin:18px 0; padding:14px 10px 8px; background:var(--card); border:1px solid var(--line); border-radius:6px; overflow-x:auto; max-width:var(--measure)}
 figure svg{display:block; max-width:100%; height:auto; margin:0 auto}
-figcaption{font-size:12px; color:var(--muted); text-align:center; margin-top:8px; font-family:"Bitter",Georgia,serif; font-style:italic}
+figcaption{font-size:12px; color:var(--muted); text-align:center; margin-top:8px}
 .svgtxt{font-family:"IBM Plex Mono",monospace; font-size:12.5px; fill:currentColor}
 .svglbl{font-family:"Gibson","Segoe UI",sans-serif; font-size:12px; fill:var(--muted)}
 table.ex{border-collapse:collapse; font-size:13px; margin:14px 0; max-width:var(--measure)}
@@ -176,7 +176,11 @@ arrays, not guesses; a header it did not measure is left empty rather than inven
 <p>The derived set is usually <em>tighter</em> than the profile's own rules, because a real
 operation rarely rides its limits: a 10&deg; elevation gate produces links at 10.3&deg;,
 and 10.3&deg; is what gets declared. That is the same doctrine the pfd and e.i.r.p. masks
-follow &mdash; declarations as envelopes of the simulated truth.</p>
+follow &mdash; declarations as envelopes of the simulated truth. But a derived row far
+above its enforced gate is a <em>tendency</em>, not yet a promise &mdash; one finite run's
+envelope. Before filing it, promote the enforced gate to match (the promotion recipe on
+the <a href="compliance-loop.html">compliance page</a>), and use the simulation runner's
+declared-gates override to fly the truth under the declaration as the check.</p>
 <div class="tech"><div class="t">Tech &middot; the writer's encoding rules</div>
 <p>Export enforces the R-set XML conventions: <code>min_duration</code> is never written
 as 0 (omit it to select the classic algorithm), <code>min_angle_at_es</code> is rejected

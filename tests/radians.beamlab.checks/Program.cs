@@ -4113,5 +4113,31 @@ var looks = RandomLooks(300);
     }
 }
 
+// ---- V33: CDF viewer loader -- the runner's files read back exactly ----
+{
+    // V16's tiny run left its CDFs in exp/; the viewer's loader must
+    // return exactly the file's data rows, comments and header skipped.
+    string p33 = Path.Combine(AppContext.BaseDirectory, "exp", "v16sim.down.csv");
+    var s33 = CdfSeries.LoadCsv(p33, "down");
+    var raw33 = File.ReadAllLines(p33)
+        .Select(l => l.Trim())
+        .Where(l => l.Length > 0 && !l.StartsWith("#") && !l.StartsWith("epfd"))
+        .Select(l => l.Split(','))
+        .ToArray();
+    bool countOk = s33.EpfdDb.Length == raw33.Length && s33.Pct.Length == raw33.Length;
+    bool valuesOk = countOk && raw33.Select((p, i) =>
+            s33.EpfdDb[i] == double.Parse(p[0], System.Globalization.CultureInfo.InvariantCulture)
+            && s33.Pct[i] == double.Parse(p[1], System.Globalization.CultureInfo.InvariantCulture))
+        .All(x => x);
+    // The runner writes levels ascending with percent non-increasing;
+    // the loader must preserve that shape for the log-axis plot.
+    bool shapeOk = s33.EpfdDb.Zip(s33.EpfdDb.Skip(1), (a, b) => a < b).All(x => x)
+        && s33.Pct.Zip(s33.Pct.Skip(1), (a, b) => a >= b).All(x => x)
+        && s33.Pct[0] > 0.0;
+    Check("V33 CDF viewer loader: exact rows, ascending levels, non-increasing percent",
+        countOk && valuesOk && shapeOk,
+        $"rows={s33.EpfdDb.Length} count={countOk} values={valuesOk} shape={shapeOk}");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;

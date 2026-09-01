@@ -652,8 +652,9 @@ timeline with two paces side by side: **▶ Play** draws every step —
 satellites moving, the service cells, thin lines for every *candidate*
 (feasible) link and thick lines for the *active* (granted) ones, with
 a live count — and **⏩ accelerated play** advances the same timeline
-many steps per tick with sparse redraws; switch between the icons at
-any moment, **⏹** stops. Neither collects statistics — **Write CDFs**
+many steps per tick without updating the map — the last frame stays
+and only the status clock (and live counts) move; switch between the
+icons at any moment, **⏹** stops. Neither collects statistics — **Write CDFs**
 is the full statistics run with no UI updates, producing the CDFs.
 Inputs: the orbit design document (the space segment — where the
 satellites are) and the operation profile (`*.opprofile.json` — what
@@ -671,7 +672,12 @@ also the transmitting ES when the profile's uplink side declares no
 dish); duration and time step. **Write CDFs…** executes on a
 worker thread and writes three CDF CSVs in S.1503-4 D7.1.2 bins (0.1 dB):
 `base.down.csv`, `base.is.csv` (the byproduct at the GSO satellite
-victim — S.672, 40.7 dBi / 1.55°) and `base.up.csv`. Keep the victim
+victim — S.672, 40.7 dBi / 1.55°) and `base.up.csv` — then opens the
+**CDF viewer** over the written curves (epfd on a linear dB axis
+against % time exceeded on a log axis, one colour per direction; the
+viewer takes any (label, epfd, percent) series, so other tools can
+call it too). **View CDFs…** opens the same viewer over existing CDF
+CSVs — pick one or more files from any earlier run. Keep the victim
 ES inside the profile's service area. When the operation profile
 declares the *PFD mask* footprint source, epfd(down) is computed the
 examination's way from the declared mask (§D5.1.4.1) instead of the

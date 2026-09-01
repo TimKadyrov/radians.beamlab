@@ -128,6 +128,47 @@ value. "Apply to profile" writes the found exclusion back into the
 profile file; from there the existing deriver produces the R set and the
 scene exports the mask — step 8.
 
+## Promotion — from tendency to promise
+
+The filing carries no tracking strategy; a scheduling behaviour reaches
+the declarations only by being promoted into an enforced gate. The
+recipe (the alpha advisor is its automated instance):
+
+1. **Observe** the tendency in the flown truth (measured dwells, the
+   measured minimum serving elevation, the measured min |alpha|).
+2. **Harden** it into the profile field the scheduler enforces
+   (`MinHoldSec`, `MinElevDeg`, `AlphaExclDeg`, `NcoPerCell`).
+3. **Verify** the truth cost of enforcing it — re-sweep, and fly the
+   truth payload under the declared gates (the runner's R-override
+   mode is exactly this before/after instrument): unserved demand,
+   margin shift, lattice re-sizing under a raised elevation floor.
+4. **Declare** it through the R set, now backed by enforcement.
+
+Two worked parameters:
+
+- **MIN_DURATION**: `HoldUntilForced` produces long dwells by
+  preference only. Promotion = set `MinHoldSec`; the scheduler then
+  enforces it as dwell AND as admission (a link is only made toward a
+  satellite that stays feasible for the whole promised duration — the
+  filter bites, V25). Declaring it flips the examination to the
+  track-duration algorithm and forbids `min_angle_at_es` (regime
+  pair). Gap: the deriver does not measure link lifetimes yet, so the
+  declared value is hand-carried into the designer after enforcement
+  rather than envelope-fed (small open item).
+- **MIN_ELEV**: under `HighestElevation` the derived min_elev rows can
+  sit well above the enforced floor (measured 22 over a 10 floor).
+  That derived value is the envelope of ONE finite run, not a promise
+  — a feasible 12-degree link tomorrow would violate the filing. The
+  gap between derived rows and the enforced floor IS the promotable
+  amount: raise `MinElevDeg` to what you are willing to declare, then
+  re-verify (this is the taxonomy's non-monotone knob — the floor also
+  re-sizes the beam lattice and can unserve edge geometry).
+
+Status: automated for alpha only (Suggest exclusion -> Apply,
+write-back invariant). MIN_ELEV and the Nco caps are the tier-1 walk
+candidates of the taxonomy above; MIN_DURATION additionally wants
+dwell measurement in the deriver.
+
 ## Decisions taken
 
 - Limits are hand-entered points in stage B (BR limits DB later).
