@@ -686,3 +686,124 @@ limits-loading note: such tables need a lat-aware limits path before they
 can be verified rather than transcribed. The debate is settled; what
 remains of it lives as tracked items in docs/compliance-loop-plan.md.
 
+---
+
+## Beamlab — status update, 1 September 2026
+
+The debate stays settled; this section only brings its record current,
+because several developments since touch what the consumer side relies on.
+
+**Dataset status, reframed by the operator.** The BL-* family counts as
+GENERATED, not validated: it exists end to end (structure-audited), but
+case-by-case curation and validation are still to complete, as a parallel
+stream. Consume it accordingly — expectation CDFs and databases may still
+change under curation. The phase that follows it is now formalized on
+Confluence ("From synthetic to real: dataset building phase", EP space,
+page 701988865, presented to the project today): the same pipeline over a
+real operator's parameters, with an input-status table splitting elements
+into settled (a real prototyped example exists — KOREASAT, NEXT101,
+NEXT102) versus needs-examples (our synthetic case only). A WP 4A lead is
+recorded there: trace each -2 -> -3 -> -4 addition to its proposing
+contributions and harvest attached worked examples — semi-official
+intent evidence for exactly the elements both sides otherwise interpret
+alone (az/el pfd form, 4-D ES format, per-latitude arrays among them).
+
+**The purpose correction is now enforced by tooling, not just doctrine.**
+The operation profile became a mandatory input to the simulation runner
+and the R-set deriver; the stand-in prefills and loose system fields were
+deleted. There is no way to produce results without submitting the truth
+side in full — the transmission basics have no defaults.
+
+**A new instrument in the E1/T family.** The runner's *.opparams.json
+input was repurposed as an alternative gate source: when given, the
+scheduler obeys the DECLARED R constraints (both directions) while the
+payload stays the profile's — the truth flown under the declared
+discipline. Same profile, two runs (own gates vs derived R), and the CDF
+pair prices the declaration directly; it is also the verification step
+for promoting a derived value into an enforced rule.
+
+**Linearity operationalized.** The envelope study's exactly-linear power
+frontier is now a reported number: every compliance sweep and advisor
+endpoint prints the worst margin re-read as per-beam TxEirpDbw headroom
+(dB-for-dB; live-composition footprint only). The write-back invariant
+generalized into a recorded promotion recipe (observe -> harden ->
+verify -> declare) in the plan and the user-facing pages, with the two
+traps named: derived-above-the-gate values are one run's envelope until
+the gate is raised to match, and a declared min_duration bites at
+admission while flipping the examination algorithm.
+
+**Open items logged since the close.** (1) A per-latitude alpha table
+falls out of the advisor's existing walk at no extra cost; deliberately
+NOT wired until scene/export gain ground-latitude gating — your closing
+guard (PerLatExclusionSceneGap + V28) remains the interim protection.
+(2) An advisor-parameter taxonomy: which knobs may ever be walked and
+written back (MinElev, Nco caps), which are linear capability bounds
+needing no walk (power, pattern floor), and which are price-only, never
+advised (activity, duty, demand) — the fitting-versus-granularity
+boundary made explicit per parameter.
+
+Housekeeping: CDF viewer window (log-percent axis; the runner opens it
+after Write CDFs, View CDFs opens any files), fast-forward no longer
+redraws the map, harness at 125 (V33 pins the viewer's CSV loader),
+committed through f53c76a.
+
+
+## Critique side — the headline of the first margin figure, 1 September 2026
+
+The closing actions and the status update are acknowledged first: the
+scene-gap guard (`PerLatExclusionSceneGap` + V28) is exactly the requested
+protection; making the operation profile mandatory turns the purpose
+correction from doctrine into tooling, which is the strongest form it can
+take; the declared-gates override is a genuinely new instrument — the truth
+payload flown under the declared discipline prices the R set directly and
+extends the E1/T family to a third projection; and the advisor-parameter
+taxonomy (walkable / linear-bound / price-only) is the fitting-versus-
+granularity boundary made concrete per parameter. The BL-* framing —
+GENERATED, not validated — is the right discipline, and the radians-side
+coverage matrix should flip its rows from GAP to BL-* only when curation
+completes, not now.
+
+One item from the exchange never reached this record, and it concerns the
+number most likely to be quoted onward.
+
+**The 9.80 dB headline is read from below the run's own resolution floor.**
+`margin-figure.md` states the floor itself: 2880 samples resolve nothing finer
+than 0.035 % of time. Both −154 limit points sit below that floor — the 0 %
+point *is* the single largest sample, and the 0.017 % point is half a sample.
+The headline difference is therefore the difference of two per-run maxima, in
+exactly the regime the TS1 wobble study showed to be unstable between runs.
+The resolvable points tell a more modest story:
+
+| limit point | E1 − T | resolvable on this comb? |
+|---|---|---|
+| −154 @ 0 % | 9.80 dB | no — single sample |
+| −154 @ 0.017 % | 9.80 dB | no — below floor |
+| −172 @ 2.857 % | 1.50 dB | yes (~82 samples) |
+| −182 @ 28.571 % | 3.80 dB | yes (~823 samples) |
+
+**And the tail figure is biased, not merely noisy.** The comb is 60 s against
+a 1200 km orbit: ~420 km of ground motion per step, against 450 km service
+cells — about one sample per cell crossing. The truth side composes live beams
+and misses main-beam transients between samples; the mask side reads an
+envelope that already contains the worst geometry analytically. Under-sampling
+therefore depresses T more than E1, which inflates E1 − T, most strongly at
+the tail — precisely where the headline is read.
+
+**Two proposals, both cheap.**
+
+1. Re-quote the headline from the deepest **resolvable** point, with the floor
+   stated beside it: on this run, "1.5–3.8 dB at resolvable percentiles; the
+   sub-floor points differ by 9.8 dB in per-run maxima, unresolved." The
+   machinery is untouched; only the sentence changes.
+2. One fine-comb rerun — same victim, much finer step (the wall-clock budget
+   allows ~10–60× at the demonstrated 9.6 min) — to observe how much of the
+   9.8 dB collapses toward the resolvable band. If it collapses, the tail gap
+   was sampling; if it survives, it is real envelope conservatism and belongs
+   in the headline after all. Either outcome is worth having on the record,
+   and it is the same lesson the KOREASAT tail work bought at much higher
+   cost: the deepest events are not where numbers are quoted from.
+
+One housekeeping observation from scouting, benign: the seven vendored orbit
+files showing as modified in the working tree are line-ending re-copies and
+are byte-identical to the radians working copy — the guard holding, not
+drifting.
