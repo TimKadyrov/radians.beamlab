@@ -1110,3 +1110,247 @@ comb; (2) latStep 10 -> 5 deg, same pattern and same decision rule;
 (3) freeze the decomposition table — sampling / b/c grid / lat grid /
 envelope — into this doc as the case's attribution record; (4) hand the
 converged residue to Q1.
+
+## Beamlab — convergence round opened, same day
+
+The decision rule is accepted as stated before the result: <= 0.3 dB at
+-154 @ 0.017% books the b/c share at ~1.8-2.0 dB; >= 1 dB keeps the knob
+open. Actions, in your order:
+
+1. **b/c 1 deg is running** on the pinned comb (`-- margin 6 28800 1`,
+   artefacts margin-6s-bc1.*). Verdict to be appended here with the row
+   moved, against the rule above, when it lands.
+2. **The latStep argument exists** (`-- margin [stepSec] [steps]
+   [bcStep] [latStep]`, default 10; tag `-lat{n}`; the figure header,
+   declarations line and produced-by line name it). The 10 -> 5 run
+   fires when (1) completes, same comb, same rule.
+3. The decomposition table freezes here after (1) and (2) converge.
+4. Q1 takes the residue.
+
+On the identity read: accepted, and it is the better statement — the
+five-row table is one measurement plus two certificates (power path
+clean; alpha never unpinned below the cap across the 40 dB span, so
+power-first is measured, not argued). The frontier section above should
+be read with that footnote.
+
+Hygiene, both items done: the orbit vendored files are restored to the
+committed bytes (`git diff -w` was empty — pure EOL churn; a deliberate
+.gitattributes decision, if wanted, will be its own commit with the
+parity check re-run). And docs/margin-figure.md now opens with a
+read-this-first note naming its 60 s / b/c 5 deg reading untrustworthy
+at the tail and pointing to the refined figures — the 9.80 cannot be
+taken at face value by a reader landing there alone. Headline usage
+elsewhere (deck, pages) already quotes 6.8-6.9 with the grid caveat and
+the lat-step-untested qualifier.
+
+**b/c convergence verdict, same day** (`-- margin 6 28800 1`,
+docs/margin-figure-6s-bc1.md): the -154 @ 0.017% row moved
+**6.80 -> 6.50 dB** — 0.30 dB for the 2 -> 1 deg halving, on the <= 0.3
+branch of the rule as stated. **The b/c knob is booked: ~2.1 dB total
+(5 -> 1 deg), converged.** Point by point at b/c 1 deg: 6.50 @ 0.017%,
+1.10 @ 2.857%, 3.40 @ 28.571% (the -182 row did not move at all from
+b/c 2), per-run maxima difference 6.60. E2 - E1 stays 0.00 at the tail
+and 0.90 at the -172 body point — the R path remains exonerated on its
+third grid. The successive halvings read 1.8 then 0.3: geometric-ish
+decay, consistent with a converged discretisation rather than a knob
+still unwinding.
+
+The latitude leg is running now on the converged grid
+(`-- margin 6 28800 1 5`: lat step 10 -> 5 deg at b/c 1 deg), so its
+share lands against the 6.50 baseline uncontaminated by leftover b/c
+coarseness — one knob at a time, as agreed. Same decision rule. Verdict
+and the frozen decomposition table follow when it lands.
+
+**Latitude verdict, same day** (`-- margin 6 28800 1 5`,
+docs/margin-figure-6s-bc1-lat5.md): the -154 @ 0.017% row moved
+**6.50 -> 6.50 dB — 0.00**. The sub-floor maxima difference is likewise
+unchanged (6.60), and the -182 row froze at 3.40. The only movement
+anywhere is the -172 body point, 1.10 -> 0.90 (the finer mask latitude
+blocks shave 0.2 dB mid-distribution; E2 - E1 there grew 0.90 -> 1.10,
+since the derived R set keeps its 10 deg banding and is now the coarser
+of the two — a body-only curiosity, not a tail actor). The latitude
+knob is done at its first halving: share 0.0 dB at the tail.
+
+## The decomposition, frozen — the case's attribution record
+
+At the -154 dB @ 0.017% limit point of this case (victim lat 40,
+Article 22 TABLE 22-1C, dish 0.70 m), starting from the 60 s / b/c 5 /
+lat 10 first reading of 9.8 dB:
+
+| component | knob walked | tail row moved | booked share |
+|---|---|---|---|
+| comb sampling | 60 s -> 6 s -> 1 s | 9.8 -> 8.6 -> 8.9 | ~0.9-1.2 dB |
+| mask b/c grid | 5 -> 2 -> 1 deg | 8.6 -> 6.8 -> 6.5 | ~2.1 dB (halvings 1.8, 0.3 — converged) |
+| mask latitude step | 10 -> 5 deg | 6.50 -> 6.50 | 0.0 dB (converged at first halving) |
+| accumulator bins | 0.1 dB bins | bounded by bin scale | <= ~0.2 dB |
+| **envelope as such** | — | — | **~6.5 dB residue** |
+
+The case's converged reading (6 s comb, b/c 1 deg, lat 5 deg):
+**E1 - T = 6.50 dB @ 0.017%**, 0.90 @ 2.857%, 3.40 @ 28.571%;
+E2 - E1 = 0.00 at the tail on every grid tested. Every grid knob the
+declaration format exposes is now measured and exhausted; what remains
+is the price of a reachable-envelope mask examined against an
+occurring-composition truth. **Handed to Q1**, per the agreed order:
+the power budget (and any scan/eligibility constraint it implies) is
+the one modelling lever that can legitimately shrink that residue —
+everything else would be fitting declarations to the verdict.
+
+**Correction on the EOL hygiene, 2 September — J0 earned its keep.** My
+"restored to the committed bytes" went the wrong way, and the drift
+guard caught it on the next harness run: the COMMITTED copies are the
+LF-normalized ones (git normalized at vendoring time); byte parity with
+radians lives in the CRLF working copies — the standing "churn" WAS the
+parity, showing as modified only because the blobs differ in endings.
+The seven files are copied back from the radians working copy verbatim
+and J0 is green again (126/0). So the durable fix is your third option
+and only that: mark the vendored paths `-text` in .gitattributes and
+commit the radians bytes as the blobs, in one deliberate commit with J0
+re-run after — queued for the next commit gate. Until then the seven
+files stay "modified" in git status by design, and nobody touches them
+with a checkout again.
+
+---
+
+## Critique side — attribution closed, 3 September 2026
+
+Both verdicts land exactly on the rule as pre-stated, so the bookings are
+accepted without argument. The b/c halving sequence (1.8 dB, then 0.3 dB)
+is the geometric decay a converged discretisation shows — 2 -> 1 deg
+moved the tail row 0.30 dB, the <= 0.3 branch, booked at ~2.1 dB total.
+The latitude knob's 0.00 at its first halving books it at zero. The
+frozen table above stands as this case's attribution record: converged
+reading E1 - T = 6.50 dB @ 0.017% (0.90 and 3.40 at the body points),
+every grid knob the declaration format exposes measured and exhausted,
+E2 - E1 = 0.00 at the tail on all three grids. The ~6.5 dB residue is
+the price of a reachable-envelope mask against an occurring-composition
+truth, and it goes to Q1 with the guard already agreed: the power budget
+and the eligibility constraints it implies are the legitimate levers;
+everything else is fitting declarations to the verdict.
+
+One footnote to carry into Q1's frame: the body-only movement at
+lat 5 (E2 - E1 grew 0.90 -> 1.10 because the derived R set keeps its
+10 deg banding and is now the coarser of the two grids) is a marker —
+if the R set's banding ever becomes the binding coarseness at a point
+that matters, the same refine-and-watch discipline applies to it. Today
+it is a curiosity: body-only, tail clean.
+
+On the EOL correction: that one is mine to own. My hygiene note offered
+two branches and put the wrong one first — "restore the endings (git
+checkout of those files)" restores the LF-normalized blobs, and the
+committed bytes were never the parity reference; the CRLF working
+copies were. The advice should have been to verify which side carries
+parity before choosing a branch. J0 catching the drift on the next
+harness run is the vendoring discipline doing exactly what it was built
+for — the guard earned its keep, and the queued durable fix (`-text` on
+the vendored paths, the radians bytes committed as the blobs, one
+deliberate commit, J0 re-run after) is right. Approved as the next
+commit gate.
+
+With the attribution closed, the measurement side's one open item is
+Q4 — nothing external validates the selection-plus-geometry chain. The
+section below arrived from outside the debate while this round was in
+flight, and it lands exactly there. Restored in sequence.
+
+---
+## New input — an external oracle, 3 September 2026
+
+*Not part of the original debate. It arrives from outside beamlab entirely: the
+ITU-R WP 4A contribution record on the revision of Recommendation S.1503, now
+held at `C:\Projects\_EPFD\wp4a-s1503`. It bears directly on Q4, which is still
+open.*
+
+### What Q4 said, and what this changes
+
+Q4's finding was that the two sides of the margin agree with each other but not
+with radians — the live and mask paths share a comb, so the decomposition is
+clean but partly synthetic, and nothing external validates it. Position 1 was
+"keep the margin beamlab-internal", accepting that "it never validates against
+the tool that issues findings".
+
+There is now a third thing to validate against, and it tests the half that
+vendoring does not cover. The vendored files (`OrbitPropagator`,
+`EpfdAccumulator`, `radlimits`, `ApLib`) guarantee that beamlab's propagation,
+binning, limits and antenna patterns match radians. Nothing guarantees that
+**beam scheduling and satellite selection** are right, because radians has no
+equivalent to check against — that is exactly the part beamlab exists to model.
+
+### The oracle
+
+Document 4A/653 (United Kingdom, May 2022) proposed an "alpha table" for
+S.1503. The proposal was **rejected** — it is absent from S.1503-4 — but its
+attachment is a fully specified simulation with published results, and the
+rejection does not touch the physics.
+
+The stated setup, verbatim from the contribution:
+
+- Constellation **STEAM-2**: altitude 1 150 km, inclination 53°, 32 planes ×
+  50 satellites, phase between planes 1.9°, angle between planes 11.3°
+- Eligibility: elevation ≥ 40° **and** alpha ≥ 22°
+- Selection: **at random** among the eligible satellites
+- Run: 10⁶ time steps of 1 s
+- Test latitudes 0°, 10°, 20°, 30°, 40°, 50° N
+
+The published output is the CDF of the alpha angle *of the selected satellite*,
+digitised in 5° bins. Verified symmetric — the table at −k° equals the table at
++k°.
+
+| α (deg) | 0°N | 10°N | 20°N | 30°N | 40°N | 50°N |
+|---|---|---|---|---|---|---|
+| 22 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 25 | 0.127 | 0.121 | 0.094 | 0.055 | 0.042 | 0.036 |
+| 30 | 0.345 | 0.303 | 0.211 | 0.149 | 0.114 | 0.102 |
+| 35 | 0.544 | 0.470 | 0.320 | 0.244 | 0.188 | 0.176 |
+| 40 | 0.739 | 0.626 | 0.428 | 0.338 | 0.265 | 0.257 |
+| 45 | 0.906 | 0.760 | 0.538 | 0.433 | 0.345 | 0.348 |
+| 50 | 1 | 0.871 | 0.649 | 0.526 | 0.424 | 0.459 |
+| 55 | 1 | 0.945 | 0.754 | 0.614 | 0.502 | 0.602 |
+| 60 | 1 | 1 | 0.840 | 0.699 | 0.580 | 0.722 |
+| 65 | 1 | 1 | 0.917 | 0.783 | 0.657 | 0.821 |
+| 70 | 1 | 1 | 0.979 | 0.860 | 0.732 | 0.906 |
+| 75 | 1 | 1 | 1 | 0.925 | 0.805 | 0.9806 |
+| 80 | 1 | 1 | 1 | 0.975 | 0.872 | 1 |
+| 85 | 1 | 1 | 1 | 1 | 0.932 | 1 |
+| 90 | 1 | 1 | 1 | 1 | 0.977 | 1 |
+| 100 | 1 | 1 | 1 | 1 | 1 | 1 |
+
+Source: `R19-WP4A-C-0653!P2!XML-E.xml`, filing STEAM-2B, ntc_id 317520389,
+17 700–18 600 MHz. The same document gives a second constellation ("L5":
+1 200 km, 87.9°, 18 × 40, phase 4.5°, plane spacing 10.5°, minimum elevation
+45°, minimum GSO avoidance 8.4°) with the stated result that between **3 and 8**
+satellites meet the eligibility criteria at 50° N at any time step — a cheaper
+first check that needs no CDF at all.
+
+### What it tests, and what it does not
+
+**Tests:** propagation over a full Walker shell into the right sky positions;
+the alpha geometry at a ground point; the eligibility gate (elevation *and*
+alpha, jointly); and the selection step — whether beamlab's scheduler, told to
+select at random among eligible satellites, produces the distribution a correct
+implementation produces. That last one is the piece with no other check.
+
+**Does not test:** anything about power, pfd masks, composition, the accumulator
+or the limits. It is a geometry-and-selection oracle only. It also cannot
+distinguish a scheduler bug from a constellation-phasing bug, since both move
+the same curve — the eligible-count check on L5 separates them, which is why
+it is worth running first.
+
+**Cost:** one shell, one selection policy, no masks, no epfd. The comb is 1 s ×
+10⁶, but the curve is a visibility statistic and should converge long before
+that; a short run that lands on the 0°N column is already informative.
+
+### The honest caveat
+
+These are one team's published simulation results, not a reference
+implementation and not a certified dataset. A disagreement means *someone* is
+wrong, not necessarily beamlab. The value is that the setup is specified tightly
+enough — altitude, inclination, planes, satellites per plane, both phase angles,
+both gates, the selection rule, the step size, the latitudes — that a
+disagreement is diagnosable rather than a shrug. That is more than the margin
+decomposition currently has anywhere.
+
+**Suggested position.** Q4 stays open as written, but its position 1 ("keep the
+margin beamlab-internal, accepting it never validates externally") is now
+weaker than it was: part of the chain *can* be validated externally, cheaply,
+against a source with no stake in beamlab. Worth doing before the next margin
+figure, because a selection-side error would move that figure and currently
+nothing would catch it.
