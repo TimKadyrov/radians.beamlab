@@ -6,10 +6,31 @@ namespace radians.beamlab;
 
 public enum ParameterGroup { Declared, Truth, Orbit }
 
+/// <summary>
+/// Intent sub-groups of the Truth (operation profile) cards: what job the
+/// parameter does in the simulation. Mirrored as the h3 headings of the
+/// "Real-system operation" section on docs/parameter-cards.html.
+/// </summary>
+public static class ProfileIntent
+{
+    public const string Service = "Service, traffic & scheduling";
+    public const string Power = "Radiated power & spectrum";
+    public const string Shape = "Beam shape & layout";
+    public const string Uplink = "Uplink fleet";
+    public const string Projection = "The projection switch";
+}
+
 /// <summary>One parameter's help text -- the app-facing twin of its card.</summary>
 public sealed record ParameterInfo(ParameterGroup Group, string Name, string Unit,
     string Where, string Description, IReadOnlyList<string> Relations)
 {
+    /// <summary>
+    /// Intent sub-group within the Truth group (a ProfileIntent constant);
+    /// null for the Declared and Orbit groups, which group by S.1503-4
+    /// element and by shell respectively.
+    /// </summary>
+    public string? SubGroup { get; init; }
+
     /// <summary>Tooltip form: description plus the relations as bullet lines.</summary>
     public string ToolTipText => Description + (Relations.Count == 0 ? "" :
         "\n\n" + string.Join("\n", Relations.Select(r => "- " + r)));
@@ -123,7 +144,7 @@ public static class ParameterCatalog
             {
                 "MAX_CO_FREQ caps it into the slot count",
                 "with ActivityFactor, offered intensity ≈ DemandLinks × activity Erlang",
-            }),
+            }) { SubGroup = ProfileIntent.Service },
         new(ParameterGroup.Truth, "ActivityFactor", "0–1 · + ActivityPeriodSec",
             "ServiceCell.ActivityFactor / ActivityPeriodSec (1.0 / 300 s)",
             "On/off traffic per slot: in each holding window a deterministic hash of (cell, slot, window) decides whether demand exists. Inactive windows release the link with no handover and no unserved count — no traffic, no transmission, in both link directions at once.",
@@ -131,7 +152,7 @@ public static class ParameterCatalog
             {
                 "releases restart MIN_DURATION dwell without counting handovers",
                 "hash-deterministic: same inputs, same CDFs — no RNG state anywhere",
-            }),
+            }) { SubGroup = ProfileIntent.Service },
         new(ParameterGroup.Truth, "PowerDbw", "dBW / ref. BW",
             "EpfdUpEsModel.PowerDbw",
             "The ES transmit ceiling into its antenna — the same base the declared E mask envelopes (mask = PowerDbw + G(θ) monotone hull), so simulated eirp ≤ mask by construction.",
@@ -139,7 +160,7 @@ public static class ParameterCatalog
             {
                 "the E mask’s base level; gateway and typical classes differ (15 / 12 dBW)",
                 "reduced per link by PowerControlRefElevDeg",
-            }),
+            }) { SubGroup = ProfileIntent.Uplink },
         new(ParameterGroup.Truth, "PowerControlRefElevDeg", "deg · nullable",
             "EpfdUpEsModel.PowerControlRefElevDeg",
             "Range-based closed-loop power control (S.1325 “power control on range”): the ceiling corresponds to the slant range at this elevation, and each link transmits 20 log₁₀(d ref / d link) below it — constant flux at the serving satellite. Worth ≈2 dB in the BL-U1 truth CDF.",
@@ -147,7 +168,7 @@ public static class ParameterCatalog
             {
                 "referenced to the band’s declared MIN_ELEV in the dataset",
                 "null keeps the ceiling — the pre-control behaviour, bit for bit",
-            }),
+            }) { SubGroup = ProfileIntent.Uplink },
         new(ParameterGroup.Truth, "IlluminationDutyCycle", "(0,1]",
             "ScenePointing(…, illuminationDutyCycle)",
             "Beam-hopping time average for frames much shorter than the 30 s step: every resolved beam power carries 10 log₁₀(duty). The declared masks stay peak-PSD envelopes — only the simulated statistics average (see the duty row in the Activity timeline).",
@@ -155,7 +176,7 @@ public static class ParameterCatalog
             {
                 "emission side only — the scheduler’s footprint layout is duty-independent",
                 "never enters the mask samplers: peak vs average is the point",
-            }),
+            }) { SubGroup = ProfileIntent.Power },
         new(ParameterGroup.Truth, "SelectionPolicy", "enum",
             "Scheduler(…, policy) · HighestElevation | MaxGsoSeparation | HoldUntilForced",
             "Which feasible satellite serves: the highest-elevation default, the one farthest from the GSO arc, or hold-until-forced — no voluntary handover while the link stays feasible. All obey every declared bound; the differences between their CDFs price the strategies.",
@@ -163,14 +184,14 @@ public static class ParameterCatalog
             {
                 "MaxGsoSeparation maximises the same α that MIN_EXCLUDE bounds",
                 "drives the candidate sort and the voluntary-handover comparison",
-            }),
+            }) { SubGroup = ProfileIntent.Service },
         new(ParameterGroup.Truth, "OperationalFraction", "0–1 · per shell",
             "ConstellationShell.OperationalFraction",
             "The transmitting cohort: spares and orbit-raising satellites fly with real positions but radiate nothing and never serve, interleaved by a Bresenham spread. The SRS always declares the full shell, so truth ≤ declaration by construction.",
             new[]
             {
                 "declared N_sat stays the envelope; the fraction is pure measured margin",
-            }),
+            }) { SubGroup = ProfileIntent.Service },
         new(ParameterGroup.Truth, "YawSweepDeg", "deg[] · default {0}",
             "MaskXmlExportOptions.YawSweepDeg → ReachableEnvelopeSampler",
             "Body-yaw offsets swept on top of each pass heading when the pfd envelope is sampled. A yaw-steering payload must sweep its reachable yaw range here or the derived mask is not an envelope — the one parameter that guards mask correctness rather than tightness.",
@@ -178,7 +199,7 @@ public static class ParameterCatalog
             {
                 "the S mask needs no sweep: body yaw is a rigid rotation about nadir and its azimuth envelope is invariant",
                 "sweep step no coarser than the output bin, or peaks slip between cells",
-            }),
+            }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "CellPitchKm / coverageRadiusKm", "km",
             "ServiceGeography.CellPitchKm · Scheduler ctor override",
             "The service-grid pitch, doubling as the default radius within which a resolved beam footprint must land to cover a cell. The default hex layout has no central beam — nearest boresights sit 433 km from the sub-satellite point at 1200 km — a lattice fact that decides feasibility.",
@@ -186,7 +207,7 @@ public static class ParameterCatalog
             {
                 "too tight a radius silently unserves covered-looking cells (three harness checks learned this)",
                 "interacts with MIN_ELEV: both must admit the geometry before a candidate exists",
-            }),
+            }) { SubGroup = ProfileIntent.Service },
         new(ParameterGroup.Truth, "GainPeakDbi", "dBi · per beam",
             "PfdMaskViewModel.GmDbi · profile GainPeakDbi",
             "Per-beam peak gain Gm of the S.1528-1 §1.4 pattern — the top of every beam's gain curve and the bridge from transmit power to e.i.r.p.: per beam at its own boresight, e.i.r.p. density = TxEirpDbw + Gm (the composite adds neighbouring side lobes on top). Empty in the profile keeps the scene default.",
@@ -194,7 +215,7 @@ public static class ParameterCatalog
             {
                 "with TxEirpDbw it sets the boresight density the payload envelope study sweeps",
                 "beam width comes from the layout, not Gm — cell sizing lives in BeamCellRadiusKm",
-            }),
+            }) { SubGroup = ProfileIntent.Power },
         new(ParameterGroup.Truth, "BeamCellRadiusKm", "km · per beam",
             "PfdMaskViewModel.CellRadiusKm · profile BeamCellRadiusKm",
             "Ground-cell radius one beam serves — sets the beam lattice density and each beam's width in the auto layout: smaller cells mean more, narrower beams over the same service area.",
@@ -202,30 +223,30 @@ public static class ParameterCatalog
             {
                 "the composite the masks envelope is the power sum of exactly this lattice",
                 "coverage feasibility is separate — CellPitchKm / coverageRadiusKm decide which cells a footprint reaches",
-            }),
+            }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "TaylorSlrDb · TaylorNbar", "dB · count",
             "PfdMaskViewModel.TaylorSlrDb / TaylorNbar · profile TaylorSlrDb / TaylorNbar",
-            "The S.1528-1 §1.4 Taylor illumination knobs: side-lobe ratio and the number of shaped secondary lobes; Annex 2's reference values, 20 dB and 4, are the scene defaults. Off-axis epfd toward a victim rides on exactly these side lobes.",
+            "The S.1528-1 §1.4 Taylor illumination parameters: side-lobe ratio and the number of shaped secondary lobes; Annex 2's reference values, 20 dB and 4, are the scene defaults. Off-axis epfd toward a victim rides on exactly these side lobes.",
             new[]
             {
                 "PatternFloorDbi caps the far-out lobes the Taylor shape decays into",
                 "the kernel is pinned by checks at the Bessel-zero abscissae (|F| ≤ 1)",
-            }),
+            }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "PatternFloorDbi", "dBi",
             "PfdMaskViewModel.LfDbi · profile PatternFloorDbi",
             "The far-out side-lobe / null floor LF: the pattern never falls below it, so far off boresight a victim sees the floor, not the Taylor shape. It dominates the mask's far bins and the quiet end of the epfd CDF; the scene default is 0 dBi.",
             new[]
             {
                 "raising it lifts every far-off-axis epfd sample dB for dB",
-            }),
+            }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "TxEirpDbw", "dBW / ref. BW · per beam",
             "PfdMaskViewModel.TxEirpDbw · profile TxEirpDbw",
-            "Per-beam transmit power density into the pattern (dBW in the reference bandwidth): constant-e.i.r.p. mode feeds exactly this to every beam and the composite adds the pattern gain on top. Every epfd statistic moves dB for dB with it — the payload envelope study's compliance frontier is linear in this one knob.",
+            "Per-beam transmit power density into the pattern (dBW in the reference bandwidth): constant-e.i.r.p. mode feeds exactly this to every beam and the composite adds the pattern gain on top. Every epfd statistic moves dB for dB with it — the payload envelope study's compliance frontier is linear in this one parameter.",
             new[]
             {
                 "per-beam boresight e.i.r.p. density = TxEirpDbw + GainPeakDbi",
                 "PowerMode adds per-beam slant compensation in constant-boresight-PFD mode",
-            }),
+            }) { SubGroup = ProfileIntent.Power },
         new(ParameterGroup.Truth, "PowerMode", "enum",
             "PfdMaskViewModel.PowerMode · constant e.i.r.p. | constant boresight PFD",
             "Downlink power control: constant e.i.r.p. (the default) drives every beam at TxEirpDbw; constant boresight PFD adds 20 log₁₀(slant/altitude) per beam so every boresight lands the same flux on the ground despite spreading — the compensation a real payload flies.",
@@ -233,7 +254,7 @@ public static class ParameterCatalog
             {
                 "check C4 pins the compensation: boresight PFD flat across the layout",
                 "the derived masks bake whichever mode the profile declares",
-            }),
+            }) { SubGroup = ProfileIntent.Power },
         new(ParameterGroup.Truth, "Aggregation · ReuseClusterIndex", "enum · index",
             "PfdMaskViewModel.Aggregation / ReuseClusterIndex · power sum | co-channel worst colour",
             "How beams combine in the victim's reference bandwidth. The run models one frequency, and the aggregation says which beams share that slot: the power sum of all beams is the FRF-1 payload, every beam radiating the full band; under N-colour reuse the band is partitioned and only one colour's beams illuminate the victim's slot — §C2.3.1 sums the illuminating beams \"in the co-frequency band\". The victim's sub-band is not declared, so the worst colour is taken: the envelope over where the carrier lands, matching the masks. The index selects the cluster size N from {3, 4, 7}. The ordering is invariant: max single ≤ co-channel ≤ power sum.",
@@ -241,38 +262,38 @@ public static class ParameterCatalog
             {
                 "checks pin the K-colour adjacency and the ordering (C2, C3)",
                 "modelled in the truth run too: with co-channel declared, the epfd composite takes the worst colour (V32)",
-            }),
+            }) { SubGroup = ProfileIntent.Power },
         new(ParameterGroup.Truth, "RefBwKHz", "kHz",
             "PfdMaskViewModel.RefBwKHz · mask refbw_khz",
             "Reference bandwidth of every density in the chain — the masks, the limits and the CDFs all quote per-reference-bandwidth quantities, and Article 22 epfd(down) uses 40 kHz. Declared once, carried everywhere.",
             new[]
             {
                 "the BR limits rows carry their own refbw — the compliance window shows both",
-            }),
+            }) { SubGroup = ProfileIntent.Power },
         new(ParameterGroup.Truth, "EllRollOffDb", "dB · cell edge",
             "PfdMaskViewModel.EllRollOffDb · profile EllRollOffDb",
             "Adjacent-beam crossover depth of the auto layout: each beam's width is derived so its pattern sits this many dB below peak at the cell edge — the cell radius fixes the lattice pitch, the crossover fixes how the beam fills its cell. Deeper crossover means narrower beams and colder cell edges; the scene default is 3 dB.",
             new[]
             {
-                "beam count stays with BeamCellRadiusKm and MIN_ELEV — this knob shapes edge illumination, not population",
+                "beam count stays with BeamCellRadiusKm and MIN_ELEV — this parameter shapes edge illumination, not population",
                 "check H2 pins the crossover uniform across the lattice with array-steered beams",
-            }),
+            }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "CrossoverDb", "dB · rings layout",
             "SceneModel.CrossoverDb · profile CrossoverDb",
-            "Adjacent-beam crossover level of the concentric-rings layout (negative dB; default −3): with auto hex off, successive rings are placed so neighbouring beams cross at this level — there it is the pitch knob. The auto hex lattice ignores it; its pitch comes from the cell radius.",
+            "Adjacent-beam crossover level of the concentric-rings layout (negative dB; default −3): with auto hex off, successive rings are placed so neighbouring beams cross at this level — there it sets the pitch. The auto hex lattice ignores it; its pitch comes from the cell radius.",
             new[]
             {
                 "active only when AutoHex is off — the rings layout's counterpart of BeamCellRadiusKm",
                 "the hex lattice's edge behaviour is EllRollOffDb instead",
-            }),
+            }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "ThetaBDeg", "deg",
             "SceneModel.ThetaBDeg · profile ThetaBDeg",
-            "Half 3-dB beamwidth of the circular patterns — the direct width knob where the layout does not derive width from a cell (§1.4 circular, §1.2/§1.3 references). The elliptical auto layout derives its widths from the ground cell instead.",
+            "Half 3-dB beamwidth of the circular patterns — the direct width parameter where the layout does not derive width from a cell (§1.4 circular, §1.2/§1.3 references). The elliptical auto layout derives its widths from the ground cell instead.",
             new[]
             {
                 "the composite tab's Fill-θb-from-Gm estimates it from the peak gain",
                 "inert for the elliptical auto layout — BeamCellRadiusKm and EllRollOffDb rule there",
-            }),
+            }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "AutoHex · UvArrayBeams", "flags",
             "SceneModel.AutoMode / UvArrayBeams",
             "The layout switches: auto hex tessellation on or off (off = the concentric-rings layout), and array-steered UV beams for the circular §1.4 pattern — radial width ×1/cos θ, the phased-array broadening. Indeterminate in the profile keeps the scene defaults.",
@@ -280,29 +301,29 @@ public static class ParameterCatalog
             {
                 "checks H1/H2 pin the UV-beam geometry and the crossover uniformity it buys",
                 "rings mode is where CrossoverDb bites",
-            }),
+            }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "EllAlphaDeg · EllBetaDeg", "deg at sat",
             "SceneModel.EllAlphaDeg / EllBetaDeg",
             "The Annex-2 elliptical cell half-axes subtended at the satellite (radial α, transverse β) — the manual parameterisation used when the elliptical pattern runs without the auto layout; auto mode derives them from the ground-cell radius per position.",
             new[]
             {
                 "with EllRollOffDb they fix the aperture (Lr, Lt)",
-            }),
+            }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "LnDb", "dB rel. peak",
             "SceneModel.LnDb · profile LnDb",
-            "Near-in side-lobe level of the S.1528-0 §1.2 envelope pattern (default −15 dB) — that model's one shape knob; inert for the §1.4 and §1.3 kinds.",
+            "Near-in side-lobe level of the S.1528-0 §1.2 envelope pattern (default −15 dB) — that model's one shape parameter; inert for the §1.4 and §1.3 kinds.",
             new[]
             {
                 "§1.2 is the envelope reference the APL APSREC409V01 family encodes",
-            }),
+            }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "PatternKind", "enum",
             "SceneModel.PatternKind · profile PatternKind",
-            "The per-beam pattern model: S.1528-1 §1.4 Taylor, circular or elliptical (the scene default), or the S.1528-0 §1.2 envelope and §1.3 LEO/MEO/HEO references. It changes each beam's shape and side lobes — the composite everywhere off boresight — while the lattice population stays with the layout knobs. Empty keeps the scene default.",
+            "The per-beam pattern model: S.1528-1 §1.4 Taylor, circular or elliptical (the scene default), or the S.1528-0 §1.2 envelope and §1.3 LEO/MEO/HEO references. It changes each beam's shape and side lobes — the composite everywhere off boresight — while the lattice population stays with the layout parameters. Empty keeps the scene default.",
             new[]
             {
-                "the Taylor knobs (SLR, nbar, floor) apply to the §1.4 kinds",
+                "the Taylor parameters (SLR, nbar, floor) apply to the §1.4 kinds",
                 "the §1.2/§1.3 kinds are S.1528-0 reference patterns, not shaped illuminations",
-            }),
+            }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "FootprintSource", "enum",
             "DownlinkProfile.FootprintSource · composition | mask (+ MaskXmlPath)",
             "Where the downlink footprint toward a victim comes from in simulations: beam composition computes it live from the shaped beams (the truth); PFD mask reads a declared mask XML the examination's way — §D5.1.4.1 selection over §D5.1.5 reads. Run both on one profile and the CDF difference is the projection margin.",
@@ -310,14 +331,14 @@ public static class ParameterCatalog
             {
                 "the beam fields still shape the scheduler's coverage geometry in both modes",
                 "no epfd(is) byproduct under the mask source — that needs the e.i.r.p. masks",
-            }),
+            }) { SubGroup = ProfileIntent.Projection },
         new(ParameterGroup.Truth, "EsDishM", "m",
             "UplinkProfile.EsDishM · S.1428 diameter",
             "S.1428 antenna diameter of the transmitting earth stations on the uplink. The downlink victim's dish is not declared here — the examination pairs each Article 22 limit row with its own reference diameter, so the victim antenna comes from the limit table.",
             new[]
             {
                 "with PowerDbw and PowerControlRefElevDeg it is the whole uplink transmit chain",
-            }),
+            }) { SubGroup = ProfileIntent.Uplink },
         new(ParameterGroup.Truth, "Service area", "deg lat × lon",
             "OperationProfile.ServiceLat/LonMin..Max · ServiceGeography.Grid",
             "The served-cell rectangle the geography is gridded over at the cell pitch — the truth-side population of transmitting and receiving cells. Distinct from the declared ES_LAT range: the composer copies the latitude bounds into the declaration; the longitude bounds exist only on the truth side (the examination plants typical ES by density instead).",
@@ -325,10 +346,10 @@ public static class ParameterCatalog
             {
                 "cells outside the declared ES_LAT range are never served — declaration binds truth",
                 "the deriver's measured es_lat envelope comes from exactly these cells",
-            }),
+            }) { SubGroup = ProfileIntent.Service },
         new(ParameterGroup.Orbit, "StationKeeping · WDeltaDeg · RepeatPeriod", "Case 2",
             "f_stn_keep='Y', keep_rnge, rpt_prd_* · shell A",
-            "Station-kept repeating ground track: the longitude tolerance W_delta sweeps the track across its deadband, and the declared repeat period tells the examination the comb it may fold over.",
+            "Station-kept repeating ground track: the longitude tolerance W_delta sweeps the track across its deadband, and the declared repeat period tells the examination the time grid it may fold over.",
             new[]
             {
                 "excludes artificial precession — NOrbits is ignored when kept",
