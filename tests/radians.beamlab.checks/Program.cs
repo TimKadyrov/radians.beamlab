@@ -29,6 +29,10 @@ if (args.Length > 0 && args[0] == "margin")
         args.Length > 2 ? long.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 0,
         args.Length > 3 ? double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) : 5.0,
         args.Length > 4 ? double.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture) : 10.0);
+if (args.Length > 0 && args[0] == "oracle")
+    return Oracle.Run(
+        args.Length > 1 ? long.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture) : 86400,
+        args.Length > 2 ? double.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 1.0);
 if (args.Length > 0 && args[0] == "study")
     return MarginFigure.Study(
         args.Length > 1 ? double.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture) : 60.0,
@@ -4203,6 +4207,23 @@ var looks = RandomLooks(300);
     Check("V34 loop v2 (Nco): synthesis, stay-passing, fixed point, merge, baseline",
         aOk && bOk && cOk && dOk && eOk,
         $"a={aOk} b={bOk} c={cOk} d={dOk} e={eOk} rowsA={string.Join("/", advA.Rows.Select(r => r.Value))} sweepsA={advA.Sweeps}");
+}
+
+// ---- V35: the external oracle (WP 4A Doc 4A/653) on a short comb ----
+{
+    // The one external check of the geometry-and-selection chain: L5's
+    // eligible count at 50 N must sit in the published 3-8 band, and the
+    // STEAM-2 alpha CDF of a randomly drawn eligible satellite must track
+    // the published table. One day at 10 s steps converges the visibility
+    // statistic (the full 1e6 x 1 s record is docs/oracle-steam2.md); the
+    // 0.03 tolerance is ten times the digitisation of the published table
+    // and four times the deviation the one-day 1 s run measured (0.007).
+    var orc = Oracle.Measure(8640, 10.0, 600, progress: false);
+    bool orcL5 = orc.L5Agrees;
+    bool orcCdf = orc.WorstDev <= 0.03 && orc.Outage.All(o => o == 0);
+    Check("V35 external oracle (4A/653): L5 eligible count 3-8, STEAM-2 alpha CDF within 0.03",
+        orcL5 && orcCdf,
+        $"l5={orc.L5Min}..{orc.L5Max} worstDev={orc.WorstDev:0.000} outage={orc.Outage.Sum()}");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

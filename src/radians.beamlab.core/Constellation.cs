@@ -84,6 +84,12 @@ public sealed record ConstellationShell
 
     /// <summary>Walker phasing parameter F: inter-plane phase offset = F * 360 / (P * S) deg.</summary>
     public int WalkerPhasingF { get; init; }
+    /// <summary>
+    /// Exact inter-plane phase offset (deg per plane step). When set it replaces
+    /// the Walker-F term, for published constellations whose stated phase is
+    /// not an integer F (e.g. 1.9 deg over 32 x 50).
+    /// </summary>
+    public double? InterPlanePhaseDeg { get; init; }
     /// <summary>LAN of plane 0 (deg).</summary>
     public double Lan0Deg { get; init; }
     /// <summary>LAN span the planes divide (deg): 360 = Walker delta, 180 = Walker star.</summary>
@@ -212,7 +218,9 @@ public sealed class Constellation
                     // recovers the true anomaly as phase - omega, so the same
                     // transform is applied here (declared == simulated).
                     double phase = 360.0 * s / shell.SatsPerPlane
-                                 + 360.0 * shell.WalkerPhasingF * p / (shell.PlaneCount * shell.SatsPerPlane)
+                                 + (shell.InterPlanePhaseDeg is double ipp
+                                     ? ipp * p
+                                     : 360.0 * shell.WalkerPhasingF * p / (shell.PlaneCount * shell.SatsPerPlane))
                                  + shell.InPlaneOffsetDeg;
                     var el = new OrbitalElements(
                         semiMajorAxisKm: a,
