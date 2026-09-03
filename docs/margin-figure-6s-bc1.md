@@ -1,18 +1,11 @@
-# The first margin figure
+# The first margin figure -- fine-comb rerun
 
-> **Read this first (added 2026-09-01):** this baseline runs a 60 s comb
-> and a 5 deg mask b/c grid -- its TAIL rows are below the run's
-> resolution floor and are NOT trustworthy as levels. The refined runs
-> (docs/margin-figure-6s.md, -1s, -6s-bc2, -6s-bc1, -6s-bc1-lat5)
-> converge the deep-tail margin at **6.50 dB** (6 s comb, b/c 1 deg,
-> lat 5 deg -- every grid knob exhausted); this file's 9.80 dB headline
-> is the coarse-comb, coarse-grid reading of the same case
-> (decomposition: ~1 dB sampling, ~2.1 dB b/c grid, 0.0 lat step,
-> ~6.5 dB envelope). Kept as the historical baseline the variants diff
-> against; the attribution record is frozen in simulation-debate.md.
+*Produced by `dotnet run --project tests/radians.beamlab.checks -- margin 6 28800 1 10`.*
+*Date: 2026-09-01. Wall clock 16.6 min.*
 
-*Produced by `dotnet run --project tests/radians.beamlab.checks -- margin`.*
-*Date: 2026-09-01. Wall clock 9.6 min.*
+*Variant of the baseline (docs/margin-figure.md): same system, same
+victim -- only the comb and/or the mask grid (b/c or latitude step)
+named above differ, isolating sampling and mask-grid contributions.*
 
 ## What is measured
 
@@ -39,7 +32,7 @@ number and is minimised by design).
 
 ## The declarations (derived from the truth, never fitted to the verdict)
 
-- PFD mask: alpha/deltaLongitude, latitude table -53..53 step 10 (pinned), b/c 5 deg, exclusion baked (13 blocks) -- dataset/margin/margin.mask.xml
+- PFD mask: alpha/deltaLongitude, latitude table -53..53 step 10, b/c 1 deg, exclusion baked (13 blocks) -- dataset/margin/margin-6s-bc1.mask.xml
 - R set: envelope of the flown operation, 10 deg latitude bands, 14641 link samples -- dataset/margin/margin.rset.xml
 
 ## The limit (from the BR database, not hand-guessed)
@@ -50,15 +43,15 @@ number and is minimised by design).
 ## The victim and the comb
 
 - GSO ES at lat 40 / lon 0 (the sweep's worst-margin latitude), wanted GSO at lon 10, S.1428 0.70 m (the limit row's reference dish).
-- One shared comb for all three runs: 2880 steps of 60 s (2.00 d); resolvable percentile floor 0.035%.
+- One shared comb for all three runs: 28800 steps of 6 s (2.00 d); resolvable percentile floor 0.003%.
 
 ## The three runs
 
 | run | projection | gates | max epfd (dB) | quiet steps | verdict vs the row |
 |---|---|---|---|---|---|
-| T | live composition (occurring) | profile rules, scheduler-enforced | -137.46 | 604 | FAIL |
-| E1 | declared mask, D5.1.4.1 | derived R set (the filing) | -127.66 | 1480 | FAIL |
-| E2 | declared mask, D5.1.4.1 | profile-composed rules | -127.66 | 1480 | FAIL |
+| T | live composition (occurring) | profile rules, scheduler-enforced | -117.46 | 6101 | FAIL |
+| E1 | declared mask, D5.1.4.1 | derived R set (the filing) | -110.88 | 14886 | FAIL |
+| E2 | declared mask, D5.1.4.1 | profile-composed rules | -110.88 | 14886 | FAIL |
 
 ## The margin, point by point
 
@@ -69,13 +62,13 @@ component (measured envelope vs declared rules).
 
 | limit point (dB @ %) | T epfd | E1 epfd | E2 epfd | T margin | E1 margin | E1-T (projection) | E2-E1 |
 |---|---|---|---|---|---|---|---|
-| -154 @ 0 | -137.30 | -127.50 | -127.50 | -16.70 | -26.50 | 9.80 | 0.00 |
-| -154 @ 0.017 | -137.30 | -127.50 | -127.50 | -16.70 | -26.50 | 9.80 | 0.00 |
-| -172 @ 2.857 | -147.50 | -146.00 | -145.10 | -24.50 | -26.00 | 1.50 | 0.90 |
-| -182 @ 28.571 | -152.30 | -148.50 | -148.50 | -29.70 | -33.50 | 3.80 | 0.00 |
+| -154 @ 0 | -117.30 | -110.70 | -110.70 | -36.70 | -43.30 | 6.60 | 0.00 |
+| -154 @ 0.017 | -124.10 | -117.60 | -117.60 | -29.90 | -36.40 | 6.50 | 0.00 |
+| -172 @ 2.857 | -147.50 | -146.40 | -145.50 | -24.50 | -25.60 | 1.10 | 0.90 |
+| -182 @ 28.571 | -152.20 | -148.80 | -148.80 | -29.80 | -33.20 | 3.40 | 0.00 |
 | -187.4 @ 100 | -287.40 | -287.40 | -287.40 | 100.00 | 100.00 | 0.00 | 0.00 |
 
-**Headline: at the deepest RESOLVABLE limit point (2.857% of time; comb floor 0.0347%) the projection margin (E1 - T) is 1.50 dB; across resolvable points 1.50-3.80 dB. The sub-floor point(s) (0%, 0.017%) differ by up to 9.80 dB in per-run maxima -- below the comb's resolution, quoted only as such (max-epfd difference 9.80 dB, same caveat).**
+**Headline: at the deepest RESOLVABLE limit point (0.017% of time; comb floor 0.0035%) the projection margin (E1 - T) is 6.50 dB; across resolvable points 1.10-6.50 dB. The sub-floor point(s) (0%) differ by up to 6.60 dB in per-run maxima -- below the comb's resolution, quoted only as such (max-epfd difference 6.58 dB, same caveat).**
 
 ## Named caveats and knobs (the granularity study starts here)
 
@@ -87,8 +80,15 @@ component (measured envelope vs declared rules).
   component is absent from this figure by construction.
 - Payload power budget: contingent, unmodelled (the truth-side
   measurement is tracked separately); power control is in the model.
-- Sampling: percentiles finer than 0.035% are not resolved on this comb;
+- Sampling: percentiles finer than 0.003% are not resolved on this comb;
   the deepest-event wobble study says tail agreement is bin-class.
+- Comb rule (measured, 60 s vs 6 s vs 1 s combs): per-run maxima moved
+  ~20 dB from 60 s to 6 s and only ~0.3 dB from 6 s to 1 s -- the step
+  must resolve the beam-footprint crossing at the victim. On this class
+  of geometry (450 km cells at 1200 km) tail LEVELS need steps <= 6 s;
+  body percentiles are stable from 60 s. Quote tail differences at
+  resolvable percentiles only -- coarse-comb tail levels are meaningless
+  and even their differences are luck.
 - Declaration granularity knobs measurable next: mask latitude step and
   b/c grid, R-set latitude banding, per-latitude alpha rows.
 - epfd(is)/(up) are out of scope here (down only).
@@ -99,4 +99,4 @@ component (measured envelope vs declared rules).
   still radiates sidelobes) yet peak louder (the mask envelope plus its
   bin granularity exceed any instantaneous composite) -- both faithful.
 
-CDFs: dataset/margin/margin.{T,E1,E2}.csv (epfd dB, % time exceeded).
+CDFs: dataset/margin/margin-6s-bc1.{T,E1,E2}.csv (epfd dB, % time exceeded).

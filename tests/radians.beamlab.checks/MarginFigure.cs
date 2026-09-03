@@ -26,7 +26,13 @@ using radians.beamlab.app;
 // docs/margin-figure.md.
 internal static class MarginFigure
 {
-    public static int Run()
+    // stepSecArg/stepsArg: optional comb override (`-- margin [stepSec]
+    // [steps] [bcStep] [latStep]`); steps 0 = the calibrated default. A
+    // custom comb writes margin-figure-{step}s.md and suffixed CSVs beside
+    // the baseline; a custom mask b/c step (default 5 deg) adds -bc{n} and
+    // a custom mask latitude step (default 10 deg) adds -lat{n} to the
+    // names -- the mask-grid attribution experiments.
+    public static int Run(double stepSecArg = 60.0, long stepsArg = 0, double bcStepArg = 5.0, double latStepArg = 10.0)
     {
         var inv = CultureInfo.InvariantCulture;
         var t0 = Stopwatch.StartNew();
@@ -128,17 +134,23 @@ internal static class MarginFigure
             + $"nco rows {rSet.MaxCoFreqByLat.Count}, max/sat {rSet.MaxCoFreqSat}"));
 
         // ---- 6. The mask: envelope of the payload, exclusion baked -------
-        string maskPath = Path.Combine(outDir, "margin.mask.xml");
+        // Name suffix for non-default comb/grid variants, so the baseline
+        // artefacts are never clobbered.
+        string tag = (stepSecArg != 60.0 ? string.Create(inv, $"-{stepSecArg:F0}s") : "")
+            + (bcStepArg != 5.0 ? string.Create(inv, $"-bc{bcStepArg:F0}") : "")
+            + (latStepArg != 10.0 ? string.Create(inv, $"-lat{latStepArg:F0}") : "");
+        string maskPath = Path.Combine(outDir, $"margin{tag}.mask.xml");
         var opts = new MaskXmlExportOptions
         {
             SatName = "MARGIN", NtcId = 1, MaskId = 1,
             LowFreqMhz = 19700.0, HighFreqMhz = 19700.0, RefBwKHz = 40.0,
-            LatMinDeg = -53.0, LatMaxDeg = 53.0, LatStepDeg = 10.0,
-            BStepDeg = 5.0, CStepDeg = 5.0,
+            LatMinDeg = -53.0, LatMaxDeg = 53.0, LatStepDeg = latStepArg,
+            BStepDeg = bcStepArg, CStepDeg = bcStepArg,
             Kind = MaskPlotKind.AlphaDeltaLong, Format = MaskExportFormat.Xml,
             OutputPath = maskPath,
         };
-        Console.WriteLine("exporting the alpha/deltaLongitude mask (lat -53..53 step 10, b/c 5 deg)...");
+        Console.WriteLine(string.Create(inv,
+            $"exporting the alpha/deltaLongitude mask (lat -53..53 step {latStepArg:F0}, b/c {bcStepArg:F0} deg)..."));
         int lastPct = -10;
         var progress = new Progress<double>(p =>
         {
@@ -156,7 +168,7 @@ internal static class MarginFigure
             EsLatDeg = worstRow.LatDeg, EsLonDeg = 0.0, GsoLonDeg = 10.0,
             Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 19700.0, dishM),
         };
-        const double stepSec = 60.0;
+        double stepSec = stepSecArg;
         var cal = Stopwatch.StartNew();
         EpfdDown.Run(con,
             new ScheduledPointing(con, comp.Geography, comp.Enforced, comp.Scene,
@@ -164,11 +176,16 @@ internal static class MarginFigure
             victim, stepSec, 50, limitPoints, 50 * stepSec);
         cal.Stop();
         double msPerStep = cal.Elapsed.TotalMilliseconds / 50.0;
-        long steps = Math.Clamp((long)(8 * 60 * 1000 / Math.Max(0.1, msPerStep)), 720, 2880);
+        long steps = stepsArg > 0 ? stepsArg
+            : Math.Clamp((long)(8 * 60 * 1000 / Math.Max(0.1, msPerStep)), 720, 2880);
         double simDur = steps * stepSec;
         Console.WriteLine(string.Create(inv,
             $"comb: {steps} steps of {stepSec:F0} s ({simDur / 86400.0:F2} d) at victim lat {victim.EsLatDeg:F0}; "
             + $"~{msPerStep:F0} ms/step measured; resolvable percentile floor {100.0 / steps:F3}%"));
+        if (stepSec >= 30.0)
+            Console.WriteLine("NOTE: steps >= 30 s starve main-beam transients on this class of "
+                + "geometry -- tail LEVELS are not trustworthy (body percentiles only); "
+                + "see docs/margin-figure-6s.md / -1s.md for the measured comb rule.");
 
         // ---- 8. The three runs -------------------------------------------
         Console.WriteLine("run T  (truth: live composition, scheduler-gated)...");
@@ -185,9 +202,9 @@ internal static class MarginFigure
         var (epfdT, pctT) = runT.Accumulator.BuildCdf();
         var (epfdE1, pctE1) = runE1.Accumulator.BuildCdf();
         var (epfdE2, pctE2) = runE2.Accumulator.BuildCdf();
-        WriteCdf(Path.Combine(outDir, "margin.T.csv"), epfdT, pctT);
-        WriteCdf(Path.Combine(outDir, "margin.E1.csv"), epfdE1, pctE1);
-        WriteCdf(Path.Combine(outDir, "margin.E2.csv"), epfdE2, pctE2);
+        WriteCdf(Path.Combine(outDir, $"margin{tag}.T.csv"), epfdT, pctT);
+        WriteCdf(Path.Combine(outDir, $"margin{tag}.E1.csv"), epfdE1, pctE1);
+        WriteCdf(Path.Combine(outDir, $"margin{tag}.E2.csv"), epfdE2, pctE2);
 
         static bool Verdict(radcompute1503_2.EpfdAccumulator acc, List<radlimits.LimitPoint> lp)
         { var (p, _) = acc.CompareWithLimits(lp); return p.All(x => x); }
@@ -196,10 +213,18 @@ internal static class MarginFigure
         bool passE2 = Verdict(runE2.Accumulator, limitPoints);
 
         var sb = new StringBuilder();
-        sb.AppendLine("# The first margin figure");
+        sb.AppendLine(tag.Length > 0 ? "# The first margin figure -- fine-comb rerun" : "# The first margin figure");
         sb.AppendLine();
-        sb.AppendLine("*Produced by `dotnet run --project tests/radians.beamlab.checks -- margin`.*");
-        sb.AppendLine(string.Create(inv, $"*Date: {2026:D4}-08-31. Wall clock {t0.Elapsed.TotalMinutes:F1} min.*"));
+        sb.AppendLine(string.Create(inv,
+            $"*Produced by `dotnet run --project tests/radians.beamlab.checks -- margin{(tag.Length > 0 ? string.Create(inv, $" {stepSec:F0} {steps} {bcStepArg:F0} {latStepArg:F0}") : "")}`.*"));
+        sb.AppendLine(string.Create(inv, $"*Date: {DateTime.Now:yyyy-MM-dd}. Wall clock {t0.Elapsed.TotalMinutes:F1} min.*"));
+        if (tag.Length > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("*Variant of the baseline (docs/margin-figure.md): same system, same");
+            sb.AppendLine("victim -- only the comb and/or the mask grid (b/c or latitude step)");
+            sb.AppendLine("named above differ, isolating sampling and mask-grid contributions.*");
+        }
         sb.AppendLine();
         sb.AppendLine("## What is measured");
         sb.AppendLine();
@@ -231,7 +256,7 @@ internal static class MarginFigure
         sb.AppendLine("## The declarations (derived from the truth, never fitted to the verdict)");
         sb.AppendLine();
         sb.AppendLine(string.Create(inv,
-            $"- PFD mask: alpha/deltaLongitude, latitude table -53..53 step 10 (pinned), b/c 5 deg, exclusion baked ({mask.BlockCount} blocks) -- dataset/margin/margin.mask.xml"));
+            $"- PFD mask: alpha/deltaLongitude, latitude table -53..53 step {latStepArg:F0}, b/c {bcStepArg:F0} deg, exclusion baked ({mask.BlockCount} blocks) -- dataset/margin/margin{tag}.mask.xml"));
         sb.AppendLine(string.Create(inv,
             $"- R set: envelope of the flown operation, 10 deg latitude bands, {derived.LinkSamples} link samples -- dataset/margin/margin.rset.xml"));
         sb.AppendLine();
@@ -265,7 +290,13 @@ internal static class MarginFigure
         sb.AppendLine();
         sb.AppendLine("| limit point (dB @ %) | T epfd | E1 epfd | E2 epfd | T margin | E1 margin | E1-T (projection) | E2-E1 |");
         sb.AppendLine("|---|---|---|---|---|---|---|---|");
-        double worstProj = double.NegativeInfinity, worstProjPerc = double.NaN;
+        // Resolvable = the comb has at least one sample above the point's
+        // percentage (perc >= 100/steps); the 100% point is a range
+        // artefact and never quoted. Sub-floor points are differences of
+        // per-run maxima and are quoted only as such.
+        double floorPct = 100.0 / steps;
+        var resPts = new List<(double Perc, double Proj)>();
+        var subPts = new List<(double Perc, double Proj)>();
         foreach (var p in limitPoints.OrderBy(p => p.Perc))
         {
             double mT = ComplianceViewModel.MarginDb(epfdT, pctT, p.EPFD, p.Perc);
@@ -273,14 +304,27 @@ internal static class MarginFigure
             double mE2 = ComplianceViewModel.MarginDb(epfdE2, pctE2, p.EPFD, p.Perc);
             double vT = p.EPFD - mT, vE1 = p.EPFD - mE1, vE2 = p.EPFD - mE2;
             double proj = vE1 - vT;
-            if (proj > worstProj) { worstProj = proj; worstProjPerc = p.Perc; }
+            if (p.Perc >= floorPct && p.Perc < 100.0) resPts.Add((p.Perc, proj));
+            else if (p.Perc < floorPct) subPts.Add((p.Perc, proj));
             sb.AppendLine(string.Create(inv,
                 $"| {p.EPFD} @ {p.Perc:G6} | {vT:F2} | {vE1:F2} | {vE2:F2} | {mT:F2} | {mE1:F2} | {proj:F2} | {vE2 - vE1:F2} |"));
         }
         sb.AppendLine();
-        sb.AppendLine(string.Create(inv,
-            $"**Headline: the projection margin (E1 - T) is {worstProj:F2} dB at its largest limit point ({worstProjPerc}% of time); "
-            + $"max-epfd difference {runE1.MaxEpfdDb - runT.MaxEpfdDb:F2} dB.**"));
+        var deepRes = resPts.OrderBy(x => x.Perc).First();
+        string headline = subPts.Count > 0
+            ? string.Create(inv,
+                $"**Headline: at the deepest RESOLVABLE limit point ({deepRes.Perc:G6}% of time; comb floor {floorPct:F4}%) "
+                + $"the projection margin (E1 - T) is {deepRes.Proj:F2} dB; across resolvable points "
+                + $"{resPts.Min(x => x.Proj):F2}-{resPts.Max(x => x.Proj):F2} dB. The sub-floor point(s) "
+                + $"({string.Join(", ", subPts.Select(x => string.Create(inv, $"{x.Perc:G6}%")))}) differ by up to "
+                + $"{subPts.Max(x => x.Proj):F2} dB in per-run maxima -- below the comb's resolution, quoted only as such "
+                + $"(max-epfd difference {runE1.MaxEpfdDb - runT.MaxEpfdDb:F2} dB, same caveat).**")
+            : string.Create(inv,
+                $"**Headline: at the deepest resolvable limit point ({deepRes.Perc:G6}% of time; comb floor {floorPct:F4}%) "
+                + $"the projection margin (E1 - T) is {deepRes.Proj:F2} dB; across resolvable points "
+                + $"{resPts.Min(x => x.Proj):F2}-{resPts.Max(x => x.Proj):F2} dB; "
+                + $"max-epfd difference {runE1.MaxEpfdDb - runT.MaxEpfdDb:F2} dB.**");
+        sb.AppendLine(headline);
         sb.AppendLine();
         sb.AppendLine("## Named caveats and knobs (the granularity study starts here)");
         sb.AppendLine();
@@ -295,6 +339,13 @@ internal static class MarginFigure
         sb.AppendLine(string.Create(inv,
             $"- Sampling: percentiles finer than {100.0 / steps:F3}% are not resolved on this comb;"));
         sb.AppendLine("  the deepest-event wobble study says tail agreement is bin-class.");
+        sb.AppendLine("- Comb rule (measured, 60 s vs 6 s vs 1 s combs): per-run maxima moved");
+        sb.AppendLine("  ~20 dB from 60 s to 6 s and only ~0.3 dB from 6 s to 1 s -- the step");
+        sb.AppendLine("  must resolve the beam-footprint crossing at the victim. On this class");
+        sb.AppendLine("  of geometry (450 km cells at 1200 km) tail LEVELS need steps <= 6 s;");
+        sb.AppendLine("  body percentiles are stable from 60 s. Quote tail differences at");
+        sb.AppendLine("  resolvable percentiles only -- coarse-comb tail levels are meaningless");
+        sb.AppendLine("  and even their differences are luck.");
         sb.AppendLine("- Declaration granularity knobs measurable next: mask latitude step and");
         sb.AppendLine("  b/c grid, R-set latitude banding, per-latitude alpha rows.");
         sb.AppendLine("- epfd(is)/(up) are out of scope here (down only).");
@@ -305,15 +356,17 @@ internal static class MarginFigure
         sb.AppendLine("  still radiates sidelobes) yet peak louder (the mask envelope plus its");
         sb.AppendLine("  bin granularity exceed any instantaneous composite) -- both faithful.");
         sb.AppendLine();
-        sb.AppendLine("CDFs: dataset/margin/margin.{T,E1,E2}.csv (epfd dB, % time exceeded).");
-        File.WriteAllText(Path.Combine(repo, "docs", "margin-figure.md"), sb.ToString(), new UTF8Encoding(false));
+        sb.AppendLine(string.Create(inv,
+            $"CDFs: dataset/margin/margin{tag}.{{T,E1,E2}}.csv (epfd dB, % time exceeded)."));
+        File.WriteAllText(Path.Combine(repo, "docs", $"margin-figure{tag}.md"), sb.ToString(), new UTF8Encoding(false));
 
         Console.WriteLine();
         Console.WriteLine(string.Create(inv,
-            $"HEADLINE: projection margin E1-T = {worstProj:F2} dB at {worstProjPerc}%; "
-            + $"max-epfd E1-T = {runE1.MaxEpfdDb - runT.MaxEpfdDb:F2} dB; "
+            $"HEADLINE: projection margin E1-T = {deepRes.Proj:F2} dB at the deepest resolvable point ({deepRes.Perc:G6}%); "
+            + $"resolvable span {resPts.Min(x => x.Proj):F2}-{resPts.Max(x => x.Proj):F2} dB; "
+            + $"sub-floor per-run-maxima difference {(subPts.Count > 0 ? string.Create(inv, $"{subPts.Max(x => x.Proj):F2}") : "n/a")} dB; "
             + $"T {(passT ? "PASS" : "FAIL")} / E1 {(passE1 ? "PASS" : "FAIL")} / E2 {(passE2 ? "PASS" : "FAIL")} vs {lim.RrRef}"));
-        Console.WriteLine("figure: docs/margin-figure.md");
+        Console.WriteLine(string.Create(inv, $"figure: docs/margin-figure{tag}.md"));
         return 0;
     }
 
@@ -330,7 +383,10 @@ internal static class MarginFigure
     //
     // Run:  dotnet run --project tests/radians.beamlab.checks -- study
     // ------------------------------------------------------------------
-    public static int Study()
+    // stepSecArg/stepsArg: optional comb override for the frontier
+    // sweeps and the figure-at-point (`-- study [stepSec] [steps]`);
+    // a non-default step writes margin-study-{step}s.md + tagged CSVs.
+    public static int Study(double stepSecArg = 60.0, long stepsArg = 0)
     {
         var inv = CultureInfo.InvariantCulture;
         var t0 = Stopwatch.StartNew();
@@ -378,7 +434,7 @@ internal static class MarginFigure
         ComplianceViewModel.Sweep SweepAt(OperationProfile p) => new(shells0, p,
             EsLon: 0.0, GsoOffset: 10.0, DishM: dishM,
             LatFrom: 0.0, LatTo: 70.0, LatStep: 10.0,
-            Steps: (long)(0.1 * 86400.0 / 60.0), StepSec: 60.0, Limits: limitPoints);
+            Steps: (long)(0.1 * 86400.0 / stepSecArg), StepSec: stepSecArg, Limits: limitPoints);
 
         double gm = OperationComposer.Compose(ProfAt(0.0, 0.0), sceneAlt).Scene.GmDbi;
         Console.WriteLine(string.Create(inv,
@@ -463,16 +519,18 @@ internal static class MarginFigure
             EsLatDeg = victimLat, EsLonDeg = 0.0, GsoLonDeg = 10.0,
             Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 19700.0, dishM),
         };
-        const double stepSec = 60.0;
+        double stepSec = stepSecArg;
+        string tag = stepSecArg != 60.0 ? string.Create(inv, $"-{stepSec:F0}s") : "";
         var cal = Stopwatch.StartNew();
         EpfdDown.Run(con, new ScheduledPointing(con, comp.Geography, comp.Enforced, comp.Scene,
             50 * stepSec, comp.CoverageRadiusKm, comp.Policy, comp.IlluminationDutyCycle),
             victim, stepSec, 50, limitPoints, 50 * stepSec);
         cal.Stop();
-        long steps = Math.Clamp((long)(8 * 60 * 1000 / Math.Max(0.1, cal.Elapsed.TotalMilliseconds / 50.0)), 720, 2880);
+        long steps = stepsArg > 0 ? stepsArg
+            : Math.Clamp((long)(8 * 60 * 1000 / Math.Max(0.1, cal.Elapsed.TotalMilliseconds / 50.0)), 720, 2880);
         double simDur = steps * stepSec;
         Console.WriteLine(string.Create(inv,
-            $"comb: {steps} steps of 60 s at victim lat {victimLat:F0}; percentile floor {100.0 / steps:F3}%"));
+            $"comb: {steps} steps of {stepSec:F0} s at victim lat {victimLat:F0}; percentile floor {100.0 / steps:F3}%"));
 
         Console.WriteLine("run T  (truth)...");
         var runT = EpfdDown.Run(con, new ScheduledPointing(con, comp.Geography, comp.Enforced,
@@ -489,10 +547,10 @@ internal static class MarginFigure
         var (eE1, pE1) = runE1.Accumulator.BuildCdf();
         var (eE2, pE2) = runE2.Accumulator.BuildCdf();
         var (eE1f, pE1f) = runE1f.Accumulator.BuildCdf();
-        WriteCdf(Path.Combine(outDir, "study.T.csv"), eT, pT);
-        WriteCdf(Path.Combine(outDir, "study.E1.csv"), eE1, pE1);
-        WriteCdf(Path.Combine(outDir, "study.E2.csv"), eE2, pE2);
-        WriteCdf(Path.Combine(outDir, "study.E1fine.csv"), eE1f, pE1f);
+        WriteCdf(Path.Combine(outDir, $"study{tag}.T.csv"), eT, pT);
+        WriteCdf(Path.Combine(outDir, $"study{tag}.E1.csv"), eE1, pE1);
+        WriteCdf(Path.Combine(outDir, $"study{tag}.E2.csv"), eE2, pE2);
+        WriteCdf(Path.Combine(outDir, $"study{tag}.E1fine.csv"), eE1f, pE1f);
         static bool Pass(radcompute1503_2.EpfdAccumulator a, List<radlimits.LimitPoint> lp)
         { var (p, _) = a.CompareWithLimits(lp); return p.All(x => x); }
 
@@ -541,7 +599,7 @@ internal static class MarginFigure
         sb.AppendLine();
         sb.AppendLine(string.Create(inv,
             $"Victim: GSO ES lat {victimLat:F0} / lon 0 (worst sweep latitude at the point), GSO lon 10, "
-            + $"S.1428 {dishM:F2} m; comb {steps} x 60 s (floor {100.0 / steps:F3}%). Declarations: "
+            + $"S.1428 {dishM:F2} m; comb {steps} x {stepSec:F0} s (floor {100.0 / steps:F3}%). Declarations: "
             + $"alpha/deltaLong mask lat -53..53 step 10, R set 10-deg bands ({derived.LinkSamples} samples)."));
         sb.AppendLine();
         sb.AppendLine("| run | what | max epfd (dB) | quiet | verdict |");
@@ -575,14 +633,14 @@ internal static class MarginFigure
         sb.AppendLine("decision, power budget contingent, tail floor as stated); additionally");
         sb.AppendLine("the payload here is a REQUIRED-envelope stand-in, not a real system --");
         sb.AppendLine("the 100% limit point's margin is a range artefact. CDFs:");
-        sb.AppendLine("dataset/margin/study.{T,E1,E2,E1fine}.csv.");
-        File.WriteAllText(Path.Combine(repo, "docs", "margin-study.md"), sb.ToString(), new UTF8Encoding(false));
+        sb.AppendLine(string.Create(inv, $"dataset/margin/study{tag}.{{T,E1,E2,E1fine}}.csv."));
+        File.WriteAllText(Path.Combine(repo, "docs", $"margin-study{tag}.md"), sb.ToString(), new UTF8Encoding(false));
 
         Console.WriteLine();
         Console.WriteLine(string.Create(inv,
             $"HEADLINE: compliant at power {frontier[idx0].Eirp:F0} dBW/40kHz (alpha 0){(pointAlpha > 0 ? string.Create(inv, $"; with alpha {pointAlpha:F1} deg the {pointEirp:F0} dBW/40kHz point is compliant") : "")}; "
             + $"projection margin {worstProj5:F2} dB (5 deg grid) / {worstProj2:F2} dB (2 deg grid)"));
-        Console.WriteLine("study: docs/margin-study.md");
+        Console.WriteLine(string.Create(inv, $"study: docs/margin-study{tag}.md"));
         return 0;
     }
 

@@ -23,8 +23,16 @@ using static radians.beamlab.GeoMath;
 
 // Opt-in measurement modes: the first margin figure (docs/margin-figure.md)
 // and the payload envelope study (docs/margin-study.md).
-if (args.Length > 0 && args[0] == "margin") return MarginFigure.Run();
-if (args.Length > 0 && args[0] == "study") return MarginFigure.Study();
+if (args.Length > 0 && args[0] == "margin")
+    return MarginFigure.Run(
+        args.Length > 1 ? double.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture) : 60.0,
+        args.Length > 2 ? long.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 0,
+        args.Length > 3 ? double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) : 5.0,
+        args.Length > 4 ? double.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture) : 10.0);
+if (args.Length > 0 && args[0] == "study")
+    return MarginFigure.Study(
+        args.Length > 1 ? double.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture) : 60.0,
+        args.Length > 2 ? long.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 0);
 
 int pass = 0, fail = 0;
 void Check(string name, bool ok, string detail = "")
@@ -4137,6 +4145,64 @@ var looks = RandomLooks(300);
     Check("V33 CDF viewer loader: exact rows, ascending levels, non-increasing percent",
         countOk && valuesOk && shapeOk,
         $"rows={s33.EpfdDb.Length} count={countOk} values={valuesOk} shape={shapeOk}");
+}
+
+// ---- V34: loop v2 (Nco leg) -- synthesis, stay-passing, fixed point ----
+{
+    var lats34 = new List<double> { 30, 40, 50 };
+
+    // (a) monotone case: pass iff cap <= limit, limits (1,2,2) from
+    // baseline (3,3,2), floor 1 -> synthesized caps (1,2,2), verified.
+    int sweeps34 = 0;
+    var advA = ComplianceViewModel.NcoAdviseCore(lats34, new[] { 3, 3, 2 }, 1,
+        caps =>
+        {
+            sweeps34++;
+            var lim = new[] { 1, 2, 2 };
+            return lats34.Select((l, i) => new ComplianceRow(l, -140.0 - caps[i],
+                lim[i] - caps[i], caps[i] <= lim[i], 0)).ToList();
+        });
+    bool aOk = advA.Converged && advA.LeverMoves
+        && advA.Rows.Select(r => (int)r.Value).SequenceEqual(new[] { 1, 2, 2 })
+        && advA.GlobalCap == 1 && advA.Sweeps == sweeps34;
+
+    // (b) a non-monotone row: lat 40 passes ONLY at cap exactly 2, and
+    // lat 30 needs the floor -- the stay-passing check must reject the
+    // dip and the fixed point must end honestly unconverged.
+    var advB = ComplianceViewModel.NcoAdviseCore(lats34, new[] { 3, 3, 2 }, 1,
+        caps => lats34.Select((l, i) => i switch
+        {
+            0 => new ComplianceRow(l, -140, 1 - caps[0], caps[0] <= 1, 0),
+            1 => new ComplianceRow(l, -140, caps[1] == 2 ? 1 : -1, caps[1] == 2, 0),
+            _ => new ComplianceRow(l, -140, 2 - caps[2], caps[2] <= 2, 0),
+        }).ToList());
+    bool bOk = !advB.Converged && advB.LeverMoves;
+
+    // (c) inert lever: margins never move -> reported as not the lever.
+    var advC = ComplianceViewModel.NcoAdviseCore(lats34, new[] { 3, 3, 3 }, 1,
+        caps => lats34.Select(l => new ComplianceRow(l, -140, -5, false, 0)).ToList());
+    bool cOk = !advC.LeverMoves;
+
+    // (d) the merge keeps operator rows outside the grid span and
+    // replaces the one inside it.
+    var p34 = new OperationProfile(NcoByLat: new[] { new ProfileLatRow(70, 4), new ProfileLatRow(40, 3) });
+    var m34 = ComplianceViewModel.WithNcoRows(p34, lats34, new[] { 1, 2, 2 });
+    bool dOk = m34.NcoByLat!.Count == 4
+        && m34.NcoByLat.Any(r => r.LatDeg == 70 && r.Value == 4)
+        && !m34.NcoByLat.Any(r => r.LatDeg == 40 && r.Value == 3)
+        && m34.NcoByLat.Any(r => r.LatDeg == 40 && r.Value == 2);
+
+    // (e) effective baseline: nearest row inside the span, header outside,
+    // both clamped by demand (inert caps above demand start at demand).
+    var pE = new OperationProfile(DemandLinksPerCell: 2, NcoPerCell: 5,
+        NcoByLat: new[] { new ProfileLatRow(0, 1), new ProfileLatRow(20, 3) });
+    bool eOk = ComplianceViewModel.EffectiveNcoBaseline(pE, 5) == 1
+        && ComplianceViewModel.EffectiveNcoBaseline(pE, 19) == 2
+        && ComplianceViewModel.EffectiveNcoBaseline(pE, 40) == 2;
+
+    Check("V34 loop v2 (Nco): synthesis, stay-passing, fixed point, merge, baseline",
+        aOk && bOk && cOk && dOk && eOk,
+        $"a={aOk} b={bOk} c={cOk} d={dOk} e={eOk} rowsA={string.Join("/", advA.Rows.Select(r => r.Value))} sweepsA={advA.Sweeps}");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
