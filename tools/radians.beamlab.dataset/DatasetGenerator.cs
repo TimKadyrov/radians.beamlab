@@ -926,7 +926,14 @@ public static class DatasetGenerator
 
             The expectation CDFs use sampling option 2: body percentiles from a
             {(o.Quick ? "2-hour" : "48-hour")} run at 30 s steps, tail justified by the envelope
-            argument. Victims: epfd(down) an S.1428 60 cm earth station at 45N 0E against
+            argument. Measured caveat (margin-figure comb study, 2026-09-01): steps of
+            30-60 s starve main-beam transients on this class of geometry, so expectation
+            TAILS below each case's resolvable floor are not comparison material -- the
+            acceptance rule applies at resolvable percentiles, with the tail direction
+            still guaranteed by the envelope argument. If tail-level comparison is ever
+            needed, regenerate the expectations at 6 s steps (measured sufficient; the
+            per-run maxima moved ~20 dB from 60 s to 6 s and ~0.3 dB from 6 s to 1 s).
+            Victims: epfd(down) an S.1428 60 cm earth station at 45N 0E against
             the GSO satellite at 10E; epfd(up) and epfd(is) the GSO satellite at 10E with
             its S.672-4 receive beam (40.7 dBi / 1.55 deg / Ls -20, Sec. D6.5.2 Table 16)
             pointed at 45N 0E. The scheduler honours the declared operating-parameter set
