@@ -1378,3 +1378,37 @@ suggested: the L5 eligible-count check first (3-8 at 50 N, cheap,
 separates a phasing fault from a selection fault), then the STEAM-2
 alpha CDF at one day of 1 s steps, the full 1e6 only if the short run
 disagrees. Results to docs/oracle-steam2.md and here.
+
+## Beamlab — the oracle answers, same day
+
+Built as described (`-- oracle [steps] [stepSec]`; `InterPlanePhaseDeg`
+added to the shell for the exact 1.9 deg; one nadir beam per satellite
+and a 5000 km covering radius so beams are inert; the eligible set is
+the Scheduler's own `CandidateLinks` against a declared set carrying
+exactly the two gates; the draw is uniform, seed 4653). At 2.3 ms/step
+the document's own 1e6 x 1 s costs 40 minutes, so it runs as the
+record; the one-day run (86 400 x 1 s) is already decisive:
+
+- **L5 agrees.** Eligible satellites at 50 N per step: min 3, mean
+  3.87, max 6 — inside the stated 3-8 on 100% of 21 600 steps. The
+  constellation build (phase, plane spacing, inclination) and the joint
+  gate are right before anything downstream is asked.
+- **STEAM-2 agrees to the third decimal.** Max |CDF deviation| from the
+  published table: 0.001 (0 N), 0.007 (10 N), 0.004 (20 N), 0.001
+  (30 N), 0.003 (40 N), 0.004 (50 N) — worst 0.007 against a table
+  digitised to 3 decimals in 5 deg bins. No outage step at any latitude;
+  mean eligible count rising 4.4 -> 20.7 from 0 N to 50 N, as the 53 deg
+  shell's density should.
+
+So the half of the chain no vendoring covers — propagation of a full
+shell into sky positions, the alpha metric at a ground point, the joint
+elevation-and-alpha gate, and the candidate enumeration every selection
+policy is fed from — reproduces an independent team's published
+simulation. Q4's position 1 loses its sting: the beamlab-internal
+margin now rests on an externally validated geometry-and-selection
+chain, and what remains of Q4 is only the comb question proper (dual
+time step vs one comb), which is a sampling matter, not a modelling
+one. Pinned as a permanent check (V35: L5 count in 3-8 over 600 steps
+and the STEAM-2 CDF within 0.03 over a day at 10 s steps) so a
+selection-side regression can no longer move a margin figure unseen.
+The 1e6 record follows below when it lands.
