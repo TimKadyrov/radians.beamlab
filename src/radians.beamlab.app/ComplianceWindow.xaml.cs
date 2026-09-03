@@ -20,6 +20,10 @@ public partial class ComplianceWindow : Window
         GuideBtn.IsEnabled = _guidePath is not null;
     }
 
+    private async void OnAdviseNcoClick(object sender, RoutedEventArgs e) => await _vm.AdviseNcoAsync();
+
+    private void OnApplyNcoClick(object sender, RoutedEventArgs e) => _vm.ApplyNcoRows();
+
     private void OnGuideClick(object sender, RoutedEventArgs e)
     {
         if (_guidePath is null) return;

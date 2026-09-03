@@ -79,7 +79,13 @@ public sealed class ComplianceViewModel : ObservableObject
     public bool IsRunning
     {
         get => _isRunning;
-        private set { if (SetField(ref _isRunning, value)) OnPropertyChanged(nameof(RunEnabled)); }
+        private set
+        {
+            if (!SetField(ref _isRunning, value)) return;
+            OnPropertyChanged(nameof(RunEnabled));
+            OnPropertyChanged(nameof(ApplyEnabled));
+            OnPropertyChanged(nameof(ApplyNcoEnabled));
+        }
     }
 
     public bool RunEnabled => !_isRunning;
@@ -155,8 +161,14 @@ public sealed class ComplianceViewModel : ObservableObject
     /// check harness call it directly.
     /// </summary>
     public static List<ComplianceRow> RunSweep(Sweep sweep, double alphaExclDeg)
+        => RunSweepProfile(sweep, sweep.Profile with { AlphaExclDeg = alphaExclDeg, AlphaByLat = null });
+
+    /// <summary>
+    /// One full latitude sweep for an arbitrary profile variant -- the
+    /// loop-v2 core: levers build their variant and sweep it.
+    /// </summary>
+    public static List<ComplianceRow> RunSweepProfile(Sweep sweep, OperationProfile prof)
     {
-        var prof = sweep.Profile with { AlphaExclDeg = alphaExclDeg, AlphaByLat = null };
         var con = new Constellation(sweep.Shells);
         var sh0 = sweep.Shells[0];
         var comp = OperationComposer.Compose(prof, sh0.OperatingHeightKm ?? sh0.AltitudeKm);
@@ -366,6 +378,13 @@ public sealed class ComplianceViewModel : ObservableObject
         IsRunning = true;
         FoundAlphaDeg = null;
         StatusText = "advising: walking the exclusion angle...";
+        // Interim guard (loop v2 design): the walk substitutes a GLOBAL
+        // alpha for the profile's declared per-latitude rows -- declared
+        // structure is ignored while walking, and the found global can
+        // sit below a declared row. v2 walks deltas over the rows.
+        string rowsNote = sweep.Profile.AlphaByLat is { Count: > 0 }
+            ? "NOTE: the profile declares per-latitude alpha rows; the walk IGNORES them and uses a global value (v2 will walk deltas over the rows) -- "
+            : "";
         try
         {
             var advice = await Task.Run(() => Advise(sweep, stepA, maxA));
@@ -374,7 +393,7 @@ public sealed class ComplianceViewModel : ObservableObject
             FoundAlphaDeg = advice.FoundAlpha;
             bool livePower = sweep.Profile.Down.FootprintSource != "mask"
                 && double.IsFinite(advice.WorstMarginEndDb);
-            StatusText = advice.FoundAlpha is double a
+            StatusText = rowsNote + (advice.FoundAlpha is double a
                 ? string.Create(CultureInfo.InvariantCulture,
                     $"compliant at alpha = {a:F1} deg after {advice.Iterations} sweep(s)")
                   + (livePower
@@ -398,7 +417,7 @@ public sealed class ComplianceViewModel : ObservableObject
                   + (livePower
                         ? string.Create(CultureInfo.InvariantCulture,
                             $"; a {-advice.WorstMarginEndDb:F1} dB per-beam power reduction reaches the limit at the final alpha (dB-for-dB)")
-                        : "");
+                        : ""));
         }
         catch (Exception ex) { StatusText = "advise failed: " + ex.Message; }
         finally { IsRunning = false; }
@@ -459,10 +478,192 @@ public sealed class ComplianceViewModel : ObservableObject
     {
         if (_foundAlphaDeg is not double a) return;
         var prof = OperationProfileCodec.Load(File.ReadAllText(_profilePath));
+        // Interim guard (loop v2 design): applying a global REPLACES any
+        // declared per-latitude rows -- say so rather than doing it silently.
+        string wiped = prof.AlphaByLat is { Count: > 0 }
+            ? " -- NOTE: the profile's per-latitude alpha rows were REPLACED by this global value"
+            : "";
         File.WriteAllText(_profilePath,
             OperationProfileCodec.Save(prof with { AlphaExclDeg = a, AlphaByLat = null }));
         StatusText = string.Create(CultureInfo.InvariantCulture,
-            $"alpha {a:F1} deg written into the profile -- derive the R set and export the masks next");
+            $"alpha {a:F1} deg written into the profile -- derive the R set and export the masks next")
+            + wiped;
+    }
+
+    // ---- loop v2, Nco leg: per-latitude cap synthesis --------------------
+    // Design: docs/compliance-loop-plan.md "The loop, v2". The lever is
+    // the per-cell co-frequency cap (MAX_CO_FREQ): scheduler-only, no
+    // payload expressiveness gap, so the array form may write back today.
+
+    private string _ncoRangeMinText = "1";
+    /// <summary>Lower bound of the cap walk (a cap below 1 is no service).</summary>
+    public string NcoRangeMinText { get => _ncoRangeMinText; set => SetField(ref _ncoRangeMinText, value); }
+
+    private IReadOnlyList<ProfileLatRow>? _foundNcoRows;
+    public bool ApplyNcoEnabled => _foundNcoRows is not null && !_isRunning;
+
+    /// <summary>
+    /// The effective cap baseline at one latitude: the declared view
+    /// (nearest NcoByLat row inside its span, else the global) clamped by
+    /// demand -- caps above demand are inert, so the walk starts at what
+    /// the operation actually does.
+    /// </summary>
+    public static int EffectiveNcoBaseline(OperationProfile p, double latDeg)
+    {
+        int demand = Math.Max(1, p.DemandLinksPerCell);
+        int? declared = null;
+        var rows = p.NcoByLat;
+        if (rows is { Count: > 0 })
+        {
+            double lo = rows.Min(r => r.LatDeg), hi = rows.Max(r => r.LatDeg);
+            if (latDeg >= lo && latDeg <= hi)
+                declared = (int)rows.OrderBy(r => Math.Abs(r.LatDeg - latDeg)).First().Value;
+        }
+        declared ??= p.NcoPerCell;
+        return declared is int d ? Math.Max(1, Math.Min(d, demand)) : demand;
+    }
+
+    /// <summary>The v2 Nco advice: synthesized rows plus how they were earned.</summary>
+    public sealed record NcoAdvice(bool LeverMoves, bool Converged, int Sweeps,
+        int? GlobalCap, IReadOnlyList<ProfileLatRow> Rows, List<ComplianceRow> FinalRows);
+
+    /// <summary>
+    /// The v2 walk-synthesize-verify core over a sweep delegate (the
+    /// harness tests it with a fake). Walk: a uniform delta DOWN from the
+    /// per-latitude baseline, floored at rangeMin, until the sweep passes
+    /// or the floor is reached. Synthesis: per latitude the smallest
+    /// delta that passes and STAYS passing over the recorded walk.
+    /// Verification: one joint sweep under the composed rows; regressed
+    /// rows are tightened and the sweep repeats (fixed point, bounded).
+    /// </summary>
+    public static NcoAdvice NcoAdviseCore(IReadOnlyList<double> lats,
+        IReadOnlyList<int> baseline, int rangeMin,
+        Func<IReadOnlyList<int>, List<ComplianceRow>> sweepAt, int maxIter = 5)
+    {
+        rangeMin = Math.Max(1, rangeMin);
+        int maxDelta = Math.Max(0, baseline.Max() - rangeMin);
+        int[] CapsAt(int d) => baseline.Select(b => Math.Max(rangeMin, b - d)).ToArray();
+
+        var outcomes = new List<(int Delta, List<ComplianceRow> Rows)>();
+        int sweeps = 0;
+        for (int d = 0; d <= maxDelta; d++)
+        {
+            var rows = sweepAt(CapsAt(d)); sweeps++;
+            outcomes.Add((d, rows));
+            if (rows.All(r => r.Pass)) break;
+        }
+
+        bool moves = outcomes.Count > 1 && outcomes.Zip(outcomes.Skip(1), (a, b) =>
+                a.Rows.Zip(b.Rows, (x, y) => Math.Abs(x.WorstMarginDb - y.WorstMarginDb) > 1e-9).Any(x => x))
+            .Any(x => x);
+
+        var delta = new int[lats.Count];
+        for (int i = 0; i < lats.Count; i++)
+        {
+            int chosen = -1;
+            foreach (var o in outcomes)
+            {
+                if (!o.Rows[i].Pass) { chosen = -1; continue; }
+                if (chosen < 0) chosen = o.Delta;
+            }
+            delta[i] = chosen >= 0 ? chosen : outcomes[^1].Delta;
+        }
+
+        List<ComplianceRow> final = outcomes[^1].Rows;
+        bool converged = false;
+        for (int it = 0; it < maxIter; it++)
+        {
+            var caps = lats.Select((_, i) => Math.Max(rangeMin, baseline[i] - delta[i])).ToArray();
+            final = sweepAt(caps); sweeps++;
+            if (final.All(r => r.Pass)) { converged = true; break; }
+            var tightenable = Enumerable.Range(0, lats.Count)
+                .Where(i => !final[i].Pass && baseline[i] - delta[i] > rangeMin).ToList();
+            if (tightenable.Count == 0) break;
+            foreach (int i in tightenable) delta[i]++;
+        }
+
+        var rowsOut = lats.Select((l, i) =>
+            new ProfileLatRow(l, Math.Max(rangeMin, baseline[i] - delta[i]))).ToList();
+        int? globalCap = outcomes[^1].Rows.All(r => r.Pass)
+            ? baseline.Select(b => Math.Max(rangeMin, b - outcomes[^1].Delta)).Min()
+            : null;
+        return new NcoAdvice(moves, converged, sweeps, globalCap, rowsOut, final);
+    }
+
+    /// <summary>
+    /// Profile variant with cap rows at the grid latitudes; operator rows
+    /// OUTSIDE the grid span are kept (v2 never wipes declared structure).
+    /// </summary>
+    public static OperationProfile WithNcoRows(OperationProfile p,
+        IReadOnlyList<double> lats, IReadOnlyList<int> caps)
+    {
+        double lo = lats.Min(), hi = lats.Max();
+        var merged = new List<ProfileLatRow>();
+        if (p.NcoByLat is { } ext)
+            merged.AddRange(ext.Where(r => r.LatDeg < lo - 1e-9 || r.LatDeg > hi + 1e-9));
+        merged.AddRange(lats.Select((l, i) => new ProfileLatRow(l, caps[i])));
+        return p with { NcoByLat = merged.OrderBy(r => r.LatDeg).ToList() };
+    }
+
+    public async Task AdviseNcoAsync()
+    {
+        Sweep sweep; int rangeMin;
+        try
+        {
+            sweep = BuildSweep();
+            rangeMin = (int)Num(_ncoRangeMinText, "cap range floor");
+        }
+        catch (Exception ex) { StatusText = "invalid: " + ex.Message; return; }
+
+        IsRunning = true;
+        _foundNcoRows = null; OnPropertyChanged(nameof(ApplyNcoEnabled));
+        StatusText = "advising (v2): walking the per-cell cap down from the baseline...";
+        try
+        {
+            var lats = new List<double>();
+            for (double lat = sweep.LatFrom; lat <= sweep.LatTo + 1e-9; lat += sweep.LatStep) lats.Add(lat);
+            var baseline = lats.Select(l => EffectiveNcoBaseline(sweep.Profile, l)).ToList();
+            var advice = await Task.Run(() => NcoAdviseCore(lats, baseline, rangeMin,
+                caps => RunSweepProfile(sweep, WithNcoRows(sweep.Profile, lats, caps))));
+            Rows.Clear();
+            foreach (var r in advice.FinalRows) Rows.Add(r);
+            if (!advice.LeverMoves)
+            {
+                StatusText = string.Create(CultureInfo.InvariantCulture,
+                    $"Nco is not the lever here: no margin moved over the walk ({advice.Sweeps} sweep(s)) -- with demand {Math.Max(1, sweep.Profile.DemandLinksPerCell)} link(s)/cell the cap barely binds");
+                return;
+            }
+            _foundNcoRows = advice.Rows; OnPropertyChanged(nameof(ApplyNcoEnabled));
+            string rowsTxt = string.Join(", ", advice.Rows.Select(r =>
+                string.Create(CultureInfo.InvariantCulture, $"{r.LatDeg:F0}→{r.Value:F0}")));
+            StatusText = (advice.Converged
+                    ? "v2 Nco rows VERIFIED (joint sweep passes): "
+                    : "v2 Nco: NOT compliant even at the range floor -- tightest caps shown: ")
+                + $"[{rowsTxt}]"
+                + (advice.GlobalCap is int g
+                    ? string.Create(CultureInfo.InvariantCulture, $"; uniform view: cap {g}")
+                    : "")
+                + string.Create(CultureInfo.InvariantCulture,
+                    $" ({advice.Sweeps} sweep(s)) -- Apply Nco rows writes them into the profile");
+        }
+        catch (Exception ex) { StatusText = "advise failed: " + ex.Message; }
+        finally { IsRunning = false; }
+    }
+
+    /// <summary>Writes the synthesized cap rows back; operator rows outside the grid span are kept.</summary>
+    public void ApplyNcoRows()
+    {
+        if (_foundNcoRows is not { } found) return;
+        var prof = OperationProfileCodec.Load(File.ReadAllText(_profilePath));
+        double lo = found.Min(r => r.LatDeg), hi = found.Max(r => r.LatDeg);
+        var merged = new List<ProfileLatRow>();
+        if (prof.NcoByLat is { } ext)
+            merged.AddRange(ext.Where(r => r.LatDeg < lo - 1e-9 || r.LatDeg > hi + 1e-9));
+        merged.AddRange(found);
+        File.WriteAllText(_profilePath, OperationProfileCodec.Save(
+            prof with { NcoByLat = merged.OrderBy(r => r.LatDeg).ToList() }));
+        StatusText = string.Create(CultureInfo.InvariantCulture,
+            $"Nco rows written into the profile ({found.Count} row(s); operator rows outside the grid span kept) -- derive the R set next");
     }
 
     public string BuildCsv()

@@ -108,6 +108,21 @@
                     </StackPanel>
                 </GroupBox>
 
+                <GroupBox Header="Cap advisor (loop v2) — per-latitude Nco">
+                    <StackPanel>
+                        <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
+                                   Text="Walks the per-cell co-frequency cap DOWN from the profile's effective baseline (declared cap clamped by demand), synthesizes the largest cap each latitude's own outcome allows, verifies the composed rows in one joint sweep, and writes the rows back — operator rows outside the grid span are never touched."/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Range floor (cap ≥)" VerticalAlignment="Center"/>
+                            <TextBox Width="46" Margin="6,1,0,1" Text="{Binding NcoRangeMinText, UpdateSourceTrigger=LostFocus}"/>
+                            <Button Content="Advise Nco rows" Margin="10,2,4,2" IsEnabled="{Binding RunEnabled}" Click="OnAdviseNcoClick"
+                                    ToolTip="Loop v2, Nco leg: delta walk over the baseline, per-latitude synthesis with the stay-passing check, joint verification. Reports 'not the lever' when margins do not move."/>
+                            <Button Content="Apply Nco rows" IsEnabled="{Binding ApplyNcoEnabled}" Click="OnApplyNcoClick"
+                                    ToolTip="Writes the verified per-latitude cap rows into the profile's NcoByLat — merged, never wiping operator rows outside the grid span."/>
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
                 <GroupBox Header="Exclusion advisor">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
