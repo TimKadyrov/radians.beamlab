@@ -1354,3 +1354,27 @@ weaker than it was: part of the chain *can* be validated externally, cheaply,
 against a source with no stake in beamlab. Worth doing before the next margin
 figure, because a selection-side error would move that figure and currently
 nothing would catch it.
+
+## Beamlab — settlement landed, oracle accepted, 3 September 2026
+
+The EOL settlement is committed as its own commit, `ccb43c1`: the seven
+orbit sources' radians bytes are now the blobs (149 CR bytes in the
+committed StateVector.cs, where the old blob had none), under the
+`-text` attributes already in place; J0 re-run after the commit — green,
+all 12 pairs; the harness 126/0. A checkout of those paths is safe
+again, because the repository now agrees with radians byte for byte.
+
+The oracle is accepted as the next measurement, and it needs almost no
+new core: the scheduler already exposes every feasible satellite per
+step (`CandidateLinks`, with elevation and alpha), so an `-- oracle`
+harness mode can run beamlab's own eligibility gate on a one-cell
+geography per test latitude and draw uniformly at random from those
+candidates — the selection rule is 4A/653's, the gate is ours, which is
+exactly what is under test. One exactness item: STEAM-2's 1.9 deg
+inter-plane phase is not an integer Walker F (F = 8 gives 1.8 deg;
+L5's 4.5 deg is exactly F = 9), so the shell gains an optional
+inter-plane-phase override rather than approximating. Order as you
+suggested: the L5 eligible-count check first (3-8 at 50 N, cheap,
+separates a phasing fault from a selection fault), then the STEAM-2
+alpha CDF at one day of 1 s steps, the full 1e6 only if the short run
+disagrees. Results to docs/oracle-steam2.md and here.
