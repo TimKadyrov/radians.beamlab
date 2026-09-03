@@ -169,6 +169,113 @@ write-back invariant). MIN_ELEV and the Nco caps are the tier-1 walk
 candidates of the taxonomy above; MIN_DURATION additionally wants
 dwell measurement in the deriver.
 
+## Triage rule — which projection failed decides the tool (operator, 2026-09-01)
+
+E1 >= T by the envelope direction, so three cases only. Basis: E1 =
+T + projection margin, so a crossed limit is crossed by the truth
+itself or inside the added margin — fix the component that crossed it. **T fails:**
+the system itself violates — no declaration work is legitimate; fix the
+system first (power density is the exact dB-for-dB lever the headroom
+line quantifies, then the operating rules the loop walks, then the
+constellation). **T passes / E1 fails:** the projection-margin regime —
+the optimisation moves to the declaration side, in order: honest
+examination inputs (mask b/c + latitude grids, resolvable comb),
+declarations tightened to the flown truth (deriver envelopes), promoted
+rules shrinking the reachable envelope. Fidelity is the objective;
+passing is the consequence — declarations are never fitted to the
+limits. **Both pass:** file; E1−T is carried robustness. E1 < T at any
+percentile is never a win — it is a mis-declaration the direction check
+exists to catch. (Mirrored in compliance-loop.html "Which failure is
+it?".)
+
+## The loop, v2 — from parameter ranges to array-form declarations (design, operator-directed, 2026-09-01)
+
+**Purpose in one sentence:** given a lever parameter, the profile's
+current view of it (operator arrays included) as the baseline, and a
+range — walk the range, synthesize the per-latitude values each
+latitude's own outcome justifies, verify the composed array jointly over
+the grid, and report the increment over the operator's declared
+discipline.
+
+**Two scenarios (operator's framing):**
+
+1. **Range of parameters** — min/max/step for the lever. The degenerate
+   range (min = max) is pure VALIDATION: sweep the grid at the given
+   value(s), verdict table, no walk. A real range with output
+   granularity "global" is exactly today's advisor; with granularity
+   "per latitude" it synthesizes the array view.
+2. **Already-declared array** — the operator's per-latitude rows as
+   input (the profile fields AlphaByLat / MinElevByLat / NcoByLat exist
+   for exactly this). Two sub-modes: REVALIDATE (degenerate range over
+   the array as-is, verified at rows plus the read-rule-sensitive
+   points), or REFINE GRANULARITY (re-base a coarse array onto a finer
+   latitude grid using the parameter's own read rule — nearest row or
+   linear interpolation — then delta-walk the refined rows).
+
+**Mechanics:**
+
+- Baseline b(lat) = operator's row where present, else the global —
+  the format's own header/array resolution, reused.
+- Walk: a uniform delta over the baseline (all latitudes shifted
+  together), per-latitude outcomes recorded at every step — the data
+  the walk already produces.
+- Synthesis: per latitude, the minimal delta that passes AND stays
+  passing for the rest of the walk (monotonicity is not assumed).
+- **Joint verification is mandatory**: rows are coupled through the
+  scheduler (a gate change at one latitude changes the operation
+  everywhere), so the composed array gets a full sweep — at the rows
+  plus midpoints for linearly-interpolated parameters (alpha), rows
+  plus a just-outside-span point for nearest-row parameters — and a
+  fixed-point iteration bumps any regressed row and re-sweeps. The
+  iteration's worst case converges to the uniform delta, i.e. exactly
+  the old global answer: v2 can never do worse than v1.
+- Write-back per parameter, gated by expressiveness:
+
+  | lever | scheduler per-lat | payload/mask expressible | write-back |
+  |---|---|---|---|
+  | alpha | yes (linear interp) | no — the tracked scene gap | global: yes; array: ADVICE-ONLY until ground-lat gating |
+  | min elevation | yes | lattice uses one global value | yes, with a lattice-gap warning (analogue of the alpha guard — to add) |
+  | Nco (MAX_CO_FREQ) | yes | clean (pure scheduler) | yes, both forms — **IMPLEMENTED** (first v2 leg, V34) |
+  | min duration | yes | clean, regime-exclusive | needs a per-lat profile field first; deriver measures no dwell |
+
+- Reporting: the per-latitude increment over the operator's declared
+  discipline (the granularity dividend made visible), plus the existing
+  power-headroom line and trend.
+
+**Does v2 replace the loop, and what is lost?** It subsumes it:
+scenario 1 degenerate = today's validation sweep; scenario 1 with a
+range at global granularity = today's advisor + Apply; scenario 2 is
+new capability. Nothing functional is lost provided v2 keeps four
+things: (i) the global-granularity output mode — the one-number answer,
+and for alpha the only write-back-capable form until scene gating;
+(ii) the mandatory joint verification pass, preserving the
+jointly-verified guarantee the global walk gave for free; (iii) the
+headroom and trend reporting; (iv) the per-parameter write-back gating
+with the min-elev lattice warning added beside the alpha guard. The
+costs are honest but bounded: more sweeps in array modes, and UI
+surface (lever + range + granularity + scenario) — defaults keep it
+simple (no inputs = validate current; one range = today's advisor).
+
+**Status:** the Nco leg is implemented (2026-09-01): the sweep core now
+takes any profile variant (`RunSweepProfile`), the walk-synthesize-verify
+machinery is a pure core over a sweep delegate (`NcoAdviseCore`, pinned
+headlessly by V34: monotone synthesis, the stay-passing rejection of a
+non-monotone dip, honest non-convergence at the range floor, the
+row-preserving merge, and the demand-clamped baseline read), the window
+gained the "Cap advisor (loop v2)" group (Advise / Apply Nco rows), and
+the walk reports "not the lever" when no margin moves — with demand 1
+link/cell the cap barely binds, which the report says outright. Alpha
+and min-elevation reuse the same core when their gating clears.
+
+**Defect found under this framing (interim warning shipped):** the
+current advisor and Apply run `profile with { AlphaExclDeg = a,
+AlphaByLat = null }` — an operator-provided alpha array is WIPED and
+replaced by a walked global, which discards declared structure and can
+even loosen a latitude below the operator's own enforced rule. v2 fixes
+this by construction (deltas over the baseline only tighten); until
+then the window warns whenever it walks or applies over a profile that
+carries per-latitude alpha rows.
+
 ## Decisions taken
 
 - Limits are hand-entered points in stage B (BR limits DB later).
@@ -243,7 +350,9 @@ dwell measurement in the deriver.
   fires a warning in the compliance and simulation windows whenever a
   profile carries per-latitude rows the scene cannot express, and V28
   pins it — the misleading-figure state cannot be entered unknowingly.
-- **OPEN (operator, 2026-09-01): per-latitude alpha table from the
+- **SUPERSEDED by the v2 design below (same day)** — kept for the
+  scene-gating coupling, which the v2 inherits unchanged. Original item:
+  **OPEN (operator, 2026-09-01): per-latitude alpha table from the
   global walk.** The advisor's linear walk already verdicts every
   latitude at every swept alpha, so a per-latitude minimal-alpha table
   (smallest walked alpha at which each latitude's row passes) falls out

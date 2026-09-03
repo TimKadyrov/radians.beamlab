@@ -628,7 +628,14 @@ value — one full sweep per step, up to a cap — to the smallest compliant
 α, noting when only some latitudes failed (per-latitude α rows are then
 the finer declaration); **Apply to profile** writes the found angle back
 into the operation profile, from where the R-set deriver and the mask
-export turn the compliant system into its declarations. When the
+export turn the compliant system into its declarations. The **Cap
+advisor (loop v2)** group does the same for the per-cell co-frequency
+cap, per latitude: it walks the cap down from the profile's effective
+baseline, synthesizes the largest cap each latitude's outcome allows,
+verifies the composed rows in one joint sweep, and **Apply Nco rows**
+writes them into the profile's per-latitude array (operator rows
+outside the swept span are kept); when no margin moves it reports that
+the cap is not the lever. When the
 profile's downlink footprint source is *PFD mask*, the sweep runs the
 examination's own down algorithm against the declared mask and R-set
 gates instead of the live composition — the direct check of what the
@@ -664,7 +671,7 @@ frequencies) and there is deliberately no stand-in payload behind it.
 An optional operating-parameter set (`*.opparams.json` from the R-set
 designer) is an **alternative gate source**: when set, the scheduler
 obeys the declared pointing/scheduling constraints instead of the
-profile's enforced gates, in both directions — the truth payload flown
+profile's enforced gates, in both directions — the truth payload run
 under the declared discipline. The remaining fields describe the victim
 and the run: GSO longitude; ES latitude/longitude, which also serve as
 the up/is victim's boresight; the S.1428 dish diameter (victim dish;

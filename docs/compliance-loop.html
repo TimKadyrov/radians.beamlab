@@ -59,7 +59,7 @@ a{color:var(--g1)} a:hover{color:#1983AA}
 <p class="lede">The loop answers two questions about the operated system: does it meet the
 Article&nbsp;22 epfd(down) limits, latitude by latitude &mdash; and if not, what is the
 smallest GSO-exclusion discipline that does? Whatever it finds is written back into the
-operation profile, so the declaration and the flown behaviour stay one thing.</p>
+operation profile, so the declaration and the simulated behaviour stay one thing.</p>
 
 <h2>The loop, end to end</h2>
 
@@ -132,6 +132,38 @@ and its own reference dish diameter &mdash; set the victim dish to the row's dia
 that is the antenna the limit was written for. Latitude-dependent short-term rows cannot fit
 the flat text and are shown for hand transcription of your latitude band.</p>
 
+<h2>Which failure is it?</h2>
+<p>A failed verdict means different things depending on <em>which projection</em> failed,
+and the remedy differs accordingly. The truth run T and the examination runs E1/E2 sit in
+a guaranteed order &mdash; a faithful declaration envelopes the truth, so
+E1&nbsp;&ge;&nbsp;T at every percentile &mdash; which leaves exactly three cases. The basis
+for the rule: the examination's level is never its own number &mdash; it is the truth plus
+the projection margin the declaration adds &mdash; so a crossed limit line is crossed
+either by the truth itself or inside that added margin, and the fix belongs to the
+component that crossed it:</p>
+<ul>
+<li><strong>T fails.</strong> The operation itself violates the limits, and no declaration
+work is legitimate &mdash; tuning the filing would only paper over a real problem. Fix the
+system first: per-beam power density is the exact lever (epfd moves dB-for-dB, and the
+sweep already prints how much per-beam power must be shed), then the operating rules this
+window walks (exclusion angle, caps), and only then the constellation itself.</li>
+<li><strong>T passes, E1 fails.</strong> The operation is fine; the <em>filing</em> would
+be found non-compliant. This is the projection-margin regime, and the optimisation moves
+to the declaration side &mdash; in this order: refine the examination inputs (mask
+b/c and latitude grids, a time step fine enough to resolve the quoted percentiles &mdash; the
+measured decomposition put several dB in these), tighten the declarations to the simulated
+truth (the deriver's envelopes rather than hand-written generosity), and promote enforced
+rules so the reachable envelope itself shrinks. The goal is fidelity &mdash; declarations
+at the granularity that reflects the real operation. Passing is the consequence when the
+system deserves it, never a target the declarations are fitted to.</li>
+<li><strong>Both pass.</strong> File; the remaining E1&nbsp;&minus;&nbsp;T margin is
+conservatism the filing carries as robustness.</li>
+</ul>
+<p>There is no fourth case: E1&nbsp;&ge;&nbsp;T means the examination can never green-light
+a system whose truth is red. If a run ever shows E1&nbsp;below&nbsp;T at some percentile,
+that is not good news &mdash; it is a mis-declaration (the envelope does not envelope), and
+the direction check exists to catch exactly that.</p>
+
 <h2>The advisor</h2>
 <p><strong>Suggest exclusion</strong> walks the global exclusion angle from the profile's
 current value upward in your step, re-running the full sweep at each value, and stops at
@@ -148,13 +180,23 @@ never an advisory note &mdash; otherwise the projection margin between mask and 
 measure a fiction. When only some latitudes failed at the start, the report also notes that
 per-latitude alpha rows would be the finer declaration (an open item, tracked with the
 scene-gating work it depends on).</p>
+<p><strong>The cap advisor (loop v2, first leg).</strong> Beside the exclusion walk, the
+window now carries the v2 advisor for the per-cell co-frequency cap: it walks the cap
+<em>down</em> from the profile's effective baseline (the declared cap, clamped by demand),
+synthesizes per latitude the largest cap that latitude's own outcome allows &mdash; with a
+stay-passing check, since tighter is not always better &mdash; then verifies the composed
+rows in one joint sweep before offering them. Apply writes the rows into the profile's
+per-latitude cap array, never touching operator rows outside the swept span. When no
+margin moves over the walk it says so plainly: the cap is not the lever (with one demanded
+link per cell it barely binds). The exclusion and elevation levers will reuse the same
+machinery once their payload-side gating clears.</p>
 <div class="tech"><div class="t">Tech &middot; promotion: from tendency to promise</div>
 <p>The alpha walk is one instance of a general recipe, because the filing carries no
 scheduling strategy &mdash; a behaviour reaches the declarations only as an enforced gate.
-<em>Observe</em> the tendency in the flown truth; <em>harden</em> it into the profile field
+<em>Observe</em> the tendency in the simulated truth; <em>harden</em> it into the profile field
 the scheduler enforces (<code>MinHoldSec</code>, <code>MinElevDeg</code>,
 <code>AlphaExclDeg</code>, the Nco caps); <em>verify</em> the truth cost &mdash; re-sweep,
-and fly the truth payload under the declared R (the runner's override mode is the
+and run the truth payload under the declared R (the runner's override mode is the
 before/after instrument); <em>declare</em> it through the R&nbsp;set, now backed by
 enforcement. Beware the elevation case: derived min_elev rows above the enforced floor are
 the envelope of one finite run, not a promise, until the floor itself is promoted. And a
@@ -169,13 +211,32 @@ at the swept exclusion. The summary prints it after every sweep and at the advis
 endpoints. Live-composition footprint only: a declared mask is a fixed file, and a power
 change would need the mask regenerated.</p></div>
 
-<h2>Reading the depth honestly</h2>
+<h2>Where the loop ends and the deriver begins</h2>
+<p>The loop is often confused with the R-set designer's
+<a href="r-set-designer.html">derive-from-simulation</a>, because both emit per-latitude
+tables shaped like the R&nbsp;set. They sit on opposite sides of the truth. The loop is
+<em>prescriptive</em>: limits in, operating rules out, written into the profile so the
+scheduler enforces them &mdash; it changes what the system does. The deriver is
+<em>descriptive</em>: it never reads a limit, it runs the profile as-is and records the
+envelope of what every granted link did, written into the R&nbsp;set as declarations. The
+intended order is loop first, derive second: the loop makes the truth compliant, the
+deriver makes the filing envelope that truth. Nothing the loop outputs is filed directly
+&mdash; a synthesised cap becomes a profile rule, and the filed
+<code>MAX_CO_FREQ</code> row is then <em>measured</em> from operation under that rule.</p>
+
+<h2>What a run can resolve</h2>
 <p>The defaults &mdash; 0.1&nbsp;day at 60&nbsp;s, 144 steps per sweep &mdash; are
 <em>screening-grade</em>, chosen so a fifteen-step walk stays affordable. Short-term limit
 points at very small percentages need far longer runs to even resolve: a point at 0.017%
-of the time is decided by a handful of deepest samples, on the order of six thousand steps
-or more. The loop's job at screening depth is to locate the compliant region, the binding
-latitude and the trend; the final word belongs to a long run at the found angle. The window
+of the time is decided by a handful of extreme samples, on the order of six thousand steps
+or more. And the step size matters as much as the count: measured on the reference
+geometry (450&nbsp;km cells at 1200&nbsp;km), 60&nbsp;s steps miss the main-beam transients
+entirely &mdash; per-run maxima moved ~20&nbsp;dB between 60&nbsp;s and 6&nbsp;s time steps and
+only ~0.3&nbsp;dB between 6&nbsp;s and 1&nbsp;s &mdash; so verdict-grade tail levels need
+steps of a few seconds, enough to resolve the beam footprint crossing the victim. The
+loop's job at screening depth is to locate the compliant region, the binding
+latitude and the trend; the final word belongs to a long, fine-stepped run at the found
+angle. The window
 also warns when the profile carries per-latitude exclusion rows the payload's single scene
 ring cannot express &mdash; a verdict computed in that state names its gap rather than
 hiding it.</p>

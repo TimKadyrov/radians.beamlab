@@ -115,7 +115,7 @@ takes over. Declare what the operation actually does, where it actually does it.
     <text x="26" y="172" class="svgtxt">Derive from simulation</text>
     <text x="26" y="190" class="svglbl">orbit design document</text>
     <text x="26" y="205" class="svglbl">+ operation profile (required)</text>
-    <text x="26" y="226" class="svglbl">fly under the scheduler,</text>
+    <text x="26" y="226" class="svglbl">run under the scheduler,</text>
     <text x="26" y="241" class="svglbl">envelope every granted link</text>
 
     <!-- designer -->
@@ -155,7 +155,7 @@ every array a few lines of text, and each field's tooltip is its parameter card.
 <p><strong>Derive from simulation</strong> is the intended path when the declarations are
 not known: point at the orbit design document and the operation profile &mdash; the profile
 is required, because it is the system under measurement, transmission basics included
-&mdash; and fly the operation under the scheduler. Everything every granted link actually
+&mdash; and run the operation under the scheduler. Everything every granted link actually
 did is then enveloped into a declared set.</p>
 
 <h2>What the derivation writes</h2>
@@ -180,7 +180,23 @@ follow &mdash; declarations as envelopes of the simulated truth. But a derived r
 above its enforced gate is a <em>tendency</em>, not yet a promise &mdash; one finite run's
 envelope. Before filing it, promote the enforced gate to match (the promotion recipe on
 the <a href="compliance-loop.html">compliance page</a>), and use the simulation runner's
-declared-gates override to fly the truth under the declaration as the check.</p>
+declared-gates override to run the truth under the declaration as the check.</p>
+
+<h2>Not the compliance loop</h2>
+<p>The deriver and the <a href="compliance-loop.html">compliance loop</a> both produce
+per-latitude, R-shaped tables out of simulation sweeps, which makes them easy to conflate.
+The boundary: <strong>the loop decides how the system must behave; the deriver records how
+it did behave.</strong> The loop starts from the Article&nbsp;22 limits and searches for
+operating rules &mdash; an exclusion angle, per-latitude co-frequency caps &mdash; and
+writes what it finds into the <em>profile</em>, as rules the scheduler enforces. The
+deriver never looks at a limit: it runs the profile exactly as given and envelopes the
+outcome into <em>declarations</em>. So they chain rather than overlap &mdash; if the
+system fails the limits, run the loop first, so the rules change the truth; then derive,
+so the filing envelopes the now-compliant truth. A loop-synthesised cap and a derived
+<code>MAX_CO_FREQ</code> row at the same latitude are different numbers with different
+meanings: the first is an input the operation obeys, the second the measured envelope of
+what happened under it &mdash; usually tighter, per the 10&deg;-gate-yields-10.3&deg;
+doctrine above.</p>
 <div class="tech"><div class="t">Tech &middot; the writer's encoding rules</div>
 <p>Export enforces the R-set XML conventions: <code>min_duration</code> is never written
 as 0 (omit it to select the classic algorithm), <code>min_angle_at_es</code> is rejected
@@ -192,7 +208,7 @@ when <code>min_duration</code> is declared, and <code>es_density</code> /
 row of the dataset. The JSON round-trips the designer &mdash; and the
 <strong>Simulation runner</strong> accepts it as the optional alternative gate source:
 the scheduler obeys the declared constraints instead of the profile's enforced gates,
-so the same truth payload can be flown under its own discipline and under the declared
+so the same truth payload can be run under its own discipline and under the declared
 one, and the two CDFs show what the declaration costs or allows.</p>
 
 <div class="foot">
