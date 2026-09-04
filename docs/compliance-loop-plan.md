@@ -471,12 +471,31 @@ set under a traffic model. That is the distinction the design brief
 draws between reachable and occurring bases, obtained by measurement
 rather than by assertion.
 
-**Adequacy has a stopping rule.** A finite probe could miss a permitted
-configuration, and a missed configuration is again the dangerous
-direction. The visited set must therefore be run until it stops
-growing — the same shape of convergence criterion as the time-step rule,
-and reportable in the same way (new configurations per unit time falling
-to zero). The existing mask-above-truth check is the backstop.
+**Adequacy is E1’s job (operator, 2026-09-04).** "Measurement" here
+means simulation and observation: run the system under the candidate
+commitments and record what it does. That trades a construction
+guarantee for an empirical one. Today mask >= live holds BY
+CONSTRUCTION -- the sampler envelopes the configurations analytically
+and ScenePointing flies one of them -- whereas a mask derived from an
+observed set holds only if the observation was granular enough. The
+test for that is already the acceptance direction: an under-sampled
+probe yields a mask that is too tight, and a truth run then exceeds it
+at some percentile. E1 >= T stops being only an acceptance criterion
+and becomes the ADEQUACY TEST of the derivation.
+
+One condition makes it real: the verifying run must be INDEPENDENT of
+the derivation run -- a different epoch or seed, at least as fine, and
+verdict-grade. A mask derived from run A envelopes run A trivially, so
+checking it against run A tests nothing. Derive from the probe, verify
+against a separate truth.
+
+The two granularities then have opposite signatures, which is what
+makes them diagnosable:
+
+| too coarse | effect on E1 | direction | how it surfaces |
+|---|---|---|---|
+| mask grid (b/c, latitude step) | inflated | safe, wasteful | the refine-and-watch attribution runs |
+| probe (time step, duration, configurations visited) | deflated | UNSAFE | E1 < T at some percentile on an independent run |
 
 **Consequence for the loop.** The mask and the R set become two products
 of ONE measurement pass over the same enforced run, which is why the

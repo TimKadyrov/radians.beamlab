@@ -1934,3 +1934,78 @@ Same words, opposite objects. Recorded as a documentation rule with the
 broader one behind it: a declared data item is described by the
 Recommendation that DEFINES the field, and a study Recommendation may
 parent only truth-side cards.
+
+## Beamlab — the mask by measurement, and E1 as the adequacy test, 4 September 2026
+
+Two operator corrections to the reply above, both sharpening how the
+commitments are supposed to reach the mask. They change the shape of
+E1-1 and E1-2, so they belong on the record before either is built.
+
+**1. The mask takes the commitments by MEASUREMENT, not by assertion.**
+My proposal was a gate in the envelope sampler: boresight inside
+`ES_LAT`, alpha clearing the table, at most K beams. That is the wrong
+side of the doctrine this project has otherwise held. Declarations are
+envelopes of what the system does; the R set already gets its numbers by
+measuring the flown operation, and the mask should get them the same
+way. The asymmetry matters in the direction that counts: a mask that
+ASSERTS a restriction can assert one the scheduler does not enforce, and
+that error is non-conservative — precisely the defect the acceptance
+direction exists to catch. A mask that MEASURES cannot make that error,
+because it observes exactly what the enforced system did.
+
+So the derivation is a reachability probe: run the scheduler under the
+candidate commitments, record the beam configurations it actually grants
+— sub-satellite latitude, boresight direction, and how many co-frequency
+beams a satellite carries at once — and envelope the pfd over that set.
+Every commitment reaches the mask through the one mechanism that already
+enforces it, with no per-commitment code: service latitude band, minimum
+elevation, per-latitude exclusion, coverage radius and beam cap all
+shape what is visited, so they all shape the mask. This also answers
+your E1-1 and E1-2 with a single implementation rather than two.
+
+The one thing the probe must not inherit is TRAFFIC. Demand, activity,
+duty and operational fraction are Class T by your own classification: no
+field binds them, so a mask tightened by them would be fitted to
+behaviour the operator never promised. The probe therefore runs
+SATURATED — every cell demanding, activity 1, operational fraction 1,
+duty 1 — so what is measured is the reachable set under the
+COMMITMENTS, not the occurring set under a traffic model. That is the
+brief's reachable/occurring distinction obtained by measurement instead
+of by assertion.
+
+**2. E1 is what tests whether the simulation and observation were
+granular enough.** Measurement here means simulation and observation,
+and that trades a construction guarantee for an empirical one. Today
+`mask >= live` holds BY CONSTRUCTION: the sampler envelopes the
+configurations analytically and `ScenePointing` flies one of them
+(the code says so in as many words). A mask derived from an observed set
+holds only if the observation was fine enough and long enough. The test
+for that is already in hand — an under-sampled probe yields a mask that
+is too tight, and a truth run then exceeds it at some percentile. So
+E1 >= T stops being only the acceptance criterion and becomes the
+ADEQUACY TEST of the derivation itself.
+
+One condition makes it real: the verifying run must be INDEPENDENT of
+the derivation run — different epoch or seed, at least as fine,
+verdict-grade. A mask derived from run A envelopes run A trivially, so
+checking it against run A tests nothing.
+
+The two granularities then have opposite signatures, which makes a
+failure diagnosable rather than merely detectable:
+
+| too coarse | effect on E1 | direction | how it surfaces |
+|---|---|---|---|
+| mask grid (b/c, latitude step) | inflated | safe, wasteful | the refine-and-watch runs — 2.1 dB measured on the BL case |
+| probe (time step, duration, configurations visited) | deflated | UNSAFE | E1 < T at some percentile on an independent run |
+
+Which puts granularity on the same footing as the time-step rule:
+measured against a stated criterion, not asserted. It also supersedes
+the stopping rule I proposed earlier this day (run the probe until the
+visited set stops growing); that survives only as a cheap early
+indicator, with the independent verification as the real gate.
+
+**Consequence for the loop.** The mask and the R set become two products
+of ONE measurement pass over the same enforced run. That is why the loop
+must derive both, and why the three-way invariant — mask, R set and
+enforced gate carrying the same number at every latitude — then holds by
+construction rather than by inspection.
