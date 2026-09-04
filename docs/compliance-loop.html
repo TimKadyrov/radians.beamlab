@@ -113,7 +113,10 @@ runner performs &mdash; the live scheduled beam composition, or, when the profil
 the mask footprint source, the examination's own read of the declared PFD mask
 (Recommendation ITU-R S.1503-4 &sect;D5.1.4.1). Each latitude becomes one row: the maximum
 epfd seen, the verdict, and the worst dB margin. <strong>Export table&hellip;</strong>
-writes the rows as CSV.</p>
+writes the rows as CSV. While a sweep runs, the status line and a progress bar report each
+latitude as it starts and finishes (with its verdict and margin) and the fraction of time
+steps done within it; the advisors add one line per walk step, so a long run on a large
+constellation is never silent.</p>
 <div class="tech"><div class="t">Tech &middot; verdict and margin</div>
 <p>The verdict is the examination's own comparison: at every limit point, the simulated
 level exceeded for the allowed percentage of time must not pass the limit level
@@ -233,7 +236,12 @@ or more. And the step size matters as much as the count: measured on the referen
 geometry (450&nbsp;km cells at 1200&nbsp;km), 60&nbsp;s steps miss the main-beam transients
 entirely &mdash; per-run maxima moved ~20&nbsp;dB between 60&nbsp;s and 6&nbsp;s time steps and
 only ~0.3&nbsp;dB between 6&nbsp;s and 1&nbsp;s &mdash; so verdict-grade tail levels need
-steps of a few seconds, enough to resolve the beam footprint crossing the victim. The
+steps of a few seconds, enough to resolve the beam footprint crossing the victim. That is
+our own measurement of a rule the simulation methodology states generally: tie the time
+step to the beamwidth of the <em>interfered</em> antenna, so that at least five samples fall
+while a satellite crosses its 3&nbsp;dB beam (Rec. ITU-R S.1325 revision draft
+&sect;2.7.2). It governs a simulation's own stepping; the examination's stepping is
+S.1503-4's business, not this one's. The
 loop's job at screening depth is to locate the compliant region, the binding
 latitude and the trend; the final word belongs to a long, fine-stepped run at the found
 angle. The window

@@ -147,7 +147,7 @@ public static class ParameterCatalog
             }) { SubGroup = ProfileIntent.Service },
         new(ParameterGroup.Truth, "ActivityFactor", "0–1 · + ActivityPeriodSec",
             "ServiceCell.ActivityFactor / ActivityPeriodSec (1.0 / 300 s)",
-            "On/off traffic per slot: in each holding window a deterministic hash of (cell, slot, window) decides whether demand exists. Inactive windows release the link with no handover and no unserved count — no traffic, no transmission, in both link directions at once.",
+            "On/off traffic per slot: in each holding window a deterministic hash of (cell, slot, window) decides whether demand exists. Inactive windows release the link with no handover and no unserved count — no traffic, no transmission, in both link directions at once. This is the basic level of the two-level traffic model (S.1325 rev §2.3.4): the link is on or off and the amount of traffic while on is ignored. The advanced level — a traffic level compared against a trigger, scaling transmit power — and the hourly local-time profile that drives it are not modelled here; a constant factor is their degenerate case.",
             new[]
             {
                 "releases restart MIN_DURATION dwell without counting handovers",
@@ -163,7 +163,7 @@ public static class ParameterCatalog
             }) { SubGroup = ProfileIntent.Uplink },
         new(ParameterGroup.Truth, "PowerControlRefElevDeg", "deg · nullable",
             "EpfdUpEsModel.PowerControlRefElevDeg",
-            "Range-based closed-loop power control (S.1325 “power control on range”): the ceiling corresponds to the slant range at this elevation, and each link transmits 20 log₁₀(d ref / d link) below it — constant flux at the serving satellite. Worth ≈2 dB in the BL-U1 truth CDF.",
+            "Range-based closed-loop power control (power control on range, S.1325 rev §2.3.3, the receiver-power-density formulation): the ceiling corresponds to the slant range at this elevation, and each link transmits 20 log₁₀(d ref / d link) below it — constant flux at the serving satellite. Worth ≈2 dB in the BL-U1 truth CDF.",
             new[]
             {
                 "referenced to the band’s declared MIN_ELEV in the dataset",
@@ -178,12 +178,13 @@ public static class ParameterCatalog
                 "never enters the mask samplers: peak vs average is the point",
             }) { SubGroup = ProfileIntent.Power },
         new(ParameterGroup.Truth, "SelectionPolicy", "enum",
-            "Scheduler(…, policy) · HighestElevation | MaxGsoSeparation | HoldUntilForced",
-            "Which feasible satellite serves: the highest-elevation default, the one farthest from the GSO arc, or hold-until-forced — no voluntary handover while the link stays feasible. All obey every declared bound; the differences between their CDFs price the strategies.",
+            "Scheduler(…, policy) · HighestElevation | MaxGsoSeparation | Random | HoldUntilForced",
+            "Which feasible satellite serves. Selection runs in two stages, as the simulation methodology sets it out (S.1325 rev §2.3.2.2): the declared gates filter the candidates first — minimum elevation, which may vary by latitude and azimuth, and the GSO avoidance angle — then the strategy chooses among what survives. The four here are that catalogue’s own: highest elevation, largest separation from the GSO arc, a uniform random draw among the feasible set, and hold-until-forced. Highest elevation has two handover variants and both are present — always take the highest, or keep the active satellite until it drops below the floor, which is hold-until-forced here. The random draw is the software-defined-networking case, where the real selection is proprietary or too complex to model and operators report a random choice as an adequate approximation. Where a cell serves more than one slot, the next slot takes the next candidate down: second best, then third. All obey every declared bound; the differences between their CDFs price the strategies.",
             new[]
             {
                 "MaxGsoSeparation maximises the same α that MIN_EXCLUDE bounds",
                 "drives the candidate sort and the voluntary-handover comparison",
+                "no strategy has an R-set field — selection reaches the filing only through the gates it obeys (the 4A/653 alpha table proposed to carry it and was rejected)",
             }) { SubGroup = ProfileIntent.Service },
         new(ParameterGroup.Truth, "OperationalFraction", "0–1 · per shell",
             "ConstellationShell.OperationalFraction",
@@ -202,7 +203,7 @@ public static class ParameterCatalog
             }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "CellPitchKm / coverageRadiusKm", "km",
             "ServiceGeography.CellPitchKm · Scheduler ctor override",
-            "The service-grid pitch, doubling as the default radius within which a resolved beam footprint must land to cover a cell. The default hex layout has no central beam — nearest boresights sit 433 km from the sub-satellite point at 1200 km — a lattice fact that decides feasibility.",
+            "The service-grid pitch, doubling as the default radius within which a resolved beam footprint must land to cover a cell. It is the average distance between co-frequency, co-polarized earth stations that the uniform deployment model is defined by (S.1325 rev §2.3.1.2), and the quantity the declaration carries as es_distance. The default hex layout has no central beam — nearest boresights sit 433 km from the sub-satellite point at 1200 km — a lattice fact that decides feasibility.",
             new[]
             {
                 "too tight a radius silently unserves covered-looking cells (three harness checks learned this)",
@@ -249,7 +250,7 @@ public static class ParameterCatalog
             }) { SubGroup = ProfileIntent.Power },
         new(ParameterGroup.Truth, "PowerMode", "enum",
             "PfdMaskViewModel.PowerMode · constant e.i.r.p. | constant boresight PFD",
-            "Downlink power control: constant e.i.r.p. (the default) drives every beam at TxEirpDbw; constant boresight PFD adds 20 log₁₀(slant/altitude) per beam so every boresight lands the same flux on the ground despite spreading — the compensation a real payload flies.",
+            "Downlink power control: constant e.i.r.p. (the default) drives every beam at TxEirpDbw; constant boresight PFD adds 20 log₁₀(slant/altitude) per beam so every boresight lands the same flux on the ground despite spreading — the compensation a real payload applies. These are the two formulations of power control on range (S.1325 rev §2.3.3): a target power density at the receiver, and a target flux at the surface. A filed mask whose plateau is flat in pfd across range was built the second way.",
             new[]
             {
                 "check C4 pins the compensation: boresight PFD flat across the layout",
@@ -318,7 +319,7 @@ public static class ParameterCatalog
             }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "PatternKind", "enum",
             "SceneModel.PatternKind · profile PatternKind",
-            "The per-beam pattern model: S.1528-1 §1.4 Taylor, circular or elliptical (the scene default), or the S.1528-0 §1.2 envelope and §1.3 LEO/MEO/HEO references. It changes each beam's shape and side lobes — the composite everywhere off boresight — while the lattice population stays with the layout parameters. Empty keeps the scene default.",
+            "The per-beam pattern model: S.1528-1 §1.4 Taylor, circular or elliptical (the scene default), or the S.1528-0 §1.2 envelope and §1.3 LEO/MEO/HEO references. It changes each beam's shape and side lobes — the composite everywhere off boresight — while the lattice population stays with the layout parameters. Empty keeps the scene default. A simulation may model the space-station antenna by a measured pattern, a reference pattern, or an analytical side-lobe function (S.1325 rev §2.4.2); these are the reference patterns.",
             new[]
             {
                 "the Taylor parameters (SLR, nbar, floor) apply to the §1.4 kinds",
@@ -341,7 +342,7 @@ public static class ParameterCatalog
             }) { SubGroup = ProfileIntent.Uplink },
         new(ParameterGroup.Truth, "Service area", "deg lat × lon",
             "OperationProfile.ServiceLat/LonMin..Max · ServiceGeography.Grid",
-            "The served-cell rectangle the geography is gridded over at the cell pitch — the truth-side population of transmitting and receiving cells. Distinct from the declared ES_LAT range: the composer copies the latitude bounds into the declaration; the longitude bounds exist only on the truth side (the examination plants typical ES by density instead).",
+            "The served-cell rectangle the geography is gridded over at the cell pitch — the truth-side population of transmitting and receiving cells. Distinct from the declared ES_LAT range: the composer copies the latitude bounds into the declaration; the longitude bounds exist only on the truth side (the examination plants typical ES by density instead). Of the five deployment models a simulation may use — known locations, a uniform density-and-distance grid, probabilistic, population-based, typical-demand (S.1325 rev §2.3.1) — this is the uniform grid.",
             new[]
             {
                 "cells outside the declared ES_LAT range are never served — declaration binds truth",

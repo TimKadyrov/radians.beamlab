@@ -455,10 +455,12 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     <div class="name-row"><span class="pname">Service area</span><span class="unit">deg lat &times; lon</span></div>
     <div class="where"><b>OperationProfile.ServiceLat/LonMin..Max</b> &middot; ServiceGeography.Grid</div>
     <div class="chips"><span class="chip on">Geography</span></div>
-    <p class="desc">The served-cell rectangle the geography is gridded over at the cell pitch &mdash; the
-    truth-side population of transmitting and receiving cells. Distinct from the declared ES_LAT range: the
-    composer copies the latitude bounds into the declaration; the longitude bounds exist only on the truth side
-    (the examination plants typical ES by density instead).</p>
+    <p class="desc">The served-cell rectangle the geography is gridded over at the cell pitch — the truth-side population of
+    transmitting and receiving cells. Distinct from the declared ES_LAT range: the composer copies the latitude
+    bounds into the declaration; the longitude bounds exist only on the truth side (the examination plants
+    typical ES by density instead). Of the five deployment models a simulation may use — known locations, a
+    uniform density-and-distance grid, probabilistic, population-based, typical-demand (S.1325 rev §2.3.1) —
+    this is the uniform grid.</p>
     <ul class="rel">
       <li><span class="op">&rarr;</span><span>cells outside the declared <code>ES_LAT</code> range are never served &mdash; declaration binds truth</span></li>
       <li><span class="op">&rarr;</span><span>the deriver's measured es_lat envelope comes from exactly these cells</span></li>
@@ -469,9 +471,11 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     <div class="name-row"><span class="pname">CellPitchKm / coverageRadiusKm</span><span class="unit">km</span></div>
     <div class="where"><b>ServiceGeography.CellPitchKm</b> &middot; Scheduler ctor override</div>
     <div class="chips"><span class="chip on">Scheduler coverage</span></div>
-    <p class="desc">The service-grid pitch, doubling as the default radius within which a resolved beam footprint
-    must land to cover a cell. The default hex layout has <em>no central beam</em> &mdash; nearest boresights sit
-    433&nbsp;km from the sub-satellite point at 1200&nbsp;km &mdash; a lattice fact that decides feasibility.</p>
+    <p class="desc">The service-grid pitch, doubling as the default radius within which a resolved beam footprint must land to
+    cover a cell. It is the average distance between co-frequency, co-polarized earth stations that the uniform
+    deployment model is defined by (S.1325 rev §2.3.1.2), and the quantity the declaration carries as
+    es_distance. The default hex layout has no central beam — nearest boresights sit 433 km from the
+    sub-satellite point at 1200 km — a lattice fact that decides feasibility.</p>
     <ul class="rel">
       <li><span class="op">&rarr;</span><span>too tight a radius silently unserves covered-looking cells (three harness checks learned this)</span></li>
       <li><span class="op">&rarr;</span><span>interacts with <code>MIN_ELEV</code>: both must admit the geometry before a candidate exists</span></li>
@@ -494,9 +498,12 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     <div class="name-row"><span class="pname">ActivityFactor</span><span class="unit">0&ndash;1 &middot; + ActivityPeriodSec</span></div>
     <div class="where"><b>ServiceCell.ActivityFactor / ActivityPeriodSec</b> (1.0 / 300 s)</div>
     <div class="chips"><span class="chip on">Scheduler demand</span></div>
-    <p class="desc">On/off traffic per slot: in each holding window a deterministic hash of (cell,&nbsp;slot,&nbsp;window)
-    decides whether demand exists. Inactive windows release the link with no handover and no unserved count &mdash;
-    no traffic, no transmission, in both link directions at once.</p>
+    <p class="desc">On/off traffic per slot: in each holding window a deterministic hash of (cell, slot, window) decides whether
+    demand exists. Inactive windows release the link with no handover and no unserved count — no traffic, no
+    transmission, in both link directions at once. This is the basic level of the two-level traffic model
+    (S.1325 rev §2.3.4): the link is on or off and the amount of traffic while on is ignored. The advanced level
+    — a traffic level compared against a trigger, scaling transmit power — and the hourly local-time profile
+    that drives it are not modelled here; a constant factor is their degenerate case.</p>
     <figure><svg viewBox="0 0 300 84" role="img" aria-label="Timeline: activity windows gate whether a link exists; within a link, illumination duty scales the average power">
       <g style="color:var(--ink)">
         <text x="4" y="18" class="svgtxt">activity</text>
@@ -533,14 +540,22 @@ a{color:var(--g1)} a:hover{color:#1983AA}
 
   <div class="cardp truth">
     <div class="name-row"><span class="pname">SelectionPolicy</span><span class="unit">enum</span></div>
-    <div class="where"><b>Scheduler(&hellip;, policy)</b> &middot; HighestElevation | MaxGsoSeparation | HoldUntilForced</div>
+    <div class="where"><b>Scheduler(&hellip;, policy)</b> &middot; HighestElevation | MaxGsoSeparation | Random | HoldUntilForced</div>
     <div class="chips"><span class="chip on">Scheduler metric</span></div>
-    <p class="desc">Which feasible satellite serves: the highest-elevation default, the one farthest from the GSO
-    arc, or hold-until-forced &mdash; no voluntary handover while the link stays feasible. All obey every declared
-    bound; the differences between their CDFs price the strategies.</p>
+    <p class="desc">Which feasible satellite serves. Selection runs in two stages, as the simulation methodology sets it out
+    (S.1325 rev §2.3.2.2): the declared gates filter the candidates first — minimum elevation, which may vary by
+    latitude and azimuth, and the GSO avoidance angle — then the strategy chooses among what survives. The four
+    here are that catalogue’s own: highest elevation, largest separation from the GSO arc, a uniform random draw
+    among the feasible set, and hold-until-forced. Highest elevation has two handover variants and both are
+    present — always take the highest, or keep the active satellite until it drops below the floor, which is
+    hold-until-forced here. The random draw is the software-defined-networking case, where the real selection is
+    proprietary or too complex to model and operators report a random choice as an adequate approximation. Where
+    a cell serves more than one slot, the next slot takes the next candidate down: second best, then third. All
+    obey every declared bound; the differences between their CDFs price the strategies.</p>
     <ul class="rel">
       <li><span class="op">&equiv;</span><span>MaxGsoSeparation maximises the same &alpha; that <code>MIN_EXCLUDE</code> bounds</span></li>
       <li><span class="op">&rarr;</span><span>drives the candidate sort <em>and</em> the voluntary-handover comparison</span></li>
+      <li><span class="op">&perp;</span><span>no strategy has an R-set field &mdash; selection reaches the filing only through the gates it obeys (the 4A/653 alpha table proposed to carry it and was rejected)</span></li>
     </ul>
   </div>
 
@@ -565,9 +580,11 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     <div class="name-row"><span class="pname">PowerMode</span><span class="unit">enum</span></div>
     <div class="where"><b>PfdMaskViewModel.PowerMode</b> &middot; constant e.i.r.p. | constant boresight PFD</div>
     <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">Downlink power control: constant e.i.r.p. (the default) drives every beam at TxEirpDbw; constant
-    boresight PFD adds 20 log&#8321;&#8320;(slant/altitude) per beam so every boresight lands the same flux on the
-    ground despite spreading &mdash; the compensation a real payload flies.</p>
+    <p class="desc">Downlink power control: constant e.i.r.p. (the default) drives every beam at TxEirpDbw; constant boresight
+    PFD adds 20 log₁₀(slant/altitude) per beam so every boresight lands the same flux on the ground despite
+    spreading — the compensation a real payload applies. These are the two formulations of power control on
+    range (S.1325 rev §2.3.3): a target power density at the receiver, and a target flux at the surface. A filed
+    mask whose plateau is flat in pfd across range was built the second way.</p>
     <ul class="rel">
       <li><span class="op">&rarr;</span><span>check C4 pins the compensation: boresight PFD flat across the layout</span></li>
       <li><span class="op">&rarr;</span><span>the derived masks bake whichever mode the profile declares</span></li>
@@ -637,10 +654,11 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     <div class="name-row"><span class="pname">PatternKind</span><span class="unit">enum</span></div>
     <div class="where"><b>SceneModel.PatternKind</b> &middot; profile PatternKind</div>
     <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">The per-beam pattern model: S.1528-1 &sect;1.4 Taylor, circular or elliptical (the scene
-    default), or the S.1528-0 &sect;1.2 envelope and &sect;1.3 LEO/MEO/HEO references. It changes each beam's
-    shape and side lobes &mdash; the composite everywhere off boresight &mdash; while the lattice population stays
-    with the layout parameters. Empty keeps the scene default.</p>
+    <p class="desc">The per-beam pattern model: S.1528-1 §1.4 Taylor, circular or elliptical (the scene default), or the
+    S.1528-0 §1.2 envelope and §1.3 LEO/MEO/HEO references. It changes each beam's shape and side lobes — the
+    composite everywhere off boresight — while the lattice population stays with the layout parameters. Empty
+    keeps the scene default. A simulation may model the space-station antenna by a measured pattern, a reference
+    pattern, or an analytical side-lobe function (S.1325 rev §2.4.2); these are the reference patterns.</p>
     <ul class="rel">
       <li><span class="op">&rarr;</span><span>the Taylor parameters (SLR, nbar, floor) apply to the &sect;1.4 kinds</span></li>
       <li><span class="op">&perp;</span><span>the &sect;1.2/&sect;1.3 kinds are S.1528-0 reference patterns, not shaped illuminations</span></li>
@@ -804,10 +822,9 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     <div class="name-row"><span class="pname">PowerControlRefElevDeg</span><span class="unit">deg &middot; nullable</span></div>
     <div class="where"><b>EpfdUpEsModel.PowerControlRefElevDeg</b></div>
     <div class="chips"><span class="chip on">EpfdUp</span></div>
-    <p class="desc">Range-based closed-loop power control (S.1325 &ldquo;power control on range&rdquo;): the ceiling
-    corresponds to the slant range at this elevation, and each link transmits
-    <code>20&#8201;log&#8321;&#8320;(d&#8202;ref&#8202;/&#8202;d&#8202;link)</code> below it &mdash; constant flux at
-    the serving satellite. Worth &asymp;2&nbsp;dB in the BL-U1 truth CDF.</p>
+    <p class="desc">Range-based closed-loop power control (power control on range, S.1325 rev §2.3.3, the receiver-power-density
+    formulation): the ceiling corresponds to the slant range at this elevation, and each link transmits 20
+    log₁₀(d ref / d link) below it — constant flux at the serving satellite. Worth ≈2 dB in the BL-U1 truth CDF.</p>
     <figure><svg viewBox="0 0 300 100" role="img" aria-label="Slant range at the reference minimum elevation is the longest allowed path; a higher satellite needs less power">
       <g style="color:var(--ink)" stroke="currentColor" fill="none">
         <path d="M10 88 Q150 70 290 88" opacity=".5"/>
