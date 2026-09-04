@@ -1718,3 +1718,118 @@ STEAM-2B remains the external anchor: once E1-1 lands, re-run the
 filed-mask parity — if the committed-beam-count envelope closes most of
 the ~20 dB toward their filed cap and floor, the construction is
 vindicated against practice, not just against our own truth.
+
+---
+
+## New input — the S.1325 revision draft: the operation profile's parent taxonomy, 4 September 2026
+
+*Source: docs/REC-S.1325 rev/S.1325-rev Clean.docx — Annex 24 to the
+WP 4A Chair's Report (Doc 4A/1064, issued as 4A/TEMP/265, May 2026), a
+working document toward a preliminary draft revision of Recommendation
+ITU-R S.1325, US-driven, motivated by the aggregate-epfd consultation of
+Resolution 76 (Rev. WRC-23). Not agreed — bracket-heavy — and a STUDY
+Recommendation, not the examination one: which is exactly why it says
+out loud everything S.1503 cannot declare.*
+
+Its §2.3 "Operational assumptions" is the ITU's own operation-profile
+shape: five earth-station deployment models, a two-stage selection
+structure (filter gates, then strategy), a catalogue of selection
+strategies, power control in two formulations, and a two-level traffic
+model. The operation profile stops being our invention — nearly every
+card gains a Rec anchor, and the gaps become a farm list.
+
+**Already in the profile, now with a citable parent** (propose adding
+the section number to each card's "Where" line):
+
+- Deployment: known locations / fixed-separation grid (§2.3.1.1, with a
+  hexagonal-grid figure) = ServiceGeography.Grid and the specific-ES
+  case; uniform density-and-distance with representative-ES aggregation
+  n_es = d_es² · rho_es and e.i.r.p._rep = e.i.r.p._es + 10 log n_es
+  (§2.3.1.2) = the declared ES_DENSITY/ES_DISTANCE examination side,
+  formula-identical.
+- Selection (§2.3.2.2): highest elevation with BOTH handover variants
+  named — always-highest (our HighestElevation) and
+  acquire-then-hold-to-minimum-elevation (our HoldUntilForced's shape);
+  largest separation from the GSO arc (our MaxGsoSeparation); random /
+  pseudorandom with the SDN rationale — proprietary, too complex,
+  "adequate approximation to actual operation", seeded for
+  repeatability — the 4A/653 operator-attested story, now in Rec-draft
+  prose (our Random, fresh from the oracle round).
+- Arc avoidance by angle to the arc (§2.3.2.1.2) = AlphaExclDeg; the
+  two-stage structure = Scheduler's CandidateLinks -> policy, verbatim.
+- Power control on range (§2.3.3) in both our formulations: desired
+  receive power density (the uplink PowerControlRefElevDeg chain) and
+  target PFD at the surface (the downlink constant-boresight-PFD
+  PowerMode).
+- Basic on/off traffic = ActivityFactor / ActivityPeriodSec.
+- The rev's own worked deployment zones are lat 30-60 N, lon +/-10
+  (baseline) and +/-20 (extended) — the BL service rectangle IS the
+  extended zone; and its Fig. 3 finding (baseline vs extended: no
+  observable epfd difference) is external support for the
+  bounded-rectangle adequacy this debate once questioned.
+- §2.5.2 lists "maximum number of co-frequency and co-polarization
+  antenna beams and their spatial orientation" as a REQUIRED antenna
+  input — the study Rec treats the beam-count commitment as a
+  first-class parameter. E1-1's premise, independently stated by the
+  parent document.
+
+**The farm list — missing from the profile** (all Class T, so the E1
+campaign is untouched; ordered by value-for-cost):
+
+1. **Latitude-band arc avoidance** (§2.3.2.1.1): exclusion +/-X deg
+   about the equatorial plane plus a minimum discrimination angle Y at
+   the ES — "often used by MEO systems", i.e. the O3b technique. An
+   avoidance MODE alongside the alpha mode, not an alpha value. Directly
+   relevant to the equatorial-MEO cases.
+2. **Longest-dwell selection** (§2.3.2.2.1): at acquisition, minimise
+   dot(r_hat, v_hat) — pick the satellite moving toward the station.
+   Completes the canonical strategy set; cheap against CandidateLinks.
+3. **Reference-vector selection** (§2.3.2.2.5): nearest candidate to a
+   declared (az, el) vector per latitude; the zenith vector reduces it
+   to highest-elevation. Note the alpha table's afterlife lives here
+   too — rejected from the examination Rec, alive as a SIMULATION
+   selection strategy in the study Rec.
+4. **Local-time-of-day traffic** (§2.3.4.1, Table 2: hour -> P(active),
+   10% at night to 100% midday, keyed to LOCAL time at the earth
+   station): ActivityByLocalHour rows; our constant ActivityFactor is
+   its degenerate case. This is the item that matters for the
+   aggregate era and for T realism.
+5. Advanced traffic level (level-vs-trigger; CDMA-style power scaling
+   P_t = P_max · C_traffic) — optional power-by-load, beyond on/off.
+6. Probabilistic / population-based / typical-demand deployment
+   (§2.3.1.3-5) — a deployment-mode enum; the population raster
+   deferred until a case needs it.
+7. Geographic Nco (§2.3.4.2, and the draft's own Editor's note: "The
+   maximum Nco specified in the SRS database does not represent dynamic
+   NGSO operations… requires further study"; rural Nco = 1 vs urban
+   maximum) — WP 4A itself flags the Nco realism point the corpus gave
+   us via 4A/658. NcoByLat is its declarable [lat] shadow; the full
+   geographic structure is truth-only.
+8. Pointing avoidance between non-GSO systems (§2.3.2.3, theta_T /
+   theta_R thresholds) — needed only when multi-system aggregate work
+   arrives.
+
+**The aggregate horizon.** recommends 6 + Annex 4 + the Annex 5 work
+programme are the Res 76 (Rev. WRC-23) aggregate-epfd methodology —
+aggregation by CONVOLVING per-system epfd CDFs, demonstrated on two
+"contemporary" hypothetical systems whose tables are numerically the
+Starlink Gen1 shells (72x22 at 550/53, 72x22 at 540/53.2, 36x20 at
+570/70, 6x58 and 4x43 at 560/97.6) and a OneWeb-shaped system — two
+more farmable constellation decks now sitting in our own docs folder.
+§2.5.3's input list (min elevation, time step, precession, power
+control, traffic model, selection description, avoidance technique,
+ES density by region, perturbations) reads as the checklist an
+operation-profile export should be able to fill line by line. That, and
+the multi-system pointing avoidance, define the tool horizon after the
+E1 campaign — not before.
+
+**Actions proposed:** (a) card anchoring — one S.1325-rev section
+reference per profile card, so the profile's legitimacy is the Rec's,
+not ours; (b) adopt farm items 1-4 as the next Class-T increments, each
+with its one-line R-set image (= none) stated on the card; (c) log
+items 5-8 on the compliance-loop plan as the aggregate-era backlog;
+(d) the D/T/G re-tag from the previous round now has an external
+template — §2.3's own grouping (location / tracking / power / traffic)
+is the Truth-side sub-structure to mirror. Nothing here touches E1:
+every farmed parameter is truth realism, which is precisely why the
+study Rec could keep them when the examination Rec could not.
