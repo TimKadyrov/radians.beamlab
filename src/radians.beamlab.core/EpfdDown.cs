@@ -80,10 +80,12 @@ public static class EpfdDown
     public static EpfdDownResult Run(Constellation constellation, IBeamPointing pointing,
         EpfdDownVictim victim, double timeStepSec, long steps, List<LimitPoint> limits,
         double? simulationDurationSec = null,
-        EpfdGsoSatVictim? isVictim = null, List<LimitPoint>? isLimits = null)
+        EpfdGsoSatVictim? isVictim = null, List<LimitPoint>? isLimits = null,
+        IProgress<double>? progress = null)
     {
         double simDur = simulationDurationSec ?? timeStepSec * steps;
         var acc = new EpfdAccumulator(limits);
+        long progressEvery = Math.Max(1, steps / 100);   // ~1% granularity for callers that listen
 
         var es = GeodeticToEcef(victim.EsLatDeg, victim.EsLonDeg, 0.0);
         double gsoLonRad = victim.GsoLonDeg * Math.PI / 180.0;
@@ -111,6 +113,7 @@ public static class EpfdDown
 
         for (long k = 0; k < steps; k++)
         {
+            if (progress is not null && k % progressEvery == 0) progress.Report((double)k / steps);
             double t = k * timeStepSec;
             var snap = constellation.SnapshotAt(t, simDur, pointing);
 

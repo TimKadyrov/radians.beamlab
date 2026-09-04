@@ -6,6 +6,7 @@
         Background="#E9F4F8" Foreground="#000000"
         FontFamily="Gibson, Segoe UI" FontSize="12">
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#000000"/><Setter Property="Margin" Value="0,2,0,2"/></Style>
         <Style TargetType="TextBox"><Setter Property="Background" Value="#ffffff"/><Setter Property="Foreground" Value="#000000"/><Setter Property="BorderBrush" Value="#8BC4CD"/><Setter Property="Padding" Value="3"/><Setter Property="Margin" Value="0,1,0,1"/></Style>
         <Style TargetType="Button"><Setter Property="Background" Value="#ffffff"/><Setter Property="Foreground" Value="#0076A1"/><Setter Property="BorderBrush" Value="#0076A1"/><Setter Property="Padding" Value="6,3"/><Setter Property="Margin" Value="0,2,4,2"/></Style>
@@ -165,6 +166,10 @@
                         </Style>
                     </DataGrid.RowStyle>
                 </DataGrid>
+                <ProgressBar Height="6" Minimum="0" Maximum="100" Value="{Binding ProgressPercent, Mode=OneWay}" Margin="0,6,0,2"
+                             Foreground="#0076A1" Background="#E9F4F8" BorderBrush="#D1EBF5"
+                             Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"
+                             ToolTip="Progress of the running sweep or advisor walk: the status line names the latitude, the walk step and the fraction of steps done."/>
                 <TextBlock Text="{Binding StatusText}" Foreground="#698089" TextWrapping="Wrap"/>
             </StackPanel>
         </Grid>

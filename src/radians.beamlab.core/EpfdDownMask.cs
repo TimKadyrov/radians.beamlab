@@ -45,9 +45,11 @@ public static class EpfdDownMask
 {
     public static EpfdDownResult Run(Constellation constellation, IMaskPfdRead mask,
         OperatingParamsSet declared, EpfdDownVictim victim, double timeStepSec, long steps,
-        List<LimitPoint> limits, double? simulationDurationSec = null)
+        List<LimitPoint> limits, double? simulationDurationSec = null,
+        IProgress<double>? progress = null)
     {
         double simDur = simulationDurationSec ?? timeStepSec * steps;
+        long progressEvery = Math.Max(1, steps / 100);   // ~1% granularity for callers that listen
         var acc = new EpfdAccumulator(limits);
 
         var es = GeodeticToEcef(victim.EsLatDeg, victim.EsLonDeg, 0.0);
@@ -76,6 +78,7 @@ public static class EpfdDownMask
 
         for (long k = 0; k < steps; k++)
         {
+            if (progress is not null && k % progressEvery == 0) progress.Report((double)k / steps);
             double t = k * timeStepSec;
             entries.Clear();
 

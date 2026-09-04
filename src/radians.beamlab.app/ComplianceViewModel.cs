@@ -90,6 +90,28 @@ public sealed class ComplianceViewModel : ObservableObject
 
     public bool RunEnabled => !_isRunning;
 
+    private double _progressPercent;
+    /// <summary>Sweep / advisor progress for the window's bar, 0..100.</summary>
+    public double ProgressPercent { get => _progressPercent; private set => SetField(ref _progressPercent, value); }
+
+    /// <summary>One progress report: a status line and the fraction done (0..1).</summary>
+    public readonly record struct SweepProgress(string Text, double Fraction);
+
+    /// <summary>Synchronous IProgress adapter (no context capture) for re-labelling nested reports.</summary>
+    private sealed class Relay<T> : IProgress<T>
+    {
+        private readonly Action<T> _sink;
+        public Relay(Action<T> sink) => _sink = sink;
+        public void Report(T value) => _sink(value);
+    }
+
+    /// <summary>UI-thread progress sink: status line + bar. Create it on the UI thread.</summary>
+    private IProgress<SweepProgress> UiProgress() => new Progress<SweepProgress>(p =>
+    {
+        StatusText = p.Text;
+        ProgressPercent = Math.Clamp(p.Fraction * 100.0, 0.0, 100.0);
+    });
+
     // ---- the sweep ------------------------------------------------------
 
     public sealed record Sweep(ConstellationShell[] Shells, OperationProfile Profile,
@@ -130,10 +152,13 @@ public sealed class ComplianceViewModel : ObservableObject
         catch (Exception ex) { StatusText = "invalid: " + ex.Message; return; }
 
         IsRunning = true;
+        ProgressPercent = 0;
         StatusText = "sweeping latitudes...";
+        var progress = UiProgress();
         try
         {
-            var rows = await Task.Run(() => RunSweep(sweep, sweep.Profile.AlphaExclDeg));
+            var rows = await Task.Run(() => RunSweep(sweep, sweep.Profile.AlphaExclDeg, progress));
+            ProgressPercent = 100;
             Rows.Clear();
             foreach (var r in rows) Rows.Add(r);
             string gap = OperationComposer.PerLatExclusionSceneGap(sweep.Profile) is string g
@@ -160,15 +185,21 @@ public sealed class ComplianceViewModel : ObservableObject
     /// other characteristics unchanged). Synchronous; the advisor and the
     /// check harness call it directly.
     /// </summary>
-    public static List<ComplianceRow> RunSweep(Sweep sweep, double alphaExclDeg)
-        => RunSweepProfile(sweep, sweep.Profile with { AlphaExclDeg = alphaExclDeg, AlphaByLat = null });
+    public static List<ComplianceRow> RunSweep(Sweep sweep, double alphaExclDeg,
+        IProgress<SweepProgress>? progress = null)
+        => RunSweepProfile(sweep, sweep.Profile with { AlphaExclDeg = alphaExclDeg, AlphaByLat = null }, progress);
 
     /// <summary>
     /// One full latitude sweep for an arbitrary profile variant -- the
     /// loop-v2 core: levers build their variant and sweep it.
     /// </summary>
-    public static List<ComplianceRow> RunSweepProfile(Sweep sweep, OperationProfile prof)
+    public static List<ComplianceRow> RunSweepProfile(Sweep sweep, OperationProfile prof,
+        IProgress<SweepProgress>? progress = null)
     {
+        var inv = CultureInfo.InvariantCulture;
+        int nLat = 0;
+        for (double l = sweep.LatFrom; l <= sweep.LatTo + 1e-9; l += sweep.LatStep) nLat++;
+        int iLat = 0;
         var con = new Constellation(sweep.Shells);
         var sh0 = sweep.Shells[0];
         var comp = OperationComposer.Compose(prof, sh0.OperatingHeightKm ?? sh0.AltitudeKm);
@@ -189,25 +220,37 @@ public sealed class ComplianceViewModel : ObservableObject
                 EsLatDeg = lat, EsLonDeg = sweep.EsLon, GsoLonDeg = sweep.EsLon + sweep.GsoOffset,
                 Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, freqMhz, sweep.DishM),
             };
+            double latNow = lat; int iNow = iLat;
+            progress?.Report(new SweepProgress(string.Create(inv,
+                $"lat {latNow:F0} ({iNow + 1}/{nLat}) -- {sweep.Steps} steps of {sweep.StepSec:F0} s..."),
+                (double)iNow / nLat));
+            IProgress<double>? stepProgress = progress is null ? null : new Relay<double>(f =>
+                progress.Report(new SweepProgress(string.Create(inv,
+                    $"lat {latNow:F0} ({iNow + 1}/{nLat}) -- {f * 100:F0}% of {sweep.Steps} steps"),
+                    (iNow + f) / nLat)));
             EpfdDownResult res;
             if (downMask is not null)
             {
                 res = EpfdDownMask.Run(con, downMask, comp.Enforced, victim,
-                    sweep.StepSec, sweep.Steps, sweep.Limits, simDur);
+                    sweep.StepSec, sweep.Steps, sweep.Limits, simDur, stepProgress);
             }
             else
             {
                 var pointing = new ScheduledPointing(con, comp.Geography, comp.Enforced, comp.Scene,
                     simDur, comp.CoverageRadiusKm, comp.Policy, comp.IlluminationDutyCycle);
                 res = EpfdDown.Run(con, pointing, victim, sweep.StepSec, sweep.Steps,
-                    sweep.Limits, simDur);
+                    sweep.Limits, simDur, progress: stepProgress);
             }
             var (passResults, _) = res.Accumulator.CompareWithLimits(sweep.Limits);
             var (epfd, pct) = res.Accumulator.BuildCdf();
             double worst = sweep.Limits.Count == 0 ? double.PositiveInfinity
                 : sweep.Limits.Min(l => MarginDb(epfd, pct, l.EPFD, l.Perc));
-            rows.Add(new ComplianceRow(lat, res.MaxEpfdDb, worst,
-                passResults.All(p => p), res.QuietSteps));
+            bool pass = passResults.All(p => p);
+            rows.Add(new ComplianceRow(lat, res.MaxEpfdDb, worst, pass, res.QuietSteps));
+            progress?.Report(new SweepProgress(string.Create(inv,
+                $"lat {latNow:F0} ({iNow + 1}/{nLat}): worst margin {worst:+0.0;-0.0} dB {(pass ? "PASS" : "FAIL")}"),
+                (double)(iNow + 1) / nLat));
+            iLat++;
         }
         return rows;
     }
@@ -376,8 +419,10 @@ public sealed class ComplianceViewModel : ObservableObject
         catch (Exception ex) { StatusText = "invalid: " + ex.Message; return; }
 
         IsRunning = true;
+        ProgressPercent = 0;
         FoundAlphaDeg = null;
         StatusText = "advising: walking the exclusion angle...";
+        var progress = UiProgress();
         // Interim guard (loop v2 design): the walk substitutes a GLOBAL
         // alpha for the profile's declared per-latitude rows -- declared
         // structure is ignored while walking, and the found global can
@@ -387,7 +432,8 @@ public sealed class ComplianceViewModel : ObservableObject
             : "";
         try
         {
-            var advice = await Task.Run(() => Advise(sweep, stepA, maxA));
+            var advice = await Task.Run(() => Advise(sweep, stepA, maxA, progress));
+            ProgressPercent = 100;
             Rows.Clear();
             foreach (var r in advice.FinalRows) Rows.Add(r);
             FoundAlphaDeg = advice.FoundAlpha;
@@ -448,9 +494,12 @@ public sealed class ComplianceViewModel : ObservableObject
     /// until the sweep is compliant or the cap is reached. Linear walk by
     /// design: a predictable run count under the user's duration/step.
     /// </summary>
-    public static Advice Advise(Sweep sweep, double alphaStep, double alphaMax)
+    public static Advice Advise(Sweep sweep, double alphaStep, double alphaMax,
+        IProgress<SweepProgress>? progress = null)
     {
+        var inv = CultureInfo.InvariantCulture;
         double a0 = sweep.Profile.AlphaExclDeg;
+        double span = Math.Max(alphaStep, alphaMax - a0) + alphaStep;   // walk length in alpha, for the bar
         var failingAtStart = new List<double>();
         var last = new List<ComplianceRow>();
         int iter = 0;
@@ -458,7 +507,15 @@ public sealed class ComplianceViewModel : ObservableObject
         for (double a = a0; a <= alphaMax + 1e-9; a += alphaStep)
         {
             iter++;
-            last = RunSweep(sweep, a);
+            double aNow = a; int iterNow = iter;
+            IProgress<SweepProgress>? inner = progress is null ? null : new Relay<SweepProgress>(p =>
+                progress.Report(new SweepProgress(
+                    string.Create(inv, $"walk {iterNow} (alpha {aNow:F1}): ") + p.Text,
+                    ((aNow - a0) + p.Fraction * alphaStep) / span)));
+            last = RunSweep(sweep, a, inner);
+            progress?.Report(new SweepProgress(string.Create(inv,
+                $"walk {iterNow}: alpha {aNow:F1} -> worst {last.Min(r => r.WorstMarginDb):+0.0;-0.0} dB at lat {last.OrderBy(r => r.WorstMarginDb).First().LatDeg:F0}, {last.Count(r => !r.Pass)} latitude(s) failing"),
+                ((aNow - a0) + alphaStep) / span));
             if (iter == 1)
             {
                 failingAtStart = last.Where(r => !r.Pass).Select(r => r.LatDeg).ToList();
@@ -538,18 +595,27 @@ public sealed class ComplianceViewModel : ObservableObject
     /// </summary>
     public static NcoAdvice NcoAdviseCore(IReadOnlyList<double> lats,
         IReadOnlyList<int> baseline, int rangeMin,
-        Func<IReadOnlyList<int>, List<ComplianceRow>> sweepAt, int maxIter = 5)
+        Func<IReadOnlyList<int>, List<ComplianceRow>> sweepAt, int maxIter = 5,
+        IProgress<SweepProgress>? progress = null)
     {
+        var inv = CultureInfo.InvariantCulture;
         rangeMin = Math.Max(1, rangeMin);
         int maxDelta = Math.Max(0, baseline.Max() - rangeMin);
         int[] CapsAt(int d) => baseline.Select(b => Math.Max(rangeMin, b - d)).ToArray();
+        int budget = maxDelta + 1 + maxIter;   // most sweeps the two phases can take, for the bar
 
         var outcomes = new List<(int Delta, List<ComplianceRow> Rows)>();
         int sweeps = 0;
         for (int d = 0; d <= maxDelta; d++)
         {
-            var rows = sweepAt(CapsAt(d)); sweeps++;
+            var capsD = CapsAt(d);
+            progress?.Report(new SweepProgress(string.Create(inv,
+                $"v2 walk: delta {d} (caps {string.Join("/", capsD)}) -- sweeping..."), (double)sweeps / budget));
+            var rows = sweepAt(capsD); sweeps++;
             outcomes.Add((d, rows));
+            progress?.Report(new SweepProgress(string.Create(inv,
+                $"v2 walk: delta {d} -> worst {rows.Min(r => r.WorstMarginDb):+0.0;-0.0} dB, {rows.Count(r => !r.Pass)} latitude(s) failing"),
+                (double)sweeps / budget));
             if (rows.All(r => r.Pass)) break;
         }
 
@@ -574,7 +640,12 @@ public sealed class ComplianceViewModel : ObservableObject
         for (int it = 0; it < maxIter; it++)
         {
             var caps = lats.Select((_, i) => Math.Max(rangeMin, baseline[i] - delta[i])).ToArray();
+            progress?.Report(new SweepProgress(string.Create(inv,
+                $"v2 verify {it + 1}: caps {string.Join("/", caps)} -- joint sweep..."), (double)sweeps / budget));
             final = sweepAt(caps); sweeps++;
+            progress?.Report(new SweepProgress(string.Create(inv,
+                $"v2 verify {it + 1}: worst {final.Min(r => r.WorstMarginDb):+0.0;-0.0} dB, {final.Count(r => !r.Pass)} latitude(s) failing"),
+                (double)sweeps / budget));
             if (final.All(r => r.Pass)) { converged = true; break; }
             var tightenable = Enumerable.Range(0, lats.Count)
                 .Where(i => !final[i].Pass && baseline[i] - delta[i] > rangeMin).ToList();
@@ -616,15 +687,21 @@ public sealed class ComplianceViewModel : ObservableObject
         catch (Exception ex) { StatusText = "invalid: " + ex.Message; return; }
 
         IsRunning = true;
+        ProgressPercent = 0;
         _foundNcoRows = null; OnPropertyChanged(nameof(ApplyNcoEnabled));
         StatusText = "advising (v2): walking the per-cell cap down from the baseline...";
+        var progress = UiProgress();
+        // Nested sweeps relabel their lines under the v2 walk; the walk's own
+        // lines (delta, verify) come from NcoAdviseCore.
+        var sweepRelay = new Relay<SweepProgress>(p => progress.Report(new SweepProgress("v2 " + p.Text, p.Fraction)));
         try
         {
             var lats = new List<double>();
             for (double lat = sweep.LatFrom; lat <= sweep.LatTo + 1e-9; lat += sweep.LatStep) lats.Add(lat);
             var baseline = lats.Select(l => EffectiveNcoBaseline(sweep.Profile, l)).ToList();
             var advice = await Task.Run(() => NcoAdviseCore(lats, baseline, rangeMin,
-                caps => RunSweepProfile(sweep, WithNcoRows(sweep.Profile, lats, caps))));
+                caps => RunSweepProfile(sweep, WithNcoRows(sweep.Profile, lats, caps), sweepRelay), 5, progress));
+            ProgressPercent = 100;
             Rows.Clear();
             foreach (var r in advice.FinalRows) Rows.Add(r);
             if (!advice.LeverMoves)
