@@ -15,9 +15,11 @@ namespace radians.beamlab.app;
 /// version 4 added DeclareAtTargetAltitude (the stored rpt_* fields hold
 /// the DECLARED decomposition either way); version 5 added
 /// HarmonizedRptSeconds (the constellation repeat period declared as
-/// this shell's rpt_prd); version 6 added ShellName. Older files load
-/// with the newer fields empty/false, reproducing their original
-/// behaviour.
+/// this shell's rpt_prd); version 6 added ShellName, and later (same
+/// version, optional) InterPlanePhaseDeg -- an exact inter-plane phase
+/// step that overrides Walker F when set, for published constellations
+/// whose phase is not an integer F. Older files load with the newer
+/// fields empty/false/null, reproducing their original behaviour.
 /// </summary>
 public sealed record OrbitDesignData(
     int SchemaVersion, double TargetAltitudeKm, double InclinationDeg, double Eccentricity,
@@ -28,7 +30,8 @@ public sealed record OrbitDesignData(
     double? SelectedAltitudeKm = null, int? SelectedOrbits = null, int? SelectedNodalDays = null,
     int? RptDays = null, int? RptHours = null, int? RptMinutes = null, int? RptSeconds = null,
     double? PrecessionDegPerSec = null, bool DeclareAtTargetAltitude = false,
-    long? HarmonizedRptSeconds = null, string ShellName = "")
+    long? HarmonizedRptSeconds = null, string ShellName = "",
+    double? InterPlanePhaseDeg = null)
 {
     /// <summary>One-line summary for list displays, at the declared altitude.</summary>
     public string Summary
@@ -100,7 +103,7 @@ public static class OrbitDesignFileCodec
             PlaneCount = Math.Max(1, d.PlaneCount), SatsPerPlane = Math.Max(1, d.SatsPerPlane),
             WalkerPhasingF = d.WalkerPhasingF, Lan0Deg = d.Lan0Deg, LanSpreadDeg = d.LanSpreadDeg,
             InPlaneOffsetDeg = d.InPlaneOffsetDeg, ArgumentOfPerigeeDeg = d.ArgPerigeeDeg,
-            OperatingHeightKm = opHt,
+            OperatingHeightKm = opHt, InterPlanePhaseDeg = d.InterPlanePhaseDeg,
         };
         return d.CaseChoice switch
         {

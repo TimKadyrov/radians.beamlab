@@ -412,8 +412,12 @@
                                     <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding PlaneCount, UpdateSourceTrigger=LostFocus}"/>
                                     <TextBlock Grid.Row="1" Text="Sats / plane"/>
                                     <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding SatsPerPlane, UpdateSourceTrigger=LostFocus}"/>
-                                    <TextBlock Grid.Row="2" Text="Walker F"/>
-                                    <TextBox   x:Name="WalkerFBox" Grid.Row="2" Grid.Column="1" Text="{Binding WalkerPhasingF, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Grid.Row="2" Text="Walker F / exact phase (deg)"/>
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
+                                        <TextBox   x:Name="WalkerFBox" Width="60" Text="{Binding WalkerPhasingF, UpdateSourceTrigger=LostFocus}"/>
+                                        <TextBox   Width="70" Margin="6,1,0,1" Text="{Binding InterPlanePhaseText, UpdateSourceTrigger=LostFocus}"
+                                                   ToolTip="Optional exact inter-plane phase step in degrees; when set it overrides Walker F (F x 360 / (P x S)). For published constellations whose stated phase is not an integer F, e.g. 1.9 deg over 32 x 50."/>
+                                    </StackPanel>
                                     <TextBlock Grid.Row="3" Text="LAN of plane 1 (deg)"/>
                                     <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding Lan0Deg, UpdateSourceTrigger=LostFocus}"/>
                                     <TextBlock Grid.Row="4" Text="LAN spread (deg)"/>

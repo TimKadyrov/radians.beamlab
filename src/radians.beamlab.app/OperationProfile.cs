@@ -202,6 +202,7 @@ public static class OperationComposer
         {
             "MaxGsoSeparation" => SelectionPolicy.MaxGsoSeparation,
             "HoldUntilForced" => SelectionPolicy.HoldUntilForced,
+            "Random" => SelectionPolicy.Random,
             _ => SelectionPolicy.HighestElevation,
         };
         return new Composition(enforced, scene, geo, policy,

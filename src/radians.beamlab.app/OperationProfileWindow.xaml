@@ -254,9 +254,10 @@
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="Tracking strategy"/>
                         <ComboBox  x:Name="PolicyCombo" Grid.Row="0" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding TrackingPolicy}"
-                                   ToolTip="Parameters each strategy uses: all three obey the feasibility gates (min elevation, exclusion, Nco, per-direction min angles). Highest elevation and max GSO separation rank candidates by elevation or by alpha and hand over voluntarily after the hold time below; hold-until-forced never hands over voluntarily and uses no extra parameter.">
+                                   ToolTip="Parameters each strategy uses: all four obey the feasibility gates (min elevation, exclusion, Nco, per-direction min angles). Highest elevation and max GSO separation rank candidates by elevation or by alpha and hand over voluntarily after the hold time below; random draws uniformly among the feasible satellites (re-drawn every step with no hold, at link setup otherwise); hold-until-forced never hands over voluntarily and uses no extra parameter. No strategy has a field in the R set — it reaches the filing only through the gates.">
                             <ComboBoxItem Content="highest elevation" Tag="HighestElevation"/>
                             <ComboBoxItem Content="max GSO separation" Tag="MaxGsoSeparation"/>
+                            <ComboBoxItem Content="random among feasible" Tag="Random"/>
                             <ComboBoxItem Content="minimum handovers (hold until forced)" Tag="HoldUntilForced"/>
                         </ComboBox>
                         <TextBlock Grid.Row="1" Text="Nco per cell / per satellite"/>

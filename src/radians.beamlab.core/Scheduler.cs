@@ -129,6 +129,14 @@ public enum SelectionPolicy
     /// no voluntary handover ever; new links pick the highest elevation.
     /// </summary>
     HoldUntilForced,
+    /// <summary>
+    /// Uniform random choice among the feasible satellites (a fresh seeded
+    /// key per candidate per step; the argmax of iid uniforms is uniform).
+    /// With no hold it re-draws every step -- the memoryless rule of WP 4A
+    /// Doc 4A/653, which operators described as close to their real
+    /// selection; a hold time turns it into random-at-setup.
+    /// </summary>
+    Random,
 }
 
 /// <summary>One granted cell-satellite link at a step.</summary>
@@ -168,9 +176,12 @@ public sealed class ScheduleStep
 /// resolves in cell-list order -- a deterministic, declaration-compliant
 /// greedy assignment, not an optimal one.
 ///
-/// The selection metric is a policy: highest elevation (default), or
-/// maximum GSO separation -- the feasible satellite farthest from the arc,
-/// an arc-avoidance strategy whose margin effect is thereby measurable.
+/// The selection metric is a policy: highest elevation (default), maximum
+/// GSO separation -- the feasible satellite farthest from the arc, an
+/// arc-avoidance strategy whose margin effect is thereby measurable -- or
+/// uniform random among the feasible set (seeded; the operator-attested
+/// baseline of WP 4A Doc 4A/653). No policy has an R-set field: selection
+/// reaches the filing only through the gates every policy obeys.
 /// Demand follows each cell's on/off activity model (ServiceCell
 /// .ActivityFactor): an inactive slot releases its link without counting a
 /// handover or unserved demand.
@@ -196,6 +207,8 @@ public sealed class Scheduler
     private readonly Vec3[] _cellEcef;
     private readonly Dictionary<(int shell, int plane), int> _orbIds = new();
     private readonly SelectionPolicy _policy;
+    // Seeded so a Random-policy run is reproducible step for step.
+    private readonly System.Random _rng = new(4653);
 
     public Scheduler(Constellation constellation, ServiceGeography geography,
         OperatingParamsSet declared, IBeamPointing layout, double simulationDurationSec,
@@ -224,7 +237,7 @@ public sealed class Scheduler
     }
 
     private sealed record Candidate(int SatIndex, int SatelliteNumber, int BeamIndex,
-        double ElevationDeg, double AlphaDeg);
+        double ElevationDeg, double AlphaDeg, double RandomKey = 0.0);
 
     public ScheduleStep Step(double tSec)
     {
@@ -283,7 +296,8 @@ public sealed class Scheduler
                 }
                 if (bestBeam < 0) continue;
 
-                list.Add(new Candidate(i, states[i].SatelliteNumber, bestBeam, elev, alpha));
+                list.Add(new Candidate(i, states[i].SatelliteNumber, bestBeam, elev, alpha,
+                    _policy == SelectionPolicy.Random ? _rng.NextDouble() : 0.0));
             }
             list.Sort((a, b) =>
             {
@@ -428,8 +442,12 @@ public sealed class Scheduler
     private static double AngleBetweenDeg(Vec3 a, Vec3 b)
         => Math.Acos(Math.Clamp(Vec3.Dot(a.Normalized(), b.Normalized()), -1.0, 1.0)) * 180.0 / Math.PI;
 
-    private double Metric(Candidate c)
-        => _policy == SelectionPolicy.MaxGsoSeparation ? c.AlphaDeg : c.ElevationDeg;
+    private double Metric(Candidate c) => _policy switch
+    {
+        SelectionPolicy.MaxGsoSeparation => c.AlphaDeg,
+        SelectionPolicy.Random => c.RandomKey,
+        _ => c.ElevationDeg,
+    };
 
     // MIN_DURATION as an admission rule: a NEW link is only made toward a
     // satellite that can sustain it -- still above the declared elevation

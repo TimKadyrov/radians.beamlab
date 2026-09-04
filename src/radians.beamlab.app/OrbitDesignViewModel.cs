@@ -526,6 +526,13 @@ public sealed class OrbitDesignViewModel : ObservableObject
     private int _walkerPhasingF = 1;
     public int WalkerPhasingF { get => _walkerPhasingF; set { if (SetField(ref _walkerPhasingF, value)) RecomputeConstellation(); } }
 
+    // Exact inter-plane phase step (deg); empty = use Walker F. For
+    // published constellations whose stated phase is not an integer F.
+    private string _interPlanePhaseText = "";
+    public string InterPlanePhaseText { get => _interPlanePhaseText; set { if (SetField(ref _interPlanePhaseText, value)) RecomputeConstellation(); } }
+    private double? ParsedInterPlanePhase()
+        => double.TryParse(_interPlanePhaseText, NumberStyles.Float, CultureInfo.InvariantCulture, out double v) ? v : null;
+
     private double _lan0Deg;
     public double Lan0Deg { get => _lan0Deg; set { if (SetField(ref _lan0Deg, value)) RecomputeConstellation(); } }
 
@@ -599,7 +606,7 @@ public sealed class OrbitDesignViewModel : ObservableObject
             PlaneCount = Math.Max(1, _planeCount), SatsPerPlane = Math.Max(1, _satsPerPlane),
             WalkerPhasingF = _walkerPhasingF, Lan0Deg = _lan0Deg, LanSpreadDeg = _lanSpreadDeg,
             InPlaneOffsetDeg = _inPlaneOffsetDeg, ArgumentOfPerigeeDeg = _argPerigeeDeg,
-            OperatingHeightKm = opHt,
+            OperatingHeightKm = opHt, InterPlanePhaseDeg = ParsedInterPlanePhase(),
         };
         return _caseChoice switch
         {
@@ -665,6 +672,7 @@ public sealed class OrbitDesignViewModel : ObservableObject
             PlaneCount = Math.Max(1, _planeCount), SatsPerPlane = Math.Max(1, _satsPerPlane),
             WalkerPhasingF = _walkerPhasingF, Lan0Deg = _lan0Deg, LanSpreadDeg = _lanSpreadDeg,
             InPlaneOffsetDeg = _inPlaneOffsetDeg, ArgumentOfPerigeeDeg = _argPerigeeDeg,
+            InterPlanePhaseDeg = ParsedInterPlanePhase(),
         };
         var con = new Constellation(new[] { shell });
         double simDur = _declareAtTargetAltitude ? s.RepeatSecondsAtTarget : s.RepeatSeconds;
@@ -719,7 +727,8 @@ public sealed class OrbitDesignViewModel : ObservableObject
             _caseChoice, _keepRangeDeg, _nOrbits, _victimBeamwidthText,
             sol?.AltitudeKm, sol?.Orbits, sol?.NodalDays,
             rpt?.Days, rpt?.Hours, rpt?.Minutes, rpt?.Seconds,
-            ParsedPrecession(), _declareAtTargetAltitude, _harmonizedRptSeconds, _shellName);
+            ParsedPrecession(), _declareAtTargetAltitude, _harmonizedRptSeconds, _shellName,
+            ParsedInterPlanePhase());
     }
 
     public string BuildDesignJson() => OrbitDesignFileCodec.Save(BuildDesignData());
@@ -732,6 +741,7 @@ public sealed class OrbitDesignViewModel : ObservableObject
         Eccentricity = d.Eccentricity; MaxOrbitsPerCycle = d.MaxOrbitsPerCycle;
         SearchBandKm = d.SearchBandKm; PlaneCount = d.PlaneCount; SatsPerPlane = d.SatsPerPlane;
         WalkerPhasingF = d.WalkerPhasingF; Lan0Deg = d.Lan0Deg; LanSpreadDeg = d.LanSpreadDeg;
+        InterPlanePhaseText = d.InterPlanePhaseDeg?.ToString(CultureInfo.InvariantCulture) ?? "";
         InPlaneOffsetDeg = d.InPlaneOffsetDeg; ArgPerigeeDeg = d.ArgPerigeeDeg;
         OpHeightText = d.OpHeightText; CaseChoice = d.CaseChoice; KeepRangeDeg = d.KeepRangeDeg;
         NOrbits = d.NOrbits; VictimBeamwidthText = d.VictimBeamwidthText;
