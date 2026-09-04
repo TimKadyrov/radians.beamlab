@@ -276,6 +276,270 @@ this by construction (deltas over the baseline only tighten); until
 then the window warns whenever it walks or applies over a profile that
 carries per-latitude alpha rows.
 
+## The loop, v3 — declaration optimization over operator ranges (design, operator-directed, 2026-09-04)
+
+**The objective changed.** v1 and v2 asked "which declaration makes the
+system pass". The operator has reset it: the truth is given and must
+meet the Article 22 limits on its own (the triage rule above); what the
+loop optimizes is the DECLARATION derivation, and the objective is to
+minimize E1 while the declaration stays an honest envelope of every
+operation the profile's commitments permit. Because the projection is
+invariant under uniform power scaling, every dB removed from E1 - T at
+a compliant operating point is a dB of licensed operating power. That
+is the loop's value function from now on.
+
+**The lever is an operator-supplied acceptable range, not a search for
+compliance.** The operator states what it can live with -- for the
+exclusion angle, "start at 20, do not go above 40" -- and the loop
+builds the per-latitude table inside that range. The binding cost is
+SERVICE, not compliance: raising alpha removes serving satellites, so
+unserved demand rises (the scheduler already reports it per step).
+Per latitude the question is therefore
+
+> the largest alpha inside the range that service can absorb,
+
+because E1 falls weakly monotonically as the declared hole grows while
+T falls or stays. This is better posed than the v1 walk and it dissolves
+the AlphaByLat-wipe defect: the walk is per latitude by construction.
+
+**One table, two declarations.** The table is declared twice, and the
+examination applies both halves:
+
+- as `MIN_EXCLUDE[latitude]` in the operating-parameter set (the R
+  mask): the selection rule, which satellites may be counted as
+  interferers at all;
+- as the exclusion hole baked into the pfd mask: the power envelope,
+  what may be radiated toward directions inside the zone.
+
+This is the design brief's own "improving the examination result twice
+over" (brief Sec. 2), and it is why both artefacts must be generated
+from ONE table in one pass -- a mismatch between them is a
+mis-declaration, not a conservatism.
+
+**Where the number originates, and how each artefact gets it.** The
+alpha table is authored once, by the loop's per-latitude decision, and
+written into the operation profile (`AlphaByLat`), where the scheduler
+enforces it. The two declarations then acquire it by different routes,
+and that asymmetry is the doctrine, not an accident:
+
+- the **pfd mask** CONSUMES the table directly: the envelope sampler
+  gates each direction on the alpha at the ground point that direction
+  reaches, so the mask's hole varies with latitude by construction;
+- the **operating-parameter set** gets it BACK BY MEASUREMENT: the
+  deriver reads the flown operation and declares `MIN_EXCLUDE` rows
+  where a rule actually bound. It is not a copy of the input; it is the
+  envelope of what the enforced table produced.
+
+**The three-way invariant.** At every latitude the alpha the mask was
+built with, the alpha the R set declares, and the alpha the scheduler
+enforces must be the same number. A mask built at a smaller alpha than
+the R set declares is an inflated E1; a mask built at a larger alpha
+than the scheduler enforces is a NON-CONSERVATIVE mask, i.e. a defect
+of the kind the acceptance direction exists to catch. Worth a check of
+its own once inheritance lands: derive from a profile with per-latitude
+rows, export the mask from the same profile, and assert the three agree
+row by row (allowing for the interpolation rule between rows).
+
+**The prerequisite: mask inheritance of the per-latitude table.**
+Today `OperationComposer.PerLatExclusionSceneGap` warns that per-latitude
+rows gate the scheduler while the scene and mask bake only the global
+alpha. Under the v1 objective that inflated E1; under v3 it inverts the
+lever -- the table lowers T and leaves E1 untouched, moving the value
+function the wrong way. So mask inheritance is step one, not a
+follow-up.
+
+**How the mask must inherit it.** `MIN_EXCLUDE` is indexed by EARTH
+STATION latitude; a pfd mask block is indexed by SUB-SATELLITE latitude.
+They are different latitudes, so a block cannot use its own row. For
+each direction in a block the sampler must find the ground point that
+direction reaches, take the table's alpha at THAT point's latitude, and
+gate the beam on the geometry to that point. The mask-dissection mode
+already performs exactly this mapping in reverse, so the geometry is
+settled; only the sampler's gate is new.
+
+**The service latitude band is a third commitment the mask ignores
+(operator, 2026-09-04).** `ES_LAT_MIN/MAX` is declared (the composer
+copies the profile's service latitude bounds into the declared set) and
+enforced (the scheduler refuses cells outside it), but the envelope
+sampler knows nothing about it: it is constructed from the scene, the
+inclination and the yaw sweep alone, so every latitude block declares
+the payload's full reachable envelope whether or not a served cell is
+in reach there. Measured on the STEAM-2 case: at 40 deg minimum
+elevation from 1 150 km the coverage half-angle is 9.5 deg, so with a
+20-50 N service band only sub-satellite latitudes 10.5-59.5 N can serve
+anyone at all -- yet our exported mask declares thousands of plateau
+cells at every block from -50 to +10 (5 086 at -50, 1 788 at the
+equator). Thirteen of twenty-one blocks are pure inflation, and our own
+two declarations disagree: the R set says the system serves 20-50 N
+while the mask says it radiates at full cap over the whole reachable
+latitude range.
+
+S.1503-4 sanctions the fix explicitly: Sec. C1 provides the -1000 dBW
+null "it is feasible for a system not to transmit at certain
+latitudes". So the correction is a declaration the format already
+expects, not an invention.
+
+**One mechanism serves all of them.** Gating the sampler per direction
+by the GROUND POINT the direction reaches -- the mechanism the
+per-latitude exclusion needs -- also delivers this one and the beam
+cap, because all four commitments are the same kind of statement about
+which configurations are permitted:
+
+| commitment | field | gate on the ground point |
+|---|---|---|
+| service latitude band | `ES_LAT_MIN/MAX` | boresight must fall inside the band |
+| minimum elevation | `MIN_ELEV` | boresight must clear it |
+| exclusion angle, per latitude | `MIN_EXCLUDE` | alpha at that point must clear the table |
+| beam count | `MAX_CO_FREQ_SAT` | at most K boresights at once |
+
+So the sampler's envelope stops being "every direction the payload can
+reach" and becomes "every configuration the declared commitments
+permit", which is what a filed mask means and what the parity run found
+STEAM-2B's mask to be. One caution on scope: only BORESIGHTS are gated.
+Side lobes still radiate everywhere, so a block whose servable cells lie
+at its edge keeps main-beam levels toward them and side-lobe levels
+elsewhere; only blocks with no servable cell at all collapse to the
+-1000 null.
+
+**The read rule constrains the rows.** `MIN_EXCLUDE` alone is read by
+LINEAR INTERPOLATION between latitude rows (Part B; the other arrays
+take the nearest row). A declared table whose interpolant rises above
+the enforced value between rows promises more avoidance than the system
+delivers. The synthesised rows must therefore be the lower envelope of
+the enforced per-latitude values, and the row spacing is part of the
+answer -- the "read-rule-aware grids" item of v2, now binding.
+
+**The cap lever is demand-driven, in two regimes.** The scheduler grants
+`min(demand, cap, availability)` links per cell, so the truth's own
+co-frequency count is already demand-limited and a declared cap above
+the demand is headroom the operation can never fill -- while the
+examination is entitled to sum that many worst-case interferers
+(D5.1.4.1 Step 23 sums the top `cap` entries by epfd). That splits the
+lever:
+
+- **Free regime, cap down to the measured usage.** The tight cap is
+  MEASURED, not searched: the deriver already reads the maximum
+  concurrent co-frequency links per cell per latitude band off the flown
+  operation. Declaring that value changes no link, costs no service, and
+  removes the unusable headroom from E1. It is the promotion recipe
+  applied to Nco -- observe, harden, verify, declare.
+- **Paid regime, cap below the demand.** Going further means refusing
+  service: unserved demand rises, and the operator's tolerance decides
+  how far. This is where a walk is actually needed, and where the loop
+  must report dB bought against service lost.
+
+**Why this is legitimate although demand is Class T.** DemandLinksPerCell
+carries no format field and can never be declared, so no mask or R-set
+value may be conditioned on it directly. What the loop does instead is
+promote its OBSERVED CONSEQUENCE into a Class D field: the cap. Once
+declared, `MAX_CO_FREQ` binds the operator whatever the demand later
+does -- which is exactly why it may tighten E1 and why the demand
+itself may not. The loop should therefore report the cap together with
+the demand model that produced it, so the operator sees what it is
+committing to rather than what it happens to use today.
+
+**Correction (operator, 2026-09-04): the mask takes the commitments by
+MEASUREMENT, not by assertion.** The gate proposed above would have the
+sampler assert each declared commitment directly — boresight inside
+`ES_LAT`, alpha clearing the table, at most K beams. That is the wrong
+side of the project's own doctrine. Declarations are envelopes of what
+the system does; the R set already gets its numbers by measuring the
+flown operation, and the mask should get the same numbers the same way.
+A mask that ASSERTS a restriction can assert one the scheduler does not
+actually enforce, and that error is in the dangerous direction: a
+non-conservative mask, the defect the acceptance direction exists to
+catch. A mask that MEASURES cannot: it observes exactly what the
+enforced system did.
+
+**So the mask is derived from a reachability probe.** Run the scheduler
+under the candidate commitments, record the set of beam configurations
+it actually grants — the (sub-satellite latitude, boresight direction)
+pairs, and how many co-frequency beams a satellite carries at once —
+and envelope the pfd over that set. Every commitment then reaches the
+mask through the one mechanism that already enforces it, with no
+per-commitment code: the service latitude band, the minimum elevation,
+the per-latitude exclusion, the coverage radius and the beam cap all
+shape what is visited, so they all shape the mask.
+
+**The one thing the probe must not inherit is traffic.** Demand,
+activity, duty and operational fraction are Class T: no format field
+binds them, so a mask tightened by them would be fitted to behaviour the
+operator never promised. The probe therefore runs SATURATED — every cell
+demanding, activity 1, operational fraction 1, duty 1 — so that what is
+measured is the reachable set under the COMMITMENTS, not the occurring
+set under a traffic model. That is the distinction the design brief
+draws between reachable and occurring bases, obtained by measurement
+rather than by assertion.
+
+**Adequacy has a stopping rule.** A finite probe could miss a permitted
+configuration, and a missed configuration is again the dangerous
+direction. The visited set must therefore be run until it stops
+growing — the same shape of convergence criterion as the time-step rule,
+and reportable in the same way (new configurations per unit time falling
+to zero). The existing mask-above-truth check is the backstop.
+
+**Consequence for the loop.** The mask and the R set become two products
+of ONE measurement pass over the same enforced run, which is why the
+loop must derive both (above) and why the three-way invariant — mask,
+R set, enforced gate carrying the same number at every latitude — then
+holds by construction rather than by inspection.
+
+**The mask moves inside the loop (operator, 2026-09-04).** Today the
+loop ends at write-back and the hand-off is manual: the window's own
+page says that after Apply "the hand-off continues outside this window:
+derive the R set and export the masks from the updated profile". Under
+v1's objective that was harmless, because the verdict being optimised
+was the truth's. Under v3 it is not: the objective is E1, E1 is computed
+from the mask, so a candidate declaration cannot be scored at all until
+its mask exists. The mask is not an artefact produced after the loop
+finishes; it is part of every iteration.
+
+It is also the only way the three-way invariant can hold. Applying a
+per-latitude exclusion today and exporting afterwards produces exactly
+the mismatch recorded above -- rows enforced by the scheduler, a global
+value baked into the mask.
+
+**One iteration, therefore:**
+
+1. take the candidate value(s) from the operator's acceptable range;
+2. enforce them in the profile (the scheduler then obeys them);
+3. re-run the truth ONLY IF the lever moves it (see the cost note);
+4. export the pfd mask from those same commitments (gated per beam by
+   the ground point, per the mechanism above);
+5. derive the R set from the flown operation;
+6. run E1 against that mask and that R set;
+7. score: objective = E1's distance to the limit; cost = unserved
+   demand; constraint = the truth still passes.
+
+**Cost asymmetry, and why the cap goes first.** An exclusion or
+elevation candidate changes the truth, so step 3 runs and an iteration
+costs a full latitude sweep (~1 h on a 1 600-satellite case at
+screening depth). A cap candidate in its FREE regime -- at or above the
+concurrency the operation actually uses -- changes no link, so the truth
+is frozen, step 3 is skipped, and the iteration costs only a mask export
+plus an E1 sweep (minutes). The cheapest legitimate dB is therefore also
+the cheapest to search for.
+
+**Completion.** At the end the loop should emit all three artefacts
+together -- profile, R set, mask -- which is step 8 of the workflow
+above, today performed by hand in three windows.
+
+**Scope.** Only Class D parameters (declarable, with a binding format
+field) may enter this loop: the exclusion angle first, then minimum
+elevation and the per-cell cap, which have the same shape. Class T
+parameters -- selection policy, demand, activity, duty cycle -- can
+never enter it: no field binds them, so tightening on them would be
+fitting the declaration to the verdict rather than to a commitment.
+
+**Order.**
+
+1. Mask inheritance of the per-latitude table in the envelope sampler,
+   gated per direction by the ground point's latitude.
+2. Range-driven per-latitude synthesis with the service tolerance,
+   replacing the global walk for this lever.
+3. Read-rule-aware row placement, so the interpolant stays inside the
+   enforced values.
+
 ## Decisions taken
 
 - Limits are hand-entered points in stage B (BR limits DB later).

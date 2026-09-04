@@ -1833,3 +1833,104 @@ template — §2.3's own grouping (location / tracking / power / traffic)
 is the Truth-side sub-structure to mirror. Nothing here touches E1:
 every farmed parameter is truth realism, which is precisely why the
 study Rec could keep them when the examination Rec could not.
+
+## Beamlab — the new objective accepted, and repriced, 4 September 2026
+
+The objective is adopted as stated: the truth is given and must meet the
+limit on its own, the optimisation variable is the declaration
+derivation, the objective is to minimise E1 subject to the declaration
+remaining an honest envelope of everything the commitments permit, and
+the value function is that every dB removed from E1 - T at a compliant
+operating point is a dB of licensed operating power. Recorded in
+docs/compliance-loop-plan.md as "The loop, v3", together with the
+Class D/T/G scope limit and the legitimacy criterion (a tightening is
+admissible only where a declared, binding commitment enforces it).
+
+Four things measured since your round change the pricing.
+
+**1. The testbed is not free — our STEAM-2 truth fails.** Screening
+sweep (144 x 60 s per latitude, 64 min, docs/compliance-steam-2.md):
+PASS at 0/10/20 with +31.4/+25.0/+6.2 dB, FAIL at 30/40/50/60 with
+-2.4/-7.5/-11.7/-8.8. Worst -11.7 dB at latitude 50, which by the power
+identity is exactly the per-beam power the payload would have to shed.
+So E1-0 is blocked on this case: under the triage rule no declaration
+work is legitimate while the truth is over. The two candidate causes are
+the assumed beam count and the assumed power, and the parity run points
+hard at the first. I would rather fix it by modelling the beam-count
+commitment (E1-1) than by inventing a lower power number.
+
+**2. E1-1's expected size, priced from a smaller instance of the same
+effect.** Your expectation was "a large fraction of the 6.5 dB". Mine,
+stated before either run: a couple of dB, because a top-K envelope keeps
+the dominant contributors and drops the tail of the sum. First evidence:
+on the FILED STEAM-2B mask at latitude 40, declaring the per-cell cap 1
+instead of the filed 4 moved E1 by **2.8 dB**, not the 6.0 dB a flat
+four-way sum would give — the same decay, one level up. I therefore
+expect E1-1 to land in the low single digits on the BL margin lattice.
+The ~20 dB on STEAM-2B is not a counter-example: that lattice is far
+denser (a 92 km beam cell tiling a 40 deg field), so its all-beams sum
+sits much further above its top-K.
+
+**3. Two more commitments the mask ignores, and one mechanism for all of
+them.** Beyond your E1-2 (per-latitude alpha), the SERVICE LATITUDE BAND
+is declared (`ES_LAT_MIN/MAX`, copied by the composer), enforced (the
+scheduler refuses cells outside it) and absent from the mask: the
+envelope sampler is built from the scene, the inclination and the yaw
+sweep alone. On STEAM-2 the coverage half-angle at 40 deg from 1 150 km
+is 9.5 deg, so with a 20-50 N band only sub-satellite latitudes
+10.5-59.5 N can serve anyone — yet our exported mask declares a full
+plateau at every block from -50 to +10 (5 086 cells at -50, 1 788 at the
+equator). Thirteen of twenty-one blocks are pure inflation, and our own
+two declarations contradict each other. S.1503-4 Sec. C1's -1000 null is
+the sanctioned fix.
+
+The mechanism is one gate, and it already exists: `ApplyAlphaExclusion`
+walks the scene's beams, takes each beam's ground footprint, computes
+alpha there and zeroes the weight inside the band. Feeding that same
+gate the declared commitments instead of one scalar covers all four at
+once — service band (footprint inside `ES_LAT`), minimum elevation
+(footprint clears it), exclusion (alpha at the footprint's latitude
+clears the table, i.e. your E1-2), and beam count (keep the strongest K).
+The sampler's envelope stops being "every direction the payload can
+reach" and becomes "every configuration the commitments permit", which
+is what the parity run found a filed mask to be. Scope caution: only
+BORESIGHTS are gated. Side lobes still radiate everywhere, so only a
+block with no servable cell at all collapses to the null.
+
+**4. The mask has to move inside the loop.** Today the loop ends at
+write-back and the hand-off is manual. Under v1 that was harmless
+because the verdict being optimised was the truth's; under v3 the
+objective is E1 and E1 is read off the mask, so no candidate can be
+scored until its mask exists. It is also the only way the mask, the R
+set and the enforced gate can carry the same number at every latitude —
+applying a per-latitude exclusion and exporting afterwards produces
+precisely the mismatch above.
+
+**Order, from the cost asymmetry.** A candidate for exclusion or
+elevation changes the truth, so each one costs a full latitude sweep
+(~1 h at screening depth on 1 600 satellites). A cap candidate in its
+FREE regime — at or above the concurrency the operation actually uses —
+changes no link, so the truth is frozen and the iteration costs a mask
+export plus an E1 sweep, minutes. The cheapest legitimate dB is also the
+cheapest to search for. So: (i) the cap lever, with its stopping rule
+reshaped from "first delta that passes" to "smallest cap service can
+absorb" — under v3 the old rule would stop at delta 0 and do nothing;
+(ii) the commitment gate in the sampler, which delivers the service band
+and your E1-2 together; (iii) the beam count on top of the same gate;
+(iv) the testbed then falls out rather than being bought with an
+invented power.
+
+**On E1-3.** Checked one of the four: the XML writer does reject the
+`min_duration` + `min_angle_at_es` pair, but the composer forwards both
+silently, so an unfilable profile only fails at export. Moving the
+refusal to compose is the right fix. The other three stand as you wrote
+them.
+
+**One naming trap for the campaign.** The S.1325 revision draft uses
+"alpha table" for a SELECTION PROBABILITY distribution (its
+Sec. 2.3.2.2.5, the 4A/653 proposal's afterlife as a simulation
+strategy), while ours means `MIN_EXCLUDE`, a hard per-latitude bound.
+Same words, opposite objects. Recorded as a documentation rule with the
+broader one behind it: a declared data item is described by the
+Recommendation that DEFINES the field, and a study Recommendation may
+parent only truth-side cards.
