@@ -471,6 +471,47 @@ set under a traffic model. That is the distinction the design brief
 draws between reachable and occurring bases, obtained by measurement
 rather than by assertion.
 
+**Three runs, and which one derives (2026-09-04).** "Derivation run" is
+not the compliance loop's sweep. Three runs appear in one iteration and
+they differ in centre, in traffic and in purpose:
+
+| run | centre | victim | traffic | produces |
+|---|---|---|---|---|
+| derivation probe | the system | none | SATURATED | the pfd mask and the R set |
+| truth sweep | a victim, one run per latitude | yes | the profile's real demand and activity | T, and the Article 22 verdict |
+| examination sweep | a victim, one run per latitude | yes | not applicable (mask + declared gates) | E1 |
+
+The derivation run already exists as a distinct object:
+`OpParamsDeriver.Derive` builds its own scheduler with its own duration
+and step (0.5 d at 60 s in the margin figure) and observes LINKS, with
+no victim anywhere. Under the correction above it also records BEAM
+CONFIGURATIONS, and the mask falls out of the same pass — which is what
+makes the mask and the R set two products of one measurement rather than
+two artefacts that have to be kept in step by hand.
+
+The compliance sweep cannot play that role. It is victim-centric and
+runs once per latitude, while a mask is not per-victim; and deriving
+from the run that later verifies would make the adequacy test vacuous,
+since a mask derived from a run envelopes that run trivially.
+
+**The saturation rule propagates backwards to the R set.** Today
+`Derive` takes the profile's geography and illumination duty, so it
+steps a scheduler that applies demand, activity and duty — the derived
+R set is therefore traffic-influenced already. Under the doctrine above
+that is the same Class T leak, one artefact earlier: `MAX_CO_FREQ`
+measured under a traffic sample is a commitment the operator never made
+and may not be able to honour at peak. The probe must saturate for BOTH
+artefacts.
+
+Saturation buys two things beyond legitimacy. It makes the probe
+necessarily a different run from the truth sweep, so the independence
+condition of the adequacy test is satisfied by construction. And it
+removes traffic from the adequacy question altogether: traffic can only
+thin what is lit, so a saturated envelope dominates any traffic-thinned
+composite, and what remains to verify is purely whether the probe
+visited every permitted beam position — a geometry-and-time question,
+which is the one E1 >= T tests.
+
 **Adequacy is E1’s job (operator, 2026-09-04).** "Measurement" here
 means simulation and observation: run the system under the candidate
 commitments and record what it does. That trades a construction
