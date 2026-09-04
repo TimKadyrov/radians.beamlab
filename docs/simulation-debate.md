@@ -1412,3 +1412,309 @@ one. Pinned as a permanent check (V35: L5 count in 3-8 over 600 steps
 and the STEAM-2 CDF within 0.03 over a day at 10 s steps) so a
 selection-side regression can no longer move a margin figure unseen.
 The 1e6 record follows below when it lands.
+
+**The 1e6 record, same day.** At the document's own scale (1e6 x 1 s,
+40 minutes) the max |CDF deviation| per latitude is 0.004 / 0.007 /
+0.002 / 0.001 / 0.002 / 0.002 for 0..50 N — worst 0.007, unchanged from
+the one-day run, so the residual is not sampling. It sits in one cell:
+10 N at alpha <= 60, published 1.000 against 0.993 measured — our run
+grants a satellite with alpha between 55 and 60 deg at 10 N on 0.7% of
+steps where the UK run never does. Everything else agrees to <= 0.004.
+A real but tiny difference at the edge of one latitude's support;
+candidates are a digitisation of a curve that actually reached 1 just
+below 60, or a slightly different arc-sampling convention in their
+alpha. Not worth chasing before Q1; recorded so nobody rounds it away.
+
+**Random is now a scheduler policy**, not an oracle-side draw:
+`SelectionPolicy.Random` ranks the feasible candidates by a fresh
+seeded key each step (the argmax of iid uniforms is uniform), so with
+no hold it is 4A/653's memoryless rule and with a hold it becomes
+random-at-setup — the shape operators described as close to their
+practice. The oracle and V35 now read the scheduler's granted link
+instead of drawing privately (V35: worst 0.007 on the 10 s comb;
+127/0). On the R-set question: **random maps to nothing**, exactly as
+every strategy does — the format has no field for selection, which is
+the projection discarding the selection rule; the 4A/653 alpha table
+was the one proposal to carry a selection statistic into the format,
+and it was rejected. What a random-selecting operation leaves in the
+derived R set is only that its envelopes hug the gates (it uses the
+whole feasible set), where a highest-elevation operation leaves a
+derived minimum elevation above the enforced floor.
+
+**STEAM-2 as an operational description.** The oracle's system is now
+a case in the toolchain's own terms — `dataset/_src/STEAM-2.orbitdesign
+.json` + `STEAM-2.opprofile.json` — and V35 proves the design document
+reproduces the oracle shell satellite for satellite at the epoch (the
+exact 1.9 deg phase now travels through the design-document codec).
+What is real in it, from 4A/653 and its R-set XML: the shell, the band
+(17.7-18.6 GHz), alpha 22 deg (filed), Nco 4 (filed), the typical-ES
+deployment (es_distance 183 km, es_density 3e-5 /km2 — self-consistent,
+so the service pitch is given), es_lat +/-90, min_duration unused, and
+random selection (operator-attested). Two things are not filed: the
+40 deg minimum elevation is the contribution's own simulation
+assumption, carried as the profile's enforced rule and flagged; and the
+payload is nowhere — the profile leaves it at scene defaults and says
+so in its name. STEAM-2B's filed pfd mask (ntc_id 317520389) is the
+envelope any assumed payload must sit under, and pulling it from the
+BR database is the step that turns this case into the first real-filing
+"plausible envelope" run. One modelling convention surfaced on the way:
+a Case-1 design document always carries the examination's artificial
+precession (`ToShell` forces NOrbits >= 1), while the oracle's shell
+drifts naturally as the published simulation did — the alpha CDF is a
+visibility statistic and does not care, but a truth run built from the
+design document is not the oracle's truth run to the metre.
+
+## Beamlab — the filed mask, dissected, 3 September 2026
+
+STEAM-2B's filed pfd mask (ntc_id 317520389, mask_id 150, 17.7-20.2 GHz,
+40 kHz) is now in hand and read back into operating rules
+(`-- dissect`, docs/mask-dissection-steam-2b.md). It is the
+satellite-frame (az/el) form: 179 latitude blocks by 1 deg, each a
+119 x 119 grid at 1 deg, 2.53 million cells. Mapped to the ground
+through the frame the examination reads it with, the mask is a
+**two-level rule envelope**: a main-beam plateau at -130.2 dB
+(-131.2 within +/-20 deg) wherever a beam may point, a side-lobe floor
+30 dB down (falling with range toward the horizon) everywhere else,
+nothing in between, no -1000 hole anywhere — the whole visible Earth is
+"reachable" and the rules are written as levels. Read off the plateau
+boundaries, per latitude:
+
+- **Minimum elevation 40.0 deg at every latitude** (plateau edge 40.0,
+  excluded side 39.9). The 40 deg the contribution called a simulation
+  assumption is enforced in the filed payload envelope.
+- **Exclusion alpha 22.0 deg, constant** over every alpha-limited
+  latitude (excluded side 21.9-22.0, plateau side 22.0): one rule, whose
+  hole in (az, el) changes shape with latitude purely through geometry.
+  A per-latitude MIN_EXCLUDE for this operator would be flat 22 — the
+  filed R set's single row is exactly right.
+- The alpha rule is limited over **-53..53 deg = the inclination**;
+  beyond the sub-satellite reach the blocks are byte-identical filler
+  (plateau minimum alpha 23 at 55, 28 at 60, 38 at 70, 82 at 80).
+- **A flat pfd cap, -130.2 dB(W/m2) per 40 kHz, independent of range**:
+  the plateau is one integer level at every off-nadir angle out to the
+  40 deg-elevation edge. That is constant-boresight-PFD power control
+  (the profile's `PowerMode = pfd`), not a constant e.i.r.p. seen
+  through spreading — the boresight e.i.r.p. density runs from
+  2.0 dBW/40 kHz at nadir to 5.0 at the edge. The 1 dB lower cap within
+  +/-20 deg latitude is the one feature the two rules do not explain.
+
+So the operational description is now real on four more counts —
+min elevation 40 (filed, in the mask), alpha 22 (filed twice, mask and
+R set, and constant), the power-control mode, and the boresight pfd
+that pins the power density — leaving only the beam pattern and layout
+as assumptions (the case profile carries Gm 35 dBi and
+TxEirpDbw -33.0 so the truth's boresight pfd meets the cap exactly). On the per-latitude alpha
+question: this case is the clean real example of a *constant* rule
+read through a latitude-dependent mask, which is what the examination
+must reproduce; a test of a *varying* per-latitude MIN_EXCLUDE needs
+an operator whose boundary alpha moves, or a synthetic variant of this
+case with alpha rows and the mask regenerated by beamlab. Next: run
+the projection on the real declarations — E1 with the filed mask and
+the filed R set against a truth whose payload peak is pinned to the
+mask's 5.0 dBW/40 kHz — the first plausible-envelope figure on a real
+filing.
+
+**A format note for your parser, same day.** The contribution's
+operating-parameter XML is an illustration, not a schema-faithful R
+set: it writes `<min_exclude orb_id="-1">` for its all-orbits row and
+`<min_duration latitude="0">-1</min_duration>` for "unused", while the
+Rec's Part B text makes 0 the all-orbits marker and the reference
+worked examples write `<min_exclude c="0">`. Beamlab's writer follows
+the Rec (0, and rejects negatives); its declared-set reader would treat
+an orb_id of -1 as matching no orbit — i.e. silently no exclusion. We
+will not build a reader for the contribution's dialect (the operator's
+parameters go into the operation profile by hand instead), but the
+question travels to radians: what does the examination's R-set parser
+do with a negative orb_id, and does the BR's validated STEAM-2B set
+carry 0 or -1?
+
+## Beamlab — mask parity: our composition against the filed mask, 3 September 2026
+
+The reverse of the dissection (`-- parity`, docs/mask-parity-steam-2b.md):
+beamlab composes the STEAM-2 case from its profile + design document
+exactly as a run would, exports its own az/el mask (lat -50..50 by 5,
+az/el 1 deg — 0.1 min), and both masks go through the same Analyze().
+The composition carried the dissected rules (min elev 40, alpha 22,
+constant-PFD mode with Gm 35 / Tx -33 so the boresight pfd meets the
+-130.2 cap, pattern floor 5 dBi = 30 dB down) and beamlab's defaults for
+everything the filing is silent on (pattern, layout, aggregation).
+
+| rule | ours (composition) | theirs (filed) |
+|---|---|---|
+| minimum elevation | plateau edge 39.5 | 40.0 (both sides) |
+| exclusion alpha | hole visible only at -15..15, boundary 15-20 | 22.0 constant over -53..53 |
+| pfd cap | -128.1, range-shaped (3.0 dB spread) | -130.2, flat |
+| side-lobe floor | 20 dB below peak (-156..-148) | 30 dB below peak (-181..-160) |
+| cells vs theirs | plateau +1.4 dB mean (-5.8..+3.0); floor **+22 dB** mean (+14..+34); rim of 2604 cells we radiate and they do not | — |
+
+Three readings, each a statement about THEIR operation as much as about
+our assumptions:
+
+1. **Aggregation.** Our cap sits 2.1 dB above theirs and is range-shaped:
+   the default power sum of overlapping beams adds the crossover
+   neighbours. A flat single-level cap is what one beam's boresight pfd
+   looks like, or a co-channel sum over few beams per colour — the filed
+   mask is a per-beam-style envelope, not an all-beams aggregate.
+2. **The floor is the loud disagreement: +22 dB.** Our floor is the
+   power sum of every beam's side lobes over a lattice that tiles the
+   whole 40 deg field of view at 183 km cells — hundreds of beams, so
+   ~+20 dB over one beam's floor. Their floor is exactly one beam's
+   30 dB-down envelope at every cell. Either the payload radiates few
+   co-frequency beams per satellite at a time (reuse colours, or a small
+   beam count), or the filed floor under-declares the aggregate side
+   lobes of a full lattice by ~20 dB. The SNS beam data of the filing
+   would decide which; our profile cannot, and this is where a margin
+   figure on this case would be pattern assumption rather than rule.
+3. **The exclusion hole is nearly filled in our mask.** Beams pointed at
+   allowed cells just outside alpha 22 spill main-lobe energy into the
+   excluded sliver, so within 3 dB of the peak the hole only survives
+   where it is wide (the equatorial band). Their rule mask draws the hole
+   sharply. A reachable-envelope mask of a real lattice therefore
+   radiates toward the exclusion zone at near-plateau level — the filed
+   mask does not say so. That is a concrete E1-vs-T direction question
+   for this filing, contingent on the same beam-count assumption as (2).
+
+Min elevation and the disc rim agree (39.5 vs 40.0; the rim is the
+horizon-vs-59-deg grid). The parity tool now exists to re-run as the
+profile is tuned by hand in the operation window; the numbers above are
+the starting point, not the verdict on STEAM-2B.
+
+**Second pass, same day** — case profile now co-channel aggregation
+with N = 4 and 92 km beam cells (half the filed 183 km pitch): the cap
+lands (**-129.8 vs -130.2, plateau mean -0.1 dB, 88.9% of plateau
+cells within 1 dB**), so reading (1) is confirmed — the filed cap is a
+co-channel-style single-beam level. The floor stays **+19.5 dB** over
+theirs, and the exclusion zone is now filled by main-lobe roll-off to
+within 20 dB of the cap everywhere (no floor-class cell survives above
+the elevation edge in our mask). Readings (2) and (3) therefore stand:
+either few co-frequency beams radiate per satellite at a time, or the
+filed mask under-declares a full lattice's side lobes by ~20 dB and its
+sharp exclusion hole by ~15 dB. The SNS beam data of the filing is the
+arbiter; until then the residues are assumption-priced, not verdicts.
+
+---
+
+## Critique side — the objective pivot: optimize E1 over a compliant truth, 4 September 2026
+
+First, the oracle round: accepted in full. The geometry-and-selection
+half of Q4 is closed — worst CDF deviation 0.007 against a table
+digitised to three decimals, the L5 count inside its stated band on
+every step, V35 pinning both so a selection regression can never move a
+margin figure unseen again. The 10 N / alpha 60 residual cell is rightly
+recorded-not-chased. Random-as-policy is the correct promotion (argmax
+of iid uniforms is uniform; random-at-setup under a hold is the
+operators' stated shape), and its R-set image — nothing, by format —
+is now a measured statement, not an assumption. The natural-drift vs
+artificial-precession convention note stands as written.
+
+**The operator has reset the objective, and it changes what the loop
+is for.** The target is not to fit the limits: T is given and must meet
+the limit on its own. The optimization variable is the declaration
+derivation D(T) -> (masks, R set); the constraint is that D remains an
+honest envelope of every operation the profile's declared commitments
+permit; the objective is minimize E1. The anti-fitting guard survives
+intact — nothing in D may be conditioned on the verdict or on Class-T
+knowledge (below) — but the direction of travel reverses: the old
+question was "which system passes", the new one is "how little of a
+compliant system's true margin does the declaration burn". By the
+power-scaling identity the E1 - T projection is invariant under uniform
+power moves, so the frozen 6.5 dB transfers unchanged to the compliant
+operating point: at the T-frontier the examination sees a system 6.5 dB
+over. **Every dB removed from E1 - T is a dB of licensed operating
+power.** That is the campaign's value function, and it is exactly the
+quantity the STEAM-2B comparison just priced against a real filing.
+
+**Where E1 can move — the mask, and almost only the mask.** The code
+says why E2 - E1 ~ 0 was inevitable: OpParamsDeriver already envelopes
+the FLOWN operation (measured floors and maxima per latitude band,
+unobserved quantities left undeclared, exclusion declared only where it
+bound) — the R set is occurring-side by construction and has no slack
+to give. The scheduler reads its gates off the declared set itself
+(DeclaredConstraints), so declaration and truth cannot drift. The one
+reachable-side object in the chain is the pfd mask: it envelopes the
+full lattice composition while the truth schedules a handful of beams
+per satellite. And the disconnect is visible inside our own artefacts:
+**the derived R set already declares max_co_freq_sat measured from the
+flown operation — and the mask ignores it.** The filed-mask parity run
+now shows the industry does not: STEAM-2B's cap sits at a co-channel
+single-beam level, its floor ~20 dB below our reachable envelope, its
+exclusion hole sharp where ours fills by main-lobe roll-off. Filed
+masks embody a beam-count commitment; our mask construction refuses
+one. That is the residue's home, measured twice — ~6.5 dB on the BL
+margin lattice, ~20 dB on the STEAM-2B lattice — same phenomenon,
+different beam counts.
+
+**Legitimacy criterion, stated once for the whole campaign:** a
+declaration tightening is admissible iff it is enforced by a declared,
+binding commitment (Class D below) — the mask may assume the frequency
+plan (co-channel colour), the per-satellite co-frequency beam cap, the
+declared exclusion and elevation gates, because those bind the operator;
+it may never assume the selection policy, the demand, the activity or
+the duty cycle, because no format field binds them (and WP 4A rejected
+every attempt to add one: selection/alpha table 4A/653, duty cycle
+4A/623, likelihood weighting R15/4A/904 — Class T is regulatorily
+final, not an implementation gap).
+
+**The operation-profile parameters, classed by declarable image** (the
+axis the intent grouping doesn't carry; propose it as one line per card
+in ParameterCatalog and parameter-cards.html):
+
+- **Class D — declarable, the whole E1-optimization space:**
+  MinElev(+ByLat) -> min_elev; AlphaExcl(+ByLat) -> min_exclude;
+  NcoPerCell/NcoByLat -> max_co_freq; MaxCoFreqSat -> max_co_freq_sat
+  AND the mask's beam-count assumption; MinAngleAtEs/AtSat;
+  MinHoldSec -> min_duration; ServiceLat bounds -> es_lat_min/max;
+  EsDishM, PowerDbw, PowerControlRefElevDeg -> the E mask; the whole
+  Power/Shape set (TxEirpDbw, GainPeakDbi, Taylor SLR/nbar, floor,
+  PowerMode, Aggregation/ReuseClusterIndex, RefBw, cell radius,
+  crossover) -> the S/pfd masks; FootprintSource is the projection
+  switch itself.
+- **Class T — truth-only, effect = measured margin, forever:**
+  SelectionPolicy, DemandLinksPerCell, ActivityFactor/PeriodSec,
+  IlluminationDutyCycle, OperationalFraction, ServiceLon bounds,
+  CellKm pitch. Each reduces T and can never reduce E1.
+- **Class G — derivation guards, protect validity not tightness:**
+  YawSweepDeg, the mask grid steps (the converged b/c 1 / lat 5 are now
+  the defaults), CoverageRadiusKm, the header-vs-array precedence.
+  Wrong values make E1 wrong, not loose.
+
+**Modern-definition checks from the WP 4A corpus, actionable now:**
+(1) Nco realism — the BL family carries 1-4; real gateway-band filings
+carry 20-30 (4A/658): one high-Nco case or sweep belongs in the family.
+(2) MAX_CO_FREQ_SAT absent must STAY absent in every export — the RR
+default is "the number of earth stations created for the epfd-up run",
+i.e. unconstrained; writing 0 or 1 would be a wrong declaration
+(DeclaredConstraints already treats absent Nco as no-cap; verify the
+XML writer end of it). (3) The profile can currently carry MinHoldSec
+and MinAngleAtEsDeg together and the composer forwards both — RR
+A.14.d.12 makes them mutually exclusive per band; compose/export should
+refuse the pair, not emit an unfilable declaration. (4) min_duration:
+omit entirely for the classic algorithm, never write 0 (the 661716993
+convention).
+
+**Proposed order, for repricing on your side:**
+
+- **E1-1, the committed-beam-count mask** — the envelope sampler gains
+  the beam-count/colour commitment: envelope over "any K co-frequency
+  beams of the lattice" (K from the declared MaxCoFreqSat / reuse
+  colour), not all of them. Readout first: the truth run's per-satellite
+  simultaneous co-frequency beam-count distribution, so K is measured
+  before it is declared. Expectation stated before the run: a large
+  fraction of the 6.5 dB at the tail; what survives is side-lobe
+  geometry proper.
+- **E1-2, per-latitude alpha mask inheritance** — the composer's own
+  PerLatExclusionSceneGap guard names the other known inflation; under
+  the new objective it graduates from warning to queue-top.
+- **E1-3, the compose/export validations** of (2)-(4) above — cheap,
+  and they make every emitted case filable.
+- **E1-4, the catalogue re-tag** with the D/T/G axis — documentation,
+  cheap, stops anyone "optimizing" E1 with a Class-T knob.
+- **E1-0, the testbed:** set TxEirpDbw from the frontier so T passes
+  22-1C on its own, freeze that profile, and track E1's distance to
+  limit as the campaign metric. The identity guarantees the frozen
+  decomposition carries over, so no re-attribution is needed.
+
+STEAM-2B remains the external anchor: once E1-1 lands, re-run the
+filed-mask parity — if the committed-beam-count envelope closes most of
+the ~20 dB toward their filed cap and floor, the construction is
+vindicated against practice, not just against our own truth.
