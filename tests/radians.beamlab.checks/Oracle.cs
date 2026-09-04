@@ -20,9 +20,10 @@ using static radians.beamlab.GeoMath;
 //
 // What runs here: beamlab's own Scheduler computes the feasible set per step
 // against a declared parameter set carrying exactly the two gates (header
-// elev_angle 40, min_exclude 22 for all orbits); the oracle then draws one
-// eligible satellite uniformly at random (the document's rule) and records
-// its alpha. Beams are made irrelevant on purpose -- one nadir beam per
+// elev_angle 40, min_exclude 22 for all orbits) and, under its Random
+// policy with no hold, grants one uniformly drawn eligible satellite per
+// step (the document's rule); the oracle records the granted link's alpha.
+// Beams are made irrelevant on purpose -- one nadir beam per
 // satellite and a covering radius larger than any footprint -- because the
 // oracle has no beam concept: only propagation, geometry and the gates are
 // under test. The document's second constellation (L5) gives a cheaper
@@ -71,6 +72,17 @@ internal static class Oracle
         public double WorstDev => MaxDev.Max();
     }
 
+    /// <summary>
+    /// STEAM-2 as 4A/653 states it: 1150 km, 53 deg, 32 planes x 50, inter-plane
+    /// phase 1.9 deg (exact), planes over 360 deg (11.25 deg spacing). The case's
+    /// design document (dataset/_src/STEAM-2.orbitdesign.json) must reproduce it.
+    /// </summary>
+    internal static ConstellationShell Steam2Shell() => new()
+    {
+        AltitudeKm = 1150.0, InclinationDeg = 53.0, PlaneCount = 32, SatsPerPlane = 50,
+        InterPlanePhaseDeg = 1.9, LanSpreadDeg = 360.0,
+    };
+
     /// <summary>One nadir beam per satellite: the oracle has no beam concept.</summary>
     private sealed class NadirPointing : IBeamPointing
     {
@@ -93,8 +105,9 @@ internal static class Oracle
 
     /// <summary>
     /// The measurement itself: the L5 eligible count at 50 N, then the STEAM-2
-    /// alpha CDF of a uniformly drawn eligible satellite at 0..50 N, both on
-    /// beamlab's own scheduler gates. Deterministic (seed 4653).
+    /// alpha CDF of the satellite the scheduler's Random policy grants at
+    /// 0..50 N, both on beamlab's own scheduler gates. Deterministic (the
+    /// scheduler seeds its draw).
     /// </summary>
     internal static Result Measure(long steps, double stepSec, long l5Steps, bool progress)
     {
@@ -127,17 +140,12 @@ internal static class Oracle
             Console.WriteLine(string.Create(inv,
                 $"L5: eligible per step min {l5Min} / mean {l5Mean:F2} / max {l5Max}; inside [3, 8] on {100 * l5Frac:F2}% of steps -> {(l5Min >= 3 && l5Max <= 8 ? "AGREES" : "DISAGREES")} with 4A/653 (3-8)"));
 
-        // ---- 2. STEAM-2: 1150 km, 53 deg, 32 x 50, phase 1.9 deg (exact),
-        // plane spacing 11.25 deg; gates elev 40 / alpha 22; random selection.
-        var steam = new Constellation(new[] { new ConstellationShell
-        {
-            AltitudeKm = 1150.0, InclinationDeg = 53.0, PlaneCount = 32, SatsPerPlane = 50,
-            InterPlanePhaseDeg = 1.9, LanSpreadDeg = 360.0,
-        } });
+        // ---- 2. STEAM-2: gates elev 40 / alpha 22; random selection.
+        var steam = new Constellation(new[] { Steam2Shell() });
         var cells = Latitudes.Select((lat, i) => new ServiceCell(i + 1, lat, 0.0)).ToList();
         var geo = new ServiceGeography(cells, 500.0);
-        var sched = new Scheduler(steam, geo, Gates(40.0, 22.0), new NadirPointing(), simDur, 5000.0);
-        var rng = new Random(4653);
+        var sched = new Scheduler(steam, geo, Gates(40.0, 22.0), new NadirPointing(), simDur, 5000.0,
+            SelectionPolicy.Random);
         int nl = Latitudes.Length;
         var counts = new long[nl, Thresholds.Length];   // selected alpha <= threshold
         var samples = new long[nl];
@@ -154,11 +162,12 @@ internal static class Oracle
             for (int li = 0; li < nl; li++)
             {
                 int cellId = li + 1;
-                var elig = st.CandidateLinks.Where(c => c.CellId == cellId)
-                    .GroupBy(c => c.SatelliteNumber).Select(g => g.First()).ToList();
-                eligSum[li] += elig.Count;
-                if (elig.Count == 0) { outage[li]++; continue; }
-                var pick = elig[rng.Next(elig.Count)];
+                eligSum[li] += st.CandidateLinks.Where(c => c.CellId == cellId)
+                    .Select(c => c.SatelliteNumber).Distinct().Count();
+                // The granted link IS the random draw (Nco 1, no hold: the
+                // scheduler re-draws uniformly among the feasible set each step).
+                var pick = st.Links.FirstOrDefault(l => l.CellId == cellId);
+                if (pick is null) { outage[li]++; continue; }
                 samples[li]++;
                 for (int ti = 0; ti < Thresholds.Length; ti++)
                     if (pick.AlphaDeg <= Thresholds[ti]) counts[li, ti]++;
@@ -223,8 +232,9 @@ internal static class Oracle
         sb.AppendLine("point, the joint eligibility gate (elevation AND alpha), and the selection");
         sb.AppendLine("step. The eligible set per step is beamlab's own Scheduler's (declared set:");
         sb.AppendLine("header elev_angle = min elevation, min_exclude = the alpha floor for all");
-        sb.AppendLine("orbits); the selection is the document's rule -- one eligible satellite drawn");
-        sb.AppendLine("uniformly at random per step (seed 4653). Beams are irrelevant by construction");
+        sb.AppendLine("orbits); the selection is the scheduler's own Random policy -- uniform among the");
+        sb.AppendLine("feasible set, re-drawn every step since no hold is declared (the document's rule;");
+        sb.AppendLine("seeded inside the scheduler). Beams are irrelevant by construction");
         sb.AppendLine("(one nadir beam per satellite, covering radius 5000 km): the document has no");
         sb.AppendLine("beam concept. Nothing about power, masks, composition, the accumulator or the");
         sb.AppendLine("limits is touched.");

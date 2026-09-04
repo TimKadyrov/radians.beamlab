@@ -29,6 +29,25 @@ if (args.Length > 0 && args[0] == "margin")
         args.Length > 2 ? long.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 0,
         args.Length > 3 ? double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) : 5.0,
         args.Length > 4 ? double.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture) : 10.0);
+if (args.Length > 0 && args[0] == "loop")
+{
+    string[] a = args;
+    string srcDir = System.IO.Path.Combine(@"C:Projectsadians.beamlab", "dataset", "_src");
+    double D(int i, double dflt) => a.Length > i && double.TryParse(a[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : dflt;
+    return ComplianceLoop.Run(
+        a.Length > 1 ? a[1] : System.IO.Path.Combine(srcDir, "STEAM-2.opprofile.json"),
+        a.Length > 2 ? a[2] : System.IO.Path.Combine(srcDir, "STEAM-2.orbitdesign.json"),
+        D(3, 0.1), D(4, 60.0), D(5, 0.0), D(6, 60.0), D(7, 10.0),
+        a.Any(x => x.Equals("walk", StringComparison.OrdinalIgnoreCase)));
+}
+if (args.Length > 0 && args[0] == "parity")
+    return MaskParity.Run(
+        args.Length > 1 ? args[1] : @"c:_3mask ntc_id 317520389 mask_id 150 17700-20200 MHz.xml",
+        args.Length > 2 ? double.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 5.0);
+if (args.Length > 0 && args[0] == "dissect")
+    return MaskDissect.Run(
+        args.Length > 1 ? args[1] : @"c:\_3\mask ntc_id 317520389 mask_id 150 17700-20200 MHz.xml",
+        args.Length > 2 ? double.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 1150.0);
 if (args.Length > 0 && args[0] == "oracle")
     return Oracle.Run(
         args.Length > 1 ? long.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture) : 86400,
@@ -4221,9 +4240,98 @@ var looks = RandomLooks(300);
     var orc = Oracle.Measure(8640, 10.0, 600, progress: false);
     bool orcL5 = orc.L5Agrees;
     bool orcCdf = orc.WorstDev <= 0.03 && orc.Outage.All(o => o == 0);
-    Check("V35 external oracle (4A/653): L5 eligible count 3-8, STEAM-2 alpha CDF within 0.03",
-        orcL5 && orcCdf,
-        $"l5={orc.L5Min}..{orc.L5Max} worstDev={orc.WorstDev:0.000} outage={orc.Outage.Sum()}");
+    // The STEAM-2 case files must describe the same system the oracle
+    // validated: the design document reproduces the shell satellite for
+    // satellite at the epoch (planes, exact 1.9 deg phase, spacing,
+    // altitude, inclination -- through the codec), and the profile carries
+    // the document's gates and its random selection. Compared at t = 0
+    // only: a Case-1 design document always carries the examination's
+    // artificial precession (ToShell forces NOrbits >= 1), while the
+    // oracle's shell drifts naturally as the published simulation did.
+    string srcDir = Path.Combine(Path.GetDirectoryName(cardsPathV35Anchor()) ?? ".", "..", "dataset", "_src");
+    string designPath = Path.Combine(srcDir, "STEAM-2.orbitdesign.json");
+    string profilePath = Path.Combine(srcDir, "STEAM-2.opprofile.json");
+    bool caseOk = false; string caseDetail = "case files absent";
+    if (File.Exists(designPath) && File.Exists(profilePath))
+    {
+        var shellDoc = OrbitDesignFileCodec.ToShell(OrbitDesignFileCodec.LoadDocument(File.ReadAllText(designPath)).Shells[0]);
+        var conDoc = new Constellation(new[] { shellDoc });
+        var conRef = new Constellation(new[] { Oracle.Steam2Shell() });
+        double worstKm = 0.0;
+        if (conDoc.SatelliteCount == conRef.SatelliteCount)
+            for (int i = 0; i < conRef.SatelliteCount; i += 97)
+                worstKm = Math.Max(worstKm,
+                    (conDoc.StateAt(i, 0.0, 7200.0).PositionEcefKm - conRef.StateAt(i, 0.0, 7200.0).PositionEcefKm).Length);
+        var profS2 = OperationProfileCodec.Load(File.ReadAllText(profilePath));
+        bool profOk = profS2.TrackingPolicy == "Random" && Math.Abs(profS2.AlphaExclDeg - 22.0) < 1e-9
+            && Math.Abs(profS2.MinElevDeg - 40.0) < 1e-9 && profS2.NcoPerCell == 4 && Math.Abs(profS2.CellKm - 183.0) < 1e-9;
+        caseOk = conDoc.SatelliteCount == conRef.SatelliteCount && worstKm < 1e-6 && profOk;
+        caseDetail = $"sats={conDoc.SatelliteCount} worstKm={worstKm:0.0e0} profile={profOk}";
+    }
+    Check("V35 external oracle (4A/653): L5 eligible count 3-8, STEAM-2 alpha CDF within 0.03, case files reproduce the system",
+        orcL5 && orcCdf && caseOk,
+        $"l5={orc.L5Min}..{orc.L5Max} worstDev={orc.WorstDev:0.000} outage={orc.Outage.Sum()} {caseDetail}");
+
+    static string cardsPathV35Anchor()
+        => Path.Combine(radians.beamlab.app.HomeViewModel.FindDocsDir(AppContext.BaseDirectory)
+            ?? @"C:\Projects\radians.beamlab\docs", "parameter-cards.html");
+}
+
+
+// ---- V36: compliance progress reporting -- ordered, complete, inert ----
+{
+    // The window's only feedback during a long sweep. Pin what it promises:
+    // reports arrive per latitude (start and finish, the finish carrying the
+    // verdict), fractions rise monotonically through [0, 1] and reach 1, the
+    // advisor labels each walk step -- and, above all, listening changes no
+    // number (progress is side-effect-free).
+    var doc36 = new OrbitDesignDocumentViewModel();
+    doc36.Shells[0].PlaneCount = 1; doc36.Shells[0].SatsPerPlane = 2;
+    string p36 = Path.Combine(AppContext.BaseDirectory, "exp", "v36.orbitdesign.json");
+    Directory.CreateDirectory(Path.GetDirectoryName(p36)!);
+    File.WriteAllText(p36, doc36.BuildDocumentJson());
+    var prof36 = new OperationProfile(Name: "V36", MinElevDeg: 10.0, CellKm: 900.0);
+    string pp36 = Path.Combine(AppContext.BaseDirectory, "exp", "v36.opprofile.json");
+    File.WriteAllText(pp36, OperationProfileCodec.Save(prof36));
+    var cvm36 = new ComplianceViewModel
+    {
+        DesignPath = p36, ProfilePath = pp36,
+        LatFromText = "40", LatToText = "50", LatStepText = "10",
+        DurationDaysText = (30.0 / 1440.0).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        StepSecText = "60",
+        LimitsText = "-100 5",          // permissive: both latitudes pass
+    };
+    var sweep36 = cvm36.BuildSweep();
+
+    var col36 = new ProgressCollector();
+    var withProgress = ComplianceViewModel.RunSweep(sweep36, 0.0, col36);
+    var without = ComplianceViewModel.RunSweep(sweep36, 0.0);
+
+    var fr = col36.Reports.Select(r => r.Fraction).ToList();
+    bool anyOk = col36.Reports.Count >= 4;                       // >= start + finish per latitude
+    bool rangeOk = fr.All(f => f >= -1e-9 && f <= 1.0 + 1e-9);
+    bool monotoneOk = fr.Zip(fr.Skip(1), (a, b) => b >= a - 1e-9).All(x => x);
+    bool endsOk = fr.Count > 0 && Math.Abs(fr[^1] - 1.0) < 1e-9;
+    bool perLatOk = col36.Reports.Any(r => r.Text.Contains("lat 40") && r.Text.Contains("1/2"))
+                 && col36.Reports.Any(r => r.Text.Contains("lat 50") && r.Text.Contains("2/2"));
+    bool verdictOk = col36.Reports.Count(r => r.Text.Contains("PASS") || r.Text.Contains("FAIL")) >= 2;
+    // Inert: identical rows with and without a listener.
+    bool inertOk = withProgress.Count == without.Count
+        && withProgress.Zip(without, (a, b) => a.LatDeg == b.LatDeg
+            && a.MaxEpfdDb == b.MaxEpfdDb && a.WorstMarginDb == b.WorstMarginDb
+            && a.Pass == b.Pass && a.QuietSteps == b.QuietSteps).All(x => x);
+
+    // The advisor labels its walk steps and stays inside the bar.
+    var colW36 = new ProgressCollector();
+    var adv36 = ComplianceViewModel.Advise(sweep36, 1.0, 2.0, colW36);
+    bool walkOk = colW36.Reports.Any(r => r.Text.StartsWith("walk 1"))
+        && colW36.Reports.All(r => r.Fraction >= -1e-9 && r.Fraction <= 1.0 + 1e-9)
+        && adv36.FoundAlpha is not null;
+
+    Check("V36 compliance progress: per-latitude lines, monotone fractions, inert on results",
+        anyOk && rangeOk && monotoneOk && endsOk && perLatOk && verdictOk && inertOk && walkOk,
+        $"n={col36.Reports.Count} range={rangeOk} monotone={monotoneOk} ends={endsOk} " +
+        $"perLat={perLatOk} verdict={verdictOk} inert={inertOk} walk={walkOk}");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

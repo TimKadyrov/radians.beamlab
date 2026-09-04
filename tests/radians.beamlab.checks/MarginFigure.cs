@@ -185,7 +185,9 @@ internal static class MarginFigure
         if (stepSec >= 30.0)
             Console.WriteLine("NOTE: steps >= 30 s starve main-beam transients on this class of "
                 + "geometry -- tail LEVELS are not trustworthy (body percentiles only); "
-                + "see docs/margin-figure-6s.md / -1s.md for the measured comb rule.");
+                + "see docs/margin-figure-6s.md / -1s.md for the measured rule. The general "
+                + "form: tie the step to the interfered antenna's beamwidth, >= 5 samples "
+                + "across its 3 dB beam (S.1325 revision draft, sec. 2.7.2).");
 
         // ---- 8. The three runs -------------------------------------------
         Console.WriteLine("run T  (truth: live composition, scheduler-gated)...");
