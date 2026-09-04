@@ -1,0 +1,37 @@
+{
+  "SchemaVersion": 4,
+  "Shells": [
+    {
+      "SchemaVersion": 6,
+      "TargetAltitudeKm": 1150,
+      "InclinationDeg": 53,
+      "Eccentricity": 0,
+      "MaxOrbitsPerCycle": 120,
+      "SearchBandKm": 400,
+      "PlaneCount": 32,
+      "SatsPerPlane": 50,
+      "WalkerPhasingF": 0,
+      "Lan0Deg": 0,
+      "LanSpreadDeg": 360,
+      "InPlaneOffsetDeg": 0,
+      "ArgPerigeeDeg": 0,
+      "OpHeightText": "",
+      "CaseChoice": 0,
+      "KeepRangeDeg": 0.5,
+      "NOrbits": 288,
+      "VictimBeamwidthText": "",
+      "SelectedAltitudeKm": null,
+      "SelectedOrbits": null,
+      "SelectedNodalDays": null,
+      "RptDays": null,
+      "RptHours": null,
+      "RptMinutes": null,
+      "RptSeconds": null,
+      "PrecessionDegPerSec": null,
+      "DeclareAtTargetAltitude": false,
+      "HarmonizedRptSeconds": null,
+      "ShellName": "STEAM-2 (WP 4A Doc 4A/653)",
+      "InterPlanePhaseDeg": 1.9
+    }
+  ]
+}
