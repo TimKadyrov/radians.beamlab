@@ -2201,3 +2201,124 @@ as assumed — non-filed 40 deg elevation, scene-default payload — is over
 the limit, and no declaration work may hide that; whether the real
 STEAM-2B payload clears it is answered by the filed mask's power level,
 which is the parity run's next question anyway.
+
+## Beamlab — the dark-row term was ours, not the system's, 5 September 2026
+
+A correction, and it removes the premise the previous two entries were
+built on. The certificate is built, it works, and it recovers nothing.
+
+**What was claimed.** My entry of this morning reported the E1 - T gap
+splitting into a dark-row term (46.7 dB at victim latitude 0, 37.6 at 10,
+23.2 at 20) and an in-band granularity term (8.6 to 12.3 dB at latitudes
+30 to 60). The critique side's reply accepted that split, called the
+dark-row term "dominant at out-of-band victims, certain to recover,
+cheap, admissible", and ordered the work around it: dark rows first.
+
+**What was wrong.** The dark rows were an artifact of OUR service
+geography, not a property of the system. The STEAM-2 case carried a
+single northern box — latitudes 20 to 50, longitudes -10 to 10 — as a
+test geography. Nothing in Doc 4A/653 says the system serves only that
+box; we chose it, and then measured the consequences of our own choice.
+
+Widened to a global service area (-50..50 latitude, -180..180
+longitude), with the certificate applied exactly as agreed:
+
+| service area | es_lat span | lit rows | dark rows |
+|---|---|---|---|
+| the northern box | 20..49 | 5 | 6 |
+| global | -50..50 | 11 | 0 |
+
+Zero. With a system that serves both hemispheres and all longitudes, no
+sub-satellite latitude is certifiably unreachable, so the certificate
+darkens nothing and the dominant term of the gap does not exist. The
+23-to-47 dB was never margin waiting to be recovered; it was the price
+of a mask correctly describing a system we had invented.
+
+**What survives, and it is not nothing.** The certificate is still
+required, for exactly the reason the critique side gave: a mask lit where
+the committed system cannot transmit is a wrong mask about a different
+system. That argument was never contingent on the size of the prize, and
+it stands. It will also matter for any genuinely regional filing, where
+the dark rows are real. What does not survive is the ORDER built on the
+prize, and the endorsement of that order, which rested on our premise
+rather than on the critique side's own reasoning.
+
+**A second correction, of the same kind.** I reported that widening the
+service area improved T at latitude 40 by 11 dB — from -7.5 dB failing
+to +3.6 dB passing — and said it needed explaining before either number
+could be trusted. It needed no explaining: I had compared a 7-step run
+against a 144-step one. The same-depth control settles it.
+
+| service area | steps | max epfd | T margin |
+|---|---|---|---|
+| the northern box | 7 | -179.2 | +3.6 |
+| global | 7 | -179.1 | +3.6 |
+
+The geography moves the truth at that victim by 0.1 dB. What moved was
+depth, and it moves T a great deal:
+
+| steps | percentile floor | T margin at lat 40 |
+|---|---|---|
+| 7 | 14.3% | +3.6 |
+| 29 | 3.4% | -1.9 |
+| 144 | 0.69% | -7.5 |
+
+which is the tail resolving, exactly as it should. The rule this leaves
+behind is dull and was already printed on every run: a comparison
+between runs must hold depth fixed. The loop reports its own resolvable
+percentile floor and I did not read it.
+
+**What the geography does move is the DECLARATION, not the truth.** The
+same two probes, same depth:
+
+| quantity | northern box | global |
+|---|---|---|
+| es_lat | 20..49 | -50..50 |
+| max_co_freq_sat | 43 | 57 |
+| min_angle_at_es | 1.9 deg | 0.1 deg |
+| min_angle_at_sat | 4.6 deg | 2.3 deg |
+| link samples (7 steps) | 4 950 | 319 635 |
+
+The truth at one victim barely notices; nearly every declared quantity
+loosens. That asymmetry is the E1 - T gap in one picture — the
+declaration must envelope a much larger operating space while the truth
+at any single victim stays where it is. It also means the earlier
+narrow-box declaration was tight because the service area was small, not
+because the system is disciplined, and any margin attributed to that
+tightness was borrowed against a geography we had made up.
+
+**The bookkeeping, restated.** One term, not two. The gap at latitude 40
+is 7.9 dB at 7 steps, all of it in-band, and the granularity walk has
+already measured what grid and latitude-band refinement can take off it:
+
+| granularity | worst E1 | recovered |
+|---|---|---|
+| coarse (mask lat 10, az/el 2) | -23.0 dB | — |
+| baseline (mask lat 10, az/el 1) | -22.9 dB | 0.1 dB |
+| fine (mask lat 5, az/el 1) | -22.9 dB | 0.1 dB |
+
+0.1 dB. The inner loop's current levers are spent. Whatever the in-band
+gap is made of, it is not mask-grid granularity, and it is not the
+service span. That leaves the beam-count and envelope work — E1-1 — as
+the only remaining candidate, and it is now the whole of the inner
+loop's agenda rather than the second item on it.
+
+Note also that the 2.1 dB attributed to the b/c grid on the BL case does
+not generalise: the same axis is worth 0.1 dB here. It should stop being
+quoted as a general figure.
+
+**One implementation note worth recording, because it is a general
+trap.** The first certificate tested a row's own latitude. Sec. D5.1.5
+step 1 reads the table with the NEAREST latitude, so a row governs the
+half-step either side of it; testing the centre darkened rows that also
+govern reachable latitudes, under-declaring for every satellite in the
+reachable half — the deflated-mask direction, the unsafe one. It passed
+its checks, because the checks were written to the same wrong model. Any
+per-row rule on a nearest-read table has to clear the whole band the row
+governs, and the check has to say so.
+
+**Still outstanding.** The like-for-like global run at 144 steps, against
+the -7.5 dB record, is in flight. The STEAM-2 in-band failure remains an
+outer-loop fact: the system as assumed — 40 deg elevation not from the
+filing, scene-default payload — is over the limit, and no declaration
+work may hide that.
