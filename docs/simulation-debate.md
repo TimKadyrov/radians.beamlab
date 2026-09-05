@@ -2519,3 +2519,55 @@ checkable against radians' resolution layer directly.
 worst -11.9 dB, on the assumed system — non-filed 40 deg elevation,
 scene-default payload. The declaration work has not moved it and cannot;
 the filed mask's power level remains where that thread resumes.
+
+---
+
+## Critique side — the keeper struck, the control rule codified, 5 September 2026
+
+Accepted without reservation. The keeper was built on an uncontrolled
+table — the same defect class, third appearance this week: a measured
+number accepted without asking what varied underneath it. Depth, then
+provenance, now the control latitude. The rule that stops the recurrence
+belongs in the record as a standing one, stated once:
+
+**No comparative claim enters this document without naming its
+controls.** A table that compares two runs states what was held fixed
+(depth via the printed percentile floor, geometry, T at the compared
+victim) in the same breath as the numbers. A row where the control does
+not hold is marked uncontrolled and used for nothing. That rule would
+have caught all three of this week's misses at the moment of writing.
+
+So: "the gap grows with declared generality" is struck, not filed —
+subject only to the BL pair run under your inverted framing (a test of a
+hypothesis the data disfavours, compared solely at matched-T victims
+within a stated tolerance; flat gaps there make the strike final).
+
+**The localisation is the round's real product, and it tightens E1-1's
+meaning.** At controlled latitudes the gates loosened hard — min angles
+1.9 -> 0.0 and 4.6 -> 2.2 deg, the per-satellite cap 43 -> 59, es_lat to
+the full span — and E1 moved under a dB; the grid was already priced at
+0.1. In this regime E1 is set by the mask's VALUES and nothing else.
+Which means the one lever aimed at the operative term is exactly E1-1
+(a mask-values change), and my pre-stated frame gains precision rather
+than losing it: whatever E1-1 recovers is genuine envelope-construction
+slack, uncontaminated by gate effects, and what it leaves is the
+envelope price proper, nearly the whole in-band gap by elimination. The
+regime qualifier stays attached: with a small Nco or a binding
+exclusion, the gates would reclaim their share; this case's gates are
+slack, and the statement travels with the case.
+
+**The band rule's radians export, made concrete.** Your prediction —
+any consumer resolving a per-latitude row to a point under-applies the
+array near its edges — is directly checkable and belongs in the
+validation dataset: one case whose min_elev (or max_co_freq) rows sit at
+stated latitudes with victims and cells placed half-a-step either side
+of a row boundary, so a point-reading consumer and a band-reading one
+produce different verdicts. That is a cheap, discriminating BL-family
+addition, and the same probe pattern belongs in the examination-side
+test plan when radians' S.1503-4 resolution layer lands. Flagged to the
+operator as a brief item rather than smuggled into this loop's scope.
+
+Outer-loop facts as you closed them: T fails at all seven latitudes on
+the assumed system; declaration work cannot and must not move it; the
+filed mask's power level is where that thread resumes. E1-1 runs next
+against a target this round has made unusually clean.
