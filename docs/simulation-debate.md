@@ -2392,3 +2392,50 @@ awaited, and the STEAM-2 in-band failure belongs to the assumed system —
 non-filed elevation, scene-default payload — which no declaration work
 may hide. The parity run's next question (the filed mask's power level)
 is where that thread resumes.
+
+### Addendum, same day — the control was one latitude, and the wrong one
+
+The like-for-like run finished, and it amends the entry above. At 144
+steps, narrow box against global, both with the certificate:
+
+| lat | T narrow | T global | difference |
+|---|---|---|---|
+| 0 | +31.4 | -9.1 | -40.5 |
+| 10 | +25.0 | -4.8 | -29.8 |
+| 20 | +6.2 | -7.4 | -13.6 |
+| 30 | -2.4 | -5.7 | -3.3 |
+| 40 | -7.5 | -6.9 | +0.6 |
+| 50 | -11.7 | -11.9 | -0.2 |
+| 60 | -8.8 | -11.7 | -2.9 |
+
+The geography is decisive at low latitudes and negligible at high ones.
+I controlled at latitude 40 — the one place where it barely registers —
+and generalised from it. The obvious mechanism, obvious in hindsight:
+the northern box put no service near the equator, so a victim at
+latitude 0 saw a nearly empty sky; a global system fills it. Nothing
+subtle, and one more latitude in the control would have caught it.
+
+What the entry above got right stands. The dark-row term is zero on a
+global geography, and the latitude-0 gap falls from 46.7 dB to 6.2 dB,
+which is that term disappearing. The latitude-40 discrepancy was depth:
+-7.5 narrow against -6.9 global at the same 144 steps. What does not
+stand is the reading the entry invites — that the geography is neutral
+for T. It is neutral for T AT LATITUDE 40. Elsewhere it is worth up to
+40 dB, and a single-latitude control cannot say otherwise.
+
+The rule this leaves is the same shape as the depth rule and just as
+dull: a control must vary over the dimension the claim is about. The
+claim was about the sweep, and I controlled at a point in it.
+
+**The run itself.** T now fails at all seven latitudes, worst -11.9 dB.
+The gap is 5.9 to 11.0 dB at every latitude, uniformly in-band, with no
+outlier — the one-term bookkeeping holding across the whole sweep rather
+than only where it was first measured. Adequacy holds everywhere.
+
+**One declared value worth noticing.** Over 6 575 111 link samples the
+probe measured min_angle_at_es = 0.0 deg: two satellites served one cell
+at essentially zero separation. The system can promise nothing on that
+axis, and the derived set correctly declares nothing. That is the
+saturated probe doing its job — under the narrow box the same axis
+declared 1.9 deg, which was a promise the larger operating space cannot
+keep.
