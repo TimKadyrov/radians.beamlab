@@ -161,7 +161,9 @@ internal static class ComplianceLoop
         // so the same grid never needs exporting twice in a session.
         string EnsureMask(double maskLatStepDeg, double azElStepDeg)
         {
-            string tag = string.Create(inv, $"lat{maskLatStepDeg:F1}-ae{azElStepDeg:F1}").Replace(".", "p");
+            string tag = string.Create(inv,
+                $"lat{maskLatStepDeg:F1}-ae{azElStepDeg:F1}-svc{derived.Set.EsLatMinDeg:F0}to{derived.Set.EsLatMaxDeg:F0}")
+                .Replace(".", "p");
             string path = Path.Combine(runDir, string.Create(inv, $"{safe}.mask.{tag}.xml"));
             if (File.Exists(path) && File.GetLastWriteTimeUtc(path) > File.GetLastWriteTimeUtc(profilePath))
             {
@@ -188,8 +190,20 @@ internal static class ComplianceLoop
                 int pct = (int)(p * 100);
                 if (pct >= lastPct + 25) { lastPct = pct; Console.WriteLine($"    export {pct}%"); }
             });
-            MaskXmlExport.GenerateAsync(new ReachableEnvelopeSampler(compMask.Scene, opts, maxLat),
-                opts, maskProgress, CancellationToken.None).GetAwaiter().GetResult();
+            // The service-span certificate: rows from which no declared cell is
+            // reachable are written dark (Sec. C1 -1000). Closed-form, from
+            // declared commitments only -- never from what a finite probe
+            // happened to visit, which is the unsafe direction.
+            var span = new ServiceSpanSampler(
+                new ReachableEnvelopeSampler(compMask.Scene, opts, maxLat), derived.Set,
+                altKm, maskLatStepDeg);
+            Console.WriteLine(string.Create(inv,
+                $"  service-span certificate: es_lat {derived.Set.EsLatMinDeg:F0}..{derived.Set.EsLatMaxDeg:F0}, "
+                + $"coverage half-angle {span.HalfAngleDeg:F2} deg"));
+            MaskXmlExport.GenerateAsync(span, opts, maskProgress, CancellationToken.None)
+                .GetAwaiter().GetResult();
+            Console.WriteLine(string.Create(inv,
+                $"  latitude rows: {span.LitLatitudes} lit, {span.DarkLatitudes} dark"));
             return path;
         }
 

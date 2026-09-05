@@ -15,10 +15,10 @@
     "MaskXmlPath": ""
   },
   "MinElevDeg": 40.0,
-  "ServiceLatMinDeg": 20.0,
+  "ServiceLatMinDeg": -50.0,
   "ServiceLatMaxDeg": 50.0,
-  "ServiceLonMinDeg": -10.0,
-  "ServiceLonMaxDeg": 10.0,
+  "ServiceLonMinDeg": -180.0,
+  "ServiceLonMaxDeg": 180.0,
   "CellKm": 183.0,
   "TrackingPolicy": "Random",
   "NcoPerCell": 4,

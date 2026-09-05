@@ -4550,5 +4550,132 @@ var looks = RandomLooks(300);
         $"name={nameOk39} none={noneOk39} fresh={freshOk39} stale={staleOk39} load={loadOk39}");
 }
 
+
+// ---- V40: the service-span certificate darkens what cannot be transmitted ----
+{
+    // A mask lit where the declared system cannot transmit is not a purer
+    // declaration but a wrong one. The rows go dark under a CLOSED-FORM
+    // certificate from declared commitments -- never because a probe happened
+    // to visit nothing, which is the unsafe direction.
+    double half40 = ServiceSpanSampler.CoverageHalfAngleDeg(1200.0, 40.0);
+    double half10 = ServiceSpanSampler.CoverageHalfAngleDeg(1200.0, 10.0);
+    double half0 = ServiceSpanSampler.CoverageHalfAngleDeg(1200.0, 0.0);
+    // acos(Re/(Re+h) * cos eps) - eps, in degrees.
+    bool geomOk40 = Math.Abs(half40 - 9.86) < 0.02
+        && half10 > half40 && half0 > half10;   // a lower floor reaches further
+
+    var decl40 = new OperatingParamsSet
+    {
+        SatName = "V40", NtcId = 1, ParamId = 1, LowFreqMhz = 18150, HighFreqMhz = 18150,
+        EsLatMinDeg = 20.0, EsLatMaxDeg = 49.0,
+    };
+    var me40 = new MinElevByLat { LatDeg = 25.0 };
+    me40.ByAz.Add((0.0, 40.0)); me40.ByAz.Add((360.0, 40.0));
+    decl40.MinElev.Add(me40);
+
+    var probe40 = new ConstantSampler(-120.0);
+    var span40 = new ServiceSpanSampler(probe40, decl40, 1200.0, 0.001);
+    bool reachOk40 =
+        span40.ReachesServiceSpan(30.0)          // inside the span
+        && span40.ReachesServiceSpan(20.0)
+        && span40.ReachesServiceSpan(49.0)
+        && span40.ReachesServiceSpan(20.0 - half40 + 0.01)   // just inside the circle
+        && !span40.ReachesServiceSpan(20.0 - half40 - 0.01)  // just outside it
+        && !span40.ReachesServiceSpan(0.0)       // 20 deg away, circle is 9.86
+        && !span40.ReachesServiceSpan(-30.0);    // the other hemisphere
+
+    // The decorator: dark rows sample as unreachable (the exporter writes
+    // Sec. C1 -1000), lit rows pass straight through to the inner sampler.
+    span40.PrepareLatitude(0.0);
+    double dark40 = span40.SampleMaxIn(0.0, 45.0, 0.5, 0.5);
+    span40.PrepareLatitude(30.0);
+    double lit40 = span40.SampleMaxIn(0.0, 45.0, 0.5, 0.5);
+    bool gateOk40 = double.IsNegativeInfinity(dark40) && lit40 == -120.0
+        && span40.DarkLatitudes == 1 && span40.LitLatitudes == 1
+        && probe40.Prepared == 1;   // no field is built for a dark row
+
+    // Nothing declared promises nothing, so no row may be certified dark.
+    var bare40 = new OperatingParamsSet
+    {
+        SatName = "V40b", NtcId = 1, ParamId = 1, LowFreqMhz = 18150, HighFreqMhz = 18150,
+        EsLatMinDeg = 20.0, EsLatMaxDeg = 49.0,
+    };
+    var spanBare = new ServiceSpanSampler(new ConstantSampler(-120.0), bare40, 1200.0, 0.001);
+    bool bareOk40 = Math.Abs(spanBare.HalfAngleDeg
+        - ServiceSpanSampler.CoverageHalfAngleDeg(1200.0, 0.0)) < 1e-9;
+
+    // The smallest declared elevation wins: it reaches furthest, so it
+    // darkens the fewest rows -- the conservative reading of the promise.
+    var mixed40 = new OperatingParamsSet
+    {
+        SatName = "V40c", NtcId = 1, ParamId = 1, LowFreqMhz = 18150, HighFreqMhz = 18150,
+        EsLatMinDeg = 20.0, EsLatMaxDeg = 49.0, ElevAngleHeaderDeg = 25.0,
+    };
+    var meHi = new MinElevByLat { LatDeg = 25.0 };
+    meHi.ByAz.Add((0.0, 40.0)); meHi.ByAz.Add((360.0, 40.0));
+    mixed40.MinElev.Add(meHi);
+    var spanMixed = new ServiceSpanSampler(new ConstantSampler(-120.0), mixed40, 1200.0, 0.001);
+    bool smallestOk40 = Math.Abs(spanMixed.HalfAngleDeg
+        - ServiceSpanSampler.CoverageHalfAngleDeg(1200.0, 25.0)) < 1e-9;
+
+    // A row governs a BAND (Sec. D5.1.5 step 1 reads the nearest latitude),
+    // so it may go dark only when NO latitude it governs can reach the span.
+    // Darkening on the row centre alone under-declares for the reachable half
+    // of the band -- the deflated-mask direction, which is the unsafe one.
+    var band40 = new ServiceSpanSampler(new ConstantSampler(-120.0), decl40, 1200.0, 10.0);
+    bool bandOk40 =
+        // row 10 governs 5..15; 15 is 5 deg from the span, well inside 9.86
+        band40.ReachesServiceSpan(10.0)
+        // the point test would have darkened it: 10 deg away, circle is 9.86
+        && !span40.ReachesServiceSpan(10.0)
+        // row 0 governs -5..5; 15 deg from the span, still dark
+        && !band40.ReachesServiceSpan(0.0)
+        && Math.Abs(band40.HalfRowDeg - 5.0) < 1e-12;
+
+    // End to end: a real export must actually WRITE the Sec. C1 null. The
+    // sampler returning NegativeInfinity is only half the claim -- what the
+    // filing carries is the text in the file, so read it back.
+    string maskDir40 = Path.Combine(AppContext.BaseDirectory, "exp");
+    Directory.CreateDirectory(maskDir40);
+    string maskPath40 = Path.Combine(maskDir40, "v40.mask.xml");
+    var opts40 = new MaskXmlExportOptions
+    {
+        SatName = "V40", NtcId = 1, MaskId = 1,
+        LowFreqMhz = 18150, HighFreqMhz = 18150, RefBwKHz = 40.0,
+        LatMinDeg = -30.0, LatMaxDeg = 60.0, LatStepDeg = 30.0,
+        BStepDeg = 45.0, CStepDeg = 45.0,
+        Kind = MaskPlotKind.AzEl, Format = MaskExportFormat.Xml,
+        OutputPath = maskPath40,
+    };
+    // Rows at -30, 0, 30, 60 on a 30 deg grid, so each governs +/-15 deg,
+    // against a 20..49 span and a 9.86 deg circle. Row 0 governs up to 15,
+    // which is 5 deg from the span, so it is LIT; row 60 governs down to 45,
+    // inside the span; only -30 (nearest reach -15, a 35 deg gap) is dark.
+    var spanX = new ServiceSpanSampler(new ConstantSampler(-120.0), decl40, 1200.0, 30.0);
+    MaskXmlExport.GenerateAsync(spanX, opts40, null, CancellationToken.None)
+        .GetAwaiter().GetResult();
+    string maskText40 = File.ReadAllText(maskPath40);
+    bool nullOk40 = File.Exists(maskPath40)
+        && maskText40.Contains("-1000")            // the dark rows carry the null
+        && maskText40.Contains("-120")             // the lit row carries its value
+        && spanX.DarkLatitudes == 1 && spanX.LitLatitudes == 3;
+
+    Check("V40 service-span certificate: band-wide reach, -1000 written, smallest declared floor",
+        geomOk40 && reachOk40 && gateOk40 && bareOk40 && smallestOk40 && nullOk40 && bandOk40,
+        $"geom={geomOk40} reach={reachOk40} gate={gateOk40} bare={bareOk40} smallest={smallestOk40} " +
+        $"null={nullOk40} band={bandOk40} darkRows={spanX.DarkLatitudes} " +
+        $"half40={half40:F2} dark={span40.DarkLatitudes} lit={span40.LitLatitudes}");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
+
+/// <summary>Stand-in sampler for V40: a constant field, counting preparations.</summary>
+internal sealed class ConstantSampler : IPfdMaskSampler
+{
+    private readonly double _pfd;
+    public int Prepared { get; private set; }
+    public ConstantSampler(double pfdDb) => _pfd = pfdDb;
+    public void PrepareLatitude(double latDeg) => Prepared++;
+    public double SampleMaxIn(double x, double y, double halfW, double halfH) => _pfd;
+}
