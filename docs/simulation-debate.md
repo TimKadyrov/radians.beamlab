@@ -2100,3 +2100,104 @@ alongside it moves only levers that leave T fixed (the latitude band of
 the derived rows, the mask grid), which is the v3 objective; but until
 the service span reaches the mask, it is minimising a quantity whose
 largest term it cannot touch.
+
+---
+
+## Critique side — the mask goes dark by measurement: the service-span question answered, 5 September 2026
+
+**The answer to the either/or: the mask may go dark where the committed
+system is dark, and doing so is not inheritance from another artefact.**
+The false premise in the dilemma is that a pfd mask "resolved from
+geometry alone" must be agnostic about operations. The mask's latitude
+axis exists precisely because emissions VARY with sub-satellite latitude
+— and they vary because of operations; that is the only reason the
+format has the axis at all. §C1's -1000 null is the format's own device
+for saying "this space station does not radiate here". A mask with dark
+rows below the service reach is not borrowing the R set's bound at read
+time: its VALUES record the consequence of the commitments, the
+examination still reads it from geometry alone, and a reader of the mask
+alone learns a true, self-contained, independently enforceable property
+— "this satellite is dark south of X". If the operator later serves
+outside the span, the emission exceeds the filed mask and the mask
+itself is violated; no cross-artefact consultation is ever needed. The
+coupling lives in the DERIVATION, where the commitments live; the
+artefacts stay independent at the point of reading and at the point of
+binding. So: admissible — and more than admissible, required, because a
+mask lit where the committed system cannot transmit is not a purer
+declaration, it is a wrong one about a different system.
+
+**Your own doctrine already contains the mechanism.** The
+measurement-not-assertion correction answers the "it is not a clamp"
+worry before it is raised: the saturated probe grants no link when the
+sub-satellite point is at -50, so the visited configuration set there is
+empty and the envelope is empty — the null falls out of measurement, not
+out of a bound on the output grid. And in the transition band the same
+probe produces exactly the geometry you defended: a satellite at
+sub-satellite 10 N serving a 20 N cell with its boresight pointed north
+yields a lit, asymmetric row — neither nulled nor full-plateau. No
+per-commitment code, no clamp, no assertion.
+
+**One safety condition, and it is the round's only new rule: unvisited
+is not unreachable.** A probe too short to visit a rare-but-reachable
+configuration must not be allowed to null its block — that is the
+deflated-mask direction, the unsafe one from your own granularity table.
+So the null needs a stronger warrant than absence of samples: a block is
+written -1000 only under an ANALYTIC unreachability certificate — from
+that sub-satellite latitude, no cell inside the declared es_lat span is
+within the coverage geometry at the declared minimum elevation. That is
+closed-form (the 9.5 deg half-angle arithmetic you already did), it is
+computed from declared commitments only, and it makes the split clean:
+measured configurations decide the lit rows' values; the certificate
+decides which rows may be dark; the independent verdict-grade run
+remains the adequacy test for both (and for dark rows it tests trivially,
+since the scheduler enforces the very span the certificate used).
+
+**Bookkeeping the prize, so the headline stays honest.** The E1 - T gap
+now has two named terms. The dark-row term: dominant at out-of-band
+victims (lat 0: 46.7 dB gap, E1 -15.3 failing against T +31.4 passing —
+that failure is manufactured entirely by rows the system cannot light),
+certain to recover, cheap, admissible per the above. The in-band
+granularity term: 8.6-12.3 dB at lats 30-60, the beam-count and
+grid work. Report them separately from now on — "projection margin"
+means the in-band term; the dark-row term is a modelling defect being
+repaired, not a margin.
+
+**Concessions and acceptances, so the record is straight.** (1) Your
+E1-1 repricing stands and mine is withdrawn: the cap-4-to-1 measurement
+on the filed mask (2.8 dB, not 6.0) plus the top-K decay argument is
+evidence against my "large fraction of the 6.5 dB"; the probe decides,
+and your low-single-digits prior is now the better-grounded one. (2) The
+invariant correction is accepted as stated: one-pass derivation
+guarantees consistency over what both artefacts MEASURE, and the service
+span was not such a quantity — under the probe-plus-certificate design
+it becomes one, and the three-way invariant is restored honestly.
+(3) The saturation-leak handling is endorsed: the R set declares the cap
+(4), not the traffic accident (1) — declarations envelope commitments,
+never workload. (4) E1-3: moving the min_duration/min_angle_at_es
+refusal from the writer to the composer is right. (5) The naming rule —
+the Recommendation that defines a field owns its card; a study
+Recommendation parents truth-side cards only — is adopted; "alpha table"
+gets a disambiguation line on both cards it could confuse.
+
+**The v3 boundary, stated once so "still open" can close.** There are
+two nested loops and they are both clean. The OUTER loop designs the
+system: it may move alpha, Nco, power, anything — T moves, and that is
+not verdict-fitting, it is engineering a compliant system; the guard
+never applied to the system, only to its description. The INNER loop
+derives the declaration of whatever system the outer loop fixed:
+measurement-only, saturated, verdict-blind. The walk that moves alpha
+and re-measures T is the outer loop and is legitimate there; the
+granularity walk is the inner. What the guard forbids is only the
+diagonal move — changing the DESCRIPTION because of the VERDICT without
+a commitment that enforces it.
+
+**Order, endorsed with one promotion.** Dark rows first — certificate
+plus probe: it flips the manufactured failures at lats 0-20, removes the
+largest term, and lands the same probe machinery E1-1 needs. Then the
+cap lever in its free regime (truth frozen, minutes per candidate). Then
+the beam count on the same probe output. STEAM-2's in-band T failure
+(-2.4 to -11.7 at 30-60) stays an OUTER-loop fact throughout: the system
+as assumed — non-filed 40 deg elevation, scene-default payload — is over
+the limit, and no declaration work may hide that; whether the real
+STEAM-2B payload clears it is answered by the filed mask's power level,
+which is the parity run's next question anyway.
