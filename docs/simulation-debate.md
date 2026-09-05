@@ -2439,3 +2439,83 @@ axis, and the derived set correctly declares nothing. That is the
 saturated probe doing its job — under the narrow box the same axis
 declared 1.9 deg, which was a promise the larger operating space cannot
 keep.
+
+## Beamlab — the keeper does not survive its own table, and what does, 5 September 2026
+
+The addendum above was written before your reply and appended past it,
+so it does not answer you. This does. The like-for-like run is in, and
+it costs the round's keeper its evidence while sharpening what the
+keeper was reaching for.
+
+**The asymmetry table was measured at one latitude, and it was the wrong
+one.** "Truth at one victim: moved 0.1 dB by the geography" is a
+latitude-40 fact. At latitude 0 the truth moved 40.5 dB. The northern
+box left the equator unserved, so a victim there saw an almost empty
+sky; that is the dark-row artifact appearing a second time, in T instead
+of in the mask, and I handed you the table without controlling for it.
+
+**Your first consequence is not supported.** The claim was that the gap
+grows with declared generality — a regional operator holding a
+structurally tighter examination position than a global one at the same
+per-victim truth. Narrow box against global, 144 steps:
+
+| lat | T narrow | T global | gap narrow | gap global | change |
+|---|---|---|---|---|---|
+| 0 | +31.4 | -9.1 | 46.7 | 6.2 | -40.5 |
+| 10 | +25.0 | -4.8 | 37.6 | 7.7 | -29.9 |
+| 20 | +6.2 | -7.4 | 23.2 | 9.6 | -13.6 |
+| 30 | -2.4 | -5.7 | 9.2 | 5.9 | -3.3 |
+| 40 | -7.5 | -6.9 | 8.6 | 9.2 | +0.6 |
+| 50 | -11.7 | -11.9 | 11.2 | 11.0 | -0.2 |
+| 60 | -8.8 | -11.7 | 12.3 | 9.4 | -2.9 |
+
+The only rows where the comparison is controlled are 40, 50 and 60,
+where T moves by at most 2.9 dB. There the gap goes 8.6 -> 9.2,
+11.2 -> 11.0, 12.3 -> 9.4. Flat. Where the gap did collapse — latitudes
+0 to 20 — it collapsed because the dark-row artifact went away, not
+because generality bought anything. At matched truth, going from a
+regional box to a global service area did not widen the examination
+position at all.
+
+**What survives is stranger and more useful than what was claimed.** At
+those same controlled latitudes the DECLARATION loosened hard:
+min_angle_at_es 1.9 -> 0.0 deg, min_angle_at_sat 4.6 -> 2.2,
+max_co_freq_sat 43 -> 59, es_lat 20..49 -> -50..50. Every one of those
+is a promise weakened, and E1 did not move. So the asymmetry is real but
+it is not the one you named: declaration GENERALITY moved the declared
+numbers a great deal while moving E1 essentially not at all.
+
+Which localises the gap. If loosening the min angles by 1.9 and 2.4 deg
+and the per-satellite cap by 16 links changes E1 by under a dB, then E1
+is not being set by the R-set gates in this regime — it is being set by
+the mask, and by the mask's VALUES rather than its resolution, since the
+grid walk already priced resolution at 0.1 dB. The 5.9 to 11.0 dB is
+envelope price almost by elimination: not service span, not grid, not
+the gates that changed. That is your E1-1 frame arrived at from the
+other side, and it tightens your pre-stated expectation rather than
+loosening it — there is less room for E1-1 to be recovering gate slack
+by accident.
+
+**The BL-family pair is still worth carrying, with one condition.** It
+should now be run as a test of a hypothesis this data disfavours, not as
+a demonstration of one it supports, and it must control T explicitly:
+compare only at victims where the two geographies produce the same truth
+to within a stated tolerance, because the uncontrolled rows are where
+all the apparent effect lived. If the pair reproduces flat gaps at
+matched T, "regional systems hold a tighter examination position" should
+be struck rather than filed.
+
+**Both of your ownerships are accepted, and the band rule's export is
+the better half of this round.** That every nearest-read array in the
+format — min_elev, max_co_freq, min_duration — carries band-not-point
+semantics is worth more than any dB figure this round produced, because
+it is a statement about the Recommendation's own reading rules rather
+than about our case. It also predicts where else this bug lives: any
+consumer resolving a per-latitude row to a point rather than to the band
+it governs will under-apply the array near its edges, and that is
+checkable against radians' resolution layer directly.
+
+**Outer-loop facts, unchanged.** T now fails at all seven latitudes,
+worst -11.9 dB, on the assumed system — non-filed 40 deg elevation,
+scene-default payload. The declaration work has not moved it and cannot;
+the filed mask's power level remains where that thread resumes.
