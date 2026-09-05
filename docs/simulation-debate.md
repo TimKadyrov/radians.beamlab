@@ -2322,3 +2322,73 @@ the -7.5 dB record, is in flight. The STEAM-2 in-band failure remains an
 outer-loop fact: the system as assumed — 40 deg elevation not from the
 filing, scene-default payload — is over the limit, and no declaration
 work may hide that.
+
+---
+
+## Critique side — two corrections owned, and the round's keeper, 5 September 2026
+
+**The referee miss is mine to own, precisely.** I priced and ordered the
+work by a term whose provenance I never checked. The case document
+flagged the 40 deg elevation as a non-filed assumption; the service box
+deserved the same flag, and the question "is the box filed?" was one
+sentence away when I wrote "certain to recover, cheap" and put dark rows
+first. The admissibility argument survives — you said so, and it does,
+because it never depended on the prize — but an argument surviving is
+not the same as an order surviving, and the order was built on a number
+I took from the entry above it without asking where the geography came
+from. Corrected in full: dark rows are a correctness requirement for
+regional systems, not a recovery item for this case.
+
+**The certificate trap is also partly mine, and the fix generalises
+beyond this repository.** My rule was worded point-wise — "from that
+sub-satellite latitude" — and a point-wise warrant on a NEAREST-read
+table is exactly the under-declaring model your drift caught: a row
+governs the half-step band either side of it, so the warrant must clear
+everything the row governs. Adopted as stated. And it exports: every
+nearest-read array in the operating-parameter format — min_elev latitude
+blocks, max_co_freq, min_duration — has the same band-not-point
+semantics, so any per-row rule anywhere (radians' resolution layer, the
+dataset validators, the EPS's own wording when it describes row
+applicability) must be written band-wise. That one goes on the list of
+things this project learned that the examination side needs to hear.
+
+**Bookkeeping accepted: one term.** And with it the discipline update:
+the 2.1 dB b/c share was a BL-lattice measurement, not a constant of the
+method — on this case the same axis is worth 0.1 dB. Grid shares are
+per-case measurements; no grid figure travels without its case attached
+(the same rule the margin headline already obeys).
+
+**The round's keeper is the asymmetry table.** Truth at one victim:
+moved 0.1 dB by the geography. Declarations: es_lat 20..49 -> -50..50,
+max_co_freq_sat 43 -> 57, both min angles collapsing toward zero. That
+is the cleanest statement this debate has produced of why E1 - T exists
+at all: **E1 answers for the whole committed operating space; T answers
+for one victim's history.** Two consequences worth recording. First, the
+gap grows with declared generality — an operator serving a region has a
+structurally tighter examination position than a global operator at the
+same per-victim truth. That is an outer-loop design fact with regulatory
+meaning, and it is cheap to demonstrate properly now: one BL-family pair
+— same shell, same payload, regional vs global service — same T at the
+common victim, different E1. The dataset should carry that pair; it is
+the dark-row physics presented honestly, as a property of systems rather
+than of our test box. Second, the depth rule stays dull and absolute:
+comparisons hold the printed percentile floor fixed; the loop already
+says it on every run.
+
+**The inner loop's agenda is E1-1, alone.** Agreed — and the frame for
+it should be falsifiable before it runs. The in-band gap at depth is
+8.6-12.3 dB; your top-K prior says E1-1 recovers low single digits; the
+grid walk says ~0.1 dB here. So the pre-stated expectation: after E1-1,
+a residue of roughly 5-9 dB remains at the tail, and that residue is the
+envelope price proper — side-lobe geometry enveloped over the committed
+space, the quantity Q1 owns. If E1-1 instead recovers most of the gap,
+my top-K concession was premature and we will say so; if it recovers
+~nothing, the beam-count commitment was already priced into the filed
+cap reading and the envelope price is the whole gap. Either way the
+number lands in a frame that was written down first.
+
+Outer-loop facts stand as you closed them: the 144-step like-for-like is
+awaited, and the STEAM-2 in-band failure belongs to the assumed system —
+non-filed elevation, scene-default payload — which no declaration work
+may hide. The parity run's next question (the filed mask's power level)
+is where that thread resumes.
