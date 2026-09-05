@@ -1,7 +1,7 @@
 # Compliance loop: STEAM-2 (WP 4A Doc 4A/653 + filed mask; pattern, layout, reuse assumed)
 
 *Produced by `dotnet run --project tests/radians.beamlab.checks -- loop "STEAM-2.opprofile.json" "STEAM-2.orbitdesign.json" 0.1 60 0 60 10`.*
-*Date: 2026-09-04. Wall clock 63.8 min.*
+*Date: 2026-09-05. Wall clock 13.8 min.*
 
 ## The system under test
 
@@ -30,3 +30,35 @@ Depth: 144 steps of 60 s per latitude (0.100 d) -- resolvable percentile floor 0
 | 60 | -162.8 | -8.8 | FAIL | 0 |
 
 **EXCEEDED at 4 of 7 latitude(s) (30, 40, 50, 60); worst margin -11.7 dB -- power headroom -11.7 dB on per-beam TxEirpDbw (dB-for-dB)**
+
+## The declaration, derived
+
+Measured on a SATURATED probe with no victim -- demand 1 -> 4, activity 1.00 -> 1.00, duty 1.00 -> 1.00, operating fraction 1.00 -> 1.00. A declaration is an envelope of what the system MAY do, so traffic is taken out before it is measured; and being a different run from the truth sweep, it keeps E1 >= T an adequacy test rather than a tautology.
+
+- Depth: 144 steps / 101850 link samples, latitude band 10 deg.
+- Derived set: min_exclude 25:22.0/35:22.0/45:22.0; min_elev 25:40.0/35:40.0/45:40.0; max_co_freq 25:4/35:4/45:4; max_co_freq_sat 49; min_angle es 0.3 / sat 4.5; es_lat 20..49
+
+## E1 -- the examination against that declaration
+
+The truth above does not move; E1 is what the examination sees when it reads the declared mask and the derived R set instead. The gap is the margin the declaration gives away -- and, at the same dB-for-dB rate, the operating power the system could have been licensed for.
+
+| latitude | T margin (dB) | E1 margin (dB) | gap (dB) | E1 >= T |
+|---|---|---|---|---|
+| 0 | +31.4 | -15.3 | 46.7 | yes |
+| 10 | +25.0 | -12.6 | 37.6 | yes |
+| 20 | +6.2 | -17.0 | 23.2 | yes |
+| 30 | -2.4 | -11.6 | 9.2 | yes |
+| 40 | -7.5 | -16.1 | 8.6 | yes |
+| 50 | -11.7 | -22.9 | 11.2 | yes |
+| 60 | -8.8 | -21.1 | 12.3 | yes |
+
+**ADEQUATE: E1 >= T at every latitude; widest gap 46.7 dB**
+
+## Artefacts
+
+Profile, R set and pfd mask come out of this one run, so they describe the same system:
+
+- Operation profile (the truth as run): `dataset\margin\steam-2\steam-2.opprofile.json`
+- Derived R set (S.1503-4 Part B): `dataset\margin\steam-2\steam-2.operparams.xml`
+- Derived R set, designer format (open with the operating-parameters designer): `dataset\margin\steam-2\steam-2.operparams.json`
+- Declared pfd mask: `dataset\margin\steam-2\steam-2.mask.xml`

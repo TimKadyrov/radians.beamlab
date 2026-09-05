@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using radians.beamlab;
 
@@ -207,15 +208,10 @@ public sealed class OpParamsViewModel : ObservableObject
     /// </summary>
     public string DeriveProfilePath { get => _deriveProfilePath; set => SetField(ref _deriveProfilePath, value); }
 
-    private string _deriveDurationDaysText = "0.25";
-    public string DeriveDurationDaysText { get => _deriveDurationDaysText; set => SetField(ref _deriveDurationDaysText, value); }
-
-    private string _deriveStepSecText = "60";
-    public string DeriveStepSecText { get => _deriveStepSecText; set => SetField(ref _deriveStepSecText, value); }
-
-    private string _deriveLatBandText = "15";
-    /// <summary>Latitude band width (deg) of the derived per-latitude arrays.</summary>
-    public string DeriveLatBandText { get => _deriveLatBandText; set => SetField(ref _deriveLatBandText, value); }
+    // Depth and latitude band are NOT designer inputs. They decide how
+    // conservative a declaration is, which makes them part of the derivation
+    // the compliance loop owns -- a shallower probe yields a tighter, less
+    // conservative set, and nothing in a text box would tell the reader that.
 
     private bool _isDeriving;
     public bool IsDeriving
@@ -231,29 +227,77 @@ public sealed class OpParamsViewModel : ObservableObject
     /// measured envelope; identity and the frequency range come from the
     /// current header fields.
     /// </summary>
-    public async System.Threading.Tasks.Task DeriveAsync()
+    /// <summary>
+    /// The compliance loop's own derived set for the selected profile, when one
+    /// is on disk and newer than the profile it describes; otherwise null.
+    ///
+    /// The loop derives once, saturated, for the whole projection. Re-simulating
+    /// here would spend minutes to produce a SECOND OPINION of the same system --
+    /// and at a different depth, possibly a different one. So the button prefers
+    /// the run and only falls back to measuring when there is no run to read.
+    /// </summary>
+    public string? FindLoopRunSet()
     {
-        OpParamsDeriver.Result result;
-        IsDeriving = true;
-        StatusText = "deriving: simulating the system...";
+        if (_deriveProfilePath.Trim().Length == 0) return null;
+        string? docs = HomeViewModel.FindDocsDir(AppContext.BaseDirectory);
+        if (docs is null) return null;
+        string? repo = Path.GetDirectoryName(docs);
+        if (repo is null || !File.Exists(_deriveProfilePath)) return null;
+        OperationProfile prof;
+        try { prof = OperationProfileCodec.Load(File.ReadAllText(_deriveProfilePath)); }
+        catch { return null; }
+        return LoopRunSetFor(repo, prof, _deriveProfilePath);
+    }
+
+    /// <summary>
+    /// The decision on its own, with every path given: a loop run counts only
+    /// when it exists AND is newer than the profile it claims to describe -- an
+    /// older run describes a system that has since been edited.
+    /// </summary>
+    public static string? LoopRunSetFor(string repoDir, OperationProfile prof, string profilePath)
+    {
+        string path = ComplianceViewModel.RunSetJsonPath(repoDir, prof);
+        if (!File.Exists(path) || !File.Exists(profilePath)) return null;
+        return File.GetLastWriteTimeUtc(path) > File.GetLastWriteTimeUtc(profilePath) ? path : null;
+    }
+
+    /// <summary>
+    /// Fills the designer from the compliance loop's derived set for the
+    /// selected profile. It does NOT simulate: the loop derives once, saturated,
+    /// for the whole projection, and a second derivation here -- at whatever
+    /// depth a text box happened to hold -- would be a second opinion about the
+    /// same system, free to disagree with the one the projection actually used.
+    /// </summary>
+    public System.Threading.Tasks.Task DeriveAsync()
+    {
+        string? runSet = FindLoopRunSet();
+        if (runSet is null)
+        {
+            StatusText = _deriveProfilePath.Trim().Length == 0
+                ? "pick the operation profile whose compliance-loop run you want to fill from"
+                : "no compliance-loop run for this profile (or it is older than the profile) -- "
+                  + "run the compliance loop, which derives the declaration as its first step";
+            return System.Threading.Tasks.Task.CompletedTask;
+        }
         try
         {
-            result = await System.Threading.Tasks.Task.Run(() => DeriveCore());
+            LoadJson(File.ReadAllText(runSet));
         }
         catch (Exception ex)
         {
-            StatusText = "derive failed: " + ex.Message;
-            IsDeriving = false;
-            return;
+            StatusText = "could not read the run: " + ex.Message;
+            return System.Threading.Tasks.Task.CompletedTask;
         }
-        ApplySet(result.Set);
         StatusText = string.Create(CultureInfo.InvariantCulture,
-            $"derived from {result.Steps} steps / {result.LinkSamples} link samples -- review, save or export");
-        IsDeriving = false;
+            $"filled from the compliance-loop run of {File.GetLastWriteTime(runSet):yyyy-MM-dd HH:mm} "
+            + $"({Path.GetFileName(runSet)}) -- no simulation; this is the set the projection used. "
+            + $"Review, save or export");
+        return System.Threading.Tasks.Task.CompletedTask;
     }
-
     /// <summary>Synchronous derivation (the check harness calls this directly).</summary>
-    public OpParamsDeriver.Result DeriveCore()
+    /// <param name="simDurSec">Probe duration. The caller owns it because it
+    /// decides how much of the system the envelope actually saw.</param>
+    public OpParamsDeriver.Result DeriveCore(double simDurSec, double stepSec, double latBandDeg)
     {
         if (_deriveDesignPath.Trim().Length == 0)
             throw new InvalidOperationException("pick an orbit design document first");
@@ -263,22 +307,20 @@ public sealed class OpParamsViewModel : ObservableObject
         var doc = OrbitDesignFileCodec.LoadDocument(System.IO.File.ReadAllText(_deriveDesignPath));
         var shells = doc.Shells.Select(OrbitDesignFileCodec.ToShell).ToArray();
 
-        double days = ParseDouble(_deriveDurationDaysText, "duration") ?? 0.25;
-        double step = ParseDouble(_deriveStepSecText, "step") ?? 60.0;
-        double latBand = ParseDouble(_deriveLatBandText, "lat band") ?? 15.0;
-        if (days <= 0.0 || step <= 0.0 || latBand <= 0.0)
+        if (simDurSec <= 0.0 || stepSec <= 0.0 || latBandDeg <= 0.0)
             throw new InvalidOperationException("duration, step and band must be positive");
 
-        // The profile IS the system: measure its emergent behaviour.
+        // The profile IS the system: measure its emergent behaviour. ONE
+        // derivation implementation, shared with the compliance loop -- the
+        // designer used to compose and step its own, so the two could answer
+        // differently about the same system. It is a SATURATED probe, because
+        // a declaration is an envelope of what the system may do, not a
+        // record of what one traffic sample happened to ask for.
         var prof = OperationProfileCodec.Load(System.IO.File.ReadAllText(_deriveProfilePath));
-        shells = OperationComposer.ApplyToShells(prof, shells);
-        var comp = OperationComposer.Compose(prof,
-            shells[0].OperatingHeightKm ?? shells[0].AltitudeKm);
-        return OpParamsDeriver.Derive(new Constellation(shells), comp.Geography,
-            comp.Enforced, comp.Scene, days * 86400.0, step, latBand,
+        return ComplianceViewModel.DeriveDeclared(shells, prof, simDurSec, stepSec, latBandDeg,
             _satName, ParseInt(_ntcIdText, "ntc_id") ?? 0, ParseInt(_paramIdText, "param_id") ?? 1,
-            prof.Down.FrequencyGhz * 1000.0, prof.Down.FrequencyGhz * 1000.0,
-            comp.Policy, comp.CoverageRadiusKm, comp.IlluminationDutyCycle);
+            // the designer declares one direction, so it keeps its own band
+            prof.Down.FrequencyGhz * 1000.0, prof.Down.FrequencyGhz * 1000.0);
     }
 
     // ---- parsing helpers ------------------------------------------------

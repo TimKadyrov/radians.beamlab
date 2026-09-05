@@ -515,20 +515,25 @@ algorithm), `min_angle_at_es` is rejected when `min_duration` is
 declared, and `es_density`/`es_distance` must be declared together or
 both omitted. Every field carries the parameter-card help text.
 
-**Derive from simulation.** The intended path when the declarations are
-not known a priori: point at an orbit design document and the operation
-profile — required, because the profile IS the system under measurement
-(payload, transmission basics, gates, service geography; there are no
-stand-in fields) — and fly it. Every granted link's measured
-elevation, GSO offset, per-cell and per-satellite link counts and
-inter-link angles are enveloped into the declared set — minima floored
-to 0.1°, maxima carried, `es_density`/`es_distance` taken from the
-profile's service grid,
-an exclusion array derived only where an exclusion actually shaped
+**Derive & fill.** The intended path when the declarations are not known
+a priori: point at the operation profile and the panel fills every field
+from the compliance loop's own derivation for that profile. It does not
+simulate — the loop derives once, on a *saturated* probe (no victim,
+demand at the declared co-frequency cap, activity and duty and operating
+fraction at 1), because a declaration is an envelope of what the system
+*may* do rather than a record of what one traffic sample happened to ask
+for. Every granted link's measured elevation, GSO offset, per-cell and
+per-satellite link counts and inter-link angles are enveloped into the
+declared set — minima floored to 0.1°, maxima carried,
+`es_density`/`es_distance` taken from the profile's service grid, an
+exclusion array derived only where an exclusion actually shaped
 operations, and quantities never observed left undeclared. The result
 fills the designer for review, then saves or exports like any
 hand-entered set — declarations as envelopes of the simulated truth,
-exactly the way the pfd/e.i.r.p. masks are made. The **What goes in
+exactly the way the pfd/e.i.r.p. masks are made. A run counts only when
+it is newer than the profile it describes; when there is none, run the
+compliance loop, which derives the declaration as its first step.
+`docs/where-declarations-come-from.html` sets out the whole relation. The **What goes in
 the R set?** button opens the accompanying page
 (`docs/r-set-designer.html`): what the set declares and deliberately
 does not, header-vs-arrays reading, and both authoring paths.
@@ -601,7 +606,16 @@ The parameter list is open and grows with the model.
 
 ## Compliance loop (window)
 
-*Tools → Compliance loop.* Steps 4–7 of the producer workflow
+*Tools → Compliance loop.* A run has three passes. First the **derivation
+probe** — saturated, no victim, no limit — measures the R set and the pfd
+mask together. Then the **truth sweep** measures T, and T does not move
+again. Then an **examination sweep** reads that mask and that R set and
+gives E1, reported beside T with the per-latitude gap and the acceptance
+statement: E1 must sit at or above T everywhere, or the derivation did not
+envelope the system it describes. Profile, R set and mask are written into
+one directory, so the designer reads the set the projection actually used.
+
+Steps 4–7 of the producer workflow
 (`docs/compliance-loop-plan.md`): epfd(down) victims are swept across a
 latitude grid (ES latitude from/to/step at a chosen ES longitude, the
 wanted GSO at ES longitude + offset, S.1428 dish), one run per grid

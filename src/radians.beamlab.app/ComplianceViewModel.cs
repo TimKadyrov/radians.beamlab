@@ -117,7 +117,17 @@ public sealed class ComplianceViewModel : ObservableObject
     public sealed record Sweep(ConstellationShell[] Shells, OperationProfile Profile,
         double EsLon, double GsoOffset, double DishM,
         double LatFrom, double LatTo, double LatStep,
-        long Steps, double StepSec, List<radlimits.LimitPoint> Limits);
+        long Steps, double StepSec, List<radlimits.LimitPoint> Limits)
+    {
+        /// <summary>
+        /// The DECLARED operating-parameter set the examination reads -- a
+        /// different thing from the gates the truth run enforces, which stay
+        /// the composition's own Enforced set. Null keeps the previous
+        /// behaviour, examining against the profile's own rules (E2);
+        /// supplying a DERIVED set is what makes the sweep compute E1.
+        /// </summary>
+        public OperatingParamsSet? Declared { get; init; }
+    }
 
     public Sweep BuildSweep()
     {
@@ -197,9 +207,9 @@ public sealed class ComplianceViewModel : ObservableObject
         IProgress<SweepProgress>? progress = null)
     {
         var inv = CultureInfo.InvariantCulture;
-        int nLat = 0;
-        for (double l = sweep.LatFrom; l <= sweep.LatTo + 1e-9; l += sweep.LatStep) nLat++;
-        int iLat = 0;
+        var lats = new List<double>();
+        for (double l = sweep.LatFrom; l <= sweep.LatTo + 1e-9; l += sweep.LatStep) lats.Add(l);
+        int nLat = lats.Count;
         var con = new Constellation(sweep.Shells);
         var sh0 = sweep.Shells[0];
         var comp = OperationComposer.Compose(prof, sh0.OperatingHeightKm ?? sh0.AltitudeKm);
@@ -212,35 +222,15 @@ public sealed class ComplianceViewModel : ObservableObject
             ? MaskFootprint.LoadFile(comp.DownlinkMaskXmlPath)
             : null;
 
-        var rows = new List<ComplianceRow>();
-        for (double lat = sweep.LatFrom; lat <= sweep.LatTo + 1e-9; lat += sweep.LatStep)
+        EpfdDownVictim Victim(double lat) => new()
         {
-            var victim = new EpfdDownVictim
-            {
-                EsLatDeg = lat, EsLonDeg = sweep.EsLon, GsoLonDeg = sweep.EsLon + sweep.GsoOffset,
-                Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, freqMhz, sweep.DishM),
-            };
-            double latNow = lat; int iNow = iLat;
-            progress?.Report(new SweepProgress(string.Create(inv,
-                $"lat {latNow:F0} ({iNow + 1}/{nLat}) -- {sweep.Steps} steps of {sweep.StepSec:F0} s..."),
-                (double)iNow / nLat));
-            IProgress<double>? stepProgress = progress is null ? null : new Relay<double>(f =>
-                progress.Report(new SweepProgress(string.Create(inv,
-                    $"lat {latNow:F0} ({iNow + 1}/{nLat}) -- {f * 100:F0}% of {sweep.Steps} steps"),
-                    (iNow + f) / nLat)));
-            EpfdDownResult res;
-            if (downMask is not null)
-            {
-                res = EpfdDownMask.Run(con, downMask, comp.Enforced, victim,
-                    sweep.StepSec, sweep.Steps, sweep.Limits, simDur, stepProgress);
-            }
-            else
-            {
-                var pointing = new ScheduledPointing(con, comp.Geography, comp.Enforced, comp.Scene,
-                    simDur, comp.CoverageRadiusKm, comp.Policy, comp.IlluminationDutyCycle);
-                res = EpfdDown.Run(con, pointing, victim, sweep.StepSec, sweep.Steps,
-                    sweep.Limits, simDur, progress: stepProgress);
-            }
+            EsLatDeg = lat, EsLonDeg = sweep.EsLon, GsoLonDeg = sweep.EsLon + sweep.GsoOffset,
+            Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, freqMhz, sweep.DishM),
+        };
+
+        var rows = new List<ComplianceRow>();
+        void AddRow(double lat, int i, double fraction, EpfdDownResult res)
+        {
             var (passResults, _) = res.Accumulator.CompareWithLimits(sweep.Limits);
             var (epfd, pct) = res.Accumulator.BuildCdf();
             double worst = sweep.Limits.Count == 0 ? double.PositiveInfinity
@@ -248,11 +238,141 @@ public sealed class ComplianceViewModel : ObservableObject
             bool pass = passResults.All(p => p);
             rows.Add(new ComplianceRow(lat, res.MaxEpfdDb, worst, pass, res.QuietSteps));
             progress?.Report(new SweepProgress(string.Create(inv,
-                $"lat {latNow:F0} ({iNow + 1}/{nLat}): worst margin {worst:+0.0;-0.0} dB {(pass ? "PASS" : "FAIL")}"),
-                (double)(iNow + 1) / nLat));
-            iLat++;
+                $"lat {lat:F0} ({i + 1}/{nLat}): worst margin {worst:+0.0;-0.0} dB {(pass ? "PASS" : "FAIL")}"),
+                fraction));
+        }
+
+        if (downMask is not null)
+        {
+            // The declared-mask read is victim-specific at every step -- the
+            // footprint pfd, the exclusion zone, the elevation gate and the
+            // co-frequency cap all key off the earth station -- so there is no
+            // shared pass to hoist here. One run per latitude, as before.
+            for (int i = 0; i < nLat; i++)
+            {
+                double lat = lats[i]; int iNow = i;
+                progress?.Report(new SweepProgress(string.Create(inv,
+                    $"lat {lat:F0} ({iNow + 1}/{nLat}) -- {sweep.Steps} steps of {sweep.StepSec:F0} s..."),
+                    (double)iNow / nLat));
+                IProgress<double>? stepProgress = progress is null ? null : new Relay<double>(f =>
+                    progress.Report(new SweepProgress(string.Create(inv,
+                        $"lat {lat:F0} ({iNow + 1}/{nLat}) -- {f * 100:F0}% of {sweep.Steps} steps"),
+                        (iNow + f) / nLat)));
+                AddRow(lat, iNow, (double)(iNow + 1) / nLat,
+                    EpfdDownMask.Run(con, downMask, sweep.Declared ?? comp.Enforced, Victim(lat),
+                        sweep.StepSec, sweep.Steps, sweep.Limits, simDur, stepProgress));
+            }
+        }
+        else
+        {
+            // ONE simulation for the whole grid. A victim is only an
+            // accumulator -- propagation, scheduling and beam resolution do not
+            // depend on who is listening -- so N latitudes cost one pass over
+            // the constellation instead of N identical ones. Identical results
+            // by construction (EpfdDown.Run is the one-victim wrapper) and by
+            // check: V37 compares the two forms bin for bin.
+            progress?.Report(new SweepProgress(string.Create(inv,
+                $"one pass covering {nLat} latitude(s) -- {sweep.Steps} steps of {sweep.StepSec:F0} s..."),
+                0.0));
+            IProgress<double>? stepProgress = progress is null ? null : new Relay<double>(f =>
+                progress.Report(new SweepProgress(string.Create(inv,
+                    $"one pass covering {nLat} latitude(s) -- {f * 100:F0}% of {sweep.Steps} steps"), f)));
+            var pointing = new ScheduledPointing(con, comp.Geography, comp.Enforced, comp.Scene,
+                simDur, comp.CoverageRadiusKm, comp.Policy, comp.IlluminationDutyCycle);
+            var res = EpfdDown.RunMany(con, pointing, lats.Select(Victim).ToList(),
+                sweep.StepSec, sweep.Steps, sweep.Limits, simDur, progress: stepProgress);
+            // The pass is the whole cost; the per-latitude verdicts below are
+            // accumulator reads, so they report against a finished bar.
+            for (int i = 0; i < nLat; i++) AddRow(lats[i], i, 1.0, res[i]);
         }
         return rows;
+    }
+
+    /// <summary>
+    /// The profile as a SATURATED probe: demand, activity, operating
+    /// fraction and illumination duty all at their maxima.
+    ///
+    /// A declaration is an envelope of what the system MAY do, so it has to
+    /// be measured with traffic taken out. A value measured under a traffic
+    /// sample -- MAX_CO_FREQ above all -- is a commitment the operator never
+    /// made and may not be able to honour at peak. Demand rises to the
+    /// declared co-frequency cap so that the CAP binds rather than the
+    /// traffic model; with no cap declared the profile's own demand stands,
+    /// since an unbounded slot count is not a measurement of anything.
+    /// </summary>
+    /// <summary>
+    /// The name one loop run goes by: the profile name up to any bracketed
+    /// qualifier, lower-cased and punctuation-folded. ONE definition, because
+    /// the loop writes its artefacts under this name and the designer looks
+    /// for them under it -- two spellings would silently never meet.
+    /// </summary>
+    public static string RunName(OperationProfile prof)
+    {
+        string stem = prof.Name.Split('(')[0].Trim();
+        return new string(stem.Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '-')
+            .ToArray()).Trim('-');
+    }
+
+    /// <summary>Directory a loop run writes its profile, R set and mask into.</summary>
+    public static string RunDir(string repoDir, OperationProfile prof)
+        => Path.Combine(repoDir, "dataset", "margin", RunName(prof));
+
+    /// <summary>The derived R set of a loop run, in the designer's own format.</summary>
+    public static string RunSetJsonPath(string repoDir, OperationProfile prof)
+        => Path.Combine(RunDir(repoDir, prof), RunName(prof) + ".operparams.json");
+
+    public static OperationProfile Saturate(OperationProfile prof, OperatingParamsSet enforced)
+    {
+        int cap = 0;
+        foreach (var row in enforced.MaxCoFreqByLat) cap = Math.Max(cap, row.Value);
+        if (enforced.MaxCoFreqHeader is int header) cap = Math.Max(cap, header);
+        return prof with
+        {
+            DemandLinksPerCell = cap > 0 ? cap : prof.DemandLinksPerCell,
+            ActivityFactor = 1.0,
+            OperationalFraction = 1.0,
+            IlluminationDutyCycle = 1.0,
+        };
+    }
+
+    /// <summary>
+    /// Derive a declared R set from a saturated probe of the same system the
+    /// sweep flies -- ONE derivation, owned by the loop, so the R set and the
+    /// gates cannot drift apart.
+    ///
+    /// Victim-less by nature: a derivation observes the system, not an
+    /// interference victim. That also makes it independent of the truth sweep
+    /// by construction, which is what keeps E1 >= T an adequacy test rather
+    /// than a tautology -- a set derived from the very run that later
+    /// verifies it would envelope that run trivially.
+    /// </summary>
+    /// <summary>
+    /// A derivation depends on the SYSTEM and the DEPTH -- nothing else. It
+    /// has no victim and no limit to compare against, so it deliberately does
+    /// NOT take a <see cref="Sweep"/>: coupling it to the examination's inputs
+    /// would make callers configure victim geometry that the measurement never
+    /// reads. The loop passes its own shells, profile and depth; a caller with
+    /// no sweep configured passes the same four things.
+    /// </summary>
+    public static OpParamsDeriver.Result DeriveDeclared(ConstellationShell[] shells,
+        OperationProfile prof, double simDurSec, double stepSec, double latBandDeg = 10.0,
+        string satName = "DERIVED", int ntcId = 0, int paramId = 1,
+        double? lowFreqMhz = null, double? highFreqMhz = null)
+    {
+        var sh0 = shells[0];
+        double altKm = sh0.OperatingHeightKm ?? sh0.AltitudeKm;
+        // Compose once to read the declared cap, then saturate and recompose.
+        var enforced0 = OperationComposer.Compose(prof, altKm).Enforced;
+        var probe = Saturate(prof, enforced0);
+        var comp = OperationComposer.Compose(probe, altKm);
+        var con = new Constellation(OperationComposer.ApplyToShells(probe, shells));
+        return OpParamsDeriver.Derive(con, comp.Geography, comp.Enforced, comp.Scene,
+            simDurSec, stepSec, latBandDeg,
+            satName, ntcId, paramId,
+            // The band identity of the set: a set governs ONE band, so the
+            // caller says which. Absent, the composition's own span stands.
+            lowFreqMhz ?? comp.Enforced.LowFreqMhz, highFreqMhz ?? comp.Enforced.HighFreqMhz,
+            comp.Policy, comp.CoverageRadiusKm, comp.IlluminationDutyCycle);
     }
 
     public static string SummarizeRows(IReadOnlyList<ComplianceRow> rows)

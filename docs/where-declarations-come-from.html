@@ -1,0 +1,188 @@
+<title>Where Declarations Come From</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Italic.woff2") format("woff2");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-SemiBold.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}
+:root{
+  --paper:#E9F4F8; --card:#FFFFFF; --ink:#000000; --muted:#698089;
+  --line:#D1EBF5; --line-soft:#E0F1F8;
+  --g1:#0076A1; --g2:#15807B; --g3:#0B516F;
+  --g1-tint:rgba(0,118,161,.10); --g2-tint:rgba(21,128,123,.10); --g3-tint:rgba(11,81,111,.10);
+  --code-bg:#E4F2F9; --bad:#CC3F4D;
+  --measure:44rem;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#003F57; --card:#154E66; --ink:#FFFFFF; --muted:#A9C6D2;
+    --line:#2E6479; --line-soft:#24576A;
+    --g1:#6FCBEF; --g2:#57C4BC; --g3:#99D7EF;
+    --g1-tint:rgba(111,203,239,.16); --g2-tint:rgba(87,196,188,.15); --g3-tint:rgba(153,215,239,.15);
+    --code-bg:#0F4459; --bad:#E57384;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#003F57; --card:#154E66; --ink:#FFFFFF; --muted:#A9C6D2;
+  --line:#2E6479; --line-soft:#24576A;
+  --g1:#6FCBEF; --g2:#57C4BC; --g3:#99D7EF;
+  --g1-tint:rgba(111,203,239,.16); --g2-tint:rgba(87,196,188,.15); --g3-tint:rgba(153,215,239,.15);
+  --code-bg:#0F4459; --bad:#E57384;
+}
+*{box-sizing:border-box}
+body{margin:0; border-top:4px solid var(--g1); background:var(--paper); color:var(--ink);
+  font-family:"Gibson","Segoe UI",system-ui,sans-serif; font-size:15.5px; line-height:1.6}
+.wrap{max-width:880px; margin:0 auto; padding:40px 28px 72px}
+.kicker{font-size:13px; font-weight:600; color:var(--muted)}
+h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; margin:.25em 0 .35em; text-wrap:balance; max-width:var(--measure)}
+.lede{color:var(--muted); margin:0 0 8px; max-width:var(--measure)}
+h2{font-size:21px; font-weight:600; letter-spacing:-.01em; margin:2.2em 0 .4em; text-wrap:balance; max-width:var(--measure)}
+p{max-width:var(--measure)}
+ul{max-width:var(--measure)}
+code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--code-bg); padding:0 4px; border-radius:3px}
+.tech{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--g1); border-radius:5px; padding:12px 16px; margin:14px 0; font-size:13.5px; max-width:var(--measure)}
+.tech .t{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; font-weight:600}
+.tech p{font-size:13.5px; margin:6px 0 0}
+figure{margin:18px 0; padding:14px 10px 8px; background:var(--card); border:1px solid var(--line); border-radius:6px; overflow-x:auto; max-width:var(--measure)}
+figure svg{display:block; max-width:100%; height:auto; margin:0 auto}
+figcaption{font-size:12px; color:var(--muted); text-align:center; margin-top:8px}
+.svgtxt{font-family:"IBM Plex Mono",monospace; font-size:12.5px; fill:currentColor}
+.svglbl{font-family:"Gibson","Segoe UI",sans-serif; font-size:12px; fill:var(--muted)}
+.foot{margin-top:44px; font-size:12.5px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; max-width:var(--measure)}
+a{color:var(--g1)} a:hover{color:#1983AA}
+</style>
+
+<div class="wrap">
+<div class="kicker">radians.beamlab &middot; the loop and the designer</div>
+<h1>Where Declarations Come From</h1>
+<p class="lede">Two places in this tool hand you an operating-parameter set: the compliance
+loop, and the R-set designer&rsquo;s <em>Derive &amp; fill</em>. They are not two
+measurements. There is one derivation, the loop owns it, and the designer reads what it
+produced.</p>
+
+<h2>The mechanism</h2>
+
+<figure>
+<svg viewBox="0 0 700 400" role="img" aria-label="One compliance-loop run derives the declaration first, then measures the truth, then examines the truth against that declaration; the run writes profile, R set and mask into one directory, which both the examination sweep and the designer read">
+  <defs><marker id="ar2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
+  <g style="color:var(--ink)">
+    <text x="20" y="34" class="svglbl">ONE COMPLIANCE-LOOP RUN</text>
+
+    <rect x="20" y="46" width="300" height="72" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
+    <text x="34" y="70" class="svgtxt">1 &middot; derivation probe</text>
+    <text x="34" y="89" class="svglbl">saturated &middot; no victim &middot; no limit</text>
+    <text x="34" y="105" class="svglbl">produces the R set and the pfd mask</text>
+
+    <rect x="20" y="150" width="300" height="72" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="34" y="174" class="svgtxt">2 &middot; truth sweep</text>
+    <text x="34" y="193" class="svglbl">real traffic &middot; a victim per latitude</text>
+    <text x="34" y="209" class="svglbl">produces T &mdash; and T never moves</text>
+
+    <rect x="20" y="254" width="300" height="72" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="34" y="278" class="svgtxt">3 &middot; examination sweep</text>
+    <text x="34" y="297" class="svglbl">reads the mask and the derived R set</text>
+    <text x="34" y="313" class="svglbl">produces E1 &mdash; the number to minimise</text>
+
+    <line x1="170" y1="118" x2="170" y2="146" stroke="currentColor" marker-end="url(#ar2)"/>
+    <line x1="170" y1="222" x2="170" y2="250" stroke="currentColor" marker-end="url(#ar2)"/>
+
+    <rect x="392" y="104" width="290" height="112" rx="5" fill="var(--g2-tint)" stroke="var(--g2)" stroke-width="1.5"/>
+    <text x="406" y="128" class="svgtxt">the run&rsquo;s artefacts</text>
+    <text x="406" y="148" class="svglbl">&middot; the operation profile, as run</text>
+    <text x="406" y="164" class="svglbl">&middot; the derived R set (XML + JSON)</text>
+    <text x="406" y="180" class="svglbl">&middot; the reachable-envelope pfd mask</text>
+    <text x="406" y="202" class="svglbl">one directory, one system</text>
+
+    <line x1="320" y1="82" x2="388" y2="130" stroke="var(--g1)" stroke-width="1.5" marker-end="url(#ar2)" style="color:var(--g1)"/>
+    <text x="326" y="74" class="svglbl">written once</text>
+
+    <line x1="424" y1="216" x2="330" y2="272" stroke="currentColor" marker-end="url(#ar2)"/>
+
+    <rect x="392" y="272" width="290" height="86" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="406" y="296" class="svgtxt">R-set designer &middot; Derive &amp; fill</text>
+    <text x="406" y="315" class="svglbl">reads the run &mdash; no simulation here</text>
+    <text x="406" y="331" class="svglbl">then review, hand-tighten, export</text>
+
+    <line x1="560" y1="216" x2="560" y2="268" stroke="currentColor" marker-end="url(#ar2)"/>
+    <text x="568" y="246" class="svglbl">read by the designer</text>
+  </g>
+</svg>
+<figcaption>The derivation runs once, first, and everything downstream reads it. Nothing
+in this picture measures the same system twice.</figcaption>
+</figure>
+
+<h2>Why the derivation comes first</h2>
+
+<p>A declaration is an envelope of what the system <em>may</em> do. Measure it while the
+system happens to be carrying light traffic and you measure what it <em>did</em> &mdash;
+then you have declared something the system will break the moment it gets busy. So the
+probe is <strong>saturated</strong>: demand rises to the declared co-frequency cap, and
+activity, illumination duty and operating fraction all go to 1. What is left shaping the
+result is only what the operator has actually committed to &mdash; the exclusion angle, the
+elevation floor, the caps, the minimum angles &mdash; plus what the geometry physically
+allows.</p>
+
+<div class="tech">
+<div class="t">Worth a number</div>
+<p>On the STEAM-2 case the profile asks for one link per cell but declares a cap of four.
+Derived from the traffic sample, <code>MAX_CO_FREQ</code> comes out as <strong>1</strong>
+&mdash; a promise the system breaks at peak. Derived from the saturated probe it comes out
+as <strong>4</strong>, which is what the system is permitted to do and therefore what it
+must declare.</p>
+</div>
+
+<h2>Why it cannot come from the truth sweep</h2>
+
+<p>The obvious shortcut &mdash; derive from the run that measures T &mdash; destroys the one
+test that matters. The examination must sit at or above the truth at every latitude:
+<strong>E1&nbsp;&ge;&nbsp;T</strong> is what proves the declaration actually envelopes the
+system. A declaration measured on a particular run envelopes that run trivially, so
+deriving from the truth sweep would turn the test into a tautology. The probe is a
+different run by construction, which is what keeps the test honest.</p>
+
+<p>The two runs also disagree on purpose. The probe is saturated and has no victim; the
+truth sweep carries the profile&rsquo;s real traffic and a victim at every latitude. They
+are answering different questions, so they cannot be the same pass.</p>
+
+<div class="tech">
+<div class="t">When adequacy fails</div>
+<p>If E1 drops <em>below</em> T anywhere, the run says so and names the latitudes. That is a
+granularity failure of the derivation &mdash; the probe did not see enough of the system
+&mdash; and never a compliance failure of the system. The two must not be confused: one is
+fixed by measuring better, the other by redesigning.</p>
+</div>
+
+<h2>What <em>Derive &amp; fill</em> does now</h2>
+
+<p>It reads the loop&rsquo;s run for the selected operation profile and fills every field
+from it. It does not simulate. The set you review is <em>the set the projection actually
+used</em> &mdash; not a second opinion about the same system that is free to disagree with
+it.</p>
+
+<p>A run counts only when it is newer than the profile it claims to describe; an older run
+describes a system that has since been edited, so the designer treats it as absent and says
+so. When there is no run, the answer is to run the compliance loop &mdash; which derives the
+declaration as its first step.</p>
+
+<p>The duration, time step and latitude-band inputs that used to sit on this panel are gone,
+and their absence is the point. Depth decides how conservative a declaration is: a shallower
+probe sees less of the system, so it produces a <em>tighter</em> and less conservative set,
+and no text box would have told the reader that. Depth belongs to the run that verifies the
+result, not to the panel that displays it.</p>
+
+<h2>What the designer still owns</h2>
+
+<ul>
+<li><strong>Manual entry</strong> &mdash; copying an existing filing, or writing a
+deliberately conservative envelope by hand.</li>
+<li><strong>Review and hand-tightening</strong> &mdash; every field stays editable. A derived
+set is a proposal, not a verdict.</li>
+<li><strong>Export</strong> &mdash; the R-set XML the SNS builder consumes, and the JSON that
+round-trips.</li>
+</ul>
+
+<p class="foot">See also: <a href="compliance-loop.html">Inside the Compliance Loop</a> for
+what a run does with the declaration once it has one, and
+<a href="r-set-designer.html">The R-set Designer</a> for the fields themselves.</p>
+</div>

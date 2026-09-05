@@ -102,7 +102,7 @@ takes over. Declare what the operation actually does, where it actually does it.
 <h2>Two ways to author it</h2>
 
 <figure>
-<svg viewBox="0 0 700 330" role="img" aria-label="Manual entry and simulation-derived envelopes both fill the designer's fields; the reviewed set exports as R-set XML for the SNS builder and round-trips as JSON usable by the simulation runner as declared gates">
+<svg viewBox="0 0 700 330" role="img" aria-label="Manual entry and the compliance loop&apos;s derived set both fill the designer's fields; the reviewed set exports as R-set XML for the SNS builder and round-trips as JSON usable by the simulation runner as declared gates">
   <defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
   <g style="color:var(--ink)">
     <!-- manual path -->
@@ -112,11 +112,11 @@ takes over. Declare what the operation actually does, where it actually does it.
 
     <!-- derived path -->
     <rect x="14" y="150" width="212" height="112" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
-    <text x="26" y="172" class="svgtxt">Derive from simulation</text>
-    <text x="26" y="190" class="svglbl">orbit design document</text>
-    <text x="26" y="205" class="svglbl">+ operation profile (required)</text>
-    <text x="26" y="226" class="svglbl">run under the scheduler,</text>
-    <text x="26" y="241" class="svglbl">envelope every granted link</text>
+    <text x="26" y="172" class="svgtxt">Derive &amp; fill</text>
+    <text x="26" y="190" class="svglbl">reads the compliance loop&rsquo;s</text>
+    <text x="26" y="205" class="svglbl">own derivation for this</text>
+    <text x="26" y="226" class="svglbl">operation profile &mdash;</text>
+    <text x="26" y="241" class="svglbl">no simulation here</text>
 
     <!-- designer -->
     <rect x="298" y="106" width="152" height="96" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
@@ -152,11 +152,13 @@ JSON.</figcaption>
 <p><strong>Manual entry</strong> is for values known a priori &mdash; copying an existing
 filing, or writing a deliberately conservative envelope. Every header quantity is a box,
 every array a few lines of text, and each field's tooltip is its parameter card.</p>
-<p><strong>Derive from simulation</strong> is the intended path when the declarations are
-not known: point at the orbit design document and the operation profile &mdash; the profile
-is required, because it is the system under measurement, transmission basics included
-&mdash; and run the operation under the scheduler. Everything every granted link actually
-did is then enveloped into a declared set.</p>
+<p><strong>Derive &amp; fill</strong> is the intended path when the declarations are not
+known: point at the operation profile and the panel fills every field from the compliance
+loop&rsquo;s own derivation for that profile. It does not simulate. The loop derives once,
+on a saturated probe, for the whole projection &mdash; a second derivation here would be a
+second opinion about the same system, free to disagree with the one the projection actually
+used. A run counts only when it is newer than the profile it describes; when there is none,
+run the compliance loop, which derives the declaration as its first step.</p>
 
 <h2>What the derivation writes</h2>
 <ul>
@@ -182,21 +184,22 @@ envelope. Before filing it, promote the enforced gate to match (the promotion re
 the <a href="compliance-loop.html">compliance page</a>), and use the simulation runner's
 declared-gates override to run the truth under the declaration as the check.</p>
 
-<h2>Not the compliance loop</h2>
-<p>The deriver and the <a href="compliance-loop.html">compliance loop</a> both produce
-per-latitude, R-shaped tables out of simulation sweeps, which makes them easy to conflate.
-The boundary: <strong>the loop decides how the system must behave; the deriver records how
-it did behave.</strong> The loop starts from the Article&nbsp;22 limits and searches for
-operating rules &mdash; an exclusion angle, per-latitude co-frequency caps &mdash; and
-writes what it finds into the <em>profile</em>, as rules the scheduler enforces. The
-deriver never looks at a limit: it runs the profile exactly as given and envelopes the
-outcome into <em>declarations</em>. So they chain rather than overlap &mdash; if the
-system fails the limits, run the loop first, so the rules change the truth; then derive,
-so the filing envelopes the now-compliant truth. A loop-synthesised cap and a derived
+<h2>Where it comes from</h2>
+<p>The derivation is not a second tool that happens to produce R-shaped tables. It is the
+<a href="compliance-loop.html">compliance loop</a>&rsquo;s <em>first step</em>: before the
+loop measures the truth, a saturated probe &mdash; no victim, no limit, demand at the
+declared cap &mdash; measures the R&nbsp;set and the pfd mask together. This panel reads
+what that run wrote.</p>
+<p>The loop still has a prescriptive half, and it is worth keeping separate in your head:
+where it walks operating rules, what it finds is written into the <em>profile</em>, as rules
+the scheduler enforces &mdash; never filed directly. A loop-synthesised cap and a derived
 <code>MAX_CO_FREQ</code> row at the same latitude are different numbers with different
 meanings: the first is an input the operation obeys, the second the measured envelope of
-what happened under it &mdash; usually tighter, per the 10&deg;-gate-yields-10.3&deg;
-doctrine above.</p>
+what happened under it.</p>
+<p><a href="where-declarations-come-from.html">Where Declarations Come From</a> sets out the
+whole relation &mdash; why the probe is saturated, and why the declaration must not be
+measured on the run that later verifies it.</p>
+
 <div class="tech"><div class="t">Tech &middot; the writer's encoding rules</div>
 <p>Export enforces the R-set XML conventions: <code>min_duration</code> is never written
 as 0 (omit it to select the classic algorithm), <code>min_angle_at_es</code> is rejected

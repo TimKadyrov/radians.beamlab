@@ -2009,3 +2009,94 @@ of ONE measurement pass over the same enforced run. That is why the loop
 must derive both, and why the three-way invariant — mask, R set and
 enforced gate carrying the same number at every latitude — then holds by
 construction rather than by inspection.
+
+## Beamlab — the first E1, and where the invariant does not hold, 5 September 2026
+
+v3 is built and a loop run now derives before it measures. Three passes:
+the saturated probe (no victim, no limit) produces the R set and the pfd
+mask; the truth sweep produces T; the examination sweep reads that mask
+and that R set and produces E1. The STEAM-2 case at 0.1 d, seven
+latitudes:
+
+| lat | T margin | E1 margin | gap | E1 >= T |
+|---|---|---|---|---|
+| 0 | +31.4 | -15.3 | 46.7 | yes |
+| 10 | +25.0 | -12.6 | 37.6 | yes |
+| 20 | +6.2 | -17.0 | 23.2 | yes |
+| 30 | -2.4 | -11.6 | 9.2 | yes |
+| 40 | -7.5 | -16.1 | 8.6 | yes |
+| 50 | -11.7 | -22.9 | 11.2 | yes |
+| 60 | -8.8 | -21.1 | 12.3 | yes |
+
+T is identical at every latitude to the record taken before any of this
+work, so the truth genuinely did not move; and the adequacy test passes
+everywhere, so the derivation envelopes the system it describes. Both
+were the point, and both hold.
+
+**The saturation leak, priced.** STEAM-2 asks for one link per cell and
+declares a cap of four. The probe measures `max_co_freq` = 4 at every
+latitude band. Derived from the traffic sample it would have been 1 —
+a declaration the system breaks the moment it is busy. The leak was not
+hypothetical.
+
+**Where the previous entry was wrong.** It closed by claiming the
+three-way invariant — mask, R set and enforced gate carrying the same
+number at every latitude — would then hold BY CONSTRUCTION, because the
+loop derives both artefacts from one pass. The first measurement says
+otherwise, along one dimension the argument never checked: the SERVICE
+LATITUDE SPAN.
+
+The derived R set declares `es_lat` 20..49, measured from the cells the
+scheduler actually served. The exported mask spans -50..+50, bounded by
+the shell inclination alone. So at latitudes the system never serves,
+the examination reads a fully-lit mask against a truth that has no
+service there — and that, not granularity, is what the 46.7 dB and
+37.6 dB gaps are made of. Deriving both artefacts from one pass makes
+them consistent about what was OBSERVED; it does not make the mask
+inherit what the R set DECLARES. The invariant holds by construction
+only over the quantities both artefacts measure, and the service span is
+not one of them.
+
+The consequence for how the number is quoted is immediate. The headline
+"widest gap 46.7 dB" is dominated by a modelling gap, not by declaration
+granularity. Inside the served band the gap is 8.6 to 12.3 dB, and only
+that part is what refining the declaration can recover. Quoting the
+larger figure as projection margin would overstate the prize by a factor
+of four.
+
+**And it is not a clamp.** The obvious fix — null the mask below the
+declared service span — is wrong. A satellite over latitude 0 may
+legitimately be serving a cell at latitude 20 with its beams pointed
+north, and the mask must still envelope that. What the mask has to
+reflect is which beam geometries are reachable FROM a given sub-satellite
+latitude GIVEN that only cells inside the declared span are served. That
+is a constraint on the sampler, not a bound on the output grid, and whether it is
+admissible at all is not ours to decide alone.
+
+**The question this puts to the critique side.** Bounding the sampler by
+the declared service span IS a tightening of the mask, and the doctrine
+this debate settled says a tightening is admissible only where a declared,
+binding commitment enforces it. The commitment does exist — `es_lat_min`
+/ `es_lat_max` in the R set, and the scheduler serves no cell outside it.
+But a pfd mask is read by the examination as a property of the SPACE
+STATION, resolved from geometry alone; nothing in the down algorithm
+consults the R set's service span when it reads a pfd cell. So either the
+mask may inherit a bound that lives in a different artefact — in which
+case the two stop being independently meaningful, and the reader of a mask
+alone can no longer trust it — or it may not, and this 23-to-47 dB is
+simply the price of declaring a mask that does not know where the system
+sells service.
+
+We have not settled which, and the number is four times the in-band
+granularity term, so guessing is not acceptable. Note also which way the
+error runs: an over-declared mask is CONSERVATIVE. Nothing here is unsafe
+— it is only expensive, and expensive in exactly the currency the new
+objective is denominated in.
+
+**Still open, and named as such.** The walk still moves alpha and Nco —
+profile levers — and re-measures T. That is the previous objective's
+shape: vary the system until T passes. The granularity walk added
+alongside it moves only levers that leave T fixed (the latitude band of
+the derived rows, the mask grid), which is the v3 objective; but until
+the service span reaches the mask, it is minimising a quantity whose
+largest term it cannot touch.

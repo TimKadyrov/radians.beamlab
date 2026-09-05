@@ -32,17 +32,18 @@ if (args.Length > 0 && args[0] == "margin")
 if (args.Length > 0 && args[0] == "loop")
 {
     string[] a = args;
-    string srcDir = System.IO.Path.Combine(@"C:Projectsadians.beamlab", "dataset", "_src");
+    string srcDir = System.IO.Path.Combine(@"C:\Projects\radians.beamlab", "dataset", "_src");
     double D(int i, double dflt) => a.Length > i && double.TryParse(a[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : dflt;
     return ComplianceLoop.Run(
         a.Length > 1 ? a[1] : System.IO.Path.Combine(srcDir, "STEAM-2.opprofile.json"),
         a.Length > 2 ? a[2] : System.IO.Path.Combine(srcDir, "STEAM-2.orbitdesign.json"),
         D(3, 0.1), D(4, 60.0), D(5, 0.0), D(6, 60.0), D(7, 10.0),
-        a.Any(x => x.Equals("walk", StringComparison.OrdinalIgnoreCase)));
+        a.Any(x => x.Equals("walk", StringComparison.OrdinalIgnoreCase)),
+        a.Any(x => x.Equals("minimise", StringComparison.OrdinalIgnoreCase)));
 }
 if (args.Length > 0 && args[0] == "parity")
     return MaskParity.Run(
-        args.Length > 1 ? args[1] : @"c:_3mask ntc_id 317520389 mask_id 150 17700-20200 MHz.xml",
+        args.Length > 1 ? args[1] : @"c:\_3\mask ntc_id 317520389 mask_id 150 17700-20200 MHz.xml",
         args.Length > 2 ? double.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 5.0);
 if (args.Length > 0 && args[0] == "dissect")
     return MaskDissect.Run(
@@ -3511,11 +3512,8 @@ var looks = RandomLooks(300);
     {
         SatName = "V21SAT", NtcIdText = "900555004", ParamIdText = "31",
         LowFreqText = "19700", HighFreqText = "20200",
-        DeriveDesignPath = pD, DeriveProfilePath = prof21,
-        DeriveDurationDaysText = (90.0 / 1440.0).ToString(System.Globalization.CultureInfo.InvariantCulture),
-        DeriveStepSecText = "60",
-    };
-    var r21 = vmD21.DeriveCore();
+        DeriveDesignPath = pD, DeriveProfilePath = prof21,    };
+    var r21 = vmD21.DeriveCore(90.0 * 60.0, 60.0, 15.0);
     var set21 = r21.Set;
     bool measuredOk = r21.LinkSamples > 0
         && set21.MinElev.Count > 0
@@ -3599,11 +3597,8 @@ var looks = RandomLooks(300);
     var vm22 = new OpParamsViewModel
     {
         SatName = "V22SAT", NtcIdText = "900555005", ParamIdText = "41",
-        DeriveDesignPath = pE, DeriveProfilePath = profPath,
-        DeriveDurationDaysText = (90.0 / 1440.0).ToString(System.Globalization.CultureInfo.InvariantCulture),
-        DeriveStepSecText = "60",
-    };
-    var r22 = vm22.DeriveCore();
+        DeriveDesignPath = pE, DeriveProfilePath = profPath,    };
+    var r22 = vm22.DeriveCore(90.0 * 60.0, 60.0, 15.0);
     bool deriveOk = r22.LinkSamples > 0
         && r22.Set.MinElev.All(me => me.ByAz.All(v => v.ElevDeg >= 10.0 - 1e-9))
         && (r22.Set.MinExclude.Count == 0
@@ -4332,6 +4327,227 @@ var looks = RandomLooks(300);
         anyOk && rangeOk && monotoneOk && endsOk && perLatOk && verdictOk && inertOk && walkOk,
         $"n={col36.Reports.Count} range={rangeOk} monotone={monotoneOk} ends={endsOk} " +
         $"perLat={perLatOk} verdict={verdictOk} inert={inertOk} walk={walkOk}");
+}
+
+
+// ---- V37: multi-victim run identical to running the victims separately ----
+{
+    // A victim is only an accumulator: the system behaves the same whoever is
+    // listening. One pass carrying N accumulators must therefore reproduce N
+    // separate passes exactly -- not approximately -- or the sweep speed-up
+    // would change the numbers it is meant to leave alone.
+    var shells37 = new[] { new ConstellationShell
+        { AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 2 } };
+    var con37 = new Constellation(shells37);
+    var scene37 = new PfdMaskViewModel
+        { AltitudeKm = 1200.0, FrequencyGHz = 19.7, MinElevDeg = 10.0, RefBwKHz = 40.0 };
+    var geo37 = ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, 900.0);
+    var ops37 = new OperatingParamsSet
+        { SatName = "V37", LowFreqMhz = 19700, HighFreqMhz = 19700, ElevAngleHeaderDeg = 10.0 };
+    double dur37 = 3600.0;
+    var limits37 = new List<radlimits.LimitPoint>
+        { new() { EPFD = -160, Perc = 5.0 }, new() { EPFD = -150, Perc = 1.0 } };
+    EpfdDownVictim Victim37(double lat) => new()
+    {
+        EsLatDeg = lat, EsLonDeg = 0.0, GsoLonDeg = 10.0,
+        Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 19700.0, 1.0),
+    };
+    var victims37 = new[] { Victim37(30.0), Victim37(45.0), Victim37(60.0) };
+
+    // Separate passes: one pointing each, exactly as the sweep used to do.
+    var apart = victims37.Select(v => EpfdDown.Run(con37,
+        new ScheduledPointing(con37, geo37, ops37, scene37, dur37),
+        v, 60.0, 60, limits37, dur37)).ToList();
+    // One pass, three accumulators.
+    var together = EpfdDown.RunMany(con37,
+        new ScheduledPointing(con37, geo37, ops37, scene37, dur37),
+        victims37, 60.0, 60, limits37, dur37);
+
+    bool countOk37 = together.Count == apart.Count;
+    bool sameOk37 = countOk37;
+    for (int v = 0; v < apart.Count && sameOk37; v++)
+    {
+        var (eA, pA) = apart[v].Accumulator.BuildCdf();
+        var (eB, pB) = together[v].Accumulator.BuildCdf();
+        sameOk37 = apart[v].MaxEpfdDb == together[v].MaxEpfdDb
+            && apart[v].QuietSteps == together[v].QuietSteps
+            && apart[v].Steps == together[v].Steps
+            && eA.Length == eB.Length && pA.Length == pB.Length
+            && eA.Zip(eB, (x, y) => x == y).All(x => x)
+            && pA.Zip(pB, (x, y) => x == y).All(x => x);
+    }
+    // The victims must actually differ, or the identity is vacuous.
+    bool distinctOk37 = together.Count == 3
+        && together[0].MaxEpfdDb != together[2].MaxEpfdDb;
+
+    Check("V37 multi-victim run: one pass reproduces separate passes bit for bit",
+        countOk37 && sameOk37 && distinctOk37,
+        $"count={countOk37} same={sameOk37} distinct={distinctOk37} " +
+        $"max30={together[0].MaxEpfdDb:F2} max60={together[^1].MaxEpfdDb:F2}");
+}
+
+
+// ---- V38: the saturated probe, and the declaration the examination reads ----
+{
+    // Two things a declaration must not be: measured under a traffic sample,
+    // or silently taken from the gates the truth run enforces. This pins both.
+    string expDir38 = Path.Combine(AppContext.BaseDirectory, "exp");
+    Directory.CreateDirectory(expDir38);
+
+    // (a) Saturation lifts every traffic-shaped input, and lifts demand to
+    // the declared cap so the CAP binds rather than the traffic model.
+    var throttled = new OperationProfile(Name: "V38", CellKm: 900.0,
+        NcoPerCell: 3, DemandLinksPerCell: 1, ActivityFactor: 0.25,
+        OperationalFraction: 0.5, IlluminationDutyCycle: 0.5);
+    var enf38 = OperationComposer.Compose(throttled, 1200.0).Enforced;
+    var sat38 = ComplianceViewModel.Saturate(throttled, enf38);
+    bool satOk38 = sat38.DemandLinksPerCell == 3        // lifted to the declared Nco
+        && sat38.ActivityFactor == 1.0
+        && sat38.OperationalFraction == 1.0
+        && sat38.IlluminationDutyCycle == 1.0
+        // everything NOT traffic-shaped is left exactly alone
+        && sat38.NcoPerCell == throttled.NcoPerCell
+        && sat38.CellKm == throttled.CellKm
+        && sat38.Name == throttled.Name;
+    // With no cap declared there is nothing to saturate demand to, so the
+    // profile's own demand stands rather than becoming unbounded.
+    var noCap = new OperationProfile(Name: "V38n", DemandLinksPerCell: 2);
+    var satNoCap = ComplianceViewModel.Saturate(noCap,
+        OperationComposer.Compose(noCap, 1200.0).Enforced);
+    bool capOk38 = satNoCap.DemandLinksPerCell == 2;
+
+    // (b) The leak itself: derive from the throttled profile and from its
+    // saturated probe. The throttled run cannot see more than one satellite
+    // per cell -- it never asked for more -- so it would declare MAX_CO_FREQ
+    // = 1, a promise the system breaks at peak.
+    var doc38 = new OrbitDesignDocumentViewModel();
+    doc38.Shells[0].PlaneCount = 3; doc38.Shells[0].SatsPerPlane = 6;
+    string p38 = Path.Combine(expDir38, "v38.orbitdesign.json");
+    File.WriteAllText(p38, doc38.BuildDocumentJson());
+    string pp38 = Path.Combine(expDir38, "v38.opprofile.json");
+    File.WriteAllText(pp38, OperationProfileCodec.Save(throttled));
+    var cvm38 = new ComplianceViewModel
+    {
+        DesignPath = p38, ProfilePath = pp38,
+        LatFromText = "40", LatToText = "40", LatStepText = "10",
+        DurationDaysText = (30.0 / 1440.0).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        StepSecText = "60", LimitsText = "-100 5",
+    };
+    var sweep38 = cvm38.BuildSweep();
+    var derSat = ComplianceViewModel.DeriveDeclared(sweep38.Shells, sweep38.Profile,
+        sweep38.Steps * sweep38.StepSec, sweep38.StepSec);
+    int ncoSat = derSat.Set.MaxCoFreqByLat.Count == 0 ? 0
+        : derSat.Set.MaxCoFreqByLat.Max(r => r.Value);
+    bool leakOk38 = derSat.LinkSamples > 0 && ncoSat > 1;
+
+    // (c) The declaration the examination reads is an input, not the gates.
+    // Null keeps the previous behaviour exactly; a tighter declared set
+    // changes the verdict, which is what makes the sweep able to compute E1.
+    string mask38 = Path.Combine(expDir38, "v38mask.xml");
+    File.WriteAllText(mask38, FormattableString.Invariant($"""
+        <?xml version="1.0"?>
+        <srs>
+          <satellite_system sat_name="V38" ntc_id="1">
+            <pfd_mask mask_id="1" low_freq_mhz="11700" high_freq_mhz="12700" refbw_khz="40" type="azimuth_elevation">
+              <by_a a="0">
+                <by_b b="-90"><pfd c="-90">-110</pfd><pfd c="90">-110</pfd></by_b>
+                <by_b b="90"><pfd c="-90">-110</pfd><pfd c="90">-110</pfd></by_b>
+              </by_a>
+            </pfd_mask>
+          </satellite_system>
+        </srs>
+        """));
+    var profM38 = new OperationProfile(Name: "V38m", CellKm: 900.0,
+        Downlink: new DownlinkProfile(FootprintSource: "mask", MaskXmlPath: mask38));
+    string ppm38 = Path.Combine(expDir38, "v38m.opprofile.json");
+    File.WriteAllText(ppm38, OperationProfileCodec.Save(profM38));
+    var cvmM38 = new ComplianceViewModel
+    {
+        DesignPath = p38, ProfilePath = ppm38,
+        LatFromText = "40", LatToText = "40", LatStepText = "10",
+        DurationDaysText = (10.0 / 1440.0).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        StepSecText = "60", LimitsText = "-160 5",
+    };
+    var sweepM38 = cvmM38.BuildSweep();
+    var rowsBase = ComplianceViewModel.RunSweepProfile(sweepM38, sweepM38.Profile);
+    var rowsNull = ComplianceViewModel.RunSweepProfile(
+        sweepM38 with { Declared = null }, sweepM38.Profile);
+    // A declaration that admits no satellite at all: 90 deg minimum elevation.
+    var shut = new OperatingParamsSet
+    {
+        SatName = "V38", NtcId = 1, ParamId = 1,
+        LowFreqMhz = 11700, HighFreqMhz = 12700, ElevAngleHeaderDeg = 90.0,
+    };
+    var rowsShut = ComplianceViewModel.RunSweepProfile(
+        sweepM38 with { Declared = shut }, sweepM38.Profile);
+    bool inertOk38 = rowsNull.Count == rowsBase.Count
+        && rowsNull.Zip(rowsBase, (a, b) => a.MaxEpfdDb == b.MaxEpfdDb
+            && a.WorstMarginDb == b.WorstMarginDb && a.QuietSteps == b.QuietSteps).All(x => x);
+    bool liveOk38 = rowsShut.Count == rowsBase.Count
+        && rowsShut[0].QuietSteps > rowsBase[0].QuietSteps;
+
+    Check("V38 saturated probe: traffic cannot reach a declaration; the examination reads a declared set",
+        satOk38 && capOk38 && leakOk38 && inertOk38 && liveOk38,
+        $"sat={satOk38} cap={capOk38} leak={leakOk38} inert={inertOk38} live={liveOk38} " +
+        $"ncoSat={ncoSat} samples={derSat.LinkSamples} " +
+        $"quietBase={rowsBase[0].QuietSteps} quietShut={rowsShut[0].QuietSteps}");
+}
+
+
+// ---- V39: derive & fill prefers the compliance loop's run ----
+{
+    // The loop derives once, saturated, for the whole projection. The designer
+    // must READ that rather than simulate a second opinion of the same system --
+    // and the two must agree on where it lives, or they silently never meet.
+    string root39 = Path.Combine(AppContext.BaseDirectory, "exp", "v39repo");
+    var prof39 = new OperationProfile(Name: "STEAM-2 (WP 4A Doc 4A/653; assumed)", CellKm: 900.0);
+
+    // One spelling of the run name, shared by the loop and the designer.
+    bool nameOk39 = ComplianceViewModel.RunName(prof39) == "steam-2"
+        && ComplianceViewModel.RunName(new OperationProfile(Name: "v21")) == "v21"
+        && ComplianceViewModel.RunDir(root39, prof39)
+            == Path.Combine(root39, "dataset", "margin", "steam-2")
+        && ComplianceViewModel.RunSetJsonPath(root39, prof39)
+            == Path.Combine(root39, "dataset", "margin", "steam-2", "steam-2.operparams.json");
+
+    string setPath39 = ComplianceViewModel.RunSetJsonPath(root39, prof39);
+    Directory.CreateDirectory(Path.GetDirectoryName(setPath39)!);
+    string profPath39 = Path.Combine(root39, "v39.opprofile.json");
+    File.WriteAllText(profPath39, OperationProfileCodec.Save(prof39));
+
+    // (a) no run on disk -> nothing to prefer, the designer must measure.
+    if (File.Exists(setPath39)) File.Delete(setPath39);
+    bool noneOk39 = OpParamsViewModel.LoopRunSetFor(root39, prof39, profPath39) is null;
+
+    // (b) a run newer than the profile -> that is the set the projection used.
+    var runSet39 = new OperatingParamsSet
+    {
+        SatName = "FROMLOOP", NtcId = 7, ParamId = 3,
+        LowFreqMhz = 18150, HighFreqMhz = 18150, MaxCoFreqSat = 45,
+    };
+    runSet39.MaxCoFreqByLat.Add((25.0, 4));
+    File.WriteAllText(setPath39, OpParamsFileCodec.Save(OpParamsFileCodec.FromSet(runSet39)));
+    File.SetLastWriteTimeUtc(profPath39, DateTime.UtcNow.AddMinutes(-10));
+    File.SetLastWriteTimeUtc(setPath39, DateTime.UtcNow);
+    bool freshOk39 = OpParamsViewModel.LoopRunSetFor(root39, prof39, profPath39) == setPath39;
+
+    // (c) a run OLDER than the profile describes a system since edited.
+    File.SetLastWriteTimeUtc(profPath39, DateTime.UtcNow);
+    File.SetLastWriteTimeUtc(setPath39, DateTime.UtcNow.AddMinutes(-10));
+    bool staleOk39 = OpParamsViewModel.LoopRunSetFor(root39, prof39, profPath39) is null;
+
+    // (d) what is loaded IS the run's set -- no re-measurement, no drift.
+    var vm39 = new OpParamsViewModel();
+    vm39.LoadJson(File.ReadAllText(setPath39));
+    string a39 = Path.Combine(AppContext.BaseDirectory, "exp", "v39a.xml");
+    string b39 = Path.Combine(AppContext.BaseDirectory, "exp", "v39b.xml");
+    vm39.ExportXml(a39);
+    OperParamsXmlWriter.Write(b39, runSet39);
+    bool loadOk39 = File.ReadAllText(a39) == File.ReadAllText(b39);
+
+    Check("V39 derive & fill prefers the compliance loop's run: one name, freshness, exact set",
+        nameOk39 && noneOk39 && freshOk39 && staleOk39 && loadOk39,
+        $"name={nameOk39} none={noneOk39} fresh={freshOk39} stale={staleOk39} load={loadOk39}");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

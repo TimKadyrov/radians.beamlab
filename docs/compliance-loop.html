@@ -214,18 +214,34 @@ at the swept exclusion. The summary prints it after every sweep and at the advis
 endpoints. Live-composition footprint only: a declared mask is a fixed file, and a power
 change would need the mask regenerated.</p></div>
 
-<h2>Where the loop ends and the deriver begins</h2>
-<p>The loop is often confused with the R-set designer's
-<a href="r-set-designer.html">derive-from-simulation</a>, because both emit per-latitude
-tables shaped like the R&nbsp;set. They sit on opposite sides of the truth. The loop is
-<em>prescriptive</em>: limits in, operating rules out, written into the profile so the
-scheduler enforces them &mdash; it changes what the system does. The deriver is
-<em>descriptive</em>: it never reads a limit, it runs the profile as-is and records the
-envelope of what every granted link did, written into the R&nbsp;set as declarations. The
-intended order is loop first, derive second: the loop makes the truth compliant, the
-deriver makes the filing envelope that truth. Nothing the loop outputs is filed directly
-&mdash; a synthesised cap becomes a profile rule, and the filed
+<h2>Where the declaration comes from</h2>
+<p>The loop no longer <em>ends</em> where the deriver begins &mdash; the derivation is the
+loop&rsquo;s first step. Before the truth sweep runs, a saturated probe (no victim, no limit,
+demand at the declared co-frequency cap, activity and duty and operating fraction at 1)
+measures the R&nbsp;set and the pfd mask. The truth sweep then measures T. A third sweep
+examines that same truth against the declaration and gives E1. One run, three passes, and
+the profile, R&nbsp;set and mask are written into one directory so they describe one system.</p>
+
+<p>The R-set designer&rsquo;s <a href="r-set-designer.html">Derive &amp; fill</a> reads that
+directory rather than simulating again.
+<a href="where-declarations-come-from.html">Where Declarations Come From</a> sets out the
+whole relation &mdash; and why the declaration must not be measured on the run that later
+verifies it.</p>
+
+<p>What has not changed is the loop&rsquo;s <em>prescriptive</em> half. Where it walks
+operating rules &mdash; an exclusion angle, per-latitude co-frequency caps &mdash; what it
+finds is written into the <em>profile</em>, as rules the scheduler enforces. Nothing it
+synthesises is filed directly: a synthesised cap becomes a profile rule, and the filed
 <code>MAX_CO_FREQ</code> row is then <em>measured</em> from operation under that rule.</p>
+
+<h2>The acceptance test</h2>
+<p>E1 must sit at or above T at every latitude. That is what proves the declaration actually
+envelopes the system it describes, and the run states it explicitly &mdash; naming the
+latitudes when it fails. An E1 below T is a granularity failure of the <em>derivation</em>,
+never a compliance failure of the <em>system</em>: one is fixed by measuring more finely, the
+other by redesigning. The gap between them, where the test passes, is the margin the
+declaration gives away &mdash; and at the same dB-for-dB rate as the power headroom above, it
+is operating power the system could have been licensed for.</p>
 
 <h2>What a run can resolve</h2>
 <p>The defaults &mdash; 0.1&nbsp;day at 60&nbsp;s, 144 steps per sweep &mdash; are

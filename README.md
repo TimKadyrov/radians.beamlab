@@ -27,15 +27,17 @@ Functions (each a tab or tool window, launched from the Home page):
   source is an explicit choice — live beam composition, or a declared
   PFD mask XML that simulations read the examination's way (§D5.1.4.1).
 - **Operating parameters designer** — author the declared operating
-  constraints (the R set) directly, or derive them by simulating the real
-  system and enveloping what it actually does; export as R-set XML.
+  constraints (the R set) directly, or fill them from the compliance loop's
+  own derivation, which measures the system once on a saturated probe;
+  export as R-set XML.
 - **Simulation runner** — run epfd(down)/(is)/(up) from an orbit design
   document and an operation profile (both required) and write the CDFs;
   an R-set file optionally swaps in the declared gates.
-- **Compliance loop** — sweep epfd(down) victims across a latitude grid,
-  verdict against the entered limit with the examination's own
-  comparison, and walk the exclusion angle to the smallest compliant
-  value, written back into the operation profile.
+- **Compliance loop** — derive the declaration from a saturated probe,
+  sweep epfd(down) victims across a latitude grid, verdict against the
+  entered limit with the examination's own comparison, then examine that
+  same truth against the declaration; walks the exclusion angle to the
+  smallest compliant value, written back into the operation profile.
 
 See the **[user guide](docs/user-guide.md)** for a full walk-through of
 every function and control.
@@ -182,9 +184,11 @@ through the verified writer.
 Authors one non-GSO operating-parameter set (the `f_mask R` element):
 the header quantities and the four per-latitude arrays, round-tripped
 through `*.opparams.json` and exported as byte-convention R-set XML —
-entered directly, or **derived from simulation**: fly the real system,
-measure every granted link, and envelope the measurements into the
-declared set the way the pfd/e.i.r.p. masks envelope the payload.
+entered directly, or **filled from a compliance-loop run**: the loop flies
+the real system on a saturated probe, measures every granted link, and
+envelopes the measurements into the declared set the way the pfd/e.i.r.p.
+masks envelope the payload. The designer reads that set — it does not
+simulate a second opinion of the same system.
 
 ### Simulation runner (window)
 

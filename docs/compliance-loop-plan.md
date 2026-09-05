@@ -600,6 +600,54 @@ fitting the declaration to the verdict rather than to a commitment.
 3. Read-rule-aware row placement, so the interpolant stays inside the
    enforced values.
 
+## Consolidation — one run, one derivation (operator-directed, 2026-09-04)
+
+The duplicated purpose the design had accumulated, named and removed.
+
+**The duplication.** Three places simulate the same system for different
+reasons. The compliance sweep steps the scheduler once per victim
+latitude, although the victim is only an accumulator and the system's
+behaviour is identical every time — seven latitudes meant seven
+identical simulations, which is where the STEAM-2 sweep's 64 minutes
+went. The R-set designer's "derive from simulation" steps it again, with
+its own duration, step and latitude band, so its answer can disagree
+with the sweep's. The mask export builds its own analytic field. Three
+producers, two of them redundant, and no guarantee that the numbers they
+produce agree — while the whole projection rests on mask, R set and
+enforced gates carrying the same values.
+
+**The rule.** One pass simulates; everything else observes it.
+
+- The DOWNLINK RUN takes a LIST of victims and carries one accumulator
+  each, so a latitude grid costs one system simulation rather than N.
+- The DERIVATION is an OBSERVER on that same stepping, not a second
+  simulation: links become the R set, beam configurations become the pfd
+  mask.
+- `OpParamsDeriver` stays exactly what it is, a library turning
+  observations into a set. Only its caller changes.
+- The R-SET DESIGNER keeps the two things only it does — manual entry
+  (copying a filing, or writing a deliberately conservative envelope)
+  and review/export. Its derive button stops meaning "run a private
+  simulation" and starts meaning "load what the run produced", or
+  invokes that same run path. One derivation implementation, callable
+  from the loop's completion or standalone, never two.
+- The LOOP'S COMPLETION emits all three artefacts — profile, R set,
+  mask — from the FINAL accepted candidate, after the write-back, not
+  from an intermediate walk step.
+
+**What does not change.** A derived set is still a proposal, not a
+promise: values sitting above their enforced gate stay tendencies until
+the gate is promoted. Taking the set from the run changes where it comes
+from, not what it means.
+
+**Order of work.**
+
+1. Multi-victim downlink run, so one pass serves every latitude of a
+   sweep. Behaviour-preserving: the single-victim entry point stays as a
+   wrapper, so identity is structural and the harness proves it.
+2. The derivation observer on that pass.
+3. The loop's completion emitting profile, R set and mask together.
+
 ## Decisions taken
 
 - Limits are hand-entered points in stage B (BR limits DB later).
@@ -726,3 +774,89 @@ fitting the declaration to the verdict rather than to a commitment.
 - V24 (stage C): the advisor terminates, returns the first compliant
   alpha under permissive limits, and reports failure when the cap is
   reached.
+
+## v3 as built (2026-09-05)
+
+The three-step consolidation above, delivered. What changed, and what a
+loop run now does.
+
+**One pass per sweep.** `EpfdDown.RunMany` carries one accumulator per
+victim through a single simulation; `EpfdDown.Run` is the one-victim
+wrapper over it, so the two forms cannot drift. The compliance sweep's
+composition branch builds one `ScheduledPointing` and one victim list
+for the whole latitude grid. Seven latitudes cost 6.0 min where seven
+separate passes cost ~32; the recorded STEAM-2 figure drops from 63.8
+min to roughly 12. Identical numbers: V37 compares the two forms bin
+for bin, and latitude 40 returned -170.8 dB / -1.9 dB from both a
+dedicated single-latitude run and the shared pass at 1600 satellites.
+
+The declared-mask branch keeps one run per latitude on purpose. Its
+read is victim-specific at every step -- footprint pfd, exclusion zone,
+elevation gate and co-frequency cap all key off the earth station -- so
+the only shareable work is propagation.
+
+**One derivation, and it is saturated.** `ComplianceViewModel.Saturate`
+lifts the four traffic-shaped inputs -- demand to the declared
+co-frequency cap, activity, illumination duty and operating fraction to
+1 -- and `DeriveDeclared` composes that probe and measures it. Nothing
+in `OpParamsDeriver` changed: saturation is an INPUT, which is why the
+existing derivation checks still pass unmoved. With no cap declared
+there is nothing to saturate demand to, so the profile's own demand
+stands; an unbounded slot count is not a measurement.
+
+`DeriveDeclared` deliberately does not take a `Sweep`. A derivation
+depends on the system and the depth, and on nothing else -- it has no
+victim and no limit -- so coupling it to the examination's inputs would
+have made callers configure victim geometry the measurement never
+reads. The band is a caller argument for the same reason: a set governs
+one band, and the caller knows which one it is declaring.
+
+The designer's derive & fill no longer composes and steps its own
+simulation. `OpParamsViewModel.DeriveCore` calls `DeriveDeclared`, so
+the designer and the loop measure the same way and can only differ in
+depth. The loop also writes the derived set in the designer's own
+format, so the button can load a run instead of producing a second
+opinion of the same system.
+
+**The iteration.** A loop run is now, in order:
+
+1. the derivation probe -- saturated, no victim -- producing the R set;
+2. the truth sweep, unchanged, producing T and the Article 22 verdict;
+3. the examination sweep against the declared mask and the derived R
+   set, producing E1, with the per-latitude gap T - E1 and the
+   adequacy statement.
+
+The mask, when the profile declares none, is exported from the
+REACHABLE envelope -- the ungated configuration space, the mask's
+counterpart to the R set's saturated probe. It grids every permitted
+beam position, including ones the orbit never visits, so it is
+conservative by construction and its adequacy does not depend on what
+the probe happened to see. It is cached against the profile's
+timestamp.
+
+**Adequacy is reported, not assumed.** E1 must sit at or above T at
+every latitude. Where it does not, the run says so and names the
+latitudes: that is a granularity failure of the derivation, not a
+compliance failure of the system, and the two must never be confused.
+
+**Artefacts.** Profile, R set (Part B XML and designer JSON) and pfd
+mask are written together under `dataset/margin/<run>/` and named in
+the record, because the projection only means anything if all three
+describe the same system.
+
+**Still open.** The walk still moves profile levers -- alpha and Nco --
+and re-measures T, which is the previous objective's shape: vary the
+system until T passes. Under v3 the refinement belongs on the
+declaration, with T held fixed and compliant. That reshaping is the
+next piece of work, and it is what turns "E1 is reported" into "E1 is
+minimised".
+
+### Checks added
+
+- V37: one multi-victim pass reproduces separate passes bit for bit,
+  with a guard that the victims genuinely differ.
+- V38: saturation lifts every traffic-shaped input and leaves the rest
+  alone; the uncapped case keeps the profile's own demand; a throttled
+  profile and its saturated probe derive different co-frequency caps;
+  a null declaration is inert; a declaration admitting no satellite
+  silences the examination, proving the declared set is what it reads.

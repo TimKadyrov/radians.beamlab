@@ -77,22 +77,61 @@ public sealed class EpfdDownResult
 /// </summary>
 public static class EpfdDown
 {
+    /// <summary>
+    /// One victim: a thin wrapper over <see cref="RunMany"/>, so the single-
+    /// and multi-victim paths cannot drift apart.
+    /// </summary>
     public static EpfdDownResult Run(Constellation constellation, IBeamPointing pointing,
         EpfdDownVictim victim, double timeStepSec, long steps, List<LimitPoint> limits,
         double? simulationDurationSec = null,
         EpfdGsoSatVictim? isVictim = null, List<LimitPoint>? isLimits = null,
         IProgress<double>? progress = null)
+        => RunMany(constellation, pointing, new[] { victim }, timeStepSec, steps, limits,
+            simulationDurationSec, isVictim, isLimits, progress)[0];
+
+    /// <summary>
+    /// Many victims, ONE simulation. A victim is only an accumulator: the
+    /// system’s behaviour -- propagation, scheduling, beam resolution -- does
+    /// not depend on it, so a latitude grid costs one pass over the
+    /// constellation instead of one pass per grid point. Each victim keeps its
+    /// own accumulator and, per victim, satellites are summed in the same
+    /// order as the single-victim path, so results are identical to running
+    /// the victims separately.
+    ///
+    /// The epfd(is) byproduct concerns the GSO SATELLITE victim rather than the
+    /// earth stations, so it is computed once and reported on the first result.
+    /// </summary>
+    public static IReadOnlyList<EpfdDownResult> RunMany(Constellation constellation,
+        IBeamPointing pointing, IReadOnlyList<EpfdDownVictim> victims,
+        double timeStepSec, long steps, List<LimitPoint> limits,
+        double? simulationDurationSec = null,
+        EpfdGsoSatVictim? isVictim = null, List<LimitPoint>? isLimits = null,
+        IProgress<double>? progress = null)
     {
+        if (victims.Count == 0)
+            throw new ArgumentException("at least one victim", nameof(victims));
         double simDur = simulationDurationSec ?? timeStepSec * steps;
-        var acc = new EpfdAccumulator(limits);
         long progressEvery = Math.Max(1, steps / 100);   // ~1% granularity for callers that listen
 
-        var es = GeodeticToEcef(victim.EsLatDeg, victim.EsLonDeg, 0.0);
-        double gsoLonRad = victim.GsoLonDeg * Math.PI / 180.0;
-        var gso = new Vec3(GsoGeometry.GsoRadiusKm * Math.Cos(gsoLonRad),
-                           GsoGeometry.GsoRadiusKm * Math.Sin(gsoLonRad), 0.0);
-        var dirEsGso = (gso - es).Normalized();
-        double gmax = victim.Antenna.MaxGain;
+        int nv = victims.Count;
+        var acc = new EpfdAccumulator[nv];
+        var es = new Vec3[nv];
+        var dirEsGso = new Vec3[nv];
+        var gmax = new double[nv];
+        var maxEpfd = new double[nv];
+        var quiet = new long[nv];
+        var linear = new double[nv];
+        for (int v = 0; v < nv; v++)
+        {
+            acc[v] = new EpfdAccumulator(limits);
+            es[v] = GeodeticToEcef(victims[v].EsLatDeg, victims[v].EsLonDeg, 0.0);
+            double gsoLonRad = victims[v].GsoLonDeg * Math.PI / 180.0;
+            var gso = new Vec3(GsoGeometry.GsoRadiusKm * Math.Cos(gsoLonRad),
+                               GsoGeometry.GsoRadiusKm * Math.Sin(gsoLonRad), 0.0);
+            dirEsGso[v] = (gso - es[v]).Normalized();
+            gmax[v] = victims[v].Antenna.MaxGain;
+            maxEpfd[v] = double.NegativeInfinity;
+        }
 
         // epfd(is) byproduct (Sec. D5.3.5): the same resolved beam sets,
         // composed toward the GSO satellite victim. No exclusion or
@@ -108,8 +147,8 @@ public static class EpfdDown
             isBoresightDir = (bs - gsoIs).Normalized();
         }
 
-        double maxEpfd = double.NegativeInfinity, maxEpfdIs = double.NegativeInfinity;
-        long quiet = 0, quietIs = 0;
+        double maxEpfdIs = double.NegativeInfinity;
+        long quietIs = 0;
 
         for (long k = 0; k < steps; k++)
         {
@@ -117,7 +156,8 @@ public static class EpfdDown
             double t = k * timeStepSec;
             var snap = constellation.SnapshotAt(t, simDur, pointing);
 
-            double linear = 0.0, linearIs = 0.0;
+            Array.Clear(linear, 0, nv);
+            double linearIs = 0.0;
             foreach (var sat in snap.Satellites)
             {
                 if (sat.Beams is null || sat.Beams.Beams.Count == 0) continue;
@@ -139,33 +179,39 @@ public static class EpfdDown
                     }
                 }
 
-                if (ElevationAngleDeg(pos, es) <= 0.0) continue;   // below the ES horizon
+                for (int v = 0; v < nv; v++)
+                {
+                    if (ElevationAngleDeg(pos, es[v]) <= 0.0) continue;   // below this ES horizon
 
-                var toEs = (es - pos).Normalized();
-                double eirp = BeamComposer.ResolvedEirpDbw(sat.Beams, toEs);
-                if (double.IsNegativeInfinity(eirp)) continue;
+                    var toEs = (es[v] - pos).Normalized();
+                    double eirp = BeamComposer.ResolvedEirpDbw(sat.Beams, toEs);
+                    if (double.IsNegativeInfinity(eirp)) continue;
 
-                double distM = (es - pos).Length * 1000.0;
-                double pfd = eirp - 10.0 * Math.Log10(4.0 * Math.PI * distM * distM);
+                    double distM = (es[v] - pos).Length * 1000.0;
+                    double pfd = eirp - 10.0 * Math.Log10(4.0 * Math.PI * distM * distM);
 
-                var toSat = (pos - es).Normalized();
-                double phiDeg = Math.Acos(Math.Clamp(Vec3.Dot(dirEsGso, toSat), -1.0, 1.0)) * 180.0 / Math.PI;
-                double grx = victim.Antenna.GetAntGain(phiDeg, 0.0);
+                    var toSat = (pos - es[v]).Normalized();
+                    double phiDeg = Math.Acos(Math.Clamp(Vec3.Dot(dirEsGso[v], toSat), -1.0, 1.0)) * 180.0 / Math.PI;
+                    double grx = victims[v].Antenna.GetAntGain(phiDeg, 0.0);
 
-                linear += Math.Pow(10.0, (pfd + grx - gmax) / 10.0);
+                    linear[v] += Math.Pow(10.0, (pfd + grx - gmax[v]) / 10.0);
+                }
             }
 
-            if (linear > 0.0)
+            for (int v = 0; v < nv; v++)
             {
-                double epfd = 10.0 * Math.Log10(linear);
-                acc.AccumulateSample(epfd, 1);
-                if (epfd > maxEpfd) maxEpfd = epfd;
-            }
-            else
-            {
-                // Below-range samples classify as no-epfd inside the accumulator.
-                acc.AccumulateSample(double.NegativeInfinity, 1);
-                quiet++;
+                if (linear[v] > 0.0)
+                {
+                    double epfd = 10.0 * Math.Log10(linear[v]);
+                    acc[v].AccumulateSample(epfd, 1);
+                    if (epfd > maxEpfd[v]) maxEpfd[v] = epfd;
+                }
+                else
+                {
+                    // Below-range samples classify as no-epfd inside the accumulator.
+                    acc[v].AccumulateSample(double.NegativeInfinity, 1);
+                    quiet[v]++;
+                }
             }
 
             if (accIs is not null)
@@ -184,16 +230,19 @@ public static class EpfdDown
             }
         }
 
-        return new EpfdDownResult
-        {
-            Accumulator = acc,
-            Steps = steps,
-            MaxEpfdDb = maxEpfd,
-            QuietSteps = quiet,
-            IsAccumulator = accIs,
-            MaxEpfdIsDb = maxEpfdIs,
-            IsQuietSteps = quietIs,
-        };
+        var results = new EpfdDownResult[nv];
+        for (int v = 0; v < nv; v++)
+            results[v] = new EpfdDownResult
+            {
+                Accumulator = acc[v],
+                Steps = steps,
+                MaxEpfdDb = maxEpfd[v],
+                QuietSteps = quiet[v],
+                IsAccumulator = v == 0 ? accIs : null,
+                MaxEpfdIsDb = v == 0 ? maxEpfdIs : double.NegativeInfinity,
+                IsQuietSteps = v == 0 ? quietIs : 0,
+            };
+        return results;
     }
 
     /// <summary>
