@@ -3581,3 +3581,71 @@ the brief now specifies, read-rule and consistency probes included. In
 this program masks are DERIVED artefacts, never inputs. The mask-as-input
 mode stays in the toolbox for parity runs and for examining a real filing
 when asked — it is not the campaign's centre.
+
+## Beamlab — the cross-read package built, and a gap it found on the way, 7 September 2026
+
+Purchase two is on the shelf: `dataset/STEAM-2B-FILED/`, built the BL
+way by the dataset tool's new `--package` mode from three files — the
+STEAM-2 orbit design, the record's derived R set, and the filed mask.
+
+**What it holds.** `900123480 SRS.MDB`: 32 orbit rows and 1600 phase
+rows for the reconstructed constellation; one down scenario over
+17700-20200 MHz linking mask 150 to every orbit; sat_oper rows;
+mask_info for the pfd mask (P, az/el) and the operating parameters
+(R); mask_lnk3 to param 1. `900123480 Masks.MDB`: the filed mask and
+the R set. `xml/`: the mask copy and `param1_oper.xml`. `expected/`:
+the record you already have, both depths, caveats attached. A README
+states what is verbatim, what is reconstructed, and what is ours.
+
+**The BR native store took the 88 MB az/el mask as it is.** Status 0,
+f_mask_type written by the store itself, and the extractor returns it
+byte-identical — the copy differs from the operator's file in exactly
+the seven bytes of the root `ntc_id`. So the container fallback was
+not needed, and your reader gets the mask through the same library it
+uses for every filing.
+
+**Your -2 fields are there.** Your reader takes min_elev from
+`grp.elev_min` through a query that joins `srv_cls`, the exclusion
+zone from `non_geo.f_x_zone`/`x_zone`, and Nco from `sat_oper`. The
+package writes all of it after the notice: `non_geo.f_x_zone = Y`,
+`x_zone = 22`; one emission group (`grp` 901123480, 17700-20200 MHz,
+`elev_min` 40) with its `freq` and `srv_cls` (EK) rows; `sat_oper` as
+the nearest-row reconstruction of max_co_freq[lat] — midpoints between
+rows, the end rows carried to the poles, so latitude 60 reads 4 as it
+did in our sweep. Where an array varies the single-valued form would
+carry the smallest angle, the victim-conservative reading; here the
+arrays are flat and nothing is lost. `Y` is the earth-station alpha per
+your Scenario reader, which is the angle our derivation and the mask
+dissection use.
+
+**The gap.** Building the notice found that `AddShell` declared the
+Walker phasing only: a shell with an exact inter-plane phase — STEAM-2
+flies 1.9 deg — was propagated as one system and would have been filed
+as another. Now mirrored, and V45 pins the declared phase rows to the
+constellation's own initial phases for both phasing forms (the package
+shows it: plane 2, satellite 1 at phase 1.9). No BL shell carries the
+field, so their packages are unchanged.
+
+**Your two flags, carried.** The alpha-versus-X question is stated in
+the README as an open check, with the evidence for alpha (the notch
+constant in earth-station alpha across latitudes) and the absence of a
+test in X. The min_elev-40-is-generous point sits in the caveats
+beside the R-set and constellation caveats.
+
+**One labelling choice to know about.** The R set was derived at one
+frequency (18150 MHz, the sweep's) and is declared in the package over
+the mask's whole band. Its values are geometric and do not depend on
+frequency; the band label is the only thing widened, and the README
+says so.
+
+The seven victims are in the README as entered geometry: earth station
+at longitude 0, latitudes 0-60 by 10, GSO at +10, 1.00 m dish, TABLE
+22-1B at 40 kHz. The package is yours to run.
+
+**Operator addendum, same day:** the mask-shaping-consistency check is
+wanted as a standing VERIFICATION TOOL against declarations, not only as a
+probe case — recorded in the brief's tooling section (radians cd75bcc): the
+section 3.10 checks run as a tool, detection only, doubling as the
+self-check on every emitted dataset case and as an examination-side
+pre-check on incoming filings. The examination-only mode is its natural
+host.
