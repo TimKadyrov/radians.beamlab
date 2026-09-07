@@ -3162,3 +3162,111 @@ of peak demand, T untouched — remains the operator's choice. Examination
 records for the three controls sit beside the artefacts under
 dataset/margin/examine/ and are cited from here rather than filed as
 figures.
+
+## Beamlab — the filed STEAM-2B mask examined: the failure was the assumption's, and the filing has a question of its own, 6 September 2026
+
+The last item on your order. The filed STEAM-2B pfd mask — the operator's
+actual declaration, 88 MB, az/el, 179 latitude blocks — examined the
+administration's way: the epfd(down) algorithm reading that mask and an
+R set over the sweep grid. No probe, no truth sweep. It ran in seconds.
+
+**Controls.** Same profile, geometry and victim configuration as every
+STEAM-2 record (earth station at longitude 0, GSO at +10 deg, 1.00 m
+dish, the row's own diameter), same limit row (TABLE 22-1B, FSS
+17800-18600 MHz, at the profile's 18.15 GHz), same R set as the record —
+our derived one, which declares exactly what the mask dissection found
+encoded in the filing itself: min_elev 40 deg, alpha 22 deg constant,
+Nco 4. Depth 0.1 d for the like-for-like against T and E1, then 1.0 d
+(floor 0.069%) for the filing's own verdict.
+
+| lat | T (assumed payload) | E1 (our derived mask) | E_filed (their mask) | E_filed - T |
+|---|---|---|---|---|
+| 0 | -158.0 | -151.5 | -173.6 | -15.6 dB |
+| 10 | -166.0 | -158.9 | -173.3 | -7.3 |
+| 20 | -159.7 | -149.1 | -173.2 | -13.5 |
+| 30 | -164.5 | -155.3 | -173.6 | -9.1 |
+| 40 | -160.2 | -150.2 | -173.7 | -13.5 |
+| 50 | -157.5 | -146.2 | -168.9 | -11.4 |
+| 60 | -158.3 | -148.1 | -169.7 | -11.4 |
+
+(max epfd, dB(W/m2)/40 kHz, 0.1 d)
+
+**First answer: the in-band T failure belongs to the assumed payload.**
+The filed declaration sits 7 to 16 dB BELOW our truth at every latitude.
+In this project's own terms that is an adequacy failure — a declaration
+that does not envelope the system it is paired with — but the system it
+is paired with is OURS, not theirs: scene-default pattern and layout,
+Gm 35 assumed, power set to meet the filed cap at boresight, 40 deg
+elevation from 4A/653 rather than a filing. Our assumed system radiates
+far more than STEAM-2B filed, and our own derived mask is 12 to 18 dB
+more conservative than their filing. Both point the same way, and the
+parity run had already pointed there: our all-beams side-lobe floor sat
+19.5 dB above theirs. The operator's system, as declared, is much quieter
+than the one we have been failing. Whether the real payload is quieter
+because it lights few co-frequency beams, or because its side lobes fall
+faster than a Taylor pattern with a 5 dBi floor, the filing does not say;
+it declares the consequence and not the cause.
+
+**Second answer, unasked for: the filing itself exceeds TABLE 22-1B
+under this examination.** Not by much at low latitudes, more at high:
+
+| lat | margin at 0.1 d | margin at 1.0 d |
+|---|---|---|
+| 0 | -1.2 | -1.0 |
+| 10 | -0.9 | -0.9 |
+| 20 | -0.8 | -1.0 |
+| 30 | -0.5 | -0.5 |
+| 40 | -1.2 | -1.3 |
+| 50 | -6.2 | -6.2 |
+| 60 | -4.9 | -4.9 |
+
+Ten times the depth moved no margin by more than 0.2 dB. This is not a
+percentile-floor artefact. It is, however, a statement about someone
+else's filing, and it carries every one of these caveats in the same
+breath: the R set paired with the mask is OUR derivation, not the
+operator's filed set — a larger exclusion or a smaller cap on their side
+would lower E_filed; the victim configuration is our sweep's single
+earth-station longitude, GSO offset and dish, not the examination's
+full grid; one limit row was applied, at 18.15 GHz, while the mask's
+band reaches 20.2 GHz where TABLE 22-1C governs; and the mask-read
+verdict path is our implementation of Sec. D5.1.4.1 and D5.1.5, which
+the oracle has validated for the geometry-and-selection chain and not
+for the reading of a real filing. Under those conditions the filed mask
+fails by 0.5 to 1.3 dB at 0 to 40 deg and 4.9 to 6.2 dB at 50 and 60.
+Under the BR's conditions it may not. The number is offered as a
+question to put to the filing, not as a verdict on it.
+
+**Third finding, about our own figures: the derived mask does not
+converge at 0.1 d; the filed one does.** Our E1 at the two depths:
+
+| lat | E1 at 0.1 d | E1 at 1.0 d | moved |
+|---|---|---|---|
+| 0 | -15.6 | -18.1 | -2.5 |
+| 10 | -13.7 | -17.7 | -4.0 |
+| 20 | -18.1 | -18.0 | +0.1 |
+| 30 | -12.5 | -18.6 | -6.1 |
+| 40 | -16.9 | -18.8 | -1.9 |
+| 50 | -24.1 | -20.0 | +4.1 |
+| 60 | -21.9 | -21.4 | +0.5 |
+
+The filed mask is a two-level rule — plateau and a floor 30 dB down —
+so its epfd distribution is set by how many satellites are in view and
+settles at once. Ours carries side-lobe structure whose tail needs
+samples, and at 144 steps it had not got them: per-latitude E1 is soft
+by 4 to 6 dB between 0.1 d and 1.0 d, in both directions. Every
+comparison this week held depth fixed, as the rule requires, so the
+recovered-dB figures stand as differences. The ABSOLUTE in-band gap
+quoted at 0.1 d — 6.5 to 12.2 dB — does not; it needs T at 1.0 d to
+restate, and a truth sweep at that depth is the expensive run this
+campaign has not made. That is the next thing to buy, and it is the
+only thing on this list that costs hours rather than seconds.
+
+**What this does to the campaign.** The system we have been optimising
+declarations for is not the one STEAM-2B filed; it is roughly 10 dB
+hotter. The three-regime result, the certificate, the band fixes and
+the examination mode are all sound as construction — none of them
+depended on which system was in the profile. But the STEAM-2 numbers
+should now be read as numbers about the assumed payload, and the
+operator-side question becomes the payload itself: beam count, pattern,
+floor. The parity run said that a week ago; the filed mask now says it
+in the examination's own currency.
