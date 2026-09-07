@@ -4113,3 +4113,85 @@ driven cases the ruling put first.
 Controls: the record's R set and mask read back unchanged (the record
 states both files by name); same profile in all but name, same design,
 limit row, victims, grid and step; depth the only variable.
+
+---
+
+## Critique side — the week's structural result, two ownerships, one loose end, 7 September 2026
+
+**The structural result first, because it reorganises the rulebook: the
+declaration does not move with depth — exactly.** R set identical row for
+row, the mask identical to a hundredth across 123 431 cells, at ten times
+the duration. The saturated probe measures a configuration space, not a
+sample of one, so every depth movement this week was the examination
+sampling a fixed object. The convergence-pair rule therefore splits into
+its two natural halves: ARTEFACTS are checked by file identity against a
+deeper derivation — free, exact, and now demonstrated — while STATISTICS
+(T, and E1 as a read) need pairs. Accepted with the bookkeeping as you
+ran it: 0.1 d absolutes retired; five latitudes firm on the (0.5, 1.0)
+pair — T at -9.3 to -10.9, in-band gap 7.5 to 8.8 dB, 11.0 at 60 — and
+40/50 provisional with the worst events arriving in the second half.
+
+**The nested-pair caveat graduates into the rule.** A pair whose shorter
+run is a prefix of the longer answers the EXTENSION question — does more
+of the same trajectory change the figure — not the stability-under-
+resampling question. Both are legitimate; they are different claims, and
+a quoted pair says which kind it is. The independent-epoch pair is the
+stronger instrument and goes on the backlog, not the critical path. On
+the 2.0 d question: relayed to the operator with a recommendation to
+defer — the case is the parked assumed-payload STEAM-2, the two
+provisional latitudes are labelled and harm nothing, and the
+composition-first ruling stands. If a STEAM-2 figure is ever quoted
+outside this document, that is the moment the 4.5 hours are owed.
+
+**Ownership one: my notch mechanism was asserted, your instrument
+measured, and the instrument wins.** I wrote "the mask already encodes
+the exclusion" as a one-sentence mechanism; the dissection shows the
+derived mask LIT INSIDE — near-peak power at alpha 11.7-16.4 deg against
+the declared 22, main-lobe edges of boresight-gated beams reaching
+neighbouring ground. The inertness is the algorithm's: Step 20 counts
+main-beam satellites regardless of the zone, and lifting the zone only
+promotes satellites the capped pick already prefers. The filed mask is
+inert for the complementary reason (30 dB down in-zone). The measurement
+stood; my explanation did not, and the correction is exactly what the
+consistency check exists to produce. Its four grades — CONSISTENT, MASK
+TIGHTER, LIT INSIDE, SATURATED — are the right vocabulary for the
+section 3.10 probe's expectation record too: the probe's expected grade
+is SATURATED, and the grade scheme should be named in the brief when the
+probe is emitted.
+
+**Ownership two, shared: the sixth instance reached the examination
+resolver, and the day held two rulings about it.** The morning ruling —
+header global outside the table — and the afternoon ruling — mutual
+exclusivity, nearest read total — collided; the afternoon superseded,
+your consequence list undid the interim header-writing hour, and V47
+pins the final read: array at the nearest row everywhere it is filed,
+header only when no array exists, both forms invalid, MIN_EXCLUDE
+interpolate-and-clamp. For the uniform sets on disk the two semantics
+give identical numbers — which is why the corrected filed-mask figures
+(-2.0 at 50, -4.0 at 60, firm across ten times the depth) stand
+untouched by the supersession. One loose end remains and it is textual:
+the construction page's read-rule-law clause written in the interim —
+"beyond an array's span the header governs, and a declaration without
+one declares nothing there" — contradicts V47's read and should be
+rewritten to it. The cards were fixed; the page clause was not named in
+the fix list.
+
+**A depth qualifier owed to the regime table.** The third regime's
+"T moves both ways" (+1.5 at the equator, -0.7 to -0.9 at 50 and 60)
+is a matched-comb difference at 0.1 d and stands as one — but its two
+negative entries live at exactly the latitudes the pair later showed
+unconverged at that depth (2.6-2.8 dB of movement). The mechanism
+(reassignment relocates interference) is sound; the direction claim at
+50/60 should carry its comb until a truth-only rerun of cap 4 at depth
+(85 minutes, when the regimes thread resumes) either firms or retires
+the negative sign. The equatorial +1.5 sits at a latitude the pair
+found firm to 0.0 and needs nothing.
+
+**The rest is acceptance.** The min_exclude-0 check confirms the
+inertness measurement with the +0.1 dB trace explained; the regime
+criterion as a granted-links readout is the right instrument and waits
+its turn; the consequence list is complete against the ruling; the
+cross-read package sits on the shelf in the operator-directed form (raw
+XML, no Masks database), and the radians run stays parked until the
+operator calls it. The probes queue behind nothing now — per the
+priority ruling they and the capacity field are the campaign.
