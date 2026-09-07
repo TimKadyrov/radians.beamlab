@@ -4705,6 +4705,62 @@ var looks = RandomLooks(300);
         $"half40={half40:F2} dark={span40.DarkLatitudes} lit={span40.LitLatitudes}");
 }
 
+
+// ---- V41: a measured floor stays a floor after interpolation ----
+{
+    // MIN_EXCLUDE is read by LINEAR INTERPOLATION (Part B), unlike every
+    // other per-latitude array. A band minimum labelled at its band centre is
+    // exact for a nearest read and too HIGH between rows for an interpolated
+    // one -- declaring an exclusion the operation does not honour.
+    var raw41 = new List<(double LatDeg, double Value)>
+        { (25.0, 22.0), (35.0, 30.0), (45.0, 28.0) };
+    var safe41 = OpParamsDeriver.InterpolationSafeFloor(raw41);
+    bool slideOk41 = safe41.Count == 3
+        && safe41[0] == (25.0, 22.0)      // min(22, 30)
+        && safe41[1] == (35.0, 22.0)      // min(22, 30, 28)
+        && safe41[2] == (45.0, 28.0);     // min(30, 28)
+
+    // The property itself: at every latitude the interpolated declaration must
+    // sit at or below what the band containing that latitude actually did.
+    static double TrueMin41(double lat) => lat < 30.0 ? 22.0 : lat < 40.0 ? 30.0 : 28.0;
+    static OperatingParamsSet SetOf41(IEnumerable<(double LatDeg, double Value)> rows)
+    {
+        var p = new OperatingParamsSet
+            { SatName = "V41", NtcId = 1, ParamId = 1, LowFreqMhz = 1, HighFreqMhz = 2 };
+        var ring = new MinExcludeByOrbit { OrbId = 0 };
+        foreach (var (lat, v) in rows) ring.ByLat.Add((lat, v));
+        p.MinExclude.Add(ring);
+        return p;
+    }
+    var pSafe41 = SetOf41(safe41);
+    var pRaw41 = SetOf41(raw41);
+    bool safeOk41 = true, rawViolates41 = false;
+    double worstRaw41 = 0.0;
+    for (double lat = 25.0; lat <= 45.0 + 1e-9; lat += 0.5)
+    {
+        double declaredSafe = DeclaredConstraints.ExclusionAlphaDeg(pSafe41, lat, 1);
+        double declaredRaw = DeclaredConstraints.ExclusionAlphaDeg(pRaw41, lat, 1);
+        if (declaredSafe > TrueMin41(lat) + 1e-9) safeOk41 = false;
+        if (declaredRaw > TrueMin41(lat) + 1e-9)
+        {
+            rawViolates41 = true;
+            worstRaw41 = Math.Max(worstRaw41, declaredRaw - TrueMin41(lat));
+        }
+    }
+
+    // A band where no exclusion shaped operations must pull its neighbours
+    // down, not be dropped for interpolation to span.
+    var withZero41 = OpParamsDeriver.InterpolationSafeFloor(new List<(double, double)>
+        { (25.0, 22.0), (35.0, 0.0), (45.0, 28.0) });
+    bool zeroOk41 = withZero41[0].Value == 0.0 && withZero41[1].Value == 0.0
+        && withZero41[2].Value == 0.0;
+
+    Check("V41 interpolation-safe MIN_EXCLUDE: sliding floor, property holds, raw violates",
+        slideOk41 && safeOk41 && rawViolates41 && zeroOk41,
+        $"slide={slideOk41} safe={safeOk41} rawViolates={rawViolates41} zero={zeroOk41} " +
+        $"worstRawExcess={worstRaw41:F1} deg of alpha");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
 

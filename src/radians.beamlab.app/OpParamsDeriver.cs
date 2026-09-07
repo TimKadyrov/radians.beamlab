@@ -119,14 +119,55 @@ public static class OpParamsDeriver
             me.ByAz.Add((360.0, v));
             p.MinElev.Add(me);
         }
+        // MIN_EXCLUDE is the one array the Recommendation reads by LINEAR
+        // INTERPOLATION between latitude rows; the others are read at the
+        // nearest row. Labelling a band minimum at its band centre is right
+        // for a nearest read and WRONG for an interpolated one -- see
+        // InterpolationSafeFloor. The sliding minimum runs BEFORE the
+        // near-zero filter, so a band where no exclusion shaped operations
+        // pulls its neighbours down with it rather than being punched out of
+        // the list for interpolation to span.
+        var bandRows = minAlphaByBand.OrderBy(kv => kv.Key)
+            .Select(kv => (LatDeg: BandLat(kv.Key, latBandDeg), Value: kv.Value)).ToList();
         var ex = new MinExcludeByOrbit { OrbId = 0 };
-        foreach (var (band, alpha) in minAlphaByBand.OrderBy(kv => kv.Key))
-            if (alpha > 0.05) ex.ByLat.Add((BandLat(band, latBandDeg), FloorTenth(alpha)));
+        foreach (var (lat, alpha) in InterpolationSafeFloor(bandRows))
+            if (alpha > 0.05) ex.ByLat.Add((lat, FloorTenth(alpha)));
         if (ex.ByLat.Count > 0) p.MinExclude.Add(ex);
         foreach (var (band, cnt) in maxCoFreqByBand.OrderBy(kv => kv.Key))
             p.MaxCoFreqByLat.Add((BandLat(band, latBandDeg), cnt));
 
         return new Result(p, steps, samples);
+    }
+
+    /// <summary>
+    /// Make a measured FLOOR safe to read by linear interpolation.
+    ///
+    /// Each input row carries the minimum observed over the latitude BAND it
+    /// represents, labelled at the band centre. Read at the nearest row that
+    /// is exact. Read by INTERPOLATION it is not: between two rows the value
+    /// rises toward the larger of them, so at latitudes inside the lower
+    /// band the declared floor can exceed what the system actually did --
+    /// declaring an exclusion the operation does not honour, and gating
+    /// satellites out of the examination that the truth lets serve.
+    ///
+    /// Interpolating between rows i and i+1 never exceeds max(v_i, v_i+1),
+    /// so it is sufficient that both are at most the smallest band minimum
+    /// either of them interpolates with -- a sliding minimum over each row
+    /// and its list neighbours. Conservative, and exact where the floor is
+    /// flat.
+    /// </summary>
+    public static List<(double LatDeg, double Value)> InterpolationSafeFloor(
+        IReadOnlyList<(double LatDeg, double Value)> bandMinima)
+    {
+        var outRows = new List<(double, double)>(bandMinima.Count);
+        for (int i = 0; i < bandMinima.Count; i++)
+        {
+            double v = bandMinima[i].Value;
+            if (i > 0) v = Math.Min(v, bandMinima[i - 1].Value);
+            if (i + 1 < bandMinima.Count) v = Math.Min(v, bandMinima[i + 1].Value);
+            outRows.Add((bandMinima[i].LatDeg, v));
+        }
+        return outRows;
     }
 
     private static int Band(double latDeg, double bandDeg) => (int)Math.Floor(latDeg / bandDeg);
