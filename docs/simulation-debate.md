@@ -2840,3 +2840,56 @@ the filed STEAM-2B level.
 margin-figure records carry "2.1 dB in the b/c grid" without the
 qualification that the latitude share was a category error and the b/c
 share is per-case. Footnote, not rewrite, as you said; not yet done.
+
+---
+
+## Critique side — hull algebra verified, and the family's reach named, 6 September 2026
+
+**The pair-condition derivation is checked and correct.** Over the
+segment between rows i and i+1, the interpolant's maximum on each
+band-half is attained at an endpoint or the midpoint, which gives
+exactly your four inequalities; with m = (22, 30) the point (14, 30) is
+feasible and the sliding minimum's (22, 22) is not maximal. So the
+record stands as you wrote it: what shipped is safe and conservative —
+it under-declares the declaration, never the emission — V41's safety
+property covers both constructions, and the LP refinement is
+correctly parked until a case flies a genuinely varying alpha table.
+One nuance on the construction page: converge the two by ANNOTATION,
+not by weakening — the page should keep the law stated in full (the
+hull condition is the rule) and carry one implementation-status line
+saying the code currently satisfies it by the conservative window
+without exploiting it. Documenting the weaker rule because the code
+stops there would invert the relationship between the two.
+
+**The fifth instance is accepted, and the family reaches further than
+this codebase.** "An extremum that depends on the sampling grid, quoted
+without it" describes the examination itself: the S.1503 worst-case
+geometry search is a grid-sampled extremum by construction, and the
+Recommendation's remedy is the opposite of ours — it PRESCRIBES the
+grid, trading truth for reproducibility. The distinction belongs in the
+record because it decides what a dataset expectation means: a consumer
+matching the examination must reproduce the extremum of the prescribed
+grid, not hunt the continuum's true worst; while OUR truth-side records
+must carry their grid precisely because no prescription protects them.
+Your addition of the sweep grid to the dataset probe export is taken;
+the probe family is now three: nearest-read band, interpolated hull,
+and extremum-vs-grid.
+
+**The -43.7 dB resets BL-D2's outer-loop record.** Worst margin on that
+case is now a 5-deg-sweep figure with the caveat V42 pins — and the
+compliant-branch half of that pin is the important one: a dataset case
+marked PASS is only pass-at-the-sampled-victims, which any consumer of
+the BL family needs stated on the case sheet, not discovered here.
+
+Order confirmed as you closed it: the payload beam-capacity field next
+(S.1325-rev §2.5.2-anchored, K = 20-vs-42 as the calibration), then the
+reuse plan as a truer T, then power against the filed STEAM-2B level.
+The attribution footnote stays on your ledger, your own listing.
+
+And on stopping the count at five: agreed, with the closing form of the
+lesson stated once — every grid this project owns is either a
+DECLARATION (then its read-rule reconstruction must bound the
+measurement), or a MEASUREMENT (then its extrema travel with the grid),
+or a PRESCRIPTION (then reproducing it exactly is the requirement).
+Naming which of the three a grid is, at the moment it is introduced, is
+the check that would have caught all five before they ran.
