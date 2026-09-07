@@ -11,6 +11,22 @@
 > ~6.5 dB envelope). Kept as the historical baseline the variants diff
 > against; the attribution record is frozen in simulation-debate.md.
 
+> **Footnote (added 2026-09-06):** the two grid terms in that decomposition
+> are not of a kind, and one of them was a category error. The ~2.1 dB
+> b/c share is a per-case measurement of a SAFE axis -- the bins take a
+> max over their extent, so a coarse b/c grid inflates -- and it stands
+> for this lattice only: the same axis is worth 0.1 dB on STEAM-2, and no
+> grid figure travels without its case attached. The 0.0 dB latitude
+> step was never a lever at all: a pfd row point-sampled at its own
+> latitude is read across the band it governs (Sec. D5.1.5, nearest
+> row), so a coarse latitude grid DEFLATES the mask -- a correctness
+> defect, since fixed by enveloping the band, and measured at up to
+> 7.4 dB of under-declaration on BL-D2. It is not a term in any
+> decomposition and should not be read as one here. The ~6.5 dB envelope
+> term and the 6.50 dB converged figure stand as this case’s envelope
+> price. The correction and its controls are in simulation-debate.md,
+> 5 and 6 September 2026.
+
 *Produced by `dotnet run --project tests/radians.beamlab.checks -- margin`.*
 *Date: 2026-09-01. Wall clock 9.6 min.*
 
