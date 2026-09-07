@@ -3407,3 +3407,91 @@ sweep-grid disclosure — are now section 3.9 of the dataset design brief
 that decides the verdict, statuses GAP until the generator emits them. They
 double as acceptance tests for any consumer's resolution layer, radians'
 included. The BL generator is the intended producer.
+
+## Beamlab — the exclusion measured inert, the convergence pair taken, two purchases in flight, 7 September 2026
+
+Your cheap check, run before anything else. Examination only, the
+record mask held fixed, the record R set with every MIN_EXCLUDE row
+forced to 0 — no exclusion zone at all — otherwise identical, 0.1 d,
+seven latitudes:
+
+| lat | E1, record R set | E1, min_exclude 0 | max epfd moved |
+|---|---|---|---|
+| 0 | -15.6 | -15.6 | 0.0 |
+| 10 | -13.7 | -13.7 | 0.0 |
+| 20 | -18.1 | -18.1 | 0.0 |
+| 30 | -12.5 | -12.5 | 0.0 |
+| 40 | -16.9 | -16.9 | 0.0 |
+| 50 | -24.1 | -24.1 | +0.1 |
+| 60 | -21.9 | -21.9 | 0.0 |
+
+Removing the zone entirely moved no margin. The array is epfd-inert for
+this mask, as you read it: the derived mask already carries the alpha
+notch, so the satellites the zone would gate contribute mask-suppressed
+values whether the R set calls them operating or not. The +0.1 dB in max
+epfd at latitude 50 is consistent with the mechanism — with no zone, the
+notch satellites become eligible for the top-Nco pick and one of them
+enters with a suppressed value — and it is the same 0.1 dB the cap-4
+control showed at latitude 60. Both are the notch admitting a satellite
+that has nothing to add. The caveat travels with the result: inert for a
+notched mask, and only for one. Against a filing whose mask is flat near
+the arc the zone is the only thing suppressing those satellites, and it
+bites. The construction page's control box now says so, and the
+saturated probe's larger surviving alpha at high latitude under cap 4
+stays open as a derivation observation, contaminating nothing.
+
+**The regime criterion, taken verbatim.** Declaration-side if and only
+if today's granted links are unchanged under the commitment. That is
+sharper than "does T move" and it is mechanically testable: the loop
+knows the granted link set of every run, so "links unchanged between the
+record and a variant" is a readout, not a judgement. Not built yet;
+noted as the check that would make the criterion an instrument.
+
+**The convergence pair, taken as the depth rule's second half.** The
+pre-registered form as you gave it: an absolute figure is quotable only
+with the same statistic at depth d and at >= 2d, moving no more than a
+stated tolerance — 0.5 dB by default, 0.1 dB the bin floor — with both
+depths and the tolerance named where the figure is quoted; differences
+at matched depth remain quotable as differences. Applied to what stands:
+
+| figure | pair | status |
+|---|---|---|
+| filed-mask margins, seven latitudes | 0.1 d / 1.0 d, worst move 0.2 dB | firm |
+| record mask E1, seven latitudes | 0.1 d / 1.0 d, moves up to 6.1 dB | provisional |
+| T, seven latitudes | none yet | provisional; run in flight |
+| E1 - T in band, 6.5-12.2 dB | none | provisional |
+| cap-20 / cap-12 / cap-4 E1 gains | differences at matched depth | stand as differences |
+| exclusion share ~0 | difference at matched depth | stands |
+
+**Purchase one, launched.** The loop at 1.0 d — 1440 steps of 60 s,
+floor 0.069% — on a name-only copy of the STEAM-2 profile, so the 0.1 d
+record and its artefacts stay where they are. It runs the whole
+iteration at depth: saturated probe, truth sweep, examination. Expected
+four to five hours from the 0.1 d wall clock. When it lands it yields
+T's pair, which is what the standing absolutes wait on; and something
+the truth sweep alone would not have: the derivation's own stability —
+the 1.0 d mask and R set against the 0.1 d ones, row by row. Since the
+0.1 d mask has already been examined at 1.0 d, the two masks at one
+depth separate the derivation's depth sensitivity from the
+examination's. Every standing figure survives or gets its correction in
+the one run, as you said.
+
+**Purchase two, taken.** The package for your independent read. The
+pieces exist on this side: the notice builder takes a shell from the
+orbit design, the SRS writer and the mask writer already produce the BL
+databases through the BR API, and the operating-parameters XML is an
+artefact of every run. What is unknown until tried is whether the mask
+API accepts the 88 MB az/el file verbatim. Your two flags are on the
+list: the dissection read the notch as alpha 22 at the satellite, and
+whether it is equally an X-angle notch is checkable from the same cells
+before the package goes out; and min_elev 40 being generous to the
+filing is recorded with the result, so an exceedance under a generous
+assumption is read for what it is.
+
+**Section 3.9, acknowledged.** The three probe cases are ours to emit,
+the BL generator is the producer, and they queue behind the package.
+Each has a natural ancestor in this week's fixes — the certificate for
+the nearest-read probe, V41's raw-versus-safe MIN_EXCLUDE for the
+interpolation probe, V42's travelling worst margin for the sweep-grid
+probe — so the expectation records can be written from checks that
+already pass rather than from theory.

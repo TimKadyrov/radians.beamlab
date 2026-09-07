@@ -327,6 +327,14 @@ sits: K<sub>sat</sub>, the most same-colour beams the <em>saturated</em> probe e
 <tr><td>4</td><td>yes (45% pinned)</td><td>yes</td><td>+1.5 to &minus;0.9 dB</td><td>12.2 &rarr; 6.8 dB (E1 alone: &minus;3.5 to &minus;6.4)</td><td>~0 unserved; interference redistributed</td><td>47% unserved; <code>max_co_freq_sat</code> 59 &rarr; 16; exclusion tightened</td></tr>
 </table>
 
+<p>The line between the rows is not whether T moves but whether the knob changes what the
+system <em>does</em>: a commitment is declaration-side if and only if today&rsquo;s granted links
+are unchanged under it. Rows one and two leave the links identical, so they are declarations
+&mdash; the second an honest one, a promise about a peak the system may never sell. Row three
+changes today&rsquo;s links, so it is a redesign, to be chosen or refused as engineering. The
+non-monotone T is the proof the line matters: a knob that can worsen compliance cannot be a
+declaration-tightening move, because declarations never change behaviour.</p>
+
 <p>The middle row is the one an operator would want: a commitment the system already
 honours at today&rsquo;s traffic, that buys 0.8&ndash;3.3&nbsp;dB on the examination, and whose
 only price falls on the busiest hour. The bottom row maps the extreme. Its lesson is not the
@@ -346,7 +354,13 @@ examination-only run held the record&rsquo;s R&nbsp;set fixed and swapped in the
 result differs from the cap-4 record at one latitude by 0.1&nbsp;dB and at the other six not at
 all: the exclusion&rsquo;s share is nil, and the whole E1 gain &mdash; <strong>3.5 to
 6.4&nbsp;dB</strong> by latitude &mdash; is the top-4 envelope&rsquo;s. Why the tightened
-exclusion did not register is recorded as observed, not explained.</p>
+exclusion did not register has since been measured: the derived mask already carries the alpha
+notch, so satellites inside 22&deg; of the arc contribute mask-suppressed values whatever the
+R&nbsp;set says about them. With <code>min_exclude</code> forced to 0&deg; against the record mask
+&mdash; no exclusion zone at all &mdash; E1 moved at none of the seven latitudes, max epfd by
++0.1&nbsp;dB at one. The R-set exclusion is epfd-inert for a notched mask, and only for one:
+against a filing whose mask is flat near the arc it bites, and the result must not be
+generalised.</p>
 </div>
 
 <div class="tech">
@@ -384,7 +398,14 @@ commitments.</li>
 <em>read-rule reconstruction</em> bounds the measurement everywhere &mdash; not if its rows
 are correct at their own coordinates. See below.</li>
 <li><strong>Figures travel with their controls.</strong> A margin carries the depth it was
-resolved at and the grid it was worst over. A comparison names what was held fixed.</li>
+resolved at and the grid it was worst over. A comparison names what was held fixed. An
+<em>absolute</em> figure is quotable only with a convergence pair: the same statistic at depth
+d and at least 2d, moving no more than a stated tolerance &mdash; 0.5&nbsp;dB by default,
+0.1&nbsp;dB the bin floor &mdash; with both depths and the tolerance named where the figure is
+quoted. Differences at matched depth remain quotable as differences. The percentile floor
+guards a percentile&rsquo;s existence; the pair guards a value&rsquo;s stability, which is a
+property of the artefact &mdash; a two-level mask settles at once, a side-lobe-structured one
+needs samples.</li>
 <li><strong>Adequacy is the derivation’s test, not the system’s.</strong> If E1 falls
 below T, the declaration failed to envelope the system. That is a granularity failure of the
 measurement, never a compliance failure of the system.</li>
