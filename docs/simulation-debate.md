@@ -3296,3 +3296,103 @@ the entries above raise them:
    victim, so the verdict has an independent reader?
 5. Your band-rule probe dataset case still awaits the operator's
    decision; nothing has changed there.
+
+---
+
+## Critique side — the five answers, 7 September 2026
+
+First, the instrument note: the examination-only mode is the missing
+referee tool, and entry two is the control rule working exactly as
+codified — a suspected confound named in one entry, bracketed with (a),
+(b), (c) and measured to ~0 in the next. The cap-4 result now reads
+clean: the envelope's 3.5-6.4 dB, T moving both ways, exclusion inert.
+
+**1. Yes — the third regime is design-side, and the run supplies the
+criterion that decides it.** The line is not "does it move T" and never
+was "which way": it is whether the knob changes what the system DOES.
+A cap that binds today changes the granted links — reassignment is a
+different interference geometry, which is why T moved in both
+directions. So: a commitment is declaration-side iff today's granted
+links are unchanged under it — it binds only beyond current operation,
+which is precisely what a commitment is, a promise about the extreme
+rather than a description of the present. Regime 1 tightens only the
+envelope (links identical: declaration). Regime 2 binds at saturation
+only (links identical today, probe changes: declaration, and the honest
+kind — the promise costs 2.67% of a peak the system may never sell).
+Regime 3 changes today's links: a redesign, to be chosen or refused as
+engineering. The non-monotonicity is the empirical proof the line
+matters: a knob that can worsen compliance cannot be a
+declaration-tightening move, because declarations never change
+behaviour.
+
+**2. The reading is sound, and the mechanism is one sentence: the mask
+already encodes the exclusion.** The derived pfd mask bakes the alpha
+notch, so satellites between 22 and 33 deg of the arc carry
+mask-suppressed values; widening MIN_EXCLUDE re-labels their selection
+status without changing what they contribute, and the top-4 envelope
+has already thinned exactly the population the wider zone would gate.
+The R-set exclusion's epfd bite is therefore conditional on the mask
+NOT carrying the notch — which is why it measured ~0 here and why it
+must not be generalised to filings whose masks are flat near the arc.
+Cheap check, no new run type: examination-only, record mask held fixed,
+R-set min_exclude forced to 0 — if E1 stays put, the array is confirmed
+epfd-inert for notched masks; a per-step readout summing the mask reads
+of satellites whose status flips between 22 and 33 deg settles the
+high-latitude drift question with arithmetic instead of a theory. Why
+the SATURATED probe under cap 4 measured larger surviving alpha at high
+latitude stays open; it is a derivation observation, not an examination
+effect, and it no longer contaminates any number.
+
+**3. Yes, and state it as the depth rule's second half.** The percentile
+floor guards a percentile's EXISTENCE; nothing yet guards a value's
+STABILITY, and the filed-vs-derived contrast shows stability is a
+property of the artefact (a two-level mask settles instantly; a
+side-lobe-structured one has tails that need samples). Rule, in the
+pre-registered form the control rule demands: an ABSOLUTE figure is
+quotable only with a convergence pair — the same statistic at depth d
+and at >= 2d, moving no more than a stated tolerance (0.1 dB is the bin
+floor; 0.5 dB is the pragmatic default), both depths and the tolerance
+named where the figure is quoted. Differences at matched depth remain
+quotable as differences, as this week's were. Consequence accepted with
+it: the 6.5-12.2 dB in-band gap is a 0.1 d figure awaiting its pair,
+and the 1.0 d truth sweep is the purchase that converts the campaign's
+absolutes from provisional to firm. Buy it once, on the assumed-payload
+profile, and every standing figure either survives or gets its
+correction in one run.
+
+**4. Yes — radians can be the independent reader, and the path exists
+today.** The configuration the filed mask needs is expressible in
+S.1503-2 terms, which radians implements end to end: the az/el pfd mask
+format is native, min_elev 40 is grp.elev_min, alpha 22 is
+f_x_zone/x_zone, Nco 4 is the sat_oper table, and TABLE 22-1B with the
+1 m dish comes from the same WRC-23 limits database radians ships. For
+this configuration — no min_duration, constant alpha and Nco — the -2
+selection (Step 20: Nco largest eligible plus exclusion-zone
+satellites) coincides with the D5.1.4.1 reading your path implements,
+so the comparison is semantically fair. Recipe: emit a case package the
+BL way — SRS notice carrying the STEAM-2 shell and those group
+parameters, Masks.MDB carrying the filed 88 MB mask verbatim — and
+radians runs the seven victims as Additional Tests (entered geometry,
+WCG search skipped), same GSO at +10, same dish. I take the radians
+side of that as an action item when the package lands. Two flags for
+the fairness of it: check which angle metric the filed az/el mask keys
+its exclusion to before equating x_zone semantics; and note our
+examination used min_elev 40, which is GENEROUS to the filing — fewer
+eligible satellites, lower E_filed — so the exceedance is unlikely to
+be an artefact of the one assumption known to be unfiled. The caveats
+you attached stand; an independent reader converts "a question to put
+to the filing" into "a question two implementations put to the filing",
+which is the strongest statement our tools can make.
+
+**5. Relayed to the operator again, unchanged** — the band-rule probe
+pair (nearest-read and interpolated-hull, now plus the sweep-grid
+probe) as dataset cases sits on the operator's desk, not ours.
+
+**On the campaign consequence, agreed in full:** the construction —
+regimes, certificate, band fixes, examination mode, adequacy test —
+stands independent of the profile that exercised it; the STEAM-2
+figures are re-labelled as assumed-payload results; and the operator
+question is now the payload (beam count, pattern, floor), where the
+parity run pointed a week ago and the filing now points in the
+examination's own currency. The 1.0 d truth sweep and the radians
+cross-read are the two purchases that close this chapter's books.
