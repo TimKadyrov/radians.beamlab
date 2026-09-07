@@ -1,7 +1,7 @@
 # Compliance loop: BL-D2
 
-*Produced by `dotnet run --project tests/radians.beamlab.checks -- loop "BL-D2.opprofile.json" "design.orbitdesign.json" 0.1 60 30 60 10`.*
-*Date: 2026-09-07. Wall clock 0.3 min.*
+*Produced by `dotnet run --project tests/radians.beamlab.checks -- loop "BL-D2.opprofile.json" "design.orbitdesign.json" 0.1 60 30 60 5`.*
+*Date: 2026-09-07. Wall clock 0.2 min.*
 
 ## The system under test
 
@@ -22,18 +22,21 @@ Depth: 144 steps of 60 s per latitude (0.100 d) -- resolvable percentile floor 0
 | latitude | max epfd (dB) | worst margin (dB) | verdict | quiet steps |
 |---|---|---|---|---|
 | 30 | -142.4 | -29.3 | FAIL | 0 |
+| 35 | -123.4 | -43.7 | FAIL | 0 |
 | 40 | -136.8 | -33.4 | FAIL | 0 |
+| 45 | -136.3 | -32.5 | FAIL | 0 |
 | 50 | -138.3 | -29.2 | FAIL | 0 |
+| 55 | -142.8 | -29.6 | FAIL | 0 |
 | 60 | -141.6 | -29.3 | FAIL | 0 |
 
-**EXCEEDED at 4 of 4 latitude(s) (30, 40, 50, 60); worst margin -33.4 dB -- power headroom -33.4 dB on per-beam TxEirpDbw (dB-for-dB)**
+**EXCEEDED at 7 of 7 latitude(s) (30, 35, 40, 45, 50, 55, 60); worst margin -43.7 dB -- power headroom -43.7 dB on per-beam TxEirpDbw (dB-for-dB)**
 
 ## The declaration, derived
 
 Measured on a SATURATED probe with no victim -- demand 1 -> 4, activity 1.00 -> 1.00, duty 1.00 -> 1.00, operating fraction 1.00 -> 1.00. A declaration is an envelope of what the system MAY do, so traffic is taken out before it is measured; and being a different run from the truth sweep, it keeps E1 >= T an adequacy test rather than a tautology.
 
-- Depth: 144 steps / 10712 link samples, latitude band 10 deg.
-- Derived set: min_exclude 35:8.0/45:8.0/55:8.0; min_elev 35:10.0/45:10.0/55:10.0; max_co_freq 35:2/45:2/55:2; max_co_freq_sat 49; min_angle es 28.9 / sat 1.9; es_lat 32..57
+- Depth: 144 steps / 10712 link samples, latitude band 5 deg.
+- Derived set: min_exclude 32:8.0/38:8.0/42:8.0/48:8.0/52:8.0/58:8.0; min_elev 32:10.0/38:10.0/42:10.0/48:10.0/52:10.0/58:10.0; max_co_freq 32:2/38:2/42:2/48:2/52:2/58:2; max_co_freq_sat 49; min_angle es 28.9 / sat 1.9; es_lat 32..57
 
 ## E1 -- the examination against that declaration
 
@@ -41,12 +44,15 @@ The truth above does not move; E1 is what the examination sees when it reads the
 
 | latitude | T margin (dB) | E1 margin (dB) | gap (dB) | E1 >= T |
 |---|---|---|---|---|
-| 30 | -29.3 | -37.0 | 7.7 | yes |
-| 40 | -33.4 | -40.5 | 7.1 | yes |
-| 50 | -29.2 | -39.0 | 9.8 | yes |
-| 60 | -29.3 | -37.2 | 7.9 | yes |
+| 30 | -29.3 | -37.3 | 8.0 | yes |
+| 35 | -43.7 | -50.8 | 7.1 | yes |
+| 40 | -33.4 | -39.0 | 5.6 | yes |
+| 45 | -32.5 | -37.4 | 4.9 | yes |
+| 50 | -29.2 | -39.4 | 10.2 | yes |
+| 55 | -29.6 | -33.9 | 4.3 | yes |
+| 60 | -29.3 | -37.0 | 7.7 | yes |
 
-**ADEQUATE: E1 >= T at every latitude; widest gap 9.8 dB**
+**ADEQUATE: E1 >= T at every latitude; widest gap 10.2 dB**
 
 ## Artefacts
 
@@ -55,4 +61,4 @@ Profile, R set and pfd mask come out of this one run, so they describe the same 
 - Operation profile (the truth as run): `dataset\margin\bl-d2\bl-d2.opprofile.json`
 - Derived R set (S.1503-4 Part B): `dataset\margin\bl-d2\bl-d2.operparams.xml`
 - Derived R set, designer format (open with the operating-parameters designer): `dataset\margin\bl-d2\bl-d2.operparams.json`
-- Declared pfd mask: `dataset\margin\bl-d2\bl-d2.mask.lat10p0-ae1p0-svc32to57.xml`
+- Declared pfd mask: `dataset\margin\bl-d2\bl-d2.mask.lat5p0-ae1p0-svc32to57.xml`
