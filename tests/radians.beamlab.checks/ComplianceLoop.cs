@@ -76,36 +76,9 @@ internal static class ComplianceLoop
         Directory.CreateDirectory(runDir);
 
         // ---- The limits: real Article 22 rows from the BR database ----------
-        string[] limitsDbs =
-        {
-            @"C:\Projects\_EPFD\epfd-reference\Cases\EPFD_limits_RES85_WRC23.mdb",
-            @"C:\Projects\_EPFD\radians\radians\Resources\EPFD_limits_RES85_WRC23.mdb",
-        };
-        string[] dllDirs =
-        {
-            @"C:\Projects\_EPFD\radians\radians\dlls",
-            @"C:\Projects\_EPFD\radians\radians\bin\Debug\net10.0-windows7.0",
-        };
-        string? limitsDb = limitsDbs.FirstOrDefault(File.Exists);
-        string? dllDir = dllDirs.FirstOrDefault(d => File.Exists(Path.Combine(d, "EpfdLimitsApi64.dll")));
-        if (limitsDb is null || dllDir is null)
-        {
-            Console.WriteLine("ABORT: the BR limits database or EpfdLimitsApi64.dll is not present -- the loop needs real limits.");
-            return 2;
-        }
-        LimitsDbReader.DllDirectory = dllDir;
-        var limRows = LimitsDbReader.Read(limitsDb, freqMhz - 0.02, freqMhz + 0.02, prof.Down.RefBwKHz, altKm);
-        var lim = limRows.Where(l => !l.ShortTermLatDependent && l.Points.Count > 0 && l.Rf_diam is not null)
-            .OrderByDescending(l => l.Service == "FSS")
-            .ThenBy(l => l.Rf_diam!.Value)
-            .FirstOrDefault();
-        if (lim is null)
-        {
-            Console.WriteLine(string.Create(inv, $"ABORT: no plain (non-lat-dependent) limit row at {freqMhz:F0} MHz down in the database."));
-            return 2;
-        }
-        double dishM = lim.Rf_diam!.Value;
-        var limitPoints = lim.Points.ToList();
+        var limitRow = LoadLimitRow(freqMhz, prof.Down.RefBwKHz, altKm, inv);
+        if (limitRow is null) return 2;
+        var (lim, dishM, limitPoints) = limitRow.Value;
 
         long steps = (long)Math.Round(days * 86400.0 / stepSec);
         var sweep = new ComplianceViewModel.Sweep(shells, prof,
@@ -481,6 +454,132 @@ internal static class ComplianceLoop
         return h.ToString("x16", CultureInfo.InvariantCulture)[..8];
     }
 
+    /// <summary>
+    /// The Article 22 row a sweep verdicts against, read from the BR database
+    /// exactly as the window does. Shared by the full loop and the
+    /// examination-only mode so the two can never pick different rows.
+    /// </summary>
+    private static (radlimits.Limit lim, double dishM, List<radlimits.LimitPoint> limitPoints)?
+        LoadLimitRow(double freqMhz, double refBwKHz, double altKm, CultureInfo inv)
+    {
+        // ---- The limits: real Article 22 rows from the BR database ----------
+        string[] limitsDbs =
+        {
+            @"C:\Projects\_EPFD\epfd-reference\Cases\EPFD_limits_RES85_WRC23.mdb",
+            @"C:\Projects\_EPFD\radians\radians\Resources\EPFD_limits_RES85_WRC23.mdb",
+        };
+        string[] dllDirs =
+        {
+            @"C:\Projects\_EPFD\radians\radians\dlls",
+            @"C:\Projects\_EPFD\radians\radians\bin\Debug\net10.0-windows7.0",
+        };
+        string? limitsDb = limitsDbs.FirstOrDefault(File.Exists);
+        string? dllDir = dllDirs.FirstOrDefault(d => File.Exists(Path.Combine(d, "EpfdLimitsApi64.dll")));
+        if (limitsDb is null || dllDir is null)
+        {
+            Console.WriteLine("ABORT: the BR limits database or EpfdLimitsApi64.dll is not present -- the loop needs real limits.");
+            return null;
+        }
+        LimitsDbReader.DllDirectory = dllDir;
+        var limRows = LimitsDbReader.Read(limitsDb, freqMhz - 0.02, freqMhz + 0.02, refBwKHz, altKm);
+        var lim = limRows.Where(l => !l.ShortTermLatDependent && l.Points.Count > 0 && l.Rf_diam is not null)
+            .OrderByDescending(l => l.Service == "FSS")
+            .ThenBy(l => l.Rf_diam!.Value)
+            .FirstOrDefault();
+        if (lim is null)
+        {
+            Console.WriteLine(string.Create(inv, $"ABORT: no plain (non-lat-dependent) limit row at {freqMhz:F0} MHz down in the database."));
+            return null;
+        }
+        double dishM = lim.Rf_diam!.Value;
+        var limitPoints = lim.Points.ToList();
+        return (lim, dishM, limitPoints);
+    }
+
+    /// <summary>
+    /// The examination ALONE: a given declared R set against a given pfd mask,
+    /// over the sweep grid, with no probe and no truth sweep. This is what an
+    /// administration does with a filing -- and it is the control that lets
+    /// one artefact change while the other is held fixed, so the effect of a
+    /// mask can be separated from the effect of the declaration it was
+    /// derived alongside.
+    ///
+    /// Run:  -- examine profile design rset.json mask.xml [days] [stepSec]
+    ///                  [latFrom] [latTo] [latStep] [tag]
+    /// </summary>
+    public static int Examine(string profilePath, string designPath, string rsetJsonPath,
+        string maskXmlPath, double days, double stepSec, double latFrom, double latTo,
+        double latStep, string tag)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        var t0 = Stopwatch.StartNew();
+        string repo = Directory.Exists(@"C:\Projects\radians.beamlab")
+            ? @"C:\Projects\radians.beamlab" : AppContext.BaseDirectory;
+        foreach (var p in new[] { profilePath, designPath, rsetJsonPath, maskXmlPath })
+            if (!File.Exists(p)) { Console.WriteLine("ABORT: not found: " + p); return 2; }
+
+        var prof = OperationProfileCodec.Load(File.ReadAllText(profilePath));
+        var doc = OrbitDesignFileCodec.LoadDocument(File.ReadAllText(designPath));
+        var shells = doc.Shells.Select(OrbitDesignFileCodec.ToShell).ToArray();
+        double altKm = shells[0].OperatingHeightKm ?? shells[0].AltitudeKm;
+        double freqMhz = prof.Down.FrequencyGhz * 1000.0;
+        var limitRow = LoadLimitRow(freqMhz, prof.Down.RefBwKHz, altKm, inv);
+        if (limitRow is null) return 2;
+        var (lim, dishM, limitPoints) = limitRow.Value;
+
+        // The declaration, exactly as the designer would load it.
+        var declared = OpParamsFileCodec.ToSet(OpParamsFileCodec.Load(File.ReadAllText(rsetJsonPath)));
+
+        long steps = (long)Math.Round(days * 86400.0 / stepSec);
+        var sweep = new ComplianceViewModel.Sweep(shells, prof,
+            EsLon: 0.0, GsoOffset: 10.0, DishM: dishM,
+            LatFrom: latFrom, LatTo: latTo, LatStep: latStep,
+            Steps: steps, StepSec: stepSec, Limits: limitPoints);
+        // FootprintSource says what a TRUTH run would compose; here only the
+        // examination runs, and it reads the mask named.
+        var profE1 = prof with
+        {
+            AlphaByLat = null,
+            Downlink = prof.Down with { FootprintSource = "mask", MaskXmlPath = maskXmlPath },
+        };
+
+        Console.WriteLine(string.Create(inv, $"examine [{tag}]: profile {prof.Name}"));
+        Console.WriteLine("  R set : " + Path.GetRelativePath(repo, rsetJsonPath) + "  -- " + DescribeSet(declared, inv));
+        Console.WriteLine("  mask  : " + Path.GetRelativePath(repo, maskXmlPath));
+        Console.WriteLine("  limit : " + ComplianceViewModel.DescribeLimit(lim));
+        Console.WriteLine(string.Create(inv,
+            $"  sweep : lat {latFrom:F0}..{latTo:F0} step {latStep:F0}; {steps} steps of {stepSec:F0} s ({days:F3} d); floor {100.0 / steps:F3}%"));
+        var col = new ProgressCollector(echo: true);
+        var rows = ComplianceViewModel.RunSweepProfile(sweep with { Declared = declared }, profE1, col);
+
+        Console.WriteLine();
+        Console.WriteLine("lat | max epfd | E1 margin | verdict");
+        foreach (var r in rows)
+            Console.WriteLine(string.Create(inv,
+                $"{r.LatDeg,4:F0} | {r.MaxEpfdDb,9:F1} | {r.WorstMarginDb,+9:F1} | {(r.Pass ? "PASS" : "FAIL"),4}"));
+        Console.WriteLine(ComplianceViewModel.SummarizeRows(rows));
+
+        // A record beside the artefacts, not in docs/: control runs are cited
+        // from the debate, not filed as figures of their own.
+        string outDir = Path.Combine(repo, "dataset", "margin", "examine");
+        Directory.CreateDirectory(outDir);
+        var sb = new StringBuilder();
+        sb.AppendLine($"# Examination only: {tag}");
+        sb.AppendLine();
+        sb.AppendLine("- R set: `" + Path.GetRelativePath(repo, rsetJsonPath) + "` -- " + DescribeSet(declared, inv));
+        sb.AppendLine("- mask: `" + Path.GetRelativePath(repo, maskXmlPath) + "`");
+        sb.AppendLine("- " + ComplianceViewModel.DescribeLimit(lim));
+        sb.AppendLine(string.Create(inv, $"- sweep: lat {latFrom:F0}..{latTo:F0} step {latStep:F0}; {steps} steps of {stepSec:F0} s; floor {100.0 / steps:F3}%; wall clock {t0.Elapsed.TotalMinutes:F1} min"));
+        sb.AppendLine();
+        sb.AppendLine("| latitude | max epfd (dB) | E1 margin (dB) | verdict |");
+        sb.AppendLine("|---|---|---|---|");
+        foreach (var r in rows)
+            sb.AppendLine(string.Create(inv, $"| {r.LatDeg:F0} | {r.MaxEpfdDb:F1} | {r.WorstMarginDb:+0.0;-0.0} | {(r.Pass ? "PASS" : "FAIL")} |"));
+        string outPath = Path.Combine(outDir, tag + ".md");
+        File.WriteAllText(outPath, sb.ToString());
+        Console.WriteLine("record: " + Path.GetRelativePath(repo, outPath) + string.Create(inv, $"; wall clock {t0.Elapsed.TotalMinutes:F1} min"));
+        return 0;
+    }
     /// <summary>One-line rendering of a derived R set, for the console and the record.</summary>
     private static string DescribeSet(OperatingParamsSet p, CultureInfo inv)
     {

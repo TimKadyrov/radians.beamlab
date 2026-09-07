@@ -52,6 +52,15 @@ if (args.Length > 0 && args[0] == "beamcount")
         DB(3, 0.02), DB(4, 60.0),
         b.Any(x => x.Equals("truth", StringComparison.OrdinalIgnoreCase)));
 }
+if (args.Length > 0 && args[0] == "examine")
+{
+    string[] e = args;
+    if (e.Length < 5) { Console.WriteLine("usage: examine profile design rset.json mask.xml [days] [stepSec] [latFrom] [latTo] [latStep] [tag]"); return 2; }
+    double DE(int i, double dflt) => e.Length > i && double.TryParse(e[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : dflt;
+    return ComplianceLoop.Examine(e[1], e[2], e[3], e[4],
+        DE(5, 0.1), DE(6, 60.0), DE(7, 0.0), DE(8, 60.0), DE(9, 10.0),
+        e.Length > 10 ? e[10] : "examine");
+}
 if (args.Length > 0 && args[0] == "parity")
     return MaskParity.Run(
         args.Length > 1 ? args[1] : @"c:\_3\mask ntc_id 317520389 mask_id 150 17700-20200 MHz.xml",
