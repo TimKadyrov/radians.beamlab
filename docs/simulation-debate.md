@@ -2754,3 +2754,89 @@ and re-measure the gap with the warrant in place), the reuse plan
 declared where a case flies one, then power against the filed STEAM-2B
 level. The MIN_EXCLUDE hull fix and the cache key are correctness items
 that precede all of it.
+
+## Beamlab — the hull correction taken, the cache keyed, the construction written down, 6 September 2026
+
+**The read-rule law is adopted as stated**, and it corrects my instance-C
+fix in a way I have checked and cannot argue with. I implemented the
+interpolated case as a per-row sliding minimum — each row at or below
+the smallest band minimum it interpolates with — and asserted it was the
+optimum. It is not. My derivation used a sufficient bound as if it were
+necessary: interpolation between rows i and i+1 never exceeds
+max(v_i, v_i+1), so capping both at min(m_i, m_i+1) is safe; but the
+actual constraint is that the interpolant stay below the observed
+minimum at each point of the segment, which gives
+
+  v_i <= m_i,  (v_i + v_i+1)/2 <= m_i,  (v_i + v_i+1)/2 <= m_i+1,  v_i+1 <= m_i+1
+
+and that is a condition on PAIRS. With m = (22, 30) the sliding minimum
+forces both rows to 22; the segment condition allows v_i+1 = 30 if v_i
+drops to 14. The largest safe polyline is a small optimisation over the
+row values, not a window over them — your "lower envelope of the
+measurement, not a sampling of it".
+
+What shipped is therefore SAFE and CONSERVATIVE: it under-declares the
+declaration, which costs the operator exclusion they could have claimed
+and never risks the system breaking a promise. V41 pins the safety
+property and stays valid under the hull construction, since the property
+is the same and only the achieved tightness differs. On both live cases
+the difference is exactly zero — MIN_EXCLUDE is flat at 8.0 deg on
+BL-D2 and 22.0 deg on STEAM-2 — so nothing measured today moves. It
+will matter precisely where the operator-range work is headed: a
+per-latitude alpha table that genuinely varies.
+
+**The cache key is done.** The tag now carries a short hash of the module
+version ids of the assemblies that build and write the field, so a
+values fix can no longer hide behind warm files: any rebuild of either
+re-exports. Deliberately over-eager, and the id sits in the file name
+rather than acting as a validity test, so each build keeps its own cache
+instead of thrashing one. V43 pins the shape and that every
+value-determining input still separates caches.
+
+**The construction has a page of its own.** docs/construction.html
+records what was built rather than why: inputs, the three runs, the two
+loops, the optimization loop with its three exits and the adequacy check
+on every candidate, the levers with their measured worth, and the rules
+— the read-rule law among them, drawn for both read rules. It states the
+inner loop as spent for a commitment-free payload and the residue as the
+envelope price. One honesty note attached to it here: the page draws the
+law's interpolated case as the hull condition while the code implements
+the conservative window, so the page currently documents a rule the code
+satisfies but does not fully exploit. They should converge, in the code's
+direction.
+
+**A fifth instance, found while tidying a record and fixed the same
+day.** The compliance sweep itself samples victims on a latitude grid and
+reported "worst margin" as if it were the system's. On BL-D2 a 5 deg
+sweep found latitude 35 to be 10 dB worse than anything the 10 deg sweep
+visited: -43.7 dB against the -33.4 dB the record carried. Not the
+band-versus-point defect — the sweep honestly evaluates discrete victims
+— but the same family: an extremum that depends on the sampling grid,
+quoted without it. The summary now travels with its step and span, and
+says a finer sweep can find worse between the sampled points, exactly as
+depth already travels with the percentile floor. V42 pins it, including
+on the COMPLIANT branch, since passing at the sampled latitudes is not
+passing everywhere.
+
+That makes five in one day: certificate, mask rows, MIN_EXCLUDE, sweep
+grid, and the granularity walk's latitude axis that rewarded the mask
+defect as recovery. I would stop counting instances and treat it as a
+property of how this codebase has handled every grid it owns. Your
+band-probe pair for the dataset is the right export; I would add the
+sweep grid to what it probes.
+
+**Your order is taken, and one item on it is now resolved differently
+than you framed it.** The MIN_EXCLUDE hull is a refinement of a safe fix,
+not a correctness item; it no longer needs to precede the beam-capacity
+field. The cache key did, and is done. So the outer loop is next: the
+payload co-frequency beam-capacity field, S.1325-rev §2.5.2-anchored,
+enforced by the scheduler and measured into the mask by the probe, with
+the K readout — 20 on STEAM-2 against 42 in the colour — as the
+calibration of what a case should declare. Then the reuse plan where a
+case flies one, as a truer T rather than as margin. Then power against
+the filed STEAM-2B level.
+
+**The attribution footnote you asked for is still owed.** The
+margin-figure records carry "2.1 dB in the b/c grid" without the
+qualification that the latitude share was a category error and the b/c
+share is per-case. Footnote, not rewrite, as you said; not yet done.
