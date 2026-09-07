@@ -168,6 +168,93 @@ traffic sample is a promise the operator never made. The truth sweep carries the
 And the probe must not be the run that verifies it: a declaration measured on a run envelopes
 that run trivially, which would make the acceptance test vacuous.</p>
 
+<h2>Two life cycles of a pfd mask: derived, or given</h2>
+
+<p>The same file format enters the construction in two ways, and the rules differ at every
+station. A <em>derived</em> mask is a product: the saturated probe measures it, alongside the
+R&nbsp;set, from the system the profile describes. A <em>given</em> mask is an input: a filed
+declaration taken verbatim, with nothing known about the payload behind it. The operator&rsquo;s
+rulings draw the line in one sentence &mdash; a declared mask cannot move; a derived mask moves
+inside the loop &mdash; and the figure shows where each may change.</p>
+
+<figure>
+<svg viewBox="0 0 700 316" role="img" aria-label="Two lanes. Derived: orbit design and profile feed the saturated probe, which produces the R set and the pfd mask as versioned products; a truth sweep gives T; the examination gives E1 and must sit at or above T; a return path minimises E1 over a fixed truth, and the mask may move between revisions when commitments or granularity move. Given: a filed mask, fixed, is paired with an R set, graded by the consistency check against the declared gates, and examined; T is unknown for a real filing, so there is no adequacy test.">
+  <defs><marker id="lc" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
+  <g style="color:var(--ink)">
+    <text x="14" y="20" class="svgtxt" style="fill:var(--g2)">DERIVED &mdash; the mask is a product</text>
+    <rect x="14" y="34" width="118" height="56" rx="5" fill="none" stroke="currentColor"/>
+    <text x="24" y="56" class="svgtxt">orbit design</text>
+    <text x="24" y="74" class="svglbl">+ profile</text>
+    <rect x="150" y="34" width="120" height="56" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
+    <text x="156" y="56" class="svgtxt">1 &middot; probe</text>
+    <text x="156" y="74" class="svglbl">saturated, no victim</text>
+    <rect x="288" y="34" width="138" height="56" rx="5" fill="var(--g2-tint)" stroke="var(--g2)" stroke-width="1.5"/>
+    <text x="294" y="56" class="svgtxt">R set + pfd mask</text>
+    <text x="294" y="74" class="svglbl">products, versioned</text>
+    <rect x="438" y="34" width="110" height="56" rx="5" fill="none" stroke="currentColor"/>
+    <text x="448" y="56" class="svgtxt">2 &middot; truth T</text>
+    <text x="448" y="74" class="svglbl">live composition</text>
+    <rect x="566" y="34" width="128" height="56" rx="5" fill="var(--g3-tint)" stroke="var(--g3)" stroke-width="1.5"/>
+    <text x="572" y="56" class="svgtxt">3 &middot; examination</text>
+    <text x="572" y="74" class="svglbl">E1 &ge; T: adequacy</text>
+    <line x1="132" y1="62" x2="146" y2="62" stroke="currentColor" marker-end="url(#lc)"/>
+    <line x1="270" y1="62" x2="284" y2="62" stroke="currentColor" marker-end="url(#lc)"/>
+    <line x1="426" y1="62" x2="434" y2="62" stroke="currentColor" marker-end="url(#lc)"/>
+    <line x1="548" y1="62" x2="562" y2="62" stroke="currentColor" marker-end="url(#lc)"/>
+    <line x1="288" y1="100" x2="426" y2="100" stroke="var(--g2)"/>
+    <line x1="288" y1="94" x2="288" y2="100" stroke="var(--g2)"/>
+    <line x1="426" y1="94" x2="426" y2="100" stroke="var(--g2)"/>
+    <text x="354" y="116" text-anchor="middle" class="svglbl" style="fill:var(--g2)">moves between revisions: commitments, granularity</text>
+    <path d="M626 90 V150 H210 V94" fill="none" stroke="var(--g3)" stroke-dasharray="4 3" marker-end="url(#lc)" style="color:var(--g3)"/>
+    <text x="418" y="164" text-anchor="middle" class="svglbl" style="fill:var(--g3)">minimise E1 over a fixed T &mdash; the declaration moves, the system does not</text>
+
+    <text x="14" y="196" class="svgtxt" style="fill:var(--g1)">GIVEN &mdash; the mask is an input</text>
+    <rect x="14" y="210" width="150" height="56" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
+    <text x="24" y="232" class="svgtxt">filed pfd mask</text>
+    <text x="24" y="250" class="svglbl">verbatim &middot; fixed</text>
+    <rect x="182" y="210" width="120" height="56" rx="5" fill="none" stroke="currentColor"/>
+    <text x="192" y="232" class="svgtxt">R set</text>
+    <text x="192" y="250" class="svglbl">given, or derived</text>
+    <rect x="320" y="210" width="146" height="56" rx="5" fill="var(--g3-tint)" stroke="var(--g3)" stroke-width="1.5"/>
+    <text x="326" y="232" class="svgtxt">consistency check</text>
+    <text x="326" y="250" class="svglbl">its edges vs the gates</text>
+    <rect x="478" y="210" width="118" height="56" rx="5" fill="var(--g3-tint)" stroke="var(--g3)" stroke-width="1.5"/>
+    <text x="488" y="232" class="svgtxt">examination</text>
+    <text x="488" y="250" class="svglbl">E of the filing</text>
+    <rect x="614" y="210" width="72" height="56" rx="5" fill="none" stroke="currentColor" stroke-dasharray="4 3" opacity=".7"/>
+    <text x="624" y="232" class="svgtxt">T ?</text>
+    <text x="624" y="250" class="svglbl">unknown</text>
+    <line x1="164" y1="238" x2="178" y2="238" stroke="currentColor" marker-end="url(#lc)"/>
+    <line x1="302" y1="238" x2="316" y2="238" stroke="currentColor" marker-end="url(#lc)"/>
+    <line x1="466" y1="238" x2="474" y2="238" stroke="currentColor" marker-end="url(#lc)"/>
+    <text x="350" y="290" text-anchor="middle" class="svglbl">no adequacy test: the examination is the only verdict, conservative by construction</text>
+    <text x="350" y="308" text-anchor="middle" class="svglbl">only the dark-row certificate may touch a given mask; a both-forms R set is invalid in either lane</text>
+  </g>
+</svg>
+<figcaption>Derived: the mask is one of the probe&rsquo;s products and moves when the commitments or the granularity move, between revisions. Given: the mask is fixed, T is unknown, and the consistency check stands where the adequacy test cannot.</figcaption>
+</figure>
+
+<table class="ex">
+<tr><th></th><th>derived</th><th>given</th></tr>
+<tr><td>origin</td><td>a product of the saturated probe, one of three artefacts from one measurement pass, stamped with the producer id</td><td>a filed declaration taken verbatim; only the notice identity in its root is rewritten</td></tr>
+<tr><td>what may move</td><td>the mask, whenever the commitments or the granularity move &mdash; between revisions only, never inside a frozen triple</td><td>nothing, except rows the service-span certificate proves dark: gates act on boresights, and the per-direction maximum has already collapsed which beam produced each cell</td></tr>
+<tr><td>what T is</td><td>measured from the live composition; E1&nbsp;&ge;&nbsp;T is the adequacy test of the derivation</td><td>unknown for a real filing; the examination is the only verdict, and it is conservative by construction</td></tr>
+<tr><td>what the loop runs</td><td>probe, truth, examination, then the granularity walk that minimises E1 over a fixed truth</td><td>the examination, preceded by the consistency check grading the mask&rsquo;s own edges against the declared gates</td></tr>
+<tr><td>what guards it</td><td>the certificate, the band rules, the read-rule law, the convergence pair</td><td>the consistency check, and the one-form rule on the R&nbsp;set it is paired with</td></tr>
+<tr><td>where STEAM-2 sits</td><td>every <code>compliance-steam-2</code> record</td><td>the filed STEAM-2B mask, examined and packaged for a second reader</td></tr>
+</table>
+
+<div class="tech">
+<div class="t">The line the rulings draw</div>
+<p>A declared mask cannot move: it is a filed commitment, and the gates an R&nbsp;set declares act on
+boresights that the mask&rsquo;s per-direction maximum no longer remembers, so no gate can be carved
+into it after the fact. The one adaptation geometry alone warrants is the dark row &mdash; a
+sub-satellite latitude from which no servable cell exists radiates nothing, and the whole row goes
+to the null. A derived mask moves, because it is re-derived: adaptation done right is a new
+measurement of the payload under the commitments, never surgery on the artefact. In both lanes the
+mask is examined the same way; only in the derived lane can the result be tested against a truth.</p>
+</div>
+
 <h2>Process: two loops, and what each may move</h2>
 
 <figure>
