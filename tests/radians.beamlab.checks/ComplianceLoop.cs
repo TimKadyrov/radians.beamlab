@@ -50,7 +50,8 @@ internal sealed class ProgressCollector : IProgress<ComplianceViewModel.SweepPro
 internal static class ComplianceLoop
 {
     public static int Run(string profilePath, string designPath, double days, double stepSec,
-        double latFrom, double latTo, double latStep, bool walk, bool minimise = false)
+        double latFrom, double latTo, double latStep, bool walk, bool minimise = false,
+        string? reuseDir = null)
     {
         var inv = CultureInfo.InvariantCulture;
         var t0 = Stopwatch.StartNew();
@@ -99,22 +100,62 @@ internal static class ComplianceLoop
         // different run from the truth sweep below, it also keeps E1 >= T an
         // adequacy test rather than a tautology: a set derived from the very
         // run that later verifies it would envelope that run trivially.
-        Console.WriteLine();
-        Console.WriteLine(string.Create(inv,
-            $"derivation probe: saturated, no victim; {steps} steps of {stepSec:F0} s, latitude band {latStep:F0} deg..."));
-        var probe = ComplianceViewModel.Saturate(prof,
-            OperationComposer.Compose(prof, altKm).Enforced);
-        var derived = ComplianceViewModel.DeriveDeclared(shells, prof,
-            steps * stepSec, stepSec, latBandDeg: latStep,
-            // A set governs ONE band. The composition spans up and down
-            // together, which is right for the gates and wrong for a
-            // declaration, so the downlink set carries the downlink band.
-            lowFreqMhz: freqMhz, highFreqMhz: freqMhz);
-        Console.WriteLine(string.Create(inv,
-            $"  demand {prof.DemandLinksPerCell} -> {probe.DemandLinksPerCell}, activity {prof.ActivityFactor:F2} -> {probe.ActivityFactor:F2}, "
-            + $"duty {prof.IlluminationDutyCycle:F2} -> {probe.IlluminationDutyCycle:F2}, operating fraction {prof.OperationalFraction:F2} -> {probe.OperationalFraction:F2}"));
-        Console.WriteLine(string.Create(inv,
-            $"  {derived.Steps} steps / {derived.LinkSamples} link samples -> {DescribeSet(derived.Set, inv)}"));
+        // With a reuse directory the probe is skipped: the declaration -- the
+        // R set and the pfd mask -- is read back from an earlier run of the
+        // same system, and only the truth sweep and the examination run at
+        // this depth. The derivation measured exactly depth-stable on STEAM-2
+        // (identical R set and mask at 0.1 d and 1.0 d), so a convergence pair
+        // for T and E1 costs the truth sweep alone.
+        OperatingParamsSet declaredSet;
+        string? reusedMask = null;
+        string declarationHeading, declarationText, declarationDepth;
+        if (reuseDir is null)
+        {
+            Console.WriteLine();
+            Console.WriteLine(string.Create(inv,
+                $"derivation probe: saturated, no victim; {steps} steps of {stepSec:F0} s, latitude band {latStep:F0} deg..."));
+            var probe = ComplianceViewModel.Saturate(prof,
+                OperationComposer.Compose(prof, altKm).Enforced);
+            var derived = ComplianceViewModel.DeriveDeclared(shells, prof,
+                steps * stepSec, stepSec, latBandDeg: latStep,
+                // A set governs ONE band. The composition spans up and down
+                // together, which is right for the gates and wrong for a
+                // declaration, so the downlink set carries the downlink band.
+                lowFreqMhz: freqMhz, highFreqMhz: freqMhz);
+            Console.WriteLine(string.Create(inv,
+                $"  demand {prof.DemandLinksPerCell} -> {probe.DemandLinksPerCell}, activity {prof.ActivityFactor:F2} -> {probe.ActivityFactor:F2}, "
+                + $"duty {prof.IlluminationDutyCycle:F2} -> {probe.IlluminationDutyCycle:F2}, operating fraction {prof.OperationalFraction:F2} -> {probe.OperationalFraction:F2}"));
+            Console.WriteLine(string.Create(inv,
+                $"  {derived.Steps} steps / {derived.LinkSamples} link samples -> {DescribeSet(derived.Set, inv)}"));
+            declaredSet = derived.Set;
+            declarationHeading = "## The declaration, derived";
+            declarationText = string.Create(inv,
+                $"Measured on a SATURATED probe with no victim -- demand {prof.DemandLinksPerCell} -> {probe.DemandLinksPerCell}, "
+                + $"activity {prof.ActivityFactor:F2} -> {probe.ActivityFactor:F2}, duty {prof.IlluminationDutyCycle:F2} -> {probe.IlluminationDutyCycle:F2}, "
+                + $"operating fraction {prof.OperationalFraction:F2} -> {probe.OperationalFraction:F2}. A declaration is an envelope of what the "
+                + $"system MAY do, so traffic is taken out before it is measured; and being a different run from the truth sweep, it keeps "
+                + $"E1 >= T an adequacy test rather than a tautology.");
+            declarationDepth = string.Create(inv,
+                $"- Depth: {derived.Steps} steps / {derived.LinkSamples} link samples, latitude band {latStep:F0} deg.");
+        }
+        else
+        {
+            var reused = LoadReusedDeclaration(reuseDir);
+            declaredSet = reused.Set;
+            reusedMask = reused.MaskPath;
+            Console.WriteLine();
+            Console.WriteLine("derivation probe: skipped -- the declaration is reused from " + Path.GetRelativePath(repo, reuseDir));
+            Console.WriteLine("  R set : " + Path.GetFileName(reused.SetPath) + " -- " + DescribeSet(declaredSet, inv));
+            Console.WriteLine("  mask  : " + Path.GetFileName(reused.MaskPath));
+            declarationHeading = "## The declaration, reused";
+            declarationText = "Reused, not derived: the R set and the pfd mask are read back from `"
+                + Path.GetRelativePath(repo, reuseDir) + "` (`" + Path.GetFileName(reused.SetPath) + "`, `"
+                + Path.GetFileName(reused.MaskPath) + "`), the artefacts of an earlier run of the same system. The saturated "
+                + "probe measures a configuration space, not a sample of one, and measured exactly depth-stable on STEAM-2 "
+                + "(identical R set and mask at 0.1 d and 1.0 d), so only the truth sweep and the examination run at this "
+                + "depth: this record is a convergence pair for T and E1 against the run it reuses.";
+            declarationDepth = "- Depth of the derivation: that of the reused run; see its record.";
+        }
 
         // ---- The sweep at the profile's own alpha ---------------------------
         var col = new ProgressCollector(echo: true);
@@ -135,7 +176,7 @@ internal static class ComplianceLoop
         string EnsureMask(double maskLatStepDeg, double azElStepDeg)
         {
             string tag = MaskCacheTag(maskLatStepDeg, azElStepDeg,
-                derived.Set.EsLatMinDeg, derived.Set.EsLatMaxDeg);
+                declaredSet.EsLatMinDeg, declaredSet.EsLatMaxDeg);
             string path = Path.Combine(runDir, string.Create(inv, $"{safe}.mask.{tag}.xml"));
             if (File.Exists(path) && File.GetLastWriteTimeUtc(path) > File.GetLastWriteTimeUtc(profilePath))
             {
@@ -167,10 +208,10 @@ internal static class ComplianceLoop
             // declared commitments only -- never from what a finite probe
             // happened to visit, which is the unsafe direction.
             var span = new ServiceSpanSampler(
-                new ReachableEnvelopeSampler(compMask.Scene, opts, maxLat), derived.Set,
+                new ReachableEnvelopeSampler(compMask.Scene, opts, maxLat), declaredSet,
                 altKm, maskLatStepDeg);
             Console.WriteLine(string.Create(inv,
-                $"  service-span certificate: es_lat {derived.Set.EsLatMinDeg:F0}..{derived.Set.EsLatMaxDeg:F0}, "
+                $"  service-span certificate: es_lat {declaredSet.EsLatMinDeg:F0}..{declaredSet.EsLatMaxDeg:F0}, "
                 + $"coverage half-angle {span.HalfAngleDeg:F2} deg"));
             MaskXmlExport.GenerateAsync(span, opts, maskProgress, CancellationToken.None)
                 .GetAwaiter().GetResult();
@@ -196,7 +237,7 @@ internal static class ComplianceLoop
         // objective is to bring E1 down onto a truth that stays put.
         List<ComplianceRow>? rowsE1 = null;
         string e1Note = "";
-        string declaredMask = prof.Down.MaskXmlPath;
+        string declaredMask = reusedMask ?? prof.Down.MaskXmlPath;
         if (declaredMask.Length == 0 || !File.Exists(declaredMask))
         {
             // No declared mask: export beamlab's own from the REACHABLE
@@ -213,7 +254,7 @@ internal static class ComplianceLoop
             // FootprintSource says what the TRUTH run composes; the mask path is
             // the DECLARATION. Only the examination reads the latter.
             var colE1 = new ProgressCollector(echo: true);
-            rowsE1 = Examine(derived.Set, declaredMask, colE1);
+            rowsE1 = Examine(declaredSet, declaredMask, colE1);
             Console.WriteLine();
             Console.WriteLine("lat | T margin | E1 margin | gap | E1 >= T");
             for (int i = 0; i < rowsE1.Count; i++)
@@ -236,7 +277,7 @@ internal static class ComplianceLoop
         MaskConsistency.Report? consistency = null;
         if (prof.Down.FootprintSource == "mask" && File.Exists(declaredMask))
         {
-            consistency = MaskConsistency.Check(declaredMask, altKm, derived.Set);
+            consistency = MaskConsistency.Check(declaredMask, altKm, declaredSet);
             Console.WriteLine();
             Console.WriteLine("mask consistency (the declared mask against the derived gates): " + consistency.Summary
                 + (consistency.Note.Length > 0 ? " (" + consistency.Note + ")" : ""));
@@ -249,7 +290,12 @@ internal static class ComplianceLoop
         // E1 here is a dB of operating power the system may be licensed for, and
         // it is only admissible while E1 still sits at or above T.
         var grainRows = new List<(string Name, double WorstE1, double WidestGap, bool Adequate)>();
-        if (minimise && rowsE1 is not null)
+        if (minimise && reuseDir is not null)
+        {
+            Console.WriteLine();
+            Console.WriteLine("granularity walk: skipped -- the declaration is reused, not derived, so there is nothing to re-derive here.");
+        }
+        else if (minimise && rowsE1 is not null)
         {
             var grains = new (string Name, double LatBand, double MaskLat, double AzEl)[]
             {
@@ -304,7 +350,7 @@ internal static class ComplianceLoop
         var sb = new StringBuilder();
         sb.AppendLine($"# Compliance loop: {prof.Name}");
         sb.AppendLine();
-        sb.AppendLine(string.Create(inv, $"*Produced by `dotnet run --project tests/radians.beamlab.checks -- loop \"{Path.GetFileName(profilePath)}\" \"{Path.GetFileName(designPath)}\" {days} {stepSec:F0} {latFrom:F0} {latTo:F0} {latStep:F0}{(walk ? " walk" : "")}`.*"));
+        sb.AppendLine(string.Create(inv, $"*Produced by `dotnet run --project tests/radians.beamlab.checks -- loop \"{Path.GetFileName(profilePath)}\" \"{Path.GetFileName(designPath)}\" {days} {stepSec:F0} {latFrom:F0} {latTo:F0} {latStep:F0}{(walk ? " walk" : "")}{(reuseDir is not null ? " reuse=" + Path.GetRelativePath(repo, reuseDir).Replace('\\', '/') : "")}`.*"));
         sb.AppendLine(string.Create(inv, $"*Date: {DateTime.Now:yyyy-MM-dd}. Wall clock {t0.Elapsed.TotalMinutes:F1} min.*"));
         sb.AppendLine();
         sb.AppendLine("## The system under test");
@@ -335,18 +381,12 @@ internal static class ComplianceLoop
         sb.AppendLine();
         sb.AppendLine("**" + ComplianceViewModel.SummarizeRows(rows) + headroom + "**");
         sb.AppendLine();
-        sb.AppendLine("## The declaration, derived");
+        sb.AppendLine(declarationHeading);
         sb.AppendLine();
-        sb.AppendLine(string.Create(inv,
-            $"Measured on a SATURATED probe with no victim -- demand {prof.DemandLinksPerCell} -> {probe.DemandLinksPerCell}, "
-            + $"activity {prof.ActivityFactor:F2} -> {probe.ActivityFactor:F2}, duty {prof.IlluminationDutyCycle:F2} -> {probe.IlluminationDutyCycle:F2}, "
-            + $"operating fraction {prof.OperationalFraction:F2} -> {probe.OperationalFraction:F2}. A declaration is an envelope of what the "
-            + $"system MAY do, so traffic is taken out before it is measured; and being a different run from the truth sweep, it keeps "
-            + $"E1 >= T an adequacy test rather than a tautology."));
+        sb.AppendLine(declarationText);
         sb.AppendLine();
-        sb.AppendLine(string.Create(inv,
-            $"- Depth: {derived.Steps} steps / {derived.LinkSamples} link samples, latitude band {latStep:F0} deg."));
-        sb.AppendLine("- Derived set: " + DescribeSet(derived.Set, inv));
+        sb.AppendLine(declarationDepth);
+        sb.AppendLine("- " + (reuseDir is null ? "Derived" : "Reused") + " set: " + DescribeSet(declaredSet, inv));
         sb.AppendLine();
         sb.AppendLine("## E1 -- the examination against that declaration");
         sb.AppendLine();
@@ -405,19 +445,29 @@ internal static class ComplianceLoop
         string profOut = Path.Combine(runDir, safe + ".opprofile.json");
         string setOut = Path.Combine(runDir, safe + ".operparams.xml");
         File.WriteAllText(profOut, OperationProfileCodec.Save(prof));
-        OperParamsXmlWriter.Write(setOut, derived.Set);
+        OperParamsXmlWriter.Write(setOut, declaredSet);
         // ...and in the designer's own format, so its "derive & fill" can LOAD
         // this run rather than simulate a second opinion of the same system.
         string setJson = ComplianceViewModel.RunSetJsonPath(repo, prof);
-        File.WriteAllText(setJson, OpParamsFileCodec.Save(OpParamsFileCodec.FromSet(derived.Set)));
+        File.WriteAllText(setJson, OpParamsFileCodec.Save(OpParamsFileCodec.FromSet(declaredSet)));
+        if (reusedMask is not null && File.Exists(reusedMask))
+        {
+            // A reused mask is copied in, so this run's directory stays self-contained.
+            string maskCopy = Path.Combine(runDir, safe + ".mask.reused.xml");
+            File.Copy(reusedMask, maskCopy, overwrite: true);
+            declaredMask = maskCopy;
+        }
+        string what = reuseDir is null ? "Derived" : "Reused";
         sb.AppendLine();
         sb.AppendLine("## Artefacts");
         sb.AppendLine();
-        sb.AppendLine("Profile, R set and pfd mask come out of this one run, so they describe the same system:");
+        sb.AppendLine(reuseDir is null
+            ? "Profile, R set and pfd mask come out of this one run, so they describe the same system:"
+            : "The profile is this run's; the R set and the pfd mask are the reused run's, copied here so the directory stands alone:");
         sb.AppendLine();
         sb.AppendLine("- Operation profile (the truth as run): `" + Path.GetRelativePath(repo, profOut) + "`");
-        sb.AppendLine("- Derived R set (S.1503-4 Part B): `" + Path.GetRelativePath(repo, setOut) + "`");
-        sb.AppendLine("- Derived R set, designer format (open with the operating-parameters designer): `"
+        sb.AppendLine("- " + what + " R set (S.1503-4 Part B): `" + Path.GetRelativePath(repo, setOut) + "`");
+        sb.AppendLine("- " + what + " R set, designer format (open with the operating-parameters designer): `"
             + Path.GetRelativePath(repo, setJson) + "`");
         sb.AppendLine(File.Exists(declaredMask)
             ? "- Declared pfd mask: `" + Path.GetRelativePath(repo, declaredMask) + "`"
@@ -429,6 +479,28 @@ internal static class ComplianceLoop
         Console.WriteLine("figure: " + Path.GetRelativePath(repo, outPath));
         Console.WriteLine(string.Create(inv, $"progress reports: {col.Reports.Count}; wall clock {t0.Elapsed.TotalMinutes:F1} min"));
         return 0;
+    }
+
+    /// <summary>
+    /// The artefacts of an earlier run -- its R set in the designer's format and
+    /// its pfd mask -- for a truth-only rerun at another depth. The directory
+    /// must hold exactly one *.operparams.json; when it holds several masks the
+    /// newest is taken, so pass a run directory with one mask to be exact.
+    /// </summary>
+    public static (OperatingParamsSet Set, string SetPath, string MaskPath) LoadReusedDeclaration(string dir)
+    {
+        if (!Directory.Exists(dir))
+            throw new DirectoryNotFoundException("reuse directory not found: " + dir);
+        var sets = Directory.GetFiles(dir, "*.operparams.json");
+        if (sets.Length != 1)
+            throw new InvalidOperationException(
+                $"the reuse directory must hold exactly one *.operparams.json; found {sets.Length} in {dir}");
+        var masks = Directory.GetFiles(dir, "*.mask*.xml");
+        if (masks.Length == 0)
+            throw new InvalidOperationException("the reuse directory holds no *.mask*.xml: " + dir);
+        string mask = masks.OrderByDescending(File.GetLastWriteTimeUtc).First();
+        var set = OpParamsFileCodec.ToSet(OpParamsFileCodec.Load(File.ReadAllText(sets[0])));
+        return (set, sets[0], mask);
     }
 
     /// <summary>

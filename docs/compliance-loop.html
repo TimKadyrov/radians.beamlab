@@ -278,7 +278,10 @@ ring cannot express &mdash; a verdict computed in that state names its gap rathe
 hiding it. One more rule governs what a run may quote as an
 absolute: a figure stands only with a <em>convergence pair</em> &mdash; the same statistic at
 twice the depth, moving no more than a stated tolerance (0.5&nbsp;dB by default), both depths
-named where it is quoted. Differences at matched depth are quotable as differences.</p>
+named where it is quoted. Differences at matched depth are quotable as differences. The pair is bought at half
+price: the derivation measured exactly depth-stable, so a <em>truth-only</em> rerun
+(<code>reuse=&lt;run dir&gt;</code>) skips the probe, reads the earlier run&rsquo;s R&nbsp;set and
+mask back, and runs only the truth sweep and the examination at the new depth.</p>
 
 <div class="foot">
 Companion pages: <a href="simulation-runner.html">Inside the Simulation Runner</a> &middot;

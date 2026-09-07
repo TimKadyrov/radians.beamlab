@@ -34,12 +34,16 @@ if (args.Length > 0 && args[0] == "loop")
     string[] a = args;
     string srcDir = System.IO.Path.Combine(@"C:\Projects\radians.beamlab", "dataset", "_src");
     double D(int i, double dflt) => a.Length > i && double.TryParse(a[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : dflt;
+    // reuse=<run dir>: skip the probe, read that run's R set and mask back, and
+    // run only the truth sweep and the examination at this depth.
+    string? reuse = a.FirstOrDefault(x => x.StartsWith("reuse=", StringComparison.OrdinalIgnoreCase))?.Substring("reuse=".Length);
     return ComplianceLoop.Run(
         a.Length > 1 ? a[1] : System.IO.Path.Combine(srcDir, "STEAM-2.opprofile.json"),
         a.Length > 2 ? a[2] : System.IO.Path.Combine(srcDir, "STEAM-2.orbitdesign.json"),
         D(3, 0.1), D(4, 60.0), D(5, 0.0), D(6, 60.0), D(7, 10.0),
         a.Any(x => x.Equals("walk", StringComparison.OrdinalIgnoreCase)),
-        a.Any(x => x.Equals("minimise", StringComparison.OrdinalIgnoreCase)));
+        a.Any(x => x.Equals("minimise", StringComparison.OrdinalIgnoreCase)),
+        reuse);
 }
 if (args.Length > 0 && args[0] == "beamcount")
 {
@@ -5155,6 +5159,52 @@ var looks = RandomLooks(300);
     Check("V47 header and array: one form per quantity (both reported), the nearest-row read total (outermost row governs outward), a single row a global constant; MIN_EXCLUDE interpolates and clamps",
         inside47 && outward47 && header47 && one47Ok && invalid47 && excl47,
         $"inside={inside47} outward={outward47} header={header47} oneRow={one47Ok} invalid={invalid47} ({conflicts47.Count} named) exclusion={excl47}");
+}
+
+
+// ---- V48: a truth-only rerun reads an earlier run's declaration back exactly ----
+{
+    // The derivation measured exactly depth-stable, so a convergence pair for T
+    // and E1 needs only the truth sweep and the examination. The loop's reuse
+    // path reads the earlier run's R set and mask; it must read the set back
+    // exactly, take the newest mask when several exist, and refuse a directory
+    // that cannot name one set.
+    string dir48 = Path.Combine(AppContext.BaseDirectory, "exp", "v48run");
+    Directory.CreateDirectory(dir48);
+    foreach (var f in Directory.GetFiles(dir48)) File.Delete(f);
+    var set48 = new OperatingParamsSet
+    {
+        SatName = "V48", NtcId = 7, ParamId = 1, LowFreqMhz = 18150, HighFreqMhz = 18150,
+        EsDensityPerKm2 = 0.0001, EsDistanceKm = 183, EsLatMinDeg = -50, EsLatMaxDeg = 50, MaxCoFreqSat = 59,
+    };
+    foreach (double lat in new[] { -45.0, -35.0, 35.0, 45.0 })
+    {
+        set48.MaxCoFreqByLat.Add((lat, 4));
+        var el = new MinElevByLat { LatDeg = lat };
+        el.ByAz.Add((0.0, 40.0)); el.ByAz.Add((360.0, 40.0));
+        set48.MinElev.Add(el);
+    }
+    var ex48 = new MinExcludeByOrbit { OrbId = 0 };
+    ex48.ByLat.Add((-45.0, 22.0)); ex48.ByLat.Add((45.0, 22.0));
+    set48.MinExclude.Add(ex48);
+    File.WriteAllText(Path.Combine(dir48, "v48.operparams.json"), OpParamsFileCodec.Save(OpParamsFileCodec.FromSet(set48)));
+    File.WriteAllText(Path.Combine(dir48, "v48.mask.lat10p0-ae1p0.xml"), "<satellite_system/>");
+    System.Threading.Thread.Sleep(30);
+    File.WriteAllText(Path.Combine(dir48, "v48.mask.lat10p0-ae1p0-vnewer.xml"), "<satellite_system/>");
+    var got48 = ComplianceLoop.LoadReusedDeclaration(dir48);
+    bool setOk48 = got48.Set.MaxCoFreqByLat.Count == 4 && got48.Set.MinElev.Count == 4
+        && DeclaredConstraints.MaxCoFreq(got48.Set, 60.0) == 4 && DeclaredConstraints.MinElevDeg(got48.Set, 60.0, 0.0) == 40.0
+        && Math.Abs(DeclaredConstraints.ExclusionAlphaDeg(got48.Set, 0.0, 0) - 22.0) < 1e-9
+        && got48.Set.MaxCoFreqSat == 59 && got48.Set.EsLatMinDeg == -50.0 && DeclaredConstraints.FormConflicts(got48.Set).Count == 0;
+    bool maskOk48 = Path.GetFileName(got48.MaskPath) == "v48.mask.lat10p0-ae1p0-vnewer.xml";
+    bool refuse48 = false;
+    string empty48 = Path.Combine(AppContext.BaseDirectory, "exp", "v48empty");
+    Directory.CreateDirectory(empty48);
+    foreach (var f in Directory.GetFiles(empty48)) File.Delete(f);
+    try { ComplianceLoop.LoadReusedDeclaration(empty48); }
+    catch (InvalidOperationException ex) { refuse48 = ex.Message.Contains("exactly one"); }
+    Check("V48 truth-only rerun: the reused declaration reads back exactly, the newest mask is taken, a directory without a set is refused",
+        setOk48 && maskOk48 && refuse48, $"set={setOk48} mask={maskOk48} refuse={refuse48}");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
