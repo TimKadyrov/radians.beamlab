@@ -41,6 +41,16 @@ if (args.Length > 0 && args[0] == "loop")
         a.Any(x => x.Equals("walk", StringComparison.OrdinalIgnoreCase)),
         a.Any(x => x.Equals("minimise", StringComparison.OrdinalIgnoreCase)));
 }
+if (args.Length > 0 && args[0] == "beamcount")
+{
+    string[] b = args;
+    string srcB = System.IO.Path.Combine(@"C:Projectsadians.beamlab", "dataset", "_src");
+    double DB(int i, double dflt) => b.Length > i && double.TryParse(b[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : dflt;
+    return BeamCount.Run(
+        b.Length > 1 ? b[1] : System.IO.Path.Combine(srcB, "STEAM-2.opprofile.json"),
+        b.Length > 2 ? b[2] : System.IO.Path.Combine(srcB, "STEAM-2.orbitdesign.json"),
+        DB(3, 0.02), DB(4, 60.0));
+}
 if (args.Length > 0 && args[0] == "parity")
     return MaskParity.Run(
         args.Length > 1 ? args[1] : @"c:\_3\mask ntc_id 317520389 mask_id 150 17700-20200 MHz.xml",
@@ -456,6 +466,19 @@ var looks = RandomLooks(300);
     // E2e: STRONG check -- the a=0 latitude block of the XML must equal the live
     // field's BIN-MAX (envelope semantics: max over the node's +/-step/2 bin)
     // at every (b, c) node, within F1 rounding.
+    double halfRowE2 = opts.LatStepDeg / 2.0;
+    var bandFieldsE2 = new List<PfdMaskField>();
+    foreach (double bl in new[] { -halfRowE2, 0.0, halfRowE2 })
+    {
+        var genE2 = new PfdMaskViewModel();
+        vm.CopySettingsTo(genE2);
+        genE2.Scene.SubSatLatDeg = bl;
+        genE2.RebuildForCompute();
+        var fE2 = new PfdMaskField();
+        fE2.Rebuild(genE2);
+        bandFieldsE2.Add(fE2);
+    }
+
     bool nodesMatch = true; string mismatch = "";
     foreach (XmlNode a in byA)
     {
@@ -466,7 +489,11 @@ var looks = RandomLooks(300);
             foreach (XmlNode p in b.SelectNodes("pfd")!)
             {
                 double cv = double.Parse(p.Attributes!["c"]!.Value, CultureInfo.InvariantCulture);
-                double fieldV = field.SampleMaxIn(cv, bv, 30.0, 15.0);   // alpha/DeltaL: x = DeltaL = c (+/-CStep/2), y = alpha = b (+/-BStep/2)
+                // The a=0 row governs +/- LatStepDeg/2, so the exported value is
+                // the max over that band -- not the field at latitude 0 alone.
+                double fieldV = double.NegativeInfinity;
+                foreach (var bf in bandFieldsE2)
+                    fieldV = Math.Max(fieldV, bf.SampleMaxIn(cv, bv, 30.0, 15.0));   // x = DeltaL = c, y = alpha = b
                 string xmlS = p.InnerText;
                 if (double.IsNegativeInfinity(fieldV))
                 {
@@ -482,7 +509,7 @@ var looks = RandomLooks(300);
             if (!nodesMatch) break;
         }
     }
-    Check("E2e export a=0 block equals live field bin-max at every node", nodesMatch, mismatch);
+    Check("E2e export a=0 block equals the live field bin-max across the row band", nodesMatch, mismatch);
 
     // E2f: the exported latitude table must cross lat = 0 exactly even when
     // (max - min) is not a multiple of the step: grid is 0-anchored with the
@@ -1244,20 +1271,30 @@ var looks = RandomLooks(300);
     sampL.PrepareLatitude(35.0);
 
     var hhL = GroundTrack.HeadingsAtLatitude(53.0, 35.0)!.Value;
-    PfdMaskField FieldAt(double psi)
+    // A row governs the half-step either side of it (Sec. D5.1.5 step 1 reads
+    // the NEAREST latitude), so the envelope maxes over the band as well as
+    // over the two pass headings. Pinning the centre alone would pin an
+    // under-declaring mask -- measured at 7.4 dB on the BL-D2 case.
+    PfdMaskField FieldAt(double psi, double latDeg)
     {
         var gen = new PfdMaskViewModel();
         vmL.CopySettingsTo(gen);
         gen.MaskKind = MaskPlotKind.AzEl;
-        gen.Scene.SubSatLatDeg = 35.0;
+        gen.Scene.SubSatLatDeg = latDeg;
         gen.Scene.BodyYawDeg = psi;
         gen.RebuildForCompute();
         var f = new PfdMaskField();
         f.Rebuild(gen);
         return f;
     }
-    var fAsc = FieldAt(hhL.AscendingDeg);
-    var fDesc = FieldAt(hhL.DescendingDeg);
+    double halfRowL = optsL.LatStepDeg / 2.0;
+    var BandLatsL = new[] { 35.0 - halfRowL, 35.0, 35.0 + halfRowL };
+    var fieldsL = new List<PfdMaskField>();
+    foreach (double psi in new[] { hhL.AscendingDeg, hhL.DescendingDeg })
+        foreach (double bl in BandLatsL)
+            fieldsL.Add(FieldAt(psi, bl));
+    var fAsc = FieldAt(hhL.AscendingDeg, 35.0);
+    var fDesc = FieldAt(hhL.DescendingDeg, 35.0);
 
     bool okL3 = true; string detL3 = ""; int differ = 0, probes = 0;
     for (double az = -85; az <= 85 && okL3; az += 10)
@@ -1265,7 +1302,8 @@ var looks = RandomLooks(300);
     {
         double a1 = fAsc.SampleMaxIn(az, el, 15.0, 15.0);
         double a2 = fDesc.SampleMaxIn(az, el, 15.0, 15.0);
-        double want = Math.Max(a1, a2);
+        double want = double.NegativeInfinity;
+        foreach (var f in fieldsL) want = Math.Max(want, f.SampleMaxIn(az, el, 15.0, 15.0));
         double got = sampL.SampleMaxIn(az, el, 15.0, 15.0);
         probes++;
         if (Math.Abs(a1 - a2) > 0.1 && !double.IsNegativeInfinity(a1) && !double.IsNegativeInfinity(a2)) differ++;
@@ -1273,7 +1311,7 @@ var looks = RandomLooks(300);
                                                     : Math.Abs(got - want) < 1e-9;
         if (!same) { okL3 = false; detL3 = $"az={az} el={el}: got={got} want={want}"; }
     }
-    Check("L3 envelope == max over pass-heading fields; headings differ", okL3 && differ > 0,
+    Check("L3 envelope == max over pass-heading fields across the row band; headings differ", okL3 && differ > 0,
         okL3 ? $"probes={probes} cells-where-headings-differ={differ}" : detL3);
 }
 

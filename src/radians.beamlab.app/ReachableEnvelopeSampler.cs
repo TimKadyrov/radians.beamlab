@@ -24,6 +24,19 @@ public sealed class ReachableEnvelopeSampler : IPfdMaskSampler
     private readonly double _inclinationDeg;
     private readonly double[] _yawSweep;
     private readonly List<PfdMaskField> _fields = new();
+    private readonly double _halfRowDeg;
+
+    // A mask row does not describe a point. Sec. D5.1.5 step 1 reads the table
+    // with the NEAREST latitude, so a row governs the half-step either side of
+    // it, and a field built only at the row centre under-declares wherever the
+    // emission varies across that band -- the deflated-mask direction, which a
+    // truth run then exceeds. The band is therefore sampled at its edges as
+    // well as its centre and the envelope is the max across all of them.
+    //
+    // Honest about what this is: denser point sampling, not a proof. Three
+    // offsets capture monotone variation across the band exactly and
+    // non-monotone variation approximately.
+    private static readonly double[] BandOffsets = { -1.0, 0.0, 1.0 };
 
     public ReachableEnvelopeSampler(PfdMaskViewModel live, MaskXmlExportOptions o, double inclinationDeg)
     {
@@ -37,7 +50,11 @@ public sealed class ReachableEnvelopeSampler : IPfdMaskSampler
         // wants >= ~2 field cells per output bin.
         double finestHalf = 0.5 * Math.Min(o.BStepDeg, o.CStepDeg);
         if (_gen.MaskStepDeg > finestHalf) _gen.MaskStepDeg = Math.Max(0.1, finestHalf);
+        _halfRowDeg = o.LatStepDeg / 2.0;
     }
+
+    /// <summary>Fields built per latitude row (diagnostics): headings x band offsets.</summary>
+    public int FieldsPerLatitude => _fields.Count;
 
     public void PrepareLatitude(double latDeg)
     {
@@ -58,8 +75,9 @@ public sealed class ReachableEnvelopeSampler : IPfdMaskSampler
         _fields.Clear();
         foreach (double psi in headings)
             foreach (double yaw in _yawSweep)
+            foreach (double off in BandOffsets)
             {
-                _gen.Scene.SubSatLatDeg = latDeg;
+                _gen.Scene.SubSatLatDeg = latDeg + off * _halfRowDeg;
                 _gen.Scene.BodyYawDeg = psi + yaw;
                 _gen.RebuildForCompute();
                 var field = new PfdMaskField();
