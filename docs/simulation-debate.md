@@ -3101,3 +3101,64 @@ compliance position that improves at some victims and worsens at others.
 be enveloped; the truth readout said what a cap binds on today. Picking
 12 from the first and 4 from the second is what made the regimes visible
 at all. The tool now reports both distributions and both costs.
+
+## Beamlab — the cap-4 gain separated: it is the envelope's, not the exclusion's, 6 September 2026
+
+The previous entry left the cap-4 E1 gain unseparated: the derived R set
+had tightened min_exclude to 26.5 and 33.0 deg at the 35 and 45 deg
+bands, the examination reads that array, and I said part of the
+high-latitude gain might be the declaration's rather than the top-4
+envelope's. That is now measured, and the suspicion was wrong in size.
+
+**The instrument.** An examination-only mode: a named R set against a
+named mask over the sweep grid, no probe, no truth sweep — what an
+administration does with a filing. It lets one artefact change while the
+other is held fixed, which the full loop cannot do because it derives
+both from one probe. Two reproductions bracket the control:
+
+| run | R set | mask | E1 at 0 / 10 / 20 / 30 / 40 / 50 / 60 |
+|---|---|---|---|
+| (a) | record | record | -15.6 / -13.7 / -18.1 / -12.5 / -16.9 / -24.1 / -21.9 |
+| (b) | **record** | cap 4 | -11.7 / -10.2 / -14.2 / -7.6 / -11.7 / -19.6 / **-15.5** |
+| (c) | cap 4 | cap 4 | -11.7 / -10.2 / -14.2 / -7.6 / -11.7 / -19.6 / **-15.6** |
+
+(a) reproduces the committed record bit for bit, so the mode is sound
+and the record's mask file is the band-fixed one. (c) reproduces the
+cap-4 record bit for bit. Between them, (b) is the control.
+
+**The exclusion's share is 0.1 dB at one latitude and nothing at the
+other six.** (b) and (c) differ only at latitude 60, by 0.1 dB, at a
+percentile where the bins are 0.1 dB wide — sign not meaningful. The
+max-epfd column is identical at all seven. So the tightened min_exclude
+did not move the examination, and the whole cap-4 E1 gain is the
+envelope's: **3.5 to 6.4 dB** per latitude ((a) to (b)), growing with
+latitude as the cap-20 result did. The failed control in the previous
+entry is resolved, and the regime table's bottom row may be read as a
+mask result without qualification.
+
+**A correction of my own range.** I wrote that E1 "drops 2.4 to 6.9 dB"
+at cap 4. That was the change in the GAP, which includes T's movement
+(+1.5 at the equator, -0.9 at 50). The change in E1 itself is 3.5 to
+6.4 dB. Both are true of different quantities; the entry named the wrong
+one.
+
+**Why the exclusion did not bite is not established** — the R set the
+examination read moved from 22 to 33 deg at latitude 45 and E1 did not
+notice. The likely reading is that satellites inside 22 to 33 deg of the
+GSO arc contribute little at these victims once the top-4 envelope has
+already thinned the colour, so gating them changes nothing that matters;
+but that is a reading. Recorded as observed.
+
+**The instrument's cost is the other finding.** Each examination took
+seconds — 0.0 to 0.1 min for 144 steps across seven latitudes and 1600
+satellites. The loop's 25 to 29 minutes are the saturated probe over
+11 702 cells and the truth sweep's live composition; the examination
+itself is essentially free. Examining a filing is cheap. Deriving one is
+what costs, and that is where the depth and grid rules earn their keep.
+
+**Bookkeeping.** With the exclusion's share measured at ~0, the three
+regimes stand as tabulated, and the middle row — 0.8 to 3.3 dB for 2.67%
+of peak demand, T untouched — remains the operator's choice. Examination
+records for the three controls sit beside the artefacts under
+dataset/margin/examine/ and are cited from here rather than filed as
+figures.

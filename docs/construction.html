@@ -314,7 +314,7 @@ sits: K<sub>sat</sub>, the most same-colour beams the <em>saturated</em> probe e
 <tr><th>capacity</th><th>binds today</th><th>binds at peak</th><th>T</th><th>widest gap</th><th>cost today</th><th>cost at peak</th></tr>
 <tr><td>20 = K<sub>sat</sub></td><td>no</td><td>no</td><td>unchanged</td><td>12.2 &rarr; 10.9 dB</td><td>none</td><td>none</td></tr>
 <tr><td>12</td><td>no (worst 11)</td><td>yes</td><td>unchanged</td><td>12.2 &rarr; 9.8 dB</td><td>none</td><td>2.67% unserved; <code>max_co_freq_sat</code> 59 &rarr; 48</td></tr>
-<tr><td>4</td><td>yes (45% pinned)</td><td>yes</td><td>+1.5 to &minus;0.9 dB</td><td>12.2 &rarr; 6.8 dB</td><td>~0 unserved; interference redistributed</td><td>47% unserved; <code>max_co_freq_sat</code> 59 &rarr; 16; exclusion tightened</td></tr>
+<tr><td>4</td><td>yes (45% pinned)</td><td>yes</td><td>+1.5 to &minus;0.9 dB</td><td>12.2 &rarr; 6.8 dB (E1 alone: &minus;3.5 to &minus;6.4)</td><td>~0 unserved; interference redistributed</td><td>47% unserved; <code>max_co_freq_sat</code> 59 &rarr; 16; exclusion tightened</td></tr>
 </table>
 
 <p>The middle row is the one an operator would want: a commitment the system already
@@ -327,13 +327,16 @@ latitude 50 from the same declaration. A tighter payload commitment is not monot
 compliance.</p>
 
 <div class="tech">
-<div class="t">A control that does not hold, named</div>
+<div class="t">A control that did not hold, then measured</div>
 <p>In the bottom row the derived R&nbsp;set also changed: the saturated probe could not
 place 47% of peak demand, and <code>min_exclude</code> tightened to 26.5&deg; and 33.0&deg; at
 the 35&deg; and 45&deg; bands against 22.0&deg; everywhere on the record. The examination reads
-that exclusion, so part of the high-latitude E1 gain there is the tightened declaration, not
-the top-4 envelope. The two are not separated. Why the exclusion tightened under a Random
-selection policy is not established either; it is recorded as observed.</p>
+that exclusion, so the E1 gain could not be attributed to the envelope alone &mdash; until an
+examination-only run held the record&rsquo;s R&nbsp;set fixed and swapped in the cap-4 mask. The
+result differs from the cap-4 record at one latitude by 0.1&nbsp;dB and at the other six not at
+all: the exclusion&rsquo;s share is nil, and the whole E1 gain &mdash; <strong>3.5 to
+6.4&nbsp;dB</strong> by latitude &mdash; is the top-4 envelope&rsquo;s. Why the tightened
+exclusion did not register is recorded as observed, not explained.</p>
 </div>
 
 <div class="tech">
