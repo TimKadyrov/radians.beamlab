@@ -338,6 +338,11 @@ internal static class ComplianceLoop
         sb.AppendLine();
         sb.AppendLine(string.Create(inv, $"Depth: {steps} steps of {stepSec:F0} s per latitude ({days:F3} d) -- resolvable percentile floor {100.0 / steps:F3}%, so short-term points below that floor are located, not decided, at this depth."));
         sb.AppendLine();
+        sb.AppendLine(string.Create(inv,
+            $"Sweep grid: latitudes {latFrom:F0}..{latTo:F0} every {latStep:F0} deg. The worst margin "
+            + $"below is the worst over THESE latitudes; the sweep evaluates real victims at discrete "
+            + $"points, so a finer grid can find worse between them -- carry the step with the figure."));
+        sb.AppendLine();
         sb.AppendLine("| latitude | max epfd (dB) | worst margin (dB) | verdict | quiet steps |");
         sb.AppendLine("|---|---|---|---|---|");
         foreach (var r in rows)

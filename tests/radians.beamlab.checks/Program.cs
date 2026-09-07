@@ -4761,6 +4761,59 @@ var looks = RandomLooks(300);
         $"worstRawExcess={worstRaw41:F1} deg of alpha");
 }
 
+
+// ---- V42: the worst margin travels with the grid it is worst over ----
+{
+    // A sweep evaluates real victims at discrete latitudes, so its extremum is
+    // the worst of what it SAMPLED. On BL-D2 a 5 deg sweep found latitude 35
+    // to be 10 dB worse than anything the 10 deg sweep visited, while the
+    // summary line read "worst margin -33.4 dB" with nothing to qualify it.
+    var wide42 = new List<ComplianceRow>
+    {
+        new(30.0, -142.4, -29.3, false, 0),
+        new(40.0, -136.8, -33.4, false, 0),
+        new(50.0, -138.3, -29.2, false, 0),
+        new(60.0, -141.6, -29.3, false, 0),
+    };
+    string sumWide = ComplianceViewModel.SummarizeRows(wide42);
+    bool gridOk42 = sumWide.StartsWith("EXCEEDED")            // V23's contract intact
+        && sumWide.Contains("sampled every 10 deg over 30..60")
+        && sumWide.Contains("finer sweep can find worse");
+
+    // The finer grid states its own step, so two records cannot be compared
+    // without the difference being visible in the text itself.
+    var fine42 = new List<ComplianceRow>
+    {
+        new(30.0, -142.4, -29.3, false, 0),
+        new(35.0, -123.4, -43.7, false, 0),
+        new(40.0, -136.8, -33.4, false, 0),
+    };
+    bool fineOk42 = ComplianceViewModel.SummarizeRows(fine42)
+        .Contains("sampled every 5 deg over 30..40");
+
+    // A compliant sweep carries the same qualifier -- passing at the sampled
+    // latitudes is not passing everywhere.
+    var pass42 = new List<ComplianceRow>
+    {
+        new(0.0, -206.0, 31.4, true, 0),
+        new(10.0, -199.7, 25.0, true, 0),
+    };
+    string sumPass = ComplianceViewModel.SummarizeRows(pass42);
+    bool passOk42 = sumPass.StartsWith("COMPLIANT")
+        && sumPass.Contains("sampled every 10 deg over 0..10")
+        && sumPass.Contains("finer sweep can find worse");
+
+    // One latitude is not a grid, and says so rather than implying a step.
+    var one42 = new List<ComplianceRow> { new(40.0, -136.8, -33.4, false, 0) };
+    bool oneOk42 = ComplianceViewModel.SummarizeRows(one42).Contains("at latitude 40 only")
+        && !ComplianceViewModel.SummarizeRows(one42).Contains("sampled every")
+        && ComplianceViewModel.SamplingNote(new List<ComplianceRow>()) == "";
+
+    Check("V42 the worst margin travels with the grid it is worst over",
+        gridOk42 && fineOk42 && passOk42 && oneOk42,
+        $"grid={gridOk42} fine={fineOk42} pass={passOk42} one={oneOk42}");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
 

@@ -375,14 +375,36 @@ public sealed class ComplianceViewModel : ObservableObject
             comp.Policy, comp.CoverageRadiusKm, comp.IlluminationDutyCycle);
     }
 
+    /// <summary>
+    /// What the worst margin is worst OVER. A sweep evaluates real victims at
+    /// discrete latitudes, so its extremum is the worst of what it sampled --
+    /// not the system's worst. On BL-D2 a 5 deg sweep found a latitude 10 dB
+    /// worse than anything the 10 deg sweep visited. The figure therefore
+    /// travels with its grid, exactly as depth travels with the resolvable
+    /// percentile floor.
+    /// </summary>
+    public static string SamplingNote(IReadOnlyList<ComplianceRow> rows)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        if (rows.Count == 0) return "";
+        if (rows.Count == 1)
+            return string.Create(inv, $" -- at latitude {rows[0].LatDeg:F0} only");
+        double step = rows[1].LatDeg - rows[0].LatDeg;
+        return string.Create(inv,
+            $" -- sampled every {step:F0} deg over {rows[0].LatDeg:F0}..{rows[^1].LatDeg:F0}, "
+            + $"so a finer sweep can find worse between them");
+    }
+
     public static string SummarizeRows(IReadOnlyList<ComplianceRow> rows)
     {
         var failing = rows.Where(r => !r.Pass).ToList();
         return failing.Count == 0
             ? string.Create(CultureInfo.InvariantCulture,
                 $"COMPLIANT at all {rows.Count} latitude(s); worst margin {rows.Min(r => r.WorstMarginDb):+0.0;-0.0} dB")
+                + SamplingNote(rows)
             : string.Create(CultureInfo.InvariantCulture,
-                $"EXCEEDED at {failing.Count} of {rows.Count} latitude(s) ({string.Join(", ", failing.Select(f => f.LatText))}); worst margin {failing.Min(r => r.WorstMarginDb):+0.0;-0.0} dB");
+                $"EXCEEDED at {failing.Count} of {rows.Count} latitude(s) ({string.Join(", ", failing.Select(f => f.LatText))}); worst margin {failing.Min(r => r.WorstMarginDb):+0.0;-0.0} dB")
+                + SamplingNote(rows);
     }
 
     /// <summary>
