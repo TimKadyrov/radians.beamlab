@@ -1,7 +1,7 @@
 # Compliance loop: STEAM-2 (WP 4A Doc 4A/653 + filed mask; pattern, layout, reuse assumed)
 
 *Produced by `dotnet run --project tests/radians.beamlab.checks -- loop "STEAM-2.opprofile.json" "STEAM-2.orbitdesign.json" 0.1 60 0 60 10`.*
-*Date: 2026-09-05. Wall clock 24.1 min.*
+*Date: 2026-09-07. Wall clock 25.7 min.*
 
 ## The system under test
 
@@ -44,15 +44,15 @@ The truth above does not move; E1 is what the examination sees when it reads the
 
 | latitude | T margin (dB) | E1 margin (dB) | gap (dB) | E1 >= T |
 |---|---|---|---|---|
-| 0 | -9.1 | -15.3 | 6.2 | yes |
-| 10 | -4.8 | -12.5 | 7.7 | yes |
-| 20 | -7.4 | -17.0 | 9.6 | yes |
-| 30 | -5.7 | -11.6 | 5.9 | yes |
-| 40 | -6.9 | -16.1 | 9.2 | yes |
-| 50 | -11.9 | -22.9 | 11.0 | yes |
-| 60 | -11.7 | -21.1 | 9.4 | yes |
+| 0 | -9.1 | -15.6 | 6.5 | yes |
+| 10 | -4.8 | -13.7 | 8.9 | yes |
+| 20 | -7.4 | -18.1 | 10.7 | yes |
+| 30 | -5.7 | -12.5 | 6.8 | yes |
+| 40 | -6.9 | -16.9 | 10.0 | yes |
+| 50 | -11.9 | -24.1 | 12.2 | yes |
+| 60 | -11.7 | -21.9 | 10.2 | yes |
 
-**ADEQUATE: E1 >= T at every latitude; widest gap 11.0 dB**
+**ADEQUATE: E1 >= T at every latitude; widest gap 12.2 dB**
 
 ## Artefacts
 

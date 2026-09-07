@@ -2571,3 +2571,108 @@ Outer-loop facts as you closed them: T fails at all seven latitudes on
 the assumed system; declaration work cannot and must not move it; the
 filed mask's power level is where that thread resumes. E1-1 runs next
 against a target this round has made unusually clean.
+
+## Beamlab — the mask under-declared, the adequacy test found it, 5 September 2026
+
+The in-band gap figures in the entries above are understated. Restated
+here with the cause, because they were quoted as the whole remaining
+term and the correction changes their size.
+
+**Controls, per the standing rule.** Same profile, same geography, same
+144-step depth (percentile floor 0.694%), same derived R set, same
+service-span certificate. T is identical at every latitude, as it must
+be: the truth does not read the mask. The only thing that changed is how
+the mask sampler builds a latitude row.
+
+**The defect.** Sec. D5.1.5 step 1 reads the pfd table with the NEAREST
+latitude, so a row governs the half-step either side of it. Both mask
+samplers built their field at the row's own latitude. Wherever the
+emission varies across that band, the row under-declared -- a deflated
+mask, the unsafe direction. This is the third appearance of one bug
+class this session: a value computed at a point and read across a range.
+The certificate had it, the R-set arrays have it (your export, adopted),
+and the mask values had it.
+
+**It was caught by the adequacy test, not by inspection.** On BL-D2 at
+mask latitude step 10, E1 sat 0.3 dB BELOW T at latitude 40 and the run
+said so. That is the first time E1 >= T has fired on anything, and it
+fired on exactly what it was built for: a declaration that does not
+envelope the system it describes.
+
+**STEAM-2 restated**, 0.1 d, global service area:
+
+| lat | T | E1 before | E1 after | gap before | gap after |
+|---|---|---|---|---|---|
+| 0 | -9.1 | -15.3 | -15.6 | 6.2 | 6.5 |
+| 10 | -4.8 | -12.5 | -13.7 | 7.7 | 8.9 |
+| 20 | -7.4 | -17.0 | -18.1 | 9.6 | 10.7 |
+| 30 | -5.7 | -11.6 | -12.5 | 5.9 | 6.8 |
+| 40 | -6.9 | -16.1 | -16.9 | 9.2 | 10.0 |
+| 50 | -11.9 | -22.9 | -24.1 | 11.0 | 12.2 |
+| 60 | -11.7 | -21.1 | -21.9 | 9.4 | 10.2 |
+
+The in-band gap is 6.5 to 12.2 dB, not 5.9 to 11.0. Wherever those
+numbers were used -- the one-term bookkeeping, the pre-stated E1-1
+frame's "8.6-12.3 dB at depth", the residue arithmetic -- they should
+be read up by about a dB.
+
+**The size of the defect depends on the reuse plan, which is the useful
+part.** STEAM-2 under-declared by 0.3 to 1.2 dB; BL-D2, which declares
+no reuse plan, by 2.3 to 7.4 dB. A colour plan flattens the composite's
+variation across a latitude band, so the point-sample sits closer to the
+band max. The bug's magnitude is a function of within-row variation, and
+that is a property of the payload, not of the grid.
+
+**Refining the grid was masking it, not fixing it.** Halving the
+latitude step halves the band and removes half the error. The BL-D2
+step-5 run still under-declared by roughly 4 dB while reporting itself
+adequate. This also corrects my own earlier reading of that experiment,
+where I offered the step-5 result as evidence of the mechanism and
+implied refinement was the remedy. Only enveloping the band is, at any
+step.
+
+**And the granularity table needs correcting.** It lists "mask grid
+(b/c, latitude step)" together as inflated, safe, wasteful. The two axes
+run opposite ways: the b/c bins take a max over the bin and inflate,
+safely; the latitude axis point-samples a band-read row and DEFLATES,
+unsafely. Both sides have been reasoning from that row. A coarse
+latitude grid is not wasteful-but-safe; it is an under-declaration.
+
+**A consequence for my own minimiser.** The granularity walk maximises
+worst E1, so a coarser latitude grid that under-declares registers as
+recovery. Its only guard was the adequacy check, which passed on STEAM-2
+because the effect there is under a dB. The 0.1 dB it reported as
+recovered was not a lever, and the latitude axis should not be one:
+enveloping the band is a correctness requirement, not a trade.
+
+**E1-1, answered before it was built.** The readout measures the
+per-satellite simultaneous co-frequency beam count on the saturated
+probe. On STEAM-2, K = 20 against 42 beams in the largest colour -- but
+K climbs with observation (19 at 22 400 satellite-steps, 20 at 230 393),
+so it is a sample maximum, not a ceiling. There is no analytic
+certificate available: the coverage circle at the declared minimum
+elevation is exactly the field the lattice already spans, so the
+warranted ceiling is the colour size, which the envelope already sums.
+E1-1 therefore recovers nothing warranted; recovery needs a declared,
+enforced per-satellite co-frequency BEAM cap, which the R set has no
+slot for and which would move T. It is an outer-loop item, not the inner
+loop's remaining lever. Your "recovers ~nothing" branch, reached without
+building it.
+
+**And a correction I owe on the reuse plan.** I reported declaring it as
+worth 5.75 dB "on a warrant". It is worth that on the envelope's summed
+set (139 beams to 37), but post-fix the GAP is unchanged or slightly
+larger -- T and E1 both drop together. It is a modelling correctness fix
+producing a truer T, not margin recovery. I made the same both-sides-
+move error I had just finished correcting in the geography claim, one
+entry later.
+
+**Outstanding, named.** The deriver labels every derived row at its band
+centre, which is right for the nearest-read arrays and wrong for
+MIN_EXCLUDE, the one array read by interpolation: interpolating between
+two band minima yields a value above the true minimum in between, so the
+system can operate at a smaller alpha than it declared. Found in the
+sweep, not yet fixed. Also: the mask cache keys on grid, service span
+and profile timestamp but not on the code that produced the values, so
+this fix was invisible on cached cases until the files were deleted by
+hand.
