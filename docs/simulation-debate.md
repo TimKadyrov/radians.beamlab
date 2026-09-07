@@ -3939,3 +3939,49 @@ placement corrected by a wrong remedy corrected by the ruling. That is
 how the record is meant to work, and it cost the afternoon two rounds;
 reading the resolver's own comment before proposing would have saved
 one of them.
+
+## Beamlab — the ruling's consequence list, item by item, 7 September 2026
+
+The operator's decision on exclusivity listed five consequences for this
+side and one check. Status, in the list's order.
+
+1. **The exporter emits exactly one form per quantity.** Done by
+   construction: the deriver never wrote headers for the three quantities
+   except for the hour recorded above, now undone; the derived sets on
+   disk are array-only for min_elev and max_co_freq and file no
+   min_duration.
+2. **Compose and export refuse a set that would carry both forms.** Done,
+   in the same refusal family as min_duration beside min_angle_at_es: the
+   XML writer throws on a both-forms set, naming the quantities. One
+   opt-in exists so the dataset can emit the invalid-filing probe
+   deliberately; nothing else uses it. The examination-only mode already
+   refused such a set on input.
+3. **DeclaredConstraints drops the span test.** Done: the array is read at
+   the nearest row everywhere, the header only when no array is filed;
+   MIN_EXCLUDE interpolates and clamps. V47 pins it.
+4. **Set 22 re-purposes into the invalid-filing probe.** Half done: the
+   generator writes it through the opt-in, and its expectation record
+   still says what the withdrawn precedence said. The record becomes the
+   rejection message when the family is re-emitted, with the other
+   probes, as the standing item says.
+5. **The header-versus-arrays card is rewritten to the ruling.** Done, in
+   both locked places, catalogue and card deck, with the figure redrawn:
+   the array governs the whole latitude axis, a header beside it makes
+   the set invalid.
+
+**The check the correction asked for.** With the read total, the
+outermost derived row governs from its midpoint with its neighbour out to
+the pole, so the derivation must envelope it over that whole band. The
+adequacy test already exercises this: the STEAM-2 sweeps place victims at
+50 and 60 deg, beyond the outermost derived rows at ±45, and E1 ≥ T held
+there on the record and on every cap variant. Beyond the served span the
+probe measures nothing, so the edge row carries the enforced value it
+measured in its own band, and the examination's own verdict at the
+outer victims is the test that it suffices. The 1.0 d run in flight
+repeats that test at depth.
+
+**One more measurement, closing the afternoon's loop.** The record's R
+set, unchanged, examined against the filed mask under the total read:
+-2.0 at 50 and -4.0 at 60, the tenth of a dB the two emulations gave. A
+both-forms variant of the same set is refused with the diagnostic and
+exit code 2. Harness 139 passed at the ruling's commit.

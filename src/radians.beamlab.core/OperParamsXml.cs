@@ -90,8 +90,24 @@ public sealed class OperatingParamsSet
 /// </summary>
 public static class OperParamsXmlWriter
 {
-    public static void Write(string path, OperatingParamsSet p)
+    /// <summary>
+    /// Write the set. A set that files min_elev, max_co_freq or min_duration in
+    /// both the header and the array form is an invalid filing (EPS V43
+    /// Sec. 6.7.2.2, design brief Sec. 3.8) and is refused -- the same refusal
+    /// family as min_duration beside min_angle_at_es -- unless
+    /// <paramref name="allowBothForms"/> is set, which exists only so the
+    /// dataset can emit the invalid-filing probe deliberately.
+    /// </summary>
+    public static void Write(string path, OperatingParamsSet p, bool allowBothForms = false)
     {
+        if (!allowBothForms)
+        {
+            var both = DeclaredConstraints.FormConflicts(p);
+            if (both.Count > 0)
+                throw new ArgumentException(
+                    "filed in both header and array form: " + string.Join("; ", both)
+                    + " -- one form per quantity (EPS V43 Sec. 6.7.2.2); a both-forms set is an invalid filing.");
+        }
         Validate(p);
         var settings = new XmlWriterSettings
         {

@@ -129,13 +129,13 @@ public static class ParameterCatalog
             {
                 "bounded below the shell inclination, it trims the geometry the masks must cover",
             }),
-        new(ParameterGroup.Declared, "header ↔ arrays", "precedence rule",
+        new(ParameterGroup.Declared, "header ↔ arrays", "one form per quantity",
             "ElevAngleHeaderDeg, MaxCoFreqHeader, MinDurationSecHeader vs the [lat] arrays",
-            "Three declared quantities come in two shapes at once: min_elev, max_co_freq and min_duration each have an XML header scalar and an optional per-latitude array. One rule resolves them — inside the latitude span the array covers (its lowest row to its highest row) the array wins, read at the nearest row (the Recommendation's own read rule); outside that span the header scalar applies. A missing header falls back to the permissive default: 0 deg elevation, no cap, 0 s — the Recommendation's \"assumed to be zero if not provided\" convention, which it states for the min angles. Example, for min_elev: rows at lat 30 and 60 with a 10 deg header — lat 45 reads the nearest row, lat 10 reads the header. The BL sets carry all three shapes (arrays-only, header-only, both-with-different-values) so a consumer must implement the rule, not infer it.",
+            "Three declared quantities come in two forms: min_elev (header name elev_angle), max_co_freq and min_duration each exist as an XML header scalar and as a per-latitude array. The two forms are mutually exclusive per quantity (EPS V43 6.7.2.2, design brief 3.8): a valid set files each quantity in exactly one form, and a set carrying both is an invalid filing — reported by name, never resolved by a precedence. An array is read at the nearest row everywhere, and the read is total: beyond the outermost rows the nearest row is the outermost row, so edge rows govern out to the poles and a single row declares a globally constant value, as filings write constants. The header remains for the scalar-only quantities (min_angle_at_es, min_angle_at_sat, max_co_freq_sat, es_density, es_distance, es_lat_min and es_lat_max). Example, for min_elev: rows at lat 30 and 60 — lat 45 reads the nearest row, lat 10 reads row 30 and lat 80 reads row 60. The BL sets carry the header-only shape (set 23) and the arrays-only shape (set 21); set 22, which files both forms with different values, is the invalid-filing probe whose expectation is the rejection.",
             new[]
             {
-                "every DeclaredConstraints accessor resolves this precedence in one place",
-                "set 21 arrays-only · set 22 both-different · set 23 header-only",
+                "DeclaredConstraints reads the array when it is filed, else the header; FormConflicts names a set that carries both",
+                "set 21 arrays-only · set 23 header-only · set 22 both forms = the invalid-filing probe (rejection expected)",
             }),
         new(ParameterGroup.Truth, "DemandLinks", "count · per cell",
             "ServiceCell.DemandLinks (default 1)",

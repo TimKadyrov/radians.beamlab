@@ -401,40 +401,42 @@ a{color:var(--g1)} a:hover{color:#1983AA}
   </div>
 
   <div class="cardp declared">
-    <div class="name-row"><span class="pname">header &harr; arrays</span><span class="unit">precedence rule</span></div>
+    <div class="name-row"><span class="pname">header &harr; arrays</span><span class="unit">one form per quantity</span></div>
     <div class="where"><b>ElevAngleHeaderDeg, MaxCoFreqHeader, MinDurationSecHeader</b> vs the [lat] arrays</div>
     <div class="chips"><span class="chip on">DeclaredConstraints</span></div>
-    <p class="desc">Three declared quantities come in two shapes at once: min_elev, max_co_freq and min_duration
-    each have an XML header scalar and an optional per-latitude array. One rule resolves them &mdash; inside the
-    latitude span the array covers (its lowest row to its highest row) the array wins, read at the nearest row
-    (the Recommendation's own read rule); outside that span the header scalar applies. A missing header falls
-    back to the permissive
-    default: 0&nbsp;deg elevation, no cap, 0&nbsp;s &mdash; the Recommendation's "assumed to be zero if not
-    provided" convention, which it states for the min angles. Example, for min_elev: rows at lat 30 and 60 with a
-    10&nbsp;deg header &mdash; lat 45 reads the nearest row, lat 10 reads the header. The BL sets carry all three
-    shapes (arrays-only, header-only, both-with-different-values) so a consumer must implement the rule, not infer
-    it.</p>
-    <figure><svg viewBox="0 0 300 92" role="img" aria-label="Latitude axis: inside the array's span the nearest row wins; outside it the header scalar applies">
+    <p class="desc">Three declared quantities come in two forms: min_elev (header name elev_angle), max_co_freq and
+    min_duration each exist as an XML header scalar and as a per-latitude array. The two forms are mutually
+    exclusive per quantity (EPS V43 6.7.2.2, design brief 3.8): a valid set files each quantity in exactly one
+    form, and a set carrying both is an invalid filing &mdash; reported by name, never resolved by a precedence. An
+    array is read at the nearest row everywhere, and the read is total: beyond the outermost rows the nearest row
+    is the outermost row, so edge rows govern out to the poles and a single row declares a globally constant
+    value, as filings write constants. The header remains for the scalar-only quantities (min_angle_at_es,
+    min_angle_at_sat, max_co_freq_sat, es_density, es_distance, es_lat_min and es_lat_max). Example, for min_elev:
+    rows at lat 30 and 60 &mdash; lat 45 reads the nearest row, lat 10 reads row 30 and lat 80 reads row 60. The BL
+    sets carry the header-only shape (set 23) and the arrays-only shape (set 21); set 22, which files both forms
+    with different values, is the invalid-filing probe whose expectation is the rejection.</p>
+    <figure><svg viewBox="0 0 300 92" role="img" aria-label="Latitude axis with rows at 30 and 60: the nearest row is read everywhere, the outermost rows governing outward to the poles; a header for the same quantity beside the array makes the set invalid">
       <g style="color:var(--ink)">
         <line x1="14" y1="56" x2="286" y2="56" stroke="currentColor" opacity=".5"/>
         <line x1="96" y1="42" x2="96" y2="62" stroke="var(--g1)" stroke-width="2"/>
         <line x1="212" y1="42" x2="212" y2="62" stroke="var(--g1)" stroke-width="2"/>
-        <line x1="96" y1="34" x2="212" y2="34" stroke="var(--g1)"/>
-        <line x1="96" y1="34" x2="96" y2="40" stroke="var(--g1)"/>
-        <line x1="212" y1="34" x2="212" y2="40" stroke="var(--g1)"/>
-        <text x="154" y="26" text-anchor="middle" class="svgtxt" style="fill:var(--g1)">array span &mdash; nearest row wins</text>
+        <line x1="14" y1="34" x2="286" y2="34" stroke="var(--g1)"/>
+        <line x1="14" y1="34" x2="14" y2="40" stroke="var(--g1)"/>
+        <line x1="286" y1="34" x2="286" y2="40" stroke="var(--g1)"/>
+        <text x="150" y="26" text-anchor="middle" class="svgtxt" style="fill:var(--g1)">array read is total &mdash; nearest row everywhere</text>
         <text x="96" y="76" text-anchor="middle" class="svgtxt">row 30</text>
         <text x="212" y="76" text-anchor="middle" class="svgtxt">row 60</text>
+        <circle cx="40" cy="56" r="3" fill="var(--g1)"/>
+        <text x="40" y="90" text-anchor="middle" class="svglbl">lat 10 &rarr; row 30</text>
         <circle cx="150" cy="56" r="3" fill="var(--g1)"/>
         <text x="150" y="90" text-anchor="middle" class="svglbl">lat 45 &rarr; nearest row</text>
-        <circle cx="40" cy="56" r="3" fill="currentColor"/>
-        <text x="40" y="44" text-anchor="middle" class="svglbl">lat 10 &rarr; header</text>
-        <text x="286" y="44" text-anchor="end" class="svglbl">no header &rarr; 0 / no cap / 0 s</text>
+        <circle cx="262" cy="56" r="3" fill="var(--g1)"/>
+        <text x="262" y="90" text-anchor="middle" class="svglbl">lat 80 &rarr; row 60</text>
       </g>
-    </svg><figcaption>The array rules its own span; everywhere else the header (or its permissive default) applies.</figcaption></figure>
+    </svg><figcaption>An array governs the whole axis: the nearest row everywhere, the outermost rows outward to the poles. A header for the same quantity beside it makes the set invalid; the header is read only when no array is filed.</figcaption></figure>
     <ul class="rel">
-      <li><span class="op">&rarr;</span><span>every <code>DeclaredConstraints</code> accessor resolves this precedence in one place</span></li>
-      <li><span class="op">&rarr;</span><span>set 21 arrays-only &middot; set 22 both-different &middot; set 23 header-only</span></li>
+      <li><span class="op">&rarr;</span><span><code>DeclaredConstraints</code> reads the array when it is filed, else the header; <code>FormConflicts</code> names a set that carries both</span></li>
+      <li><span class="op">&rarr;</span><span>set 21 arrays-only &middot; set 23 header-only &middot; set 22 both forms = the invalid-filing probe (rejection expected)</span></li>
     </ul>
   </div>
 

@@ -445,7 +445,11 @@ public static class DatasetGenerator
             GenerateEs4D(P(MaskDefs[7 + g].FileName), 8 + g, Gateways[g], o.Quick);
         o.Log("  masks 6-10 (S, ES 2-D, ES 4-D x3) done");
         foreach (int pid in new[] { 21, 22, 23, 24, 25 })
-            OperParamsXmlWriter.Write(P(ParamFile(pid)), SetFor(pid, 0));
+            // Set 22 files max_co_freq and min_elev in both forms with different
+            // values: by the ruling of 2026-09-07 (design brief Sec. 3.8) that is
+            // the invalid-filing probe, emitted deliberately; its expectation
+            // record is the rejection. Every other set is one form per quantity.
+            OperParamsXmlWriter.Write(P(ParamFile(pid)), SetFor(pid, 0), allowBothForms: pid == D2.ParamId);
         o.Log("  operating-parameter sets 21-25 done");
     }
 

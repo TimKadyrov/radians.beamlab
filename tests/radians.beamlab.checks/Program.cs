@@ -1134,8 +1134,10 @@ var looks = RandomLooks(300);
         Check("K1 R-XML vs NEXT101 worked example", true, "reference case not present, skipped");
     }
 
-    // K2: header-only / array-only / both-with-different-values variants
-    // (EPS 6.7.2.2: the array prevails inside its latitudes, header outside).
+    // K2: header-only / array-only / both-with-different-values variants.
+    // Header and array are mutually exclusive per quantity (EPS V43 6.7.2.2,
+    // design brief 3.8): the both-forms set is an invalid filing, refused by
+    // the writer unless emitted deliberately as the dataset's invalid probe.
     var headerOnly = new OperatingParamsSet
     {
         SatName = "T", NtcId = 1, ParamId = 1, LowFreqMhz = 10700, HighFreqMhz = 12750,
@@ -1163,7 +1165,10 @@ var looks = RandomLooks(300);
     string bPath = Path.Combine(outDir, "op_both.xml");
     OperParamsXmlWriter.Write(hPath, headerOnly);
     OperParamsXmlWriter.Write(aPath, arrayOnly);
-    OperParamsXmlWriter.Write(bPath, both);
+    bool refusedB = false;
+    try { OperParamsXmlWriter.Write(bPath, both); }
+    catch (ArgumentException ex) { refusedB = ex.Message.Contains("both header and array form") && ex.Message.Contains("max_co_freq"); }
+    OperParamsXmlWriter.Write(bPath, both, allowBothForms: true);   // the invalid-filing probe, emitted on purpose
 
     var dh = new XmlDocument(); dh.Load(hPath);
     var da = new XmlDocument(); da.Load(aPath);
@@ -1180,9 +1185,10 @@ var looks = RandomLooks(300);
             && da.SelectNodes("//max_co_freq")!.Count == 2
             && da.SelectNodes("//min_elev/elev_angle")!.Count == 2;
     bool okB = HdrOf(db2).GetAttribute("max_co_freq") == "2"
-            && db2.SelectSingleNode("//max_co_freq")!.InnerText == "4";
-    Check("K2 header-only / array-only / both variants encode correctly",
-        okH && okA && okB, $"header={okH} array={okA} both={okB}");
+            && db2.SelectSingleNode("//max_co_freq")!.InnerText == "4"
+            && DeclaredConstraints.FormConflicts(both).Count == 1;
+    Check("K2 header-only / array-only encode correctly; a both-forms set is refused unless emitted as the invalid-filing probe",
+        okH && okA && okB && refusedB, $"header={okH} array={okA} both={okB} refused={refusedB}");
 
     // K3: the encoding rules that are easy to get wrong are enforced.
     bool threw0 = false, threwEs = false, threwPop = false, classicOmits;
