@@ -3036,3 +3036,68 @@ the record will name it as the thing that moved.
 scheduler binds exactly what the mask assumes, so the envelope cannot
 fall below the system it describes. That is the warrant working, not a
 coincidence.
+
+## Beamlab — the third regime: a cap that binds today moves T both ways, 6 September 2026
+
+Capacity 4, chosen from the TRUTH distribution this time, where it binds
+on about a fifth of satellite-steps at the mode and, it turns out, pins
+the worst colour at exactly 4 on 45% of them. Controls: STEAM-2, global
+service, 0.1 d (floor 0.694%), same certificate. Two controls do not hold
+and are named below, because they are part of the result.
+
+| lat | T record | T cap 4 | E1 record | E1 cap 4 | gap record | gap cap 4 |
+|---|---|---|---|---|---|---|
+| 0 | -9.1 | **-7.6** | -15.6 | -11.7 | 6.5 | 4.1 |
+| 10 | -4.8 | -4.8 | -13.7 | -10.2 | 8.9 | 5.4 |
+| 20 | -7.4 | -7.4 | -18.1 | -14.2 | 10.7 | 6.8 |
+| 30 | -5.7 | -5.7 | -12.5 | -7.6 | 6.8 | 1.9 |
+| 40 | -6.9 | -7.0 | -16.9 | -11.7 | 10.0 | 4.7 |
+| 50 | -11.9 | **-12.8** | -24.1 | -19.6 | 12.2 | 6.8 |
+| 60 | -11.7 | **-12.4** | -21.9 | -15.6 | 10.2 | 3.2 |
+
+**T moved, as predicted — and in both directions, which I did not
+predict.** Better by 1.5 dB at the equator, unchanged from 10 to 30,
+worse by 0.7 to 0.9 dB at 50 and 60. The truth-mode readout says why.
+Under real traffic the cap binds constantly (45% of satellite-steps sit
+at 4), yet only 2 of 163 828 link-steps go unserved: a refused link is
+not dropped, it is REASSIGNED to the next-best satellite. The
+interference is not thinned, it is moved — and at some victims the
+satellite it moves to sits in worse geometry. A tighter payload
+commitment is not monotone for compliance. That is the operator-facing
+result of this run, and it is not one the "moves T as a real capacity
+does" framing anticipated in either direction.
+
+**E1 drops 2.4 to 6.9 dB, widest gap 12.2 to 6.8, adequate everywhere.**
+But this is NOT the mask's doing alone, and here is the second control
+that fails: the saturated probe under cap 4 placed 3 493 938 links
+against 6 575 111 — 47% of peak demand unserved, because at saturation
+there is no spare satellite to reassign to — and derived a different R
+set: max_co_freq_sat 16 against 59, and min_exclude 26.5 deg at the
+35-deg band and 33.0 at 45, against 22.0 everywhere on the record. The
+examination READS MIN_EXCLUDE, so part of the high-latitude E1 gain is
+the tightened exclusion, not the top-4 envelope. I have not separated the
+two, and this entry does not claim to. What is safe to say is that the
+derived declaration tightened by measurement, the scheduler honours what
+it declares, and adequacy held — the warrant intact at the extreme.
+
+**Why the exclusion tightened is not established.** With a Random
+selection policy the refused links should be random, so a systematic
+shift of the surviving links toward larger alpha at high latitude is
+unexplained. It goes in the record as an observation.
+
+**The field, complete, on STEAM-2 at 0.1 d:**
+
+| capacity | binds today | binds at peak | T | widest gap | today's cost | peak cost |
+|---|---|---|---|---|---|---|
+| 20 = K_sat | no | no | unchanged | 12.2 -> 10.9 | none | none |
+| 12 | no (worst 11) | yes | unchanged | 12.2 -> 9.8 | none | 2.67% unserved; max_co_freq_sat 59 -> 48 |
+| 4 | yes (45% pinned) | yes | +1.5 to -0.9 dB | 12.2 -> 6.8 | ~0 unserved; interference redistributed | 47% unserved; max_co_freq_sat 59 -> 16; exclusion tightened |
+
+The middle row remains the one an operator would choose. The bottom row
+maps the extreme and says what it costs: half of peak demand, and a
+compliance position that improves at some victims and worsens at others.
+
+**Measured before declared, twice.** The saturated readout said what may
+be enveloped; the truth readout said what a cap binds on today. Picking
+12 from the first and 4 from the second is what made the regimes visible
+at all. The tool now reports both distributions and both costs.
