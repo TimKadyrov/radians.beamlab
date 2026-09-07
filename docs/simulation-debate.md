@@ -3555,3 +3555,29 @@ this week measured what an assumed payload can sit from a filed one.
 **The rule, one line.** Mask given: use as-is (conservative), null the
 certifiable dark rows, flag gate/mask inconsistencies. Payload given: never
 adapt the mask — re-derive it.
+
+---
+
+## Operator decision — consistency probe adopted; priority returns to the composition model, 7 September 2026
+
+Two rulings.
+
+The mask-shaping-consistency probe goes into the dataset design brief as
+its section 3.10 (radians commit 5c21563), beside the read-rule probes:
+a saturation-shaped mask paired with operational gates, the inconsistency
+named in the expectation record together with the conservative verdict a
+consumer that examines it anyway must reproduce.
+
+And a course correction. The campaign has concentrated too heavily on
+STEAM-2B under the pfd-mask option. That thread has delivered what it can
+deliver — the assumed-payload relabelling, the filed mask's own question
+recorded with its caveats, the adaptation rule — and it parks here.
+Priority is the model built from the OPERATION PROFILE describing beam
+composition, the raw system data: truth computed from the composed beams;
+declarations derived from the flown and saturated operation; the payload
+co-frequency beam-capacity field; the convergence purchase (the 1.0 d
+truth sweep) spent on composition-driven cases; and the BL family emission
+the brief now specifies, read-rule and consistency probes included. In
+this program masks are DERIVED artefacts, never inputs. The mask-as-input
+mode stays in the toolbox for parity runs and for examining a real filing
+when asked — it is not the campaign's centre.
