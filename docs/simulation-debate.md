@@ -3985,3 +3985,76 @@ set, unchanged, examined against the filed mask under the total read:
 -2.0 at 50 and -4.0 at 60, the tenth of a dB the two emulations gave. A
 both-forms variant of the same set is refused with the diagnostic and
 exit code 2. Harness 139 passed at the ruling's commit.
+
+## Beamlab — the convergence purchase: the derivation does not move, the truth does, 7 September 2026
+
+The 1.0 d run landed at 20:42, 246 minutes on the name-only copy of the
+STEAM-2 profile — probe, truth sweep and examination all at 1440 steps
+of 60 s, floor 0.069%. Three results, in the order the rule wants them.
+
+**1. The derivation is depth-stable, exactly.** The R set derived at
+1.0 d is identical to the record's, row for row. The mask derived at
+1.0 d agrees with the record's at every one of its 123 431 lit cells to
+the hundredth of a dB (the files differ only in their name tag). The
+saturated probe measures a configuration space, not a sample of one,
+and ten times the duration found no configuration the record's probe
+had missed. So E1 of the 1.0 d artefacts at 1.0 d equals E1 of the
+record's artefacts at 1.0 d — the same seven numbers to the tenth —
+and every movement of E1 with depth this week was the examination's
+sampling of a fixed declaration, never the declaration moving.
+
+**2. T is not converged at 0.1 d.** The pair, worst margin at each
+victim:
+
+| lat | T at 0.1 d | T at 1.0 d | moved |
+|---|---|---|---|
+| 0 | -9.1 | -9.3 | -0.2 |
+| 10 | -4.8 | -10.2 | -5.4 |
+| 20 | -7.4 | -9.5 | -2.1 |
+| 30 | -5.7 | -10.9 | -5.2 |
+| 40 | -6.9 | -10.3 | -3.4 |
+| 50 | -11.9 | -9.3 | +2.6 |
+| 60 | -11.7 | -10.4 | +1.3 |
+
+At depth the truth flattens: -9.3 to -10.9 across all seven latitudes,
+where the 0.1 d record showed -4.8 to -11.9. Most of the record's
+latitude structure was sampling. The power headroom on the assumed
+payload reads -10.9 dB at 1.0 d against -11.9 at 0.1 d; the assumed
+payload is the hot one by ten dB at every victim, not only at some.
+
+**3. The gap, both depths, and what is quotable.**
+
+| lat | E1 - T at 0.1 d | E1 - T at 1.0 d | moved |
+|---|---|---|---|
+| 0 | 6.5 | 8.8 | +2.3 |
+| 10 | 8.9 | 7.5 | -1.4 |
+| 20 | 10.7 | 8.5 | -2.2 |
+| 30 | 6.8 | 7.7 | +0.9 |
+| 40 | 10.0 | 8.5 | -1.5 |
+| 50 | 12.2 | 10.7 | -1.5 |
+| 60 | 10.2 | 11.0 | +0.8 |
+
+Under the convergence-pair rule the 0.1 d absolutes are retired: no
+figure moved less than the tolerance. The 1.0 d figures — T at -9.3 to
+-10.9, E1 at -17.7 to -21.4, the in-band gap 7.5 to 10.7 dB (11.0 at
+60) — are the better numbers and still provisional, because their pair
+does not exist yet. The cheapest legitimate pair is a 0.5 d run, about
+two hours: if 0.5 d and 1.0 d agree within 0.5 dB the 0.5 d figures are
+quotable with 1.0 d as their pair, and the 1.0 d ones stand with them.
+A 2.0 d run, eight hours, would pair 1.0 d directly. Since the
+derivation is exactly stable, only the truth sweep and the examination
+need the depth; the probe does not, and a truth-only mode would halve
+the cost of any further pair.
+
+**What stands unchanged.** Every comparison made at matched depth this
+week — the three regimes, the exclusion's inert share, the band fixes,
+the filed-mask contrast — stands as a difference. The filed mask's own
+pair (0.1 d against 1.0 d, within 0.2 dB) was firm before this run and
+is firm after it. What this run adds is the one thing the differences
+could not give: the declaration itself does not move with depth, so the
+gap between declaration and truth is a property of the envelope, and
+the remaining uncertainty is the truth's tail alone.
+
+Controls: same profile in all but name, same design, limit row,
+victims, grid and step; depth the only variable; the record's artefacts
+and the 1.0 d artefacts compared file to file.
