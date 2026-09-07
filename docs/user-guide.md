@@ -570,6 +570,13 @@ same text as `docs/parameter-cards.html`, kept identical by a check):
   and the aggregation is **modelled in the runs**: with co-channel
   reuse declared, the epfd composite takes the worst colour instead of
   the all-beam power sum, matching what the masks envelope —
+  and the **co-frequency beam capacity**, the most same-colour beams one
+  satellite radiates at once (S.1325-rev §2.5.2; payload hardware, not
+  traffic): the scheduler refuses a satellite a further link in a colour
+  that already has that many lit, and the reachable-envelope mask sums
+  only that many same-colour beams at each cell — which is what gives a
+  top-K mask its warrant; left blank, nothing is limited and the mask
+  sums the whole colour —
   reference bandwidth); then the *link discipline* pair (min angles at
   satellite/ES), which the scheduler enforces and the R set declares. A
   fresh profile opens **pre-filled with the PFD-mask generator's own

@@ -298,20 +298,22 @@ declared, binding commitment makes the tightening true.</p>
 <tr><td>service span</td><td>inner</td><td>large on a regional system; <strong>0 dB</strong> on a globally-serving one, where nothing certifies as dark</td></tr>
 <tr><td>mask grid (az/el)</td><td>inner</td><td><strong>0.1 dB</strong> on STEAM-2 &mdash; converged; per-case, no figure travels without its case</td></tr>
 <tr><td>mask grid (latitude)</td><td>&mdash;</td><td>not a lever. Enveloping the band a row governs is a correctness requirement</td></tr>
-<tr><td>beam count (top-K)</td><td>&mdash;</td><td>no warrant: the observed K is a sample maximum, and the only enforceable ceiling is the colour size the envelope already sums</td></tr>
+<tr><td>co-frequency beam capacity</td><td>outer</td><td>the commitment that gives top-K its warrant: declared and scheduler-enforced. With capacity 20 declared on STEAM-2 (the readout’s K), <strong>0.0&ndash;1.8 dB</strong> recovered, growing with latitude, T unchanged because 20 never binds. Without it the observed K is a sample maximum and the envelope may only sum the whole colour</td></tr>
 <tr><td>reuse plan</td><td>outer</td><td>a modelling correction, not margin: T and E1 both drop, the gap does not</td></tr>
 <tr><td>exclusion angle, co-frequency cap</td><td>outer</td><td>moves T. The advisors walk them one full sweep per step and report the smallest compliant value; applying it to the profile is a deliberate act</td></tr>
 </table>
 
 <div class="tech">
 <div class="t">Where this leaves the inner loop today</div>
-<p>For a payload that declares no beam-capacity commitment, the inner loop is spent: the
-service span certifies nothing on a global system, the grid is converged at 0.1 dB, and the
-beam count has no warrant. The residue &mdash; <strong>6.5 to 12.2 dB</strong> in band on
-STEAM-2 at 0.1&nbsp;d &mdash; is the envelope price proper: the cost of describing a whole
-operating space with a single conservative surface. Recovering more of it needs a new
-commitment, which is an outer-loop decision about the system rather than a better description
-of it.</p>
+<p>For a payload that declares nothing beyond its reuse plan, the inner loop is spent: the
+service span certifies nothing on a global system, the grid is converged at 0.1&nbsp;dB, and
+the beam count has no warrant. Declaring the co-frequency beam capacity &mdash; a real
+property of the hardware &mdash; is what turns the beam count into a lever, and on STEAM-2
+it recovers <strong>0.0&ndash;1.8&nbsp;dB</strong> at the readout’s own K with T untouched. What
+remains &mdash; <strong>6.4 to 10.9&nbsp;dB</strong> in band at 0.1&nbsp;d &mdash; is the
+envelope price proper: the cost of describing a whole operating space with a single
+conservative surface. A cap below the observed K would recover more, and would move T,
+which makes it a design decision about the system rather than a better description of it.</p>
 </div>
 
 <h2>The rules the construction obeys</h2>

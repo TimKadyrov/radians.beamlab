@@ -2893,3 +2893,72 @@ measurement), or a MEASUREMENT (then its extrema travel with the grid),
 or a PRESCRIPTION (then reproducing it exactly is the requirement).
 Naming which of the three a grid is, at the moment it is introduced, is
 the check that would have caught all five before they ran.
+
+## Beamlab — E1-1 built with its warrant, and measured, 6 September 2026
+
+The payload co-frequency beam capacity exists as a profile field, anchored
+to S.1325-rev §2.5.2 as you proposed. One value takes one route — profile,
+composer, scene, resolved set — and two consumers read it: the scheduler
+refuses a satellite a further link in a colour that already has the
+capacity lit, and the reachable-envelope mask sums only that many
+same-colour contributions at each cell. V44 pins the four halves,
+including that enforcement discriminates (a satellite lighting 6 same-
+colour beams free, at most 2 under a cap of 3) and that the uncapped path
+is byte-identical to before.
+
+**Controls, per the standing rule.** STEAM-2, global service area, 0.1 d
+(floor 0.694%), same derived R set (identical output), same certificate
+(11 lit, 0 dark). The profile differs in exactly one field:
+CoFrequencyBeamCapacity = 20, the readout's calibration. T is identical at
+every latitude, because the readout said it would be: K_obs reached 20
+three times in 230 393 satellite-steps, so a cap of 20 essentially never
+binds. What moved is therefore the envelope alone.
+
+| lat | T | E1 before | E1 with cap 20 | gap before | gap after | recovered |
+|---|---|---|---|---|---|---|
+| 0 | -9.1 | -15.6 | -15.6 | 6.5 | 6.5 | 0.0 |
+| 10 | -4.8 | -13.7 | -13.7 | 8.9 | 8.9 | 0.0 |
+| 20 | -7.4 | -18.1 | -17.8 | 10.7 | 10.4 | 0.3 |
+| 30 | -5.7 | -12.5 | -12.1 | 6.8 | 6.4 | 0.4 |
+| 40 | -6.9 | -16.9 | -15.9 | 10.0 | 9.0 | 1.0 |
+| 50 | -11.9 | -24.1 | -22.8 | 12.2 | 10.9 | 1.3 |
+| 60 | -11.7 | -21.9 | -20.1 | 10.2 | 8.4 | 1.8 |
+
+**E1-1 recovers 0.0 to 1.8 dB with full warrant.** Widest gap 12.2 to
+10.9 dB. Adequate at every latitude, as it must be: the scheduler binds
+what the mask assumes. The flat-sum bound of 3.2 dB was loose by about a
+factor of two, which is the top-K decay doing what the pricing argument
+said it would — the beams beyond the twentieth in a colour carry little at
+any test point.
+
+**Your pre-stated frame lands where it was written.** Low single digits
+recovered; the residue — 6.4 to 10.9 dB in band — is the envelope price
+proper for this payload at this depth: side-lobe geometry enveloped over
+the committed operating space, the quantity Q1 owns. Your top-K
+concession was not premature, and my "large fraction of 6.5 dB" from two
+rounds ago stays withdrawn.
+
+**The recovery grows with latitude — 0.0 at the equator, 1.8 at 60 — and I
+have not established why.** The natural reading is that more same-colour
+beams contribute meaningfully at a high-latitude cell, so the tail beyond
+the cap carries more there; but that is a reading, not a measurement, and
+it goes in the record as such.
+
+**Measured before declared, cashed out.** The K readout gave 20; declaring
+20 left T untouched and took the whole envelope effect. Declaring below
+K_obs would have moved T — legitimately, as an outer-loop design choice —
+and declaring above it would have wasted the lever. That is the doctrine
+paying for itself in one run, and it is the reason the readout precedes
+the sampler change in the order you set.
+
+**The other half of the field is running now.** A cap of 12, near the
+mode of the distribution, binds on roughly a fifth of satellite-steps.
+That run answers the operator's question rather than the examiner's: what
+committing to a smaller payload buys on E1 and costs on T, both sides
+moving, the way a real capacity does. Reported when it lands, with T
+named as the thing that moved.
+
+**Records.** The construction page's lever table now states this figure
+against the beam-count row and its tech box no longer says the commitment
+does not exist; the user guide describes the field. The attribution
+footnote on the margin-figure records stays on my ledger.
