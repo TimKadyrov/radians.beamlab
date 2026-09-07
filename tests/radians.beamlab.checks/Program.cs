@@ -2987,13 +2987,13 @@ var looks = RandomLooks(300);
     var missing = ParameterCatalog.All
         .Where(e => !norm.Contains(e.Name) || !norm.Contains(e.Description))
         .Select(e => e.Name).ToList();
-    bool okV8 = ParameterCatalog.All.Count == 42
+    bool okV8 = ParameterCatalog.All.Count == 43
         && ParameterCatalog.All.Count(e => e.Group == ParameterGroup.Declared) == 11
-        && ParameterCatalog.All.Count(e => e.Group == ParameterGroup.Truth) == 27
+        && ParameterCatalog.All.Count(e => e.Group == ParameterGroup.Truth) == 28
         && ParameterCatalog.All.Count(e => e.Group == ParameterGroup.Orbit) == 4
         && missing.Count == 0
         && ParameterCatalog.Find("MIN_EXCLUDE") is { } me && me.ToolTipText.Contains("- ");
-    Check("V8 parameter catalog: 42 entries locked verbatim to the card deck", okV8,
+    Check("V8 parameter catalog: 43 entries locked verbatim to the card deck", okV8,
         missing.Count > 0 ? "drifted: " + string.Join(", ", missing.Take(3))
                           : $"entries={ParameterCatalog.All.Count}");
 }
@@ -4838,6 +4838,134 @@ var looks = RandomLooks(300);
     Check("V43 mask cache key covers grid, service span and the producing code",
         shapeOk43 && stableOk43 && gridOk43,
         $"shape={shapeOk43} stable={stableOk43} grid={gridOk43} tag={t43}");
+}
+
+
+// ---- V44: the co-frequency beam capacity -- enforced, enveloped, plumbed ----
+{
+    // E1-1 with its warrant attached. The payload declares how many same-colour
+    // beams a satellite may light at once (S.1325-rev Sec. 2.5.2, a required
+    // antenna input); the scheduler enforces it; the mask envelopes over it.
+    // Without the declaration the observed count is a sample maximum and the
+    // mask may only sum the whole colour.
+
+    // (a) The composite: top-K per colour is bounded, monotone, and exact at
+    // both ends -- cap 1 is the largest single same-colour contribution, cap >=
+    // the colour size is the uncapped sum.
+    var scene44 = new PfdMaskViewModel
+        { AltitudeKm = 1200.0, FrequencyGHz = 19.7, MinElevDeg = 10.0, RefBwKHz = 40.0 };
+    scene44.IsCoChannelMode = true;
+    scene44.ReuseClusterIndex = 1;                    // 4 colours
+    var shells44 = new[] { new ConstellationShell
+        { AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 1, SatsPerPlane = 1 } };
+    var con44 = new Constellation(shells44);
+    double dur44 = 3600.0;
+    var st44 = con44.StateAt(0, 0.0, dur44);
+    var set44 = new ScenePointing(scene44).Resolve(st44);
+    int n44 = set44.CoChannelN!.Value;
+    var colors44 = set44.ReuseColors!;
+    var look44 = (GeodeticToEcef(st44.SubSatLatDeg + 2.0, st44.SubSatLonDeg + 1.0, 0.0)
+        - st44.PositionEcefKm).Normalized();
+    double uncapped44 = BeamComposer.MaxCoChannelEirpDbw(set44.Beams, look44, set44.PowersDbw, colors44, n44);
+    double cap1_44 = BeamComposer.MaxCoChannelEirpDbw(set44.Beams, look44, set44.PowersDbw, colors44, n44, 1);
+    double cap3_44 = BeamComposer.MaxCoChannelEirpDbw(set44.Beams, look44, set44.PowersDbw, colors44, n44, 3);
+    double capBig44 = BeamComposer.MaxCoChannelEirpDbw(set44.Beams, look44, set44.PowersDbw, colors44, n44, 100000);
+    // Independent hand value for cap 1: the largest single weighted contribution
+    // in any colour.
+    double best1 = 0.0;
+    for (int i = 0; i < set44.Beams.Count; i++)
+    {
+        if (set44.Beams[i].Weight <= 0.0) continue;
+        double lin = set44.Beams[i].Weight * Math.Pow(10.0, (set44.PowersDbw[i] + set44.Beams[i].GainDbi(look44)) / 10.0);
+        if (lin > best1) best1 = lin;
+    }
+    bool compOk44 = cap1_44 <= cap3_44 + 1e-9 && cap3_44 <= uncapped44 + 1e-9
+        && Math.Abs(capBig44 - uncapped44) < 1e-9
+        && Math.Abs(cap1_44 - 10.0 * Math.Log10(best1)) < 1e-9
+        && cap3_44 < uncapped44 - 0.01;            // the cap genuinely bites here
+
+    // (b) Enforcement: one satellite over a dense saturated grid would light
+    // many beams per colour; with a capacity of 3 no colour exceeds it, and
+    // without one some colour does -- so the check discriminates.
+    var geo44 = ServiceGeography.Grid(st44.SubSatLatDeg - 8.0, st44.SubSatLatDeg + 8.0,
+        st44.SubSatLonDeg - 10.0, st44.SubSatLonDeg + 10.0, 250.0);
+    var ops44 = new OperatingParamsSet
+        { SatName = "V44", LowFreqMhz = 19700, HighFreqMhz = 19700, ElevAngleHeaderDeg = 10.0 };
+    int WorstColour44(PfdMaskViewModel scene)
+    {
+        var pointing = new ScenePointing(scene);
+        var sched = new Scheduler(con44, geo44, ops44, pointing, dur44);
+        var step = sched.Step(0.0);
+        int worst = 0;
+        foreach (var kv in step.ActiveBeams)
+        {
+            var rs = pointing.Resolve(con44.StateAt(0, 0.0, dur44));
+            var count = new int[rs.CoChannelN ?? 1];
+            foreach (int b in kv.Value) count[rs.ReuseColors![b]]++;
+            worst = Math.Max(worst, count.Max());
+        }
+        return worst;
+    }
+    int freeWorst44 = WorstColour44(scene44);
+    scene44.CoFrequencyBeamCapacity = 3;
+    int cappedWorst44 = WorstColour44(scene44);
+    bool enforceOk44 = freeWorst44 > 3 && cappedWorst44 <= 3 && cappedWorst44 > 0;
+
+    // (c) Plumbing: profile -> codec -> composition -> scene -> resolved set,
+    // and the scene clone the pointing works from carries it too.
+    var prof44 = new OperationProfile(Name: "V44", CellKm: 900.0,
+        Downlink: new DownlinkProfile(Aggregation: "cochannel", ReuseClusterIndex: 1,
+            CoFrequencyBeamCapacity: 6));
+    var back44 = OperationProfileCodec.Load(OperationProfileCodec.Save(prof44));
+    var comp44 = OperationComposer.Compose(prof44, 1200.0);
+    var clone44 = new PfdMaskViewModel(comp44.Scene.Coastlines);
+    comp44.Scene.CopySettingsTo(clone44);
+    var resolved44 = new ScenePointing(comp44.Scene).Resolve(st44);
+    bool plumbOk44 = back44 == prof44
+        && back44.Down.CoFrequencyBeamCapacity == 6
+        && comp44.Scene.CoFrequencyBeamCapacity == 6
+        && clone44.CoFrequencyBeamCapacity == 6
+        && resolved44.CoFrequencyBeamCapacity == 6
+        // and absent stays absent: no limit is declared by default
+        && new OperationProfile(Name: "V44n").Down.CoFrequencyBeamCapacity is null
+        && OperationComposer.Compose(new OperationProfile(Name: "V44n"), 1200.0)
+            .Scene.CoFrequencyBeamCapacity is null;
+
+    // (d) The exported mask: with the capacity declared, no cell is higher and
+    // some cell is lower than without it.
+    string dir44 = Path.Combine(AppContext.BaseDirectory, "exp");
+    Directory.CreateDirectory(dir44);
+    string Export44(int? cap)
+    {
+        var g = new PfdMaskViewModel(scene44.Coastlines);
+        scene44.CopySettingsTo(g);
+        g.CoFrequencyBeamCapacity = cap;
+        string path = Path.Combine(dir44, cap is null ? "v44-free.xml" : "v44-cap.xml");
+        var opts = new MaskXmlExportOptions
+        {
+            SatName = "V44", NtcId = 1, MaskId = 1,
+            LowFreqMhz = 19700, HighFreqMhz = 19700, RefBwKHz = 40.0,
+            LatMinDeg = 0.0, LatMaxDeg = 0.0, LatStepDeg = 10.0,
+            BStepDeg = 15.0, CStepDeg = 15.0,
+            Kind = MaskPlotKind.AzEl, Format = MaskExportFormat.Xml, OutputPath = path,
+        };
+        MaskXmlExport.GenerateAsync(new MaskExportSampler(g, opts), opts, null, CancellationToken.None)
+            .GetAwaiter().GetResult();
+        return File.ReadAllText(path);
+    }
+    static List<double> Cells44(string xml)
+        => System.Text.RegularExpressions.Regex.Matches(xml, @"<pfd c=""[-0-9.]+"">(-?[0-9.]+)</pfd>")
+            .Select(m => double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture)).ToList();
+    var free44 = Cells44(Export44(null));
+    var capd44 = Cells44(Export44(2));
+    bool maskOk44 = free44.Count > 0 && free44.Count == capd44.Count
+        && free44.Zip(capd44, (f, c) => c <= f + 1e-9).All(x => x)
+        && free44.Zip(capd44, (f, c) => f > -999 && c < f - 0.01).Any(x => x);
+
+    Check("V44 co-frequency beam capacity: top-K composite exact, scheduler enforces, plumbed, mask tighter",
+        compOk44 && enforceOk44 && plumbOk44 && maskOk44,
+        $"comp={compOk44} enforce={enforceOk44} plumb={plumbOk44} mask={maskOk44} " +
+        $"free={uncapped44:F2} cap3={cap3_44:F2} cap1={cap1_44:F2} worstFree={freeWorst44} worstCapped={cappedWorst44} cells={free44.Count}");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

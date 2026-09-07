@@ -647,6 +647,18 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     </ul>
   </div>
 
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">CoFrequencyBeamCapacity</span><span class="unit">count per colour</span></div>
+    <div class="where"><b>DownlinkProfile.CoFrequencyBeamCapacity</b> -> PfdMaskViewModel, ResolvedBeamSet; scheduler gate and mask top-K</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">The most same-colour (co-frequency) beams one satellite radiates at once. Payload hardware, not traffic: the study Recommendation lists the maximum number of co-frequency, co-polarisation beams as a required antenna input. Declared here it does two things at once. The scheduler refuses a satellite a further link in a colour that already has this many lit, so the truth honours it; and the reachable-envelope mask sums only the largest K same-colour contributions at each cell instead of the whole colour. That second step is E1-1, and this field is its warrant: without an enforced capacity the observed count is a sample maximum and the only ceiling the envelope may use is the colour size itself. Left empty, nothing is limited and the mask sums every beam of the colour.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>distinct from MAX_CO_FREQ_SAT, which counts earth stations across all colours and is an R-set item</span></li>
+      <li><span class="op">&rarr;</span><span>measured before it is declared: the beamcount readout gives the per-satellite distribution (20 against 42 in the colour on STEAM-2)</span></li>
+      <li><span class="op">&rarr;</span><span>moves T when declared, exactly as a real capacity does -- an outer-loop parameter, not a description</span></li>
+    </ul>
+  </div>
+
 
   <h3 class="intent">Beam shape &amp; layout</h3>
 

@@ -109,6 +109,7 @@ public sealed class PfdMaskViewModel : ObservableObject
         d._powerMode           = _powerMode;
         d._aggregation         = _aggregation;
         d._reuseClusterIndex         = _reuseClusterIndex;
+        d._coFrequencyBeamCapacity   = _coFrequencyBeamCapacity;
         d._maskKind            = _maskKind;
         d._useAdvancedExclusion = _useAdvancedExclusion;
 
@@ -407,6 +408,19 @@ public sealed class PfdMaskViewModel : ObservableObject
 
     /// <summary>Hex reuse cluster size N (= number of co-frequency colours) for <see cref="PfdAggregation.CoChannelSum"/>.</summary>
     public int ReuseClusterSize => ReuseClusterSizes[_reuseClusterIndex];
+
+    private int? _coFrequencyBeamCapacity;
+    /// <summary>
+    /// Maximum same-colour beams the payload radiates at once -- hardware, not
+    /// traffic (S.1325-rev Sec. 2.5.2). Enforced by the scheduler per satellite
+    /// per colour and enveloped over by the mask, so declaring it is what gives
+    /// a top-K mask its warrant. Null = no limit: the mask sums the whole colour.
+    /// </summary>
+    public int? CoFrequencyBeamCapacity
+    {
+        get => _coFrequencyBeamCapacity;
+        set { if (SetField(ref _coFrequencyBeamCapacity, value)) SceneChanged?.Invoke(); }
+    }
 
     private double _refBwKHz = 40.0;
     /// <summary>Reference bandwidth (kHz) used to interpret the EIRP. Purely informational for the plot legend.</summary>

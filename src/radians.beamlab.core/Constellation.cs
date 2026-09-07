@@ -155,7 +155,12 @@ public sealed record SatelliteState(
 /// modelled in the truth run, not only in the masks.
 /// </summary>
 public sealed record ResolvedBeamSet(IReadOnlyList<Beam> Beams, IReadOnlyList<double> PowersDbw,
-    int? CoChannelN = null, IReadOnlyList<int>? ReuseColors = null);
+    int? CoChannelN = null, IReadOnlyList<int>? ReuseColors = null,
+    // Maximum same-colour beams the payload radiates at once (hardware, not
+    // traffic; S.1325-rev Sec. 2.5.2 lists it as a required antenna input).
+    // The scheduler enforces it and the mask envelopes over it, so both read
+    // one value. Null = no hardware limit.
+    int? CoFrequencyBeamCapacity = null);
 
 /// <summary>
 /// Yields the beam set for a satellite state (simulation spec Sec. 4.1:

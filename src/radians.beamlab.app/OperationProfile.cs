@@ -34,7 +34,11 @@ public sealed record DownlinkProfile(
     double? EllRollOffDb = null, string PatternKind = "",
     double? ThetaBDeg = null, bool? AutoHex = null, bool? UvArrayBeams = null,
     double? EllAlphaDeg = null, double? EllBetaDeg = null, double? LnDb = null,
-    double? CrossoverDb = null);
+    double? CrossoverDb = null,
+    // Maximum same-colour beams a satellite radiates at once: payload hardware,
+    // enforced by the scheduler and enveloped over by the mask (S.1325-rev 2.5.2).
+    // LAST on purpose: the profile window constructs this record positionally.
+    int? CoFrequencyBeamCapacity = null);
 
 /// <summary>Earth-to-space side: the transmitting earth stations and their link discipline.</summary>
 public sealed record UplinkProfile(
@@ -175,6 +179,7 @@ public static class OperationComposer
         if (dl.Aggregation == "cochannel") scene.IsCoChannelMode = true;
         else if (dl.Aggregation == "powersum") scene.IsPowerSumMode = true;
         if (dl.ReuseClusterIndex is int rc) scene.ReuseClusterIndex = rc;
+        if (dl.CoFrequencyBeamCapacity is int bc) scene.CoFrequencyBeamCapacity = bc;
         if (dl.EllRollOffDb is double xo) scene.EllRollOffDb = xo;
         if (dl.PatternKind is { Length: > 0 } pks
             && Enum.TryParse<BeamPatternKind>(pks, out var pk))

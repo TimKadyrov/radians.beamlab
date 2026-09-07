@@ -56,6 +56,7 @@ public sealed class ScenePointing : IBeamPointing
         // epfd composite models the aggregation the payload declares.
         int? n = _gen.Aggregation == PfdAggregation.CoChannelSum ? _gen.ReuseClusterSize : null;
         return new ResolvedBeamSet(beams, powers, n,
-            n is int nn ? BeamComposer.ReuseColors(beams, nn) : null);
+            n is int nn ? BeamComposer.ReuseColors(beams, nn) : null,
+            n is not null ? _gen.CoFrequencyBeamCapacity : null);
     }
 }

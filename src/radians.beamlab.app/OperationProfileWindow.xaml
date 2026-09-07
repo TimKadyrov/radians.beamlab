@@ -71,6 +71,7 @@
                             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="Downlink frequency (GHz)"/>
                         <TextBox   x:Name="FreqBox" Grid.Row="0" Grid.Column="1" Text="{Binding FrequencyGhzText, UpdateSourceTrigger=LostFocus}"/>
@@ -99,6 +100,8 @@
                         <TextBox   x:Name="RefBwBox" Grid.Row="5" Grid.Column="1" Text="{Binding RefBwText, UpdateSourceTrigger=LostFocus}"/>
                         <TextBlock Grid.Row="6" Text="Illumination duty cycle"/>
                         <TextBox   x:Name="DutyBox" Grid.Row="6" Grid.Column="1" Text="{Binding DutyText, UpdateSourceTrigger=LostFocus}"/>
+                        <TextBlock Grid.Row="7" Text="Co-frequency beam capacity"/>
+                        <TextBox   x:Name="BeamCapBox" Grid.Row="7" Grid.Column="1" Text="{Binding BeamCapacityText, UpdateSourceTrigger=LostFocus}"/>
                     </Grid>
                 </GroupBox>
 

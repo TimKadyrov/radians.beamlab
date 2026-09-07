@@ -32,6 +32,7 @@ public sealed class OperationProfileViewModel : ObservableObject
         _powerMode = t.IsConstantPfdMode ? "pfd" : "eirp";
         _aggregation = t.IsCoChannelMode ? "cochannel" : "powersum";
         _reuseClusterText = t.ReuseClusterIndex.ToString(inv);
+        _beamCapacityText = t.CoFrequencyBeamCapacity?.ToString(inv) ?? "";
         _refBwText = t.RefBwKHz.ToString(inv);
         _ellRollOffText = t.EllRollOffDb.ToString(inv);
         _patternKind = t.Scene.PatternKind.ToString();
@@ -127,6 +128,14 @@ public sealed class OperationProfileViewModel : ObservableObject
             OnPropertyChanged(nameof(ReuseClusterText));
             Recompute();
         }
+    }
+
+    private string _beamCapacityText = "";
+    /// <summary>Co-frequency beam capacity per satellite; "" = no hardware limit.</summary>
+    public string BeamCapacityText
+    {
+        get => _beamCapacityText;
+        set { if (SetField(ref _beamCapacityText, value)) Recompute(); }
     }
 
     private string _refBwText = "40";
@@ -464,7 +473,8 @@ public sealed class OperationProfileViewModel : ObservableObject
                 Opt(_ellRollOffText, "edge roll-off"), _patternKind.Trim(),
                 Opt(_thetaBText, "beamwidth"), _autoHex, _uvArrayBeams,
                 Opt(_ellAlphaText, "ell alpha"), Opt(_ellBetaText, "ell beta"),
-                Opt(_lnText, "near-in side-lobe"), Opt(_crossoverText, "crossover")),
+                Opt(_lnText, "near-in side-lobe"), Opt(_crossoverText, "crossover"),
+                OptInt(_beamCapacityText, "co-frequency beam capacity")),
             new UplinkProfile(
                 Req(_ulFrequencyGhzText, "uplink frequency"),
                 Opt(_esPowerText, "ES power"), Opt(_powerRefElevText, "power control ref elev"),
@@ -506,6 +516,7 @@ public sealed class OperationProfileViewModel : ObservableObject
         PowerMode = dl.PowerMode;
         Aggregation = dl.Aggregation;
         ReuseClusterText = dl.ReuseClusterIndex?.ToString(inv) ?? "";
+        BeamCapacityText = dl.CoFrequencyBeamCapacity?.ToString(inv) ?? "";
         RefBwText = dl.RefBwKHz.ToString(inv);
         DlAngleSatText = dl.MinAngleAtSatDeg?.ToString(inv) ?? "";
         DlAngleEsText = dl.MinAngleAtEsDeg?.ToString(inv) ?? "";

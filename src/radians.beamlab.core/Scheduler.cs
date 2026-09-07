@@ -237,17 +237,23 @@ public sealed class Scheduler
     }
 
     private sealed record Candidate(int SatIndex, int SatelliteNumber, int BeamIndex,
-        double ElevationDeg, double AlphaDeg, double RandomKey = 0.0);
+        double ElevationDeg, double AlphaDeg, double RandomKey = 0.0, int Colour = 0);
 
     public ScheduleStep Step(double tSec)
     {
         int n = _con.SatelliteCount;
         var states = new SatelliteState[n];
         var footprints = new List<(int beamIndex, double lat, double lon)>[n];
+        // Per-satellite reuse colours and the payload's per-colour beam capacity
+        // come from the resolved set: the same values the mask envelopes over.
+        var colours = new IReadOnlyList<int>?[n];
+        int? capColour = null;
         for (int i = 0; i < n; i++)
         {
             states[i] = _con.StateAt(i, tSec, _simDurationSec);
             var resolved = _layout.Resolve(states[i]);
+            colours[i] = resolved.ReuseColors;
+            capColour ??= resolved.CoFrequencyBeamCapacity;
             var fps = new List<(int, double, double)>();
             for (int b = 0; b < resolved.Beams.Count; b++)
             {
@@ -296,8 +302,9 @@ public sealed class Scheduler
                 }
                 if (bestBeam < 0) continue;
 
+                int colour = colours[i] is { } cc && bestBeam < cc.Count ? cc[bestBeam] : 0;
                 list.Add(new Candidate(i, states[i].SatelliteNumber, bestBeam, elev, alpha,
-                    _policy == SelectionPolicy.Random ? _rng.NextDouble() : 0.0));
+                    _policy == SelectionPolicy.Random ? _rng.NextDouble() : 0.0, colour));
             }
             list.Sort((a, b) =>
             {
@@ -322,6 +329,10 @@ public sealed class Scheduler
         double minAngleSat = DeclaredConstraints.MinAngleAtSatDeg(_declared);
         double minAngleEs = DeclaredConstraints.MinAngleAtEsDeg(_declared);
         var satLinkCount = new Dictionary<int, int>();          // satellite number -> links granted this step
+        // satellite number, colour -> beams lit this step. The payload's co-frequency
+        // beam capacity is hardware: a satellite with this many same-colour beams
+        // already on cannot light another, whatever the cell asks for.
+        var satColourCount = new Dictionary<(int Sat, int Colour), int>();
         var satServedCells = new Dictionary<int, List<Vec3>>(); // satellite number -> served cell positions
 
         for (int ci = 0; ci < _geo.Cells.Count; ci++)
@@ -343,6 +354,8 @@ public sealed class Scheduler
             bool Eligible(Candidate x)
             {
                 if (satLinkCount.GetValueOrDefault(x.SatelliteNumber) >= capSat) return false;
+                if (capColour is int kc
+                    && satColourCount.GetValueOrDefault((x.SatelliteNumber, x.Colour)) >= kc) return false;
                 if (minAngleSat > 0.0 && satServedCells.TryGetValue(x.SatelliteNumber, out var served))
                 {
                     var sp = states[x.SatIndex].PositionEcefKm;
@@ -362,6 +375,8 @@ public sealed class Scheduler
             void Book(Candidate c)
             {
                 satLinkCount[c.SatelliteNumber] = satLinkCount.GetValueOrDefault(c.SatelliteNumber) + 1;
+                satColourCount[(c.SatelliteNumber, c.Colour)] =
+                    satColourCount.GetValueOrDefault((c.SatelliteNumber, c.Colour)) + 1;
                 if (!satServedCells.TryGetValue(c.SatelliteNumber, out var served))
                     satServedCells[c.SatelliteNumber] = served = new List<Vec3>();
                 served.Add(esPos);

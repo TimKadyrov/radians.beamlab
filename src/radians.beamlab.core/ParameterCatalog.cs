@@ -264,6 +264,15 @@ public static class ParameterCatalog
                 "checks pin the K-colour adjacency and the ordering (C2, C3)",
                 "modelled in the truth run too: with co-channel declared, the epfd composite takes the worst colour (V32)",
             }) { SubGroup = ProfileIntent.Power },
+        new(ParameterGroup.Truth, "CoFrequencyBeamCapacity", "count per colour",
+            "DownlinkProfile.CoFrequencyBeamCapacity -> PfdMaskViewModel, ResolvedBeamSet; scheduler gate and mask top-K",
+            "The most same-colour (co-frequency) beams one satellite radiates at once. Payload hardware, not traffic: the study Recommendation lists the maximum number of co-frequency, co-polarisation beams as a required antenna input. Declared here it does two things at once. The scheduler refuses a satellite a further link in a colour that already has this many lit, so the truth honours it; and the reachable-envelope mask sums only the largest K same-colour contributions at each cell instead of the whole colour. That second step is E1-1, and this field is its warrant: without an enforced capacity the observed count is a sample maximum and the only ceiling the envelope may use is the colour size itself. Left empty, nothing is limited and the mask sums every beam of the colour.",
+            new[]
+            {
+                "distinct from MAX_CO_FREQ_SAT, which counts earth stations across all colours and is an R-set item",
+                "measured before it is declared: the beamcount readout gives the per-satellite distribution (20 against 42 in the colour on STEAM-2)",
+                "moves T when declared, exactly as a real capacity does -- an outer-loop parameter, not a description",
+            }) { SubGroup = ProfileIntent.Power },
         new(ParameterGroup.Truth, "RefBwKHz", "kHz",
             "PfdMaskViewModel.RefBwKHz · mask refbw_khz",
             "Reference bandwidth of every density in the chain — the masks, the limits and the CDFs all quote per-reference-bandwidth quantities, and Article 22 epfd(down) uses 40 kHz. Declared once, carried everywhere.",

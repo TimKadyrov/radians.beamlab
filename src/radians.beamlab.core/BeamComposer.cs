@@ -71,9 +71,20 @@ public static class BeamComposer
     /// <paramref name="reuseColors"/> is index-aligned with <paramref name="beams"/>;
     /// values are clamped into [0, numColors).
     /// </summary>
+    /// <param name="coFrequencyBeamCapacity">
+    /// When the payload declares a per-colour beam capacity K -- and the
+    /// scheduler enforces it -- only the K largest same-colour contributions
+    /// are summed. Without the declaration every beam of the colour is summed,
+    /// because an envelope over "any K of the lattice" has no warrant unless
+    /// something binds the system to K. This is E1-1 with its warrant attached.
+    /// </param>
     public static double MaxCoChannelEirpDbw(IReadOnlyList<Beam> beams, Vec3 test,
-        IReadOnlyList<double> powersDbw, IReadOnlyList<int> reuseColors, int numColors)
+        IReadOnlyList<double> powersDbw, IReadOnlyList<int> reuseColors, int numColors,
+        int? coFrequencyBeamCapacity = null)
     {
+        if (coFrequencyBeamCapacity is int cap && cap > 0)
+            return MaxCoChannelTopKEirpDbw(beams, test, powersDbw, reuseColors, numColors, cap);
+
         Span<double> sums = numColors <= 16 ? stackalloc double[16] : new double[numColors];
         sums = sums[..Math.Max(1, numColors)];
         sums.Clear();
@@ -90,6 +101,39 @@ public static class BeamComposer
 
         double max = 0.0;
         foreach (double s in sums) if (s > max) max = s;
+        if (max <= 0.0) return double.NegativeInfinity;
+        return 10.0 * Math.Log10(max);
+    }
+
+    /// <summary>
+    /// Worst colour under a per-colour beam capacity: each colour keeps only
+    /// its K largest linear contributions at the test point. Exact where the
+    /// system lights at most K per colour, which the scheduler guarantees when
+    /// the same capacity is declared; over-declares where it lights fewer.
+    /// </summary>
+    private static double MaxCoChannelTopKEirpDbw(IReadOnlyList<Beam> beams, Vec3 test,
+        IReadOnlyList<double> powersDbw, IReadOnlyList<int> reuseColors, int numColors, int cap)
+    {
+        int nc = Math.Max(1, numColors);
+        var perColour = new List<double>[nc];
+        for (int i = 0; i < beams.Count; i++)
+        {
+            double w = beams[i].Weight;
+            if (w <= 0.0) continue;
+            double linear = w * Math.Pow(10.0, (powersDbw[i] + beams[i].GainDbi(test)) / 10.0);
+            int c = reuseColors[i];
+            if (c < 0) c = 0; else if (c >= nc) c = nc - 1;
+            (perColour[c] ??= new List<double>()).Add(linear);
+        }
+        double max = 0.0;
+        foreach (var list in perColour)
+        {
+            if (list is null) continue;
+            list.Sort((a, b) => b.CompareTo(a));
+            double sum = 0.0;
+            for (int k = 0; k < list.Count && k < cap; k++) sum += list[k];
+            if (sum > max) max = sum;
+        }
         if (max <= 0.0) return double.NegativeInfinity;
         return 10.0 * Math.Log10(max);
     }
@@ -118,7 +162,7 @@ public static class BeamComposer
     /// </summary>
     public static double ResolvedEirpDbw(ResolvedBeamSet set, Vec3 test)
         => set.CoChannelN is int n && set.ReuseColors is { } colors
-            ? MaxCoChannelEirpDbw(set.Beams, test, set.PowersDbw, colors, n)
+            ? MaxCoChannelEirpDbw(set.Beams, test, set.PowersDbw, colors, n, set.CoFrequencyBeamCapacity)
             : CompositeEirpDbw(set.Beams, test, set.PowersDbw);
 
     /// <summary>

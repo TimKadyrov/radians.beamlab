@@ -335,7 +335,7 @@ public sealed class PfdMaskField
                 // show that. eps_min only gates which beams are ON (SceneModel /
                 // PfdMaskViewModel), not where PFD is evaluated.
                 double e = agg == PfdAggregation.CoChannelSum
-                    ? BeamComposer.MaxCoChannelEirpDbw(scene.Beams, look, powers, colors, clusterN)
+                    ? BeamComposer.MaxCoChannelEirpDbw(scene.Beams, look, powers, colors, clusterN, vm.CoFrequencyBeamCapacity)
                     : BeamComposer.CompositeEirpDbw(scene.Beams, look, powers);
                 if (double.IsNegativeInfinity(e)) continue;
 
@@ -440,7 +440,7 @@ public sealed class PfdMaskField
                 var ground = hit.Value;
 
                 double e = agg == PfdAggregation.CoChannelSum
-                    ? BeamComposer.MaxCoChannelEirpDbw(scene.Beams, look, powers, colors, clusterN)
+                    ? BeamComposer.MaxCoChannelEirpDbw(scene.Beams, look, powers, colors, clusterN, vm.CoFrequencyBeamCapacity)
                     : BeamComposer.CompositeEirpDbw(scene.Beams, look, powers);
                 if (double.IsNegativeInfinity(e)) continue;
 
@@ -531,7 +531,7 @@ public sealed class PfdMaskField
             var hit = RaySphereHit(sat, look);
             if (hit is null) continue;
             double e = agg == PfdAggregation.CoChannelSum
-                ? BeamComposer.MaxCoChannelEirpDbw(scene.Beams, look, powers, colors, clusterN)
+                ? BeamComposer.MaxCoChannelEirpDbw(scene.Beams, look, powers, colors, clusterN, vm.CoFrequencyBeamCapacity)
                 : BeamComposer.CompositeEirpDbw(scene.Beams, look, powers);
             if (double.IsNegativeInfinity(e)) continue;
             double slantM = (hit.Value - sat).Length * 1000.0;

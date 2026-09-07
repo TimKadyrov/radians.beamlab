@@ -137,6 +137,7 @@ public partial class OperationProfileWindow : Window
         PowerModeCombo.ToolTip = Cat("PowerMode");
         AggCombo.ToolTip = Cat("Aggregation · ReuseClusterIndex");
         ReuseBox.ToolTip = Cat("Aggregation · ReuseClusterIndex");
+        BeamCapBox.ToolTip = Cat("CoFrequencyBeamCapacity");
         RefBwBox.ToolTip = Cat("RefBwKHz");
         PatternCombo.ToolTip = Cat("PatternKind");
         ThetaBBox.ToolTip = Cat("ThetaBDeg");
