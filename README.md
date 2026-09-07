@@ -42,6 +42,10 @@ Functions (each a tab or tool window, launched from the Home page):
 See the **[user guide](docs/user-guide.md)** for a full walk-through of
 every function and control.
 
+For what the tool is doing and why — the inputs, the three runs, the two
+loops and the rules the construction obeys — see
+**[how the projection is built](docs/construction.html)**.
+
 Layout:
 
 - `src/radians.beamlab.Core/` — class library

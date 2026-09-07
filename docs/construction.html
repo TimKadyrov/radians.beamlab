@@ -1,0 +1,268 @@
+<title>How the Projection Is Built</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Italic.woff2") format("woff2");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-Medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"Gibson";src:url("fonts/Gibson-SemiBold.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}
+:root{
+  --paper:#E9F4F8; --card:#FFFFFF; --ink:#000000; --muted:#698089;
+  --line:#D1EBF5; --line-soft:#E0F1F8;
+  --g1:#0076A1; --g2:#15807B; --g3:#0B516F;
+  --g1-tint:rgba(0,118,161,.10); --g2-tint:rgba(21,128,123,.10); --g3-tint:rgba(11,81,111,.10);
+  --code-bg:#E4F2F9; --bad:#CC3F4D;
+  --measure:44rem;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#003F57; --card:#154E66; --ink:#FFFFFF; --muted:#A9C6D2;
+    --line:#2E6479; --line-soft:#24576A;
+    --g1:#6FCBEF; --g2:#57C4BC; --g3:#99D7EF;
+    --g1-tint:rgba(111,203,239,.16); --g2-tint:rgba(87,196,188,.15); --g3-tint:rgba(153,215,239,.15);
+    --code-bg:#0F4459; --bad:#E57384;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#003F57; --card:#154E66; --ink:#FFFFFF; --muted:#A9C6D2;
+  --line:#2E6479; --line-soft:#24576A;
+  --g1:#6FCBEF; --g2:#57C4BC; --g3:#99D7EF;
+  --g1-tint:rgba(111,203,239,.16); --g2-tint:rgba(87,196,188,.15); --g3-tint:rgba(153,215,239,.15);
+  --code-bg:#0F4459; --bad:#E57384;
+}
+*{box-sizing:border-box}
+body{margin:0; border-top:4px solid var(--g1); background:var(--paper); color:var(--ink);
+  font-family:"Gibson","Segoe UI",system-ui,sans-serif; font-size:15.5px; line-height:1.6}
+.wrap{max-width:880px; margin:0 auto; padding:40px 28px 72px}
+.kicker{font-size:13px; font-weight:600; color:var(--muted)}
+h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; margin:.25em 0 .35em; text-wrap:balance; max-width:var(--measure)}
+.lede{color:var(--muted); margin:0 0 8px; max-width:var(--measure)}
+h2{font-size:21px; font-weight:600; letter-spacing:-.01em; margin:2.2em 0 .4em; text-wrap:balance; max-width:var(--measure)}
+p{max-width:var(--measure)}
+ul{max-width:var(--measure)}
+code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--code-bg); padding:0 4px; border-radius:3px}
+.tech{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--g1); border-radius:5px; padding:12px 16px; margin:14px 0; font-size:13.5px; max-width:var(--measure)}
+.tech .t{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; font-weight:600}
+.tech p{font-size:13.5px; margin:6px 0 0}
+figure{margin:18px 0; padding:14px 10px 8px; background:var(--card); border:1px solid var(--line); border-radius:6px; overflow-x:auto; max-width:var(--measure)}
+figure svg{display:block; max-width:100%; height:auto; margin:0 auto}
+figcaption{font-size:12px; color:var(--muted); text-align:center; margin-top:8px}
+.svgtxt{font-family:"IBM Plex Mono",monospace; font-size:12.5px; fill:currentColor}
+.svglbl{font-family:"Gibson","Segoe UI",sans-serif; font-size:12px; fill:var(--muted)}
+.foot{margin-top:44px; font-size:12.5px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; max-width:var(--measure)}
+a{color:var(--g1)} a:hover{color:#1983AA}
+table.ex{border-collapse:collapse; font-size:13px; margin:14px 0; max-width:var(--measure)}
+table.ex th{font-family:"IBM Plex Mono",monospace; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); text-align:left; padding:4px 10px; border-bottom:1px solid var(--line)}
+table.ex td{padding:4px 10px; text-align:left; border-bottom:1px solid var(--line-soft); vertical-align:top}
+table.ex td:first-child{font-family:"IBM Plex Mono",monospace; font-size:12.5px; white-space:nowrap}
+</style>
+
+<div class="wrap">
+<div class="kicker">radians.beamlab &middot; the construction</div>
+<h1>How the Projection Is Built</h1>
+<p class="lede">What this tool does, in the order it does it: the inputs it takes, the three
+runs it makes of them, the two artefacts it derives, and the one number the whole
+construction exists to measure. The <a href="simulation-debate.md">debate</a> records why
+each decision was taken; this page records what was built.</p>
+
+<h2>Purpose</h2>
+
+<p>An operator files a pfd mask and a set of operating parameters. An administration then
+examines the system against the Article&nbsp;22 epfd limits by reading those declarations
+&mdash; not the system. So the declarations decide the verdict, and a declaration looser than
+the system it describes costs the operator real transmit power for nothing.</p>
+
+<p>This tool measures that cost. It simulates the operated system, derives the declarations
+from the simulation rather than asserting them, and runs the examination twice: once against
+the system as it behaves, once against the system as it is declared. The distance between
+those two answers is the price of the declaration.</p>
+
+<div class="tech">
+<div class="t">The three quantities, once</div>
+<p><strong>T</strong> &mdash; the truth: epfd from the live beam composition of the operated
+system. <strong>E1</strong> &mdash; the examination reading the derived mask and the derived
+R&nbsp;set. <strong>E1&nbsp;&minus;&nbsp;T</strong> &mdash; the projection margin: what the
+declaration gives away, and at the same dB-for-dB rate, the operating power the system could
+have been licensed for.</p>
+</div>
+
+<h2>Inputs</h2>
+
+<table class="ex">
+<tr><th>input</th><th>what it fixes</th><th>form</th></tr>
+<tr><td>orbit design</td><td>shells, planes, phasing, station-keeping regime</td><td><code>*.orbitdesign.json</code></td></tr>
+<tr><td>operation profile</td><td>the system: payload, power, beam layout, gates, service geography, traffic</td><td><code>*.opprofile.json</code></td></tr>
+<tr><td>limits</td><td>the Article&nbsp;22 rows the verdict is taken against</td><td>BR database, or entered</td></tr>
+<tr><td>victim scenario</td><td>earth-station latitudes, GSO offset, dish diameter</td><td>sweep settings</td></tr>
+</table>
+
+<p>The profile is the system. There are no stand-in fields: if a quantity shapes what the
+satellites do, it is declared there and nowhere else.</p>
+
+<h2>Means: three runs, in this order</h2>
+
+<figure>
+<svg viewBox="0 0 700 366" role="img" aria-label="Orbit design and operation profile feed a saturated derivation probe that produces the R set and the pfd mask; a truth sweep produces T; an examination sweep reads the derived artefacts and produces E1; the gap between E1 and T is the projection margin">
+  <defs><marker id="ac" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
+  <g style="color:var(--ink)">
+    <rect x="14" y="20" width="150" height="64" rx="5" fill="none" stroke="currentColor"/>
+    <text x="26" y="44" class="svgtxt">orbit design</text>
+    <text x="26" y="63" class="svgtxt">+ profile</text>
+    <text x="26" y="78" class="svglbl">the system</text>
+
+    <rect x="212" y="14" width="270" height="76" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
+    <text x="226" y="38" class="svgtxt">1 &middot; derivation probe</text>
+    <text x="226" y="57" class="svglbl">saturated &middot; no victim &middot; no limit</text>
+    <text x="226" y="73" class="svglbl">measures what the system MAY do</text>
+
+    <rect x="524" y="14" width="162" height="76" rx="5" fill="var(--g2-tint)" stroke="var(--g2)" stroke-width="1.5"/>
+    <text x="536" y="38" class="svgtxt">the R set</text>
+    <text x="536" y="57" class="svgtxt">the pfd mask</text>
+    <text x="536" y="76" class="svglbl">two products, one pass</text>
+
+    <line x1="164" y1="52" x2="208" y2="52" stroke="currentColor" marker-end="url(#ac)"/>
+    <line x1="482" y1="52" x2="520" y2="52" stroke="var(--g1)" stroke-width="1.5" marker-end="url(#ac)" style="color:var(--g1)"/>
+
+    <rect x="212" y="128" width="270" height="76" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="226" y="152" class="svgtxt">2 &middot; truth sweep</text>
+    <text x="226" y="171" class="svglbl">real traffic &middot; a victim per latitude</text>
+    <text x="226" y="187" class="svglbl">measures what the system DOES</text>
+    <line x1="89" y1="84" x2="89" y2="166" stroke="currentColor"/>
+    <line x1="89" y1="166" x2="208" y2="166" stroke="currentColor" marker-end="url(#ac)"/>
+
+    <rect x="212" y="242" width="270" height="76" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="226" y="266" class="svgtxt">3 &middot; examination sweep</text>
+    <text x="226" y="285" class="svglbl">reads the mask and the R set</text>
+    <text x="226" y="301" class="svglbl">the administration’s own algorithm</text>
+    <line x1="605" y1="90" x2="605" y2="280" stroke="var(--g2)" stroke-width="1.5" style="color:var(--g2)"/>
+    <line x1="605" y1="280" x2="486" y2="280" stroke="var(--g2)" stroke-width="1.5" marker-end="url(#ac)" style="color:var(--g2)"/>
+
+    <text x="500" y="166" class="svgtxt">T</text>
+    <text x="500" y="298" class="svgtxt">E1</text>
+    <line x1="492" y1="176" x2="492" y2="268" stroke="currentColor" stroke-dasharray="3 3"/>
+    <text x="508" y="228" class="svglbl">E1 &minus; T</text>
+    <text x="508" y="244" class="svglbl">the margin</text>
+
+    <text x="14" y="344" class="svglbl">T never moves while the declaration is refined. E1 must sit at or above it, always.</text>
+  </g>
+</svg>
+<figcaption>The probe runs first and has no victim; the truth sweep and the examination
+sweep answer the same question about the same system, one from behaviour and one from the
+declaration.</figcaption>
+</figure>
+
+<p>The three runs are separate on purpose. The probe is <strong>saturated</strong> &mdash;
+demand at the declared cap, activity, illumination duty and operating fraction at 1 &mdash;
+because a declaration is an envelope of what the system MAY do, and a value measured under a
+traffic sample is a promise the operator never made. The truth sweep carries the real traffic.
+And the probe must not be the run that verifies it: a declaration measured on a run envelopes
+that run trivially, which would make the acceptance test vacuous.</p>
+
+<h2>Process: two loops, and what each may move</h2>
+
+<figure>
+<svg viewBox="0 0 700 210" role="img" aria-label="The outer loop designs the system and may move any system parameter, moving T; the inner loop derives the declaration of a fixed system and may move only how it is described; the forbidden move is changing the description because of the verdict">
+  <defs><marker id="ad" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
+  <g style="color:var(--ink)">
+    <rect x="14" y="18" width="320" height="96" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="28" y="42" class="svgtxt">OUTER &middot; design the system</text>
+    <text x="28" y="62" class="svglbl">may move alpha, Nco, power, beam capacity</text>
+    <text x="28" y="78" class="svglbl">T MOVES &mdash; that is engineering, not fitting</text>
+    <text x="28" y="100" class="svglbl">answers: is the system compliant at all?</text>
+
+    <rect x="366" y="18" width="320" height="96" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
+    <text x="380" y="42" class="svgtxt">INNER &middot; describe that system</text>
+    <text x="380" y="62" class="svglbl">may move only how it is measured and stated</text>
+    <text x="380" y="78" class="svglbl">T IS FIXED &mdash; only E1 comes down</text>
+    <text x="380" y="100" class="svglbl">answers: what does the declaration cost?</text>
+
+    <line x1="334" y1="52" x2="362" y2="52" stroke="currentColor" marker-end="url(#ad)"/>
+    <text x="300" y="150" class="svgtxt">the one forbidden move</text>
+    <text x="14" y="172" class="svglbl">changing the DESCRIPTION because of the VERDICT, without a commitment that enforces it.</text>
+    <text x="14" y="190" class="svglbl">A tightening is admissible only where a declared, binding commitment makes it true.</text>
+  </g>
+</svg>
+<figcaption>Both loops are legitimate. Confusing them is not: one engineers a compliant
+system, the other describes whatever system the first one fixed.</figcaption>
+</figure>
+
+<h2>The rules the construction obeys</h2>
+
+<p>Each of these was bought with a measurement, and each is stated so it can be checked
+rather than believed.</p>
+
+<ul>
+<li><strong>Measurement, not assertion.</strong> Every declared value is measured on the
+probe. A mask that asserts can assert what the scheduler does not enforce.</li>
+<li><strong>Saturate before measuring.</strong> Traffic may only thin what is lit, so a
+declaration measured under traffic is smaller than the commitment it stands for.</li>
+<li><strong>Unvisited is not unreachable.</strong> Nothing is declared absent because a finite
+probe happened not to visit it. A null needs a closed-form certificate from declared
+commitments.</li>
+<li><strong>The read-rule law.</strong> A declared array is safe if and only if its
+<em>read-rule reconstruction</em> bounds the measurement everywhere &mdash; not if its rows
+are correct at their own coordinates. See below.</li>
+<li><strong>Figures travel with their controls.</strong> A margin carries the depth it was
+resolved at and the grid it was worst over. A comparison names what was held fixed.</li>
+<li><strong>Adequacy is the derivation’s test, not the system’s.</strong> If E1 falls
+below T, the declaration failed to envelope the system. That is a granularity failure of the
+measurement, never a compliance failure of the system.</li>
+</ul>
+
+<h2>The read-rule law, drawn</h2>
+
+<figure>
+<svg viewBox="0 0 700 252" role="img" aria-label="A nearest-read row must envelope the whole band it governs; an interpolation-read array must have its polyline bound the observed curve on every segment, not merely at the rows">
+  <defs><marker id="ae" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
+  <g style="color:var(--ink)">
+    <text x="14" y="20" class="svglbl">NEAREST-READ (pfd rows, min_elev, max_co_freq, min_duration)</text>
+    <line x1="14" y1="100" x2="330" y2="100" stroke="currentColor"/>
+    <line x1="80" y1="96" x2="80" y2="104" stroke="currentColor"/>
+    <line x1="180" y1="96" x2="180" y2="104" stroke="currentColor"/>
+    <line x1="280" y1="96" x2="280" y2="104" stroke="currentColor"/>
+    <text x="70" y="118" class="svglbl">row</text>
+    <text x="170" y="118" class="svglbl">row</text>
+    <text x="270" y="118" class="svglbl">row</text>
+    <rect x="130" y="46" width="100" height="44" rx="3" fill="var(--g1-tint)" stroke="var(--g1)"/>
+    <text x="140" y="64" class="svglbl">the band this</text>
+    <text x="140" y="80" class="svglbl">row governs</text>
+    <line x1="130" y1="92" x2="230" y2="92" stroke="var(--g1)" stroke-width="1.5"/>
+    <text x="14" y="150" class="svglbl">The row must envelope the whole band,</text>
+    <text x="14" y="166" class="svglbl">not equal the value at its own coordinate.</text>
+    <text x="14" y="182" class="svglbl">Sampling the centre under-declares the rest.</text>
+
+    <text x="380" y="20" class="svglbl">INTERPOLATION-READ (MIN_EXCLUDE alone)</text>
+    <polyline points="392,86 470,70 548,58 626,74 686,66" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+    <text x="392" y="46" class="svglbl">observed minimum</text>
+    <polyline points="392,96 470,84 548,74 626,86 686,80" fill="none" stroke="var(--g1)" stroke-width="1.5"/>
+    <circle cx="392" cy="96" r="3" fill="var(--g1)"/>
+    <circle cx="470" cy="84" r="3" fill="var(--g1)"/>
+    <circle cx="548" cy="74" r="3" fill="var(--g1)"/>
+    <circle cx="626" cy="86" r="3" fill="var(--g1)"/>
+    <circle cx="686" cy="80" r="3" fill="var(--g1)"/>
+    <text x="392" y="126" class="svglbl">declared polyline</text>
+    <text x="392" y="150" class="svglbl">Rows correct at their own latitudes are</text>
+    <text x="392" y="166" class="svglbl">not enough: the SEGMENT between two</text>
+    <text x="392" y="182" class="svglbl">rows must also stay under the observed</text>
+    <text x="392" y="198" class="svglbl">curve. A condition on pairs, not rows.</text>
+
+    <text x="14" y="232" class="svglbl">Four defects of this one shape were found in a single day: the service-span certificate, the pfd</text>
+    <text x="14" y="246" class="svglbl">mask rows, MIN_EXCLUDE, and the sweep’s own latitude grid.</text>
+  </g>
+</svg>
+<figcaption>One law, two read rules. A declared array is safe only when the rule that reads
+it reconstructs something that bounds what was measured.</figcaption>
+</figure>
+
+<h2>What a run emits</h2>
+
+<p>Profile, R&nbsp;set (Part&nbsp;B XML and the designer’s JSON) and pfd mask are written into
+one directory per run, so the three artefacts describe one system and can be read back
+together. The record beside them carries the verdict table, the derived declaration, the
+per-latitude E1&nbsp;&minus;&nbsp;T gap and the adequacy statement.</p>
+
+<p class="foot">Companion pages:
+<a href="where-declarations-come-from.html">Where Declarations Come From</a> (the loop and the
+designer), <a href="compliance-loop.html">Inside the Compliance Loop</a> (a run in detail),
+<a href="r-set-designer.html">Inside the R Set</a> (the declared fields themselves).</p>
+</div>
