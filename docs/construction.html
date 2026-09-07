@@ -411,7 +411,7 @@ sits: K<sub>sat</sub>, the most same-colour beams the <em>saturated</em> probe e
 <tr><th>capacity</th><th>binds today</th><th>binds at peak</th><th>T</th><th>widest gap</th><th>cost today</th><th>cost at peak</th></tr>
 <tr><td>20 = K<sub>sat</sub></td><td>no</td><td>no</td><td>unchanged</td><td>12.2 &rarr; 10.9 dB</td><td>none</td><td>none</td></tr>
 <tr><td>12</td><td>no (worst 11)</td><td>yes</td><td>unchanged</td><td>12.2 &rarr; 9.8 dB</td><td>none</td><td>2.67% unserved; <code>max_co_freq_sat</code> 59 &rarr; 48</td></tr>
-<tr><td>4</td><td>yes (45% pinned)</td><td>yes</td><td>+1.5 to &minus;0.9 dB</td><td>12.2 &rarr; 6.8 dB (E1 alone: &minus;3.5 to &minus;6.4)</td><td>~0 unserved; interference redistributed</td><td>47% unserved; <code>max_co_freq_sat</code> 59 &rarr; 16; exclusion tightened</td></tr>
+<tr><td>4</td><td>yes (45% pinned)</td><td>yes</td><td>+1.5 to &minus;0.9 dB&thinsp;*</td><td>12.2 &rarr; 6.8 dB (E1 alone: &minus;3.5 to &minus;6.4)</td><td>~0 unserved; interference redistributed</td><td>47% unserved; <code>max_co_freq_sat</code> 59 &rarr; 16; exclusion tightened</td></tr>
 </table>
 
 <p>The line between the rows is not whether T moves but whether the knob changes what the
@@ -429,7 +429,11 @@ dB: it is that <strong>a binding cap moves T in both directions</strong>. A refu
 not dropped, it is reassigned to the next-best satellite, and at some victims that satellite
 sits in worse geometry &mdash; T improved 1.5&nbsp;dB at the equator and worsened 0.9&nbsp;dB at
 latitude 50 from the same declaration. A tighter payload commitment is not monotone for
-compliance.</p>
+compliance. * A 0.1&nbsp;d comb. The equatorial +1.5 sits at a
+latitude the depth pair later found firm to 0.0&nbsp;dB; the negative entries at 50 and 60 sit at
+the two latitudes it found unconverged at that depth, 2.6 to 2.8&nbsp;dB of movement, so the
+direction claim there carries its comb until a truth-only rerun of cap&nbsp;4 at depth firms or
+retires the sign. The mechanism, reassignment relocating interference, stands either way.</p>
 
 <div class="tech">
 <div class="t">A control that did not hold, then measured</div>

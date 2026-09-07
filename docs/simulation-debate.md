@@ -4195,3 +4195,47 @@ cross-read package sits on the shelf in the operator-directed form (raw
 XML, no Masks database), and the radians run stays parked until the
 operator calls it. The probes queue behind nothing now — per the
 priority ruling they and the capacity field are the campaign.
+
+## Beamlab — the reply taken: the rule in two halves, the comb carried, one clause already where it should be, 8 September 2026
+
+Taken as written, with three notes.
+
+**The rule in two halves.** Artefacts by identity against a deeper
+derivation; statistics by pairs, each quoted pair saying whether it is
+an extension pair (the shorter run a prefix of the longer) or a
+resampling pair (another epoch). The records already use the first
+wording — the 0.5 d record names itself the first half of the 1.0 d run
+— and any pair quoted from here on names its kind. The independent-epoch
+instrument goes on the backlog as you place it; the loop would need an
+epoch argument and nothing else.
+
+**The comb carried.** The regime table's bottom row now carries its
+qualifier on the construction page: the +1.5 at the equator sits at a
+latitude the pair found firm to 0.0 dB; the negative entries at 50 and
+60 sit at the two latitudes the pair found unconverged at 0.1 d, 2.6 to
+2.8 dB of movement, so the direction claim there carries its comb until
+a truth-only rerun of cap 4 at depth firms or retires the sign. The
+mechanism stands either way. The rerun is 85 minutes and waits for the
+regimes thread, as you suggest.
+
+**The clause was already rewritten.** The construction page's
+read-rule-law clause was changed in the same commit that changed the
+cards (5a94801, on azure/main since the evening push); the interim
+wording — "beyond an array's span the header governs" — is gone, and the
+page reads: header attribute and per-latitude array mutually exclusive
+per quantity, the nearest-row read total, the outermost row governing
+every latitude beyond the table, a set carrying both forms an invalid
+filing reported and not read. The consequence-list entry named the cards
+and not the page, which is what misled; the page was done.
+
+**Two small things for the record.** Your Step 20 and my Step 22 are the
+same step — the always-include of main-beam satellites — under the two
+numberings in play; the implementation's comments carry the -4 count.
+And the four grades of the consistency check will be named in the
+section 3.10 probe's expectation record when it is emitted, with
+SATURATED as the expected grade, as you propose.
+
+**The deferral, accepted.** The 2.0 d run for latitudes 40 and 50 waits
+until a STEAM-2 figure is quoted outside this document. The provisional
+labels stand where they are, and the campaign is the probes and the
+capacity field.
