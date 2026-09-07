@@ -161,9 +161,8 @@ internal static class ComplianceLoop
         // so the same grid never needs exporting twice in a session.
         string EnsureMask(double maskLatStepDeg, double azElStepDeg)
         {
-            string tag = string.Create(inv,
-                $"lat{maskLatStepDeg:F1}-ae{azElStepDeg:F1}-svc{derived.Set.EsLatMinDeg:F0}to{derived.Set.EsLatMaxDeg:F0}")
-                .Replace(".", "p");
+            string tag = MaskCacheTag(maskLatStepDeg, azElStepDeg,
+                derived.Set.EsLatMinDeg, derived.Set.EsLatMaxDeg);
             string path = Path.Combine(runDir, string.Create(inv, $"{safe}.mask.{tag}.xml"));
             if (File.Exists(path) && File.GetLastWriteTimeUtc(path) > File.GetLastWriteTimeUtc(profilePath))
             {
@@ -439,6 +438,47 @@ internal static class ComplianceLoop
         Console.WriteLine("figure: " + Path.GetRelativePath(repo, outPath));
         Console.WriteLine(string.Create(inv, $"progress reports: {col.Reports.Count}; wall clock {t0.Elapsed.TotalMinutes:F1} min"));
         return 0;
+    }
+
+    /// <summary>
+    /// The cache key for an exported mask. It must cover EVERYTHING that
+    /// determines the values, and the producing code is one of those things.
+    /// Keying only on grid, service span and profile timestamp let a values
+    /// fix hide behind a warm cache -- which happened: the band-envelope fix
+    /// was invisible on every cached case until the files were deleted by
+    /// hand.
+    ///
+    /// The producer component is the module version id of the assemblies that
+    /// build and write the field, which changes on every rebuild of them. That
+    /// is deliberately over-eager: a rebuild that did not touch the samplers
+    /// still re-exports. Correctness is worth more than a warm cache, and
+    /// because the id is IN THE NAME rather than a validity test, each build
+    /// keeps its own cache instead of thrashing one.
+    /// </summary>
+    internal static string MaskCacheTag(double maskLatStepDeg, double azElStepDeg,
+        double esLatMinDeg, double esLatMaxDeg)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        return string.Create(inv,
+            $"lat{maskLatStepDeg:F1}-ae{azElStepDeg:F1}-svc{esLatMinDeg:F0}to{esLatMaxDeg:F0}-v{ProducerId()}")
+            .Replace(".", "p");
+    }
+
+    /// <summary>Short id of the code that produces mask values.</summary>
+    internal static string ProducerId()
+    {
+        // Both the sampler that builds the field and the generator that bins
+        // and writes it decide the values, so both assemblies are keyed.
+        var a = typeof(ReachableEnvelopeSampler).Assembly.ManifestModule.ModuleVersionId;
+        var b = typeof(IPfdMaskSampler).Assembly.ManifestModule.ModuleVersionId;
+        Span<byte> bytes = stackalloc byte[32];
+        a.TryWriteBytes(bytes[..16]);
+        b.TryWriteBytes(bytes[16..]);
+        // FNV-1a over the two ids: short, stable within a build, different
+        // across builds. Not a security hash and does not need to be.
+        ulong h = 1469598103934665603UL;
+        foreach (byte x in bytes) { h ^= x; h *= 1099511628211UL; }
+        return h.ToString("x16", CultureInfo.InvariantCulture)[..8];
     }
 
     /// <summary>One-line rendering of a derived R set, for the console and the record.</summary>

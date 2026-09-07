@@ -4814,6 +4814,32 @@ var looks = RandomLooks(300);
         $"grid={gridOk42} fine={fineOk42} pass={passOk42} one={oneOk42}");
 }
 
+
+// ---- V43: the mask cache key covers the code that produced the values ----
+{
+    // A cache keyed only on grid, service span and profile timestamp let the
+    // band-envelope fix hide behind warm files on every cached case. Anything
+    // that decides the values belongs in the key, the producing code included.
+    string t43 = ComplianceLoop.MaskCacheTag(10.0, 1.0, -50.0, 50.0);
+    string id43 = ComplianceLoop.ProducerId();
+    bool shapeOk43 = id43.Length == 8
+        && id43.All(c => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))
+        && t43.Contains("-v" + id43)
+        && !t43.Contains(".");                       // safe as a file name
+    // Stable within a build: a second call must not invalidate the first.
+    bool stableOk43 = ComplianceLoop.ProducerId() == id43
+        && ComplianceLoop.MaskCacheTag(10.0, 1.0, -50.0, 50.0) == t43;
+    // Every value-determining input still separates caches.
+    bool gridOk43 = ComplianceLoop.MaskCacheTag(5.0, 1.0, -50.0, 50.0) != t43
+        && ComplianceLoop.MaskCacheTag(10.0, 2.0, -50.0, 50.0) != t43
+        && ComplianceLoop.MaskCacheTag(10.0, 1.0, 20.0, 50.0) != t43
+        && ComplianceLoop.MaskCacheTag(10.0, 1.0, -50.0, 49.0) != t43;
+
+    Check("V43 mask cache key covers grid, service span and the producing code",
+        shapeOk43 && stableOk43 && gridOk43,
+        $"shape={shapeOk43} stable={stableOk43} grid={gridOk43} tag={t43}");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
 
