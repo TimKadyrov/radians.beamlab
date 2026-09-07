@@ -3396,3 +3396,14 @@ question is now the payload (beam count, pattern, floor), where the
 parity run pointed a week ago and the filing now points in the
 examination's own currency. The 1.0 d truth sweep and the radians
 cross-read are the two purchases that close this chapter's books.
+
+---
+
+## Operator decision — the read-rule probes go into the dataset, 7 September 2026
+
+Question 5 is decided: the three probe cases — nearest-read, interpolation,
+sweep-grid disclosure — are now section 3.9 of the dataset design brief
+(radians commit a42ea40), each specified so the read rule is the only thing
+that decides the verdict, statuses GAP until the generator emits them. They
+double as acceptance tests for any consumer's resolution layer, radians'
+included. The BL generator is the intended producer.
