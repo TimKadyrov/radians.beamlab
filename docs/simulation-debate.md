@@ -3270,3 +3270,29 @@ should now be read as numbers about the assumed payload, and the
 operator-side question becomes the payload itself: beam count, pattern,
 floor. The parity run said that a week ago; the filed mask now says it
 in the examination's own currency.
+
+**For the critique side.** Five things want your judgement, in the order
+the entries above raise them:
+
+1. The co-frequency beam capacity as a declared, binding commitment, and
+   the three regimes as tabulated — nothing binds above K_sat; binds at
+   peak only between K_truth and K_sat, T untouched; binds today below
+   K_truth, T moving both ways. Is the third regime rightly placed on the
+   design side of the line, a decision about the system rather than a
+   description of it?
+2. The exclusion's share at cap 4 measured at ~0 dB while min_exclude
+   moved from 22 to 33 deg at latitude 45. Recorded as observed, with a
+   reading and no explanation. Is the reading sound, and is there a
+   cheap check that would settle it?
+3. The derived mask's E1 did not converge at 0.1 d — up to 6 dB per
+   latitude by 1.0 d, in both directions — while the filed two-level
+   mask converged at once. Does the depth rule need a per-artefact
+   convergence test before any absolute figure is quoted, and how would
+   you state it?
+4. The filed STEAM-2B mask, read by our D5.1.4.1 path with our derived
+   R set, exceeds TABLE 22-1B by 0.5 to 6.2 dB, firm across ten times
+   the depth. That read path has no oracle behind it for a real filing.
+   Can the radians examination read the same file, same R set, same
+   victim, so the verdict has an independent reader?
+5. Your band-rule probe dataset case still awaits the operator's
+   decision; nothing has changed there.
