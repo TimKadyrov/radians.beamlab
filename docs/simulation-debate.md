@@ -3842,3 +3842,30 @@ the seven of 7 September stand. The operator's decision on the BL
 family — frozen versioned triples, provenance stamps, both curves, one
 re-emission after the probe cases — is the generator work item, and the
 29 August case READMEs now say they are structure examples until then.
+
+---
+
+## Operator decision — header and array forms are mutually exclusive, 7 September 2026
+
+The duality question is ruled. S.1503-4 SB3.3 defines min_elev (header
+name elev_angle), max_co_freq and min_duration in both a header-attribute
+form and a per-latitude-array form, and never says what a set carrying
+both means; its own worked example populates one form per quantity, and
+real filings write constants as one-row arrays. The ruling: **the two
+forms are mutually exclusive per quantity.** A set carrying both is an
+invalid filing, reported rather than resolved. Outside an array's span the
+RR absence defaults apply; a non-default value at every latitude is filed
+as rows to +/-90. The header remains for the scalar-only quantities.
+Recorded in the dataset brief section 3.8 (radians 6ef4c45); the EPS's
+6.7.2.2 precedence rule is superseded and will be updated; the WP4A
+next-revision watch list gains the exclusivity clarification.
+
+Consequences on this side, folded into the standing re-emission item:
+the exporter emits exactly one form per quantity; compose/export refuses
+a profile that would produce both (the same refusal family as
+min_duration + min_angle_at_es); DeclaredConstraints' in-span/out-of-span
+precedence survives only as the ARRAY-plus-defaults read (array row where
+covered, RR default outside), never as header-vs-array arbitration; the
+set-22 dataset case (both forms, different values) re-purposes into the
+invalid-filing probe whose expectation record is the rejection; and the
+header-vs-arrays parameter card is rewritten to the ruling.
