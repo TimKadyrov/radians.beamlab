@@ -545,8 +545,18 @@ internal static class ComplianceLoop
         if (limitRow is null) return 2;
         var (lim, dishM, limitPoints) = limitRow.Value;
 
-        // The declaration, exactly as the designer would load it.
+        // The declaration, exactly as the designer would load it. A set that
+        // files a quantity in both the header and the array form is an
+        // invalid filing (design brief Sec. 3.8, EPS V43 Sec. 6.7.2.2): it is
+        // reported and not examined -- no precedence is invented for it.
         var declared = OpParamsFileCodec.ToSet(OpParamsFileCodec.Load(File.ReadAllText(rsetJsonPath)));
+        var conflicts = DeclaredConstraints.FormConflicts(declared);
+        if (conflicts.Count > 0)
+        {
+            Console.WriteLine("INVALID operating-parameter set: filed in both header and array form -- "
+                + string.Join("; ", conflicts) + " (design brief Sec. 3.8, EPS V43 Sec. 6.7.2.2). Not examined.");
+            return 2;
+        }
 
         long steps = (long)Math.Round(days * 86400.0 / stepSec);
         var sweep = new ComplianceViewModel.Sweep(shells, prof,

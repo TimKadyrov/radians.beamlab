@@ -3886,3 +3886,56 @@ clamped at the ends); and the band the OUTERMOST row governs runs from
 its midpoint-with-neighbour to the pole — the derivation must envelope
 edge rows over that full band, which the band-rule fix should be checked
 against.
+
+## Beamlab — one form per quantity, the read total: the brief's ruling applied, the afternoon's two readings retired, 7 September 2026
+
+The design brief's section 3.8 and the EPS at V43 now rule the
+header-array question, and the operator asked for my view before the
+code moved. The view, briefly: it simplifies, and it closes the hole
+rather than papering over it. No precedence logic — one place to look
+per quantity, and a set carrying both forms becomes a validation
+verdict instead of an invented semantics, the same stance as the
+adaptation rule. No "nothing" state for an array that exists — the
+outermost row governs outward, which is exactly the hole that inflated
+the filed mask at 50 and 60. One source of truth for the gates — the
+R set, with `grp.elev_min` deprecated and the `epfd_param` scalars left
+empty when a set overrides them. The cost is coordination: the ruling
+departs from the EPS text as it stood and from what radians' reader
+does today, so the resolver change here, the EPS revision (done, V43),
+and the reader change on your side land as one move or the cross-read
+diverges on precisely the cases the new invalid-filing probe exercises.
+
+**What moved, and what it retires.** Two readings from this afternoon
+are withdrawn. My entry before last placed the defect in the resolver
+and proposed the total read; the entry after it placed it in the
+declaration under "the header is global" and made the deriver write
+headers. The ruling settles it in favour of the first placement and
+against the second's remedy: the resolver now reads the nearest row
+everywhere — the outermost row beyond the table, the header only when
+no array is filed — and reports a set that files a quantity in both
+forms as invalid, unexamined. The deriver writes array-only sets again,
+as it always had; the headers it wrote for an hour are gone. V38 pins
+array-only; V47 pins the total read, the header-only read, the
+single-row constant, the both-forms report, and MIN_EXCLUDE's own
+interpolate-and-clamp.
+
+**The figures do not move.** The rows-to-65 measurement was the total
+read by another name: the filed mask exceeds TABLE 22-1B by 0.5–2.0 dB
+at 0–50 and 4.0 dB at 60, firm across ten times the depth, and the
+record's unchanged R set now gives those figures directly. The derived
+masks are unaffected within 0.1 dB, as measured. The record and the
+construction page carry the ruling; the spec note that recorded the
+withdrawn precedence is corrected.
+
+**The package, corrected once more.** The group scalars I wrote into
+the notice two hours ago — `grp.elev_min`, its `freq` and `srv_cls`
+rows, `non_geo.x_zone` — are out: the SRS layer carries no copy of the
+gates, the R set is the one source, and `sat_oper` stays as the
+notice's own table. The parameter XML is array-only; the mask is raw
+XML. `dataset/STEAM-2B-FILED/` is regenerated in that form.
+
+**One loose end of my own.** The debate now holds, in order, a wrong
+placement corrected by a wrong remedy corrected by the ruling. That is
+how the record is meant to work, and it cost the afternoon two rounds;
+reading the resolver's own comment before proposing would have saved
+one of them.

@@ -9,12 +9,15 @@ namespace radians.beamlab;
 /// Reads operating constraints off the declared parameter set itself
 /// (<see cref="OperatingParamsSet"/> -- the object the R XML is written
 /// from), so the scheduler's bounds and the declaration cannot drift apart.
-/// Header/array duality follows EPS Sec. 6.7.2.2: the array prevails inside
-/// the latitude span it covers, the header applies outside it. Within an
-/// array the nearest-latitude block is used (the Part B convention);
-/// min_elev interpolates linearly in azimuth, clamped at the ends, and
-/// MIN_EXCLUDE alone is read by linear interpolation between latitude
-/// rows (its own Part B rule).
+/// Header and array are mutually exclusive per quantity (design brief
+/// Sec. 3.8, EPS V43 Sec. 6.7.2.2, ruling of 2026-09-07): a quantity is read
+/// from its array when the array is filed, else from its header, and a set
+/// carrying both is an invalid filing (see FormConflicts). The nearest-
+/// latitude read is total -- the outermost row governs every latitude beyond
+/// the table, so a single row declares a global constant; min_elev then
+/// interpolates linearly in azimuth, clamped at the ends. MIN_EXCLUDE alone
+/// is read by linear interpolation between latitude rows (its own Part B
+/// rule), the end rows governing beyond them.
 /// </summary>
 public static class DeclaredConstraints
 {
@@ -22,47 +25,54 @@ public static class DeclaredConstraints
     {
         if (p.MinElev.Count > 0)
         {
-            double lo = p.MinElev.Min(b => b.LatDeg), hi = p.MinElev.Max(b => b.LatDeg);
-            if (latDeg >= lo && latDeg <= hi)
+            // The nearest-latitude read is total: the outermost row governs
+            // every latitude beyond the table (no out-of-span fallback).
+            var blk = Nearest(p.MinElev, b => b.LatDeg, latDeg);
+            var rows = blk.ByAz.OrderBy(r => r.AzDeg).ToList();
+            if (rows.Count == 1) return rows[0].ElevDeg;
+            if (azDeg <= rows[0].AzDeg) return rows[0].ElevDeg;
+            if (azDeg >= rows[^1].AzDeg) return rows[^1].ElevDeg;
+            for (int i = 1; i < rows.Count; i++)
             {
-                var blk = Nearest(p.MinElev, b => b.LatDeg, latDeg);
-                var rows = blk.ByAz.OrderBy(r => r.AzDeg).ToList();
-                if (rows.Count == 1) return rows[0].ElevDeg;
-                if (azDeg <= rows[0].AzDeg) return rows[0].ElevDeg;
-                if (azDeg >= rows[^1].AzDeg) return rows[^1].ElevDeg;
-                for (int i = 1; i < rows.Count; i++)
-                {
-                    if (azDeg > rows[i].AzDeg) continue;
-                    double f = (azDeg - rows[i - 1].AzDeg) / (rows[i].AzDeg - rows[i - 1].AzDeg);
-                    return rows[i - 1].ElevDeg + f * (rows[i].ElevDeg - rows[i - 1].ElevDeg);
-                }
+                if (azDeg > rows[i].AzDeg) continue;
+                double f = (azDeg - rows[i - 1].AzDeg) / (rows[i].AzDeg - rows[i - 1].AzDeg);
+                return rows[i - 1].ElevDeg + f * (rows[i].ElevDeg - rows[i - 1].ElevDeg);
             }
+            return rows[^1].ElevDeg;
         }
         return p.ElevAngleHeaderDeg ?? 0.0;
     }
 
-    /// <summary>Nco at latitude; absent everywhere = no cap.</summary>
+    /// <summary>Nco at latitude: the nearest row when the array is filed (total read), else the header; absent = no cap.</summary>
     public static int MaxCoFreq(OperatingParamsSet p, double latDeg)
     {
         if (p.MaxCoFreqByLat.Count > 0)
-        {
-            double lo = p.MaxCoFreqByLat.Min(v => v.LatDeg), hi = p.MaxCoFreqByLat.Max(v => v.LatDeg);
-            if (latDeg >= lo && latDeg <= hi)
-                return Nearest(p.MaxCoFreqByLat, v => v.LatDeg, latDeg).Value;
-        }
+            return Nearest(p.MaxCoFreqByLat, v => v.LatDeg, latDeg).Value;
         return p.MaxCoFreqHeader ?? int.MaxValue;
     }
 
-    /// <summary>Minimum tracking duration (s) at latitude; absent = 0 (classic algorithm).</summary>
+    /// <summary>Minimum tracking duration (s) at latitude: the nearest row when the array is filed (total read), else the header; absent = 0 (classic algorithm).</summary>
     public static int MinDurationSec(OperatingParamsSet p, double latDeg)
     {
         if (p.MinDurationByLat.Count > 0)
-        {
-            double lo = p.MinDurationByLat.Min(v => v.LatDeg), hi = p.MinDurationByLat.Max(v => v.LatDeg);
-            if (latDeg >= lo && latDeg <= hi)
-                return Nearest(p.MinDurationByLat, v => v.LatDeg, latDeg).Seconds;
-        }
+            return Nearest(p.MinDurationByLat, v => v.LatDeg, latDeg).Seconds;
         return p.MinDurationSecHeader ?? 0;
+    }
+
+    /// <summary>
+    /// The quantities a set declares in BOTH the header and the array form.
+    /// Header and array are mutually exclusive per quantity (design brief
+    /// Sec. 3.8, EPS V43 Sec. 6.7.2.2): a set carrying both is an invalid
+    /// filing, to be reported, never read under an invented precedence.
+    /// Empty for a valid set.
+    /// </summary>
+    public static IReadOnlyList<string> FormConflicts(OperatingParamsSet p)
+    {
+        var both = new List<string>();
+        if (p.MinElev.Count > 0 && p.ElevAngleHeaderDeg is not null) both.Add("min_elev / elev_angle");
+        if (p.MaxCoFreqByLat.Count > 0 && p.MaxCoFreqHeader is not null) both.Add("max_co_freq (array) / max_co_freq (header)");
+        if (p.MinDurationByLat.Count > 0 && p.MinDurationSecHeader is not null) both.Add("min_duration (array) / min_duration (header)");
+        return both;
     }
 
     /// <summary>Per-satellite co-frequency link cap MAX_CO_FREQ_SAT (header only); absent = no cap.</summary>

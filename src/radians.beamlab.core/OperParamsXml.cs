@@ -30,10 +30,12 @@ public sealed class MinElevByLat
 /// examination enforces alongside the pfd/e.i.r.p. masks.
 ///
 /// Quantities that exist both as a header attribute and as a per-latitude
-/// array (max_co_freq, min_duration, elev_angle/min_elev) follow EPS
-/// Sec. 6.7.2.2: the array prevails inside the latitudes it covers and the
-/// header applies outside them. Leave the header null and/or the array empty
-/// to produce header-only, array-only or both-with-different-values sets.
+/// array (max_co_freq, min_duration, elev_angle/min_elev) are filed in ONE
+/// form each (EPS V43 Sec. 6.7.2.2, design brief Sec. 3.8): a set carrying
+/// both forms of a quantity is an invalid filing, reported by the reader
+/// (DeclaredConstraints.FormConflicts), never resolved by a precedence. The
+/// writer can still produce header-only, array-only and both-forms sets --
+/// the last is the dataset's invalid-filing case.
 /// </summary>
 public sealed class OperatingParamsSet
 {

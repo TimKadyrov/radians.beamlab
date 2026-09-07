@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Data.OleDb;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -38,8 +37,6 @@ public sealed class PackageOptions
 
 public static class PackageBuilder
 {
-    private const string Provider = "Microsoft.ACE.OLEDB.12.0";
-
     public static void Build(PackageOptions p, DatasetOptions o)
     {
         var inv = CultureInfo.InvariantCulture;
@@ -96,9 +93,11 @@ public static class PackageBuilder
 
         string srsPath = Path.Combine(caseDir, $"{p.NtcId} SRS.MDB");
         SrsMdbWriter.WriteSrs(o.DonorSrsPath, srsPath, n);
-        var grp = WriteGroupParameters(srsPath, p, set, n.DRcv);
-        o.Log(string.Create(inv, $"SRS written: {n.Orbits.Count} orbit rows, {n.Phases.Count} phase rows, {bands.Count} sat_oper rows; ")
-            + $"group parameters: elev_min {Fmt(grp.ElevMin)}, x_zone {Fmt(grp.XZone)} (f_x_zone {grp.FXZone ?? "-"})");
+        // The SRS layer carries no copy of the gates: grp.elev_min is
+        // deprecated and epfd_param.elev_min / x_zone stay empty when an
+        // operating-parameter set overrides them (design brief Sec. 3.8). The
+        // R set is the one source; sat_oper is the notice's own table.
+        o.Log(string.Create(inv, $"SRS written: {n.Orbits.Count} orbit rows, {n.Phases.Count} phase rows, {bands.Count} sat_oper rows; the gates live in the R set only"));
 
         // The mask travels as raw XML; no Masks database is built (operator
         // direction, 2026-09-07: the consumer reads the XML directly). A
@@ -119,7 +118,7 @@ public static class PackageBuilder
             File.Copy(ep, Path.Combine(expDir, expectedName), overwrite: true);
         }
 
-        WriteReadme(Path.Combine(caseDir, "README.md"), p, o, shells, set, derivedLo, derivedHi, bands, grp,
+        WriteReadme(Path.Combine(caseDir, "README.md"), p, o, shells, set, derivedLo, derivedHi, bands,
             expectedName, n);
         o.Log("package: " + caseDir);
     }
@@ -145,57 +144,6 @@ public static class PackageBuilder
             bands.Add((lo, hi, rows[i].Value));
         }
         return bands;
-    }
-
-    internal sealed record GroupParameters(double? ElevMin, double? XZone, string FXZone, int GrpId, string BeamName);
-
-    /// <summary>
-    /// The S.1503-2 form of the same declaration, for a reader that takes the
-    /// group parameters from the notice tables: non_geo.f_x_zone/x_zone (the
-    /// exclusion zone; 'Y' = the alpha angle at the earth station, the angle this
-    /// project's derivation and the mask dissection measure) and one emission
-    /// group carrying elev_min, with the freq and srv_cls rows the group query
-    /// joins on. Where the R set varies by latitude the single-valued form
-    /// carries the least restrictive value (smallest angle), which admits the
-    /// most satellites and is therefore the victim-conservative reading.
-    /// </summary>
-    internal static GroupParameters WriteGroupParameters(string srsPath, PackageOptions p, OperatingParamsSet set, DateTime dRcv)
-    {
-        double? elevMin = set.MinElev.Count > 0
-            ? set.MinElev.Min(b => b.ByAz.Min(r => r.ElevDeg))
-            : set.ElevAngleHeaderDeg;
-        double? xZone = set.MinExclude.Any(e => e.ByLat.Count > 0)
-            ? set.MinExclude.Where(e => e.ByLat.Count > 0).Min(e => e.ByLat.Min(r => r.AlphaDeg))
-            : null;
-        string fxZone = xZone is null ? null : "Y";
-        int grpId = p.NtcId + 1_000_000;
-        string beam = "PFD" + p.MaskId.ToString(CultureInfo.InvariantCulture);
-
-        using var conn = new OleDbConnection($"Provider={Provider};Data Source={srsPath}");
-        conn.Open();
-        if (xZone is double xz)
-            Exec(conn, "UPDATE non_geo SET f_x_zone = ?, x_zone = ? WHERE ntc_id = ?", fxZone, (float)xz, p.NtcId);
-        Exec(conn, "DELETE FROM grp WHERE ntc_id = ?", p.NtcId);
-        Exec(conn, "DELETE FROM freq WHERE ntc_id = ?", p.NtcId);
-        Exec(conn, "DELETE FROM srv_cls WHERE grp_id = ?", grpId);
-        Exec(conn,
-            "INSERT INTO grp (grp_id, ntc_id, emi_rcp, beam_name, freq_min, freq_max, elev_min, d_rcv) VALUES (?,?,?,?,?,?,?,?)",
-            grpId, p.NtcId, "E", beam, p.BandMinMhz, p.BandMaxMhz,
-            elevMin is double em ? (object)(float)em : DBNull.Value, dRcv);
-        Exec(conn,
-            "INSERT INTO freq (ntc_id, emi_rcp, beam_name, grp_id, seq_no, freq_min, freq_max, freq_mhz, bdwdth) VALUES (?,?,?,?,?,?,?,?,?)",
-            p.NtcId, "E", beam, grpId, 1, p.BandMinMhz, p.BandMaxMhz,
-            0.5 * (p.BandMinMhz + p.BandMaxMhz), (p.BandMaxMhz - p.BandMinMhz) * 1000.0);
-        Exec(conn, "INSERT INTO srv_cls (grp_id, seq_no, stn_cls, nat_srv) VALUES (?,?,?,?)", grpId, 1, "EK", "OT");
-        return new GroupParameters(elevMin, xZone, fxZone, grpId, beam);
-    }
-
-    private static void Exec(OleDbConnection conn, string sql, params object[] args)
-    {
-        using var cmd = new OleDbCommand(sql, conn);
-        foreach (var a in args)
-            cmd.Parameters.AddWithValue("?", a ?? DBNull.Value);
-        cmd.ExecuteNonQuery();
     }
 
     /// <summary>
@@ -231,7 +179,7 @@ public static class PackageBuilder
 
     private static void WriteReadme(string path, PackageOptions p, DatasetOptions o, ConstellationShell[] shells,
         OperatingParamsSet set, double derivedLo, double derivedHi, List<(double LatFr, double LatTo, int NbrOpSat)> bands,
-        GroupParameters grp, string expectedName, SrsNotice n)
+        string expectedName, SrsNotice n)
     {
         var inv = CultureInfo.InvariantCulture;
         var sb = new StringBuilder();
@@ -266,6 +214,7 @@ public static class PackageBuilder
         sb.AppendLine("## The R set (S.1503-4 form, `xml/param" + set.ParamId.ToString(inv) + "_oper.xml`)");
         sb.AppendLine();
         sb.AppendLine(string.Create(inv, $"- Derived by measurement on a saturated probe at {derivedLo:0.#}-{derivedHi:0.#} MHz; declared here over the mask's band {p.BandMinMhz:0.#}-{p.BandMaxMhz:0.#} MHz. The values are geometric (elevation floor, exclusion angle, satellite count) and do not depend on frequency; the band label is the only thing widened."));
+        sb.AppendLine("- One form per quantity: min_elev and max_co_freq are filed as per-latitude arrays and carry no header attribute; min_duration is not filed (the classic algorithm). Beyond the outermost rows the nearest row is the outermost row, so the arrays are complete at every latitude.");
         sb.AppendLine(string.Create(inv, $"- es_lat {set.EsLatMinDeg:0.#}..{set.EsLatMaxDeg:0.#}; es_density {(set.EsDensityPerKm2 is double dd ? dd.ToString("0.############", inv) : "-")} per km2; es_distance {Fmt(set.EsDistanceKm)} km; min_angle_at_sat {Fmt(set.MinAngleAtSatDeg)}; min_angle_at_es {Fmt(set.MinAngleAtEsDeg)}; max_co_freq_sat {(set.MaxCoFreqSat is int mcs ? mcs.ToString(inv) : "-")}."));
         sb.AppendLine("- min_elev rows: " + string.Join(", ", set.MinElev.OrderBy(b => b.LatDeg).Select(b =>
             string.Create(inv, $"{b.LatDeg:0.#}:{b.ByAz.Min(r => r.ElevDeg):0.#}{(b.ByAz.Count > 1 ? "(by az)" : "")}"))) + ".");
@@ -273,13 +222,12 @@ public static class PackageBuilder
             string.Create(inv, $"orb {e.OrbId}: ") + string.Join(", ", e.ByLat.OrderBy(r => r.LatDeg).Select(r => string.Create(inv, $"{r.LatDeg:0.#}:{r.AlphaDeg:0.#}"))))) + ".");
         sb.AppendLine("- max_co_freq rows: " + string.Join(", ", set.MaxCoFreqByLat.OrderBy(r => r.LatDeg).Select(r => string.Create(inv, $"{r.LatDeg:0.#}:{r.Value}"))) + ".");
         sb.AppendLine();
-        sb.AppendLine("## The same declaration in S.1503-2 form (for a reader that takes group parameters from the notice)");
+        sb.AppendLine("## The SRS layer");
         sb.AppendLine();
-        sb.AppendLine(string.Create(inv, $"- `non_geo.f_x_zone` = {grp.FXZone ?? "(not set)"}, `non_geo.x_zone` = {Fmt(grp.XZone)} deg. 'Y' is the alpha angle measured at the earth station between the direction to the non-GSO satellite and the direction to the GSO arc -- the angle this project's derivation uses and the angle in which the mask dissection found the filed notch constant across latitudes (the dissection did not test whether the notch is equally constant in the satellite-based X angle)."));
-        sb.AppendLine(string.Create(inv, $"- `grp` {grp.GrpId} (emi_rcp E, beam {grp.BeamName}, {p.BandMinMhz:0.#}-{p.BandMaxMhz:0.#} MHz): `elev_min` = {Fmt(grp.ElevMin)} deg; with one `freq` row and one `srv_cls` row (EK) so the group query finds it."));
-        sb.AppendLine("- `sat_oper` rows (scenario 1), the nearest-row read of max_co_freq[lat] with the end rows extended to the poles: " +
+        sb.AppendLine("- The notice carries no copy of the gates. `grp.elev_min` is deprecated, and `epfd_param.elev_min` / `epfd_param.x_zone` are left empty because the operating-parameter set overrides them (design brief Sec. 3.8; EPS V43). A reader takes MIN_ELEV, MIN_EXCLUDE and MAX_CO_FREQ from `xml/param" + set.ParamId.ToString(inv) + "_oper.xml`, where each quantity is filed in one form -- here the per-latitude arrays, whose outermost rows govern every latitude beyond them.");
+        sb.AppendLine("- `sat_oper` rows (scenario 1) remain the notice's own table, written as the nearest-row read of max_co_freq[lat] with the end rows carried to the poles: " +
             string.Join(", ", bands.Select(b => string.Create(inv, $"[{b.LatFr:0.#},{b.LatTo:0.#}]={b.NbrOpSat}"))) + ".");
-        sb.AppendLine("- Where a per-latitude array varies, the single-valued S.1503-2 fields carry the least restrictive value (smallest angle): more satellites operating, the victim-conservative reading. In this package the arrays are flat, so nothing is lost.");
+        sb.AppendLine("- The exclusion angle the R set declares is the alpha angle at the earth station between the direction to the non-GSO satellite and the direction to the GSO arc -- the angle this project's derivation uses and the angle in which the mask dissection found the filed notch constant across latitudes (the dissection did not test whether the notch is equally constant in the satellite-based X angle).");
         sb.AppendLine();
         sb.AppendLine("## The mask");
         sb.AppendLine();

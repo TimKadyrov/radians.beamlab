@@ -4533,13 +4533,15 @@ var looks = RandomLooks(300);
             && a.WorstMarginDb == b.WorstMarginDb && a.QuietSteps == b.QuietSteps).All(x => x);
     bool liveOk38 = rowsShut.Count == rowsBase.Count
         && rowsShut[0].QuietSteps > rowsBase[0].QuietSteps;
-    // (d) The derived set carries the global headers the tables do not
-    // cover (the enforced floor and cap), and never MIN_DURATION.
-    bool headerOk38 = derSat.Set.ElevAngleHeaderDeg == sweep38.Profile.MinElevDeg
-        && derSat.Set.MaxCoFreqHeader == sweep38.Profile.NcoPerCell
-        && derSat.Set.MinDurationSecHeader is null;
+    // (d) The derived set is array-only for min_elev and max_co_freq --
+    // header and array are mutually exclusive per quantity -- and never
+    // declares MIN_DURATION in either form.
+    bool headerOk38 = derSat.Set.ElevAngleHeaderDeg is null && derSat.Set.MaxCoFreqHeader is null
+        && derSat.Set.MinDurationSecHeader is null && derSat.Set.MinDurationByLat.Count == 0
+        && derSat.Set.MinElev.Count > 0 && derSat.Set.MaxCoFreqByLat.Count > 0
+        && DeclaredConstraints.FormConflicts(derSat.Set).Count == 0;
 
-    Check("V38 saturated probe: traffic cannot reach a declaration; the examination reads a declared set; headers carried",
+    Check("V38 saturated probe: traffic cannot reach a declaration; the examination reads a declared set; array-only, one form per quantity",
         satOk38 && capOk38 && leakOk38 && inertOk38 && liveOk38 && headerOk38,
         $"sat={satOk38} cap={capOk38} leak={leakOk38} inert={inertOk38} live={liveOk38} headers={headerOk38} " +
         $"ncoSat={ncoSat} samples={derSat.LinkSamples} " +
@@ -5097,47 +5099,56 @@ var looks = RandomLooks(300);
 }
 
 
-// ---- V47: header and array -- the array inside its span, the header outside it ----
+// ---- V47: header and array are mutually exclusive; the nearest-row read is total ----
 {
-    // EPS Sec. 6.7.2.2, confirmed by the operator: the header is the global
-    // value and covers every latitude the per-latitude table does not. A set
-    // with rows and no header declares nothing beyond its rows, and the
-    // examination read the derived sets that way at latitudes 50 and 60 --
-    // no floor, no cap. The resolver is right; the declaration must carry
-    // the header, and V38 now pins that the deriver writes it.
-    var rows47 = new OperatingParamsSet { ElevAngleHeaderDeg = 40.0, MaxCoFreqHeader = 4, MinDurationSecHeader = 300 };
+    // Design brief Sec. 3.8 / EPS V43 Sec. 6.7.2.2 (2026-09-07): a quantity is
+    // filed as its array or as its header, never both; beyond an array's
+    // outermost rows the nearest row is the outermost row, so a set with rows
+    // and no header is complete everywhere. The withdrawn reading (array
+    // inside its span, header outside) left the derived sets declaring
+    // nothing at latitudes 50 and 60 and inflated the filed mask's margins
+    // there by 4.2 and 0.9 dB.
+    var arr47 = new OperatingParamsSet();
     foreach (double lat in new[] { -45.0, -35.0, -25.0, -15.0, -5.0, 5.0, 15.0, 25.0, 35.0, 45.0 })
     {
         var el = new MinElevByLat { LatDeg = lat };
         el.ByAz.Add((0.0, lat < 0 ? 42.0 : 44.0));
-        rows47.MinElev.Add(el);
-        rows47.MaxCoFreqByLat.Add((lat, lat < 0 ? 2 : 3));
-        rows47.MinDurationByLat.Add((lat, lat < 0 ? 100 : 200));
+        arr47.MinElev.Add(el);
+        arr47.MaxCoFreqByLat.Add((lat, lat < 0 ? 2 : 3));
+        arr47.MinDurationByLat.Add((lat, lat < 0 ? 100 : 200));
     }
-    bool inside47 = DeclaredConstraints.MinElevDeg(rows47, -12.0, 0.0) == 42.0 && DeclaredConstraints.MinElevDeg(rows47, 12.0, 0.0) == 44.0
-        && DeclaredConstraints.MaxCoFreq(rows47, -12.0) == 2 && DeclaredConstraints.MaxCoFreq(rows47, 44.0) == 3
-        && DeclaredConstraints.MinDurationSec(rows47, -44.0) == 100 && DeclaredConstraints.MinDurationSec(rows47, 45.0) == 200;
-    bool outside47 = DeclaredConstraints.MinElevDeg(rows47, 60.0, 0.0) == 40.0 && DeclaredConstraints.MinElevDeg(rows47, -60.0, 0.0) == 40.0
-        && DeclaredConstraints.MaxCoFreq(rows47, 60.0) == 4 && DeclaredConstraints.MaxCoFreq(rows47, -89.0) == 4
-        && DeclaredConstraints.MinDurationSec(rows47, 90.0) == 300;
-    // No header: beyond the rows the set declares nothing -- no floor, no cap. This is
-    // the reading that inflated the filed mask's margins at 50 and 60 by 4.2 and 0.9 dB.
-    var bare47 = new OperatingParamsSet();
-    foreach (var el in rows47.MinElev) bare47.MinElev.Add(el);
-    foreach (var r in rows47.MaxCoFreqByLat) bare47.MaxCoFreqByLat.Add(r);
-    bool bare47Ok = DeclaredConstraints.MinElevDeg(bare47, 60.0, 0.0) == 0.0
-        && DeclaredConstraints.MaxCoFreq(bare47, 60.0) == int.MaxValue
-        && DeclaredConstraints.MinElevDeg(bare47, 12.0, 0.0) == 44.0 && DeclaredConstraints.MaxCoFreq(bare47, 12.0) == 3;
+    bool inside47 = DeclaredConstraints.MinElevDeg(arr47, -12.0, 0.0) == 42.0 && DeclaredConstraints.MinElevDeg(arr47, 12.0, 0.0) == 44.0
+        && DeclaredConstraints.MaxCoFreq(arr47, -12.0) == 2 && DeclaredConstraints.MaxCoFreq(arr47, 44.0) == 3
+        && DeclaredConstraints.MinDurationSec(arr47, -44.0) == 100 && DeclaredConstraints.MinDurationSec(arr47, 45.0) == 200;
+    // Outward: the outermost row governs every latitude beyond the table.
+    bool outward47 = DeclaredConstraints.MinElevDeg(arr47, 60.0, 0.0) == 44.0 && DeclaredConstraints.MinElevDeg(arr47, -60.0, 0.0) == 42.0
+        && DeclaredConstraints.MaxCoFreq(arr47, 60.0) == 3 && DeclaredConstraints.MaxCoFreq(arr47, -89.0) == 2
+        && DeclaredConstraints.MinDurationSec(arr47, 90.0) == 200 && DeclaredConstraints.MinDurationSec(arr47, -90.0) == 100;
+    // Header-only sets read the header everywhere; a single row is a global constant.
+    var hdr47 = new OperatingParamsSet { ElevAngleHeaderDeg = 40.0, MaxCoFreqHeader = 4, MinDurationSecHeader = 300 };
+    bool header47 = DeclaredConstraints.MinElevDeg(hdr47, 60.0, 0.0) == 40.0 && DeclaredConstraints.MaxCoFreq(hdr47, 12.0) == 4
+        && DeclaredConstraints.MinDurationSec(hdr47, -70.0) == 300;
+    var one47 = new OperatingParamsSet();
+    one47.MaxCoFreqByLat.Add((0.0, 5));
+    bool one47Ok = DeclaredConstraints.MaxCoFreq(one47, 89.0) == 5 && DeclaredConstraints.MaxCoFreq(one47, -89.0) == 5;
+    // Both forms of a quantity: an invalid filing, reported by name; valid sets report nothing.
+    var both47 = new OperatingParamsSet { ElevAngleHeaderDeg = 40.0, MaxCoFreqHeader = 4 };
+    foreach (var el in arr47.MinElev) both47.MinElev.Add(el);
+    foreach (var r in arr47.MaxCoFreqByLat) both47.MaxCoFreqByLat.Add(r);
+    var conflicts47 = DeclaredConstraints.FormConflicts(both47);
+    bool invalid47 = conflicts47.Count == 2
+        && conflicts47.Any(c => c.StartsWith("min_elev")) && conflicts47.Any(c => c.StartsWith("max_co_freq"))
+        && DeclaredConstraints.FormConflicts(arr47).Count == 0 && DeclaredConstraints.FormConflicts(hdr47).Count == 0;
     // MIN_EXCLUDE keeps its own rule: interpolated between rows, the end rows beyond them.
     var ex47 = new MinExcludeByOrbit { OrbId = 0 };
     ex47.ByLat.Add((-45.0, 20.0)); ex47.ByLat.Add((45.0, 24.0));
-    rows47.MinExclude.Add(ex47);
-    bool excl47 = Math.Abs(DeclaredConstraints.ExclusionAlphaDeg(rows47, 0.0, 0) - 22.0) < 1e-9
-        && DeclaredConstraints.ExclusionAlphaDeg(rows47, 60.0, 0) == 24.0
-        && DeclaredConstraints.ExclusionAlphaDeg(rows47, -60.0, 0) == 20.0;
-    Check("V47 header and array: the array governs inside its span, the header outside it, nothing when neither; MIN_EXCLUDE interpolates and clamps",
-        inside47 && outside47 && bare47Ok && excl47,
-        $"inside={inside47} outside={outside47} bare={bare47Ok} exclusion={excl47}");
+    arr47.MinExclude.Add(ex47);
+    bool excl47 = Math.Abs(DeclaredConstraints.ExclusionAlphaDeg(arr47, 0.0, 0) - 22.0) < 1e-9
+        && DeclaredConstraints.ExclusionAlphaDeg(arr47, 60.0, 0) == 24.0
+        && DeclaredConstraints.ExclusionAlphaDeg(arr47, -60.0, 0) == 20.0;
+    Check("V47 header and array: one form per quantity (both reported), the nearest-row read total (outermost row governs outward), a single row a global constant; MIN_EXCLUDE interpolates and clamps",
+        inside47 && outward47 && header47 && one47Ok && invalid47 && excl47,
+        $"inside={inside47} outward={outward47} header={header47} oneRow={one47Ok} invalid={invalid47} ({conflicts47.Count} named) exclusion={excl47}");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

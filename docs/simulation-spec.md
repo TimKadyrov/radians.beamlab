@@ -194,9 +194,12 @@ Encoding rules that are easy to get wrong, from the design brief:
 - `min_angle_at_es` is not applicable wherever `min_duration` is non-zero
 - the all-orbits marker for `min_exclude` is an explicit `c="0"`
 - absent `max_co_freq_sat` means no cap
-- EPS §6.7.2.2: where a quantity appears both as a header attribute and as a
-  per-latitude array, **the array prevails** and the header applies outside the
-  latitudes the array covers
+- EPS §6.7.2.2 (V43, 2026-09-07): header attribute and per-latitude array are
+  **mutually exclusive** per quantity (min_elev/elev_angle, max_co_freq,
+  min_duration); a set carrying both is invalid and is reported, not resolved;
+  the nearest-latitude read is total -- beyond an array's outermost rows the
+  outermost row governs (the earlier "array in-span, header outside" precedence
+  is withdrawn)
 
 The dataset needs sets exercising header-only, array-only, and both-with-
 different-values, so make the writer capable of all three.
