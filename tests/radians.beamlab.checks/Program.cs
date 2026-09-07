@@ -5029,6 +5029,68 @@ var looks = RandomLooks(300);
         $"exact={exactOk45} walker={walkerOk45} lead={lead45:F3} bands={bandsOk45}");
 }
 
+
+// ---- V46: mask consistency -- a given mask against the declared gates ----
+{
+    // Mask given, not derived: does it already carry the shaping the R set
+    // declares? Lit inside the declared zone or below the declared floor is
+    // the saturation-shaped mask beside operational gates (inconsistent, the
+    // examination over-charges); dark beyond the gate makes the gate inert
+    // (the STEAM-2B case). The filed STEAM-2B mask is the fixture: its notch
+    // sits at 22 deg and its floor at 40 deg, so the declared pairs below have
+    // known verdicts.
+    string filed46 = @"c:\_3\mask ntc_id 317520389 mask_id 150 17700-20200 MHz.xml";
+    if (File.Exists(filed46))
+    {
+        var dis46 = MaskDissect.Analyze(MaskXmlImport.Load(filed46), 1150.0);
+        OperatingParamsSet Set46(double alphaDeg, double elevDeg)
+        {
+            var s = new OperatingParamsSet();
+            var ex = new MinExcludeByOrbit { OrbId = 0 };
+            foreach (double lat in new[] { -45.0, -35.0, -25.0, -15.0, -5.0, 5.0, 15.0, 25.0, 35.0, 45.0 })
+            {
+                ex.ByLat.Add((lat, alphaDeg));
+                var el = new MinElevByLat { LatDeg = lat };
+                el.ByAz.Add((0.0, elevDeg));
+                s.MinElev.Add(el);
+            }
+            s.MinExclude.Add(ex);
+            return s;
+        }
+        var asFiled46 = MaskConsistency.Check(dis46, Set46(22.0, 40.0));
+        var wider46 = MaskConsistency.Check(dis46, Set46(30.0, 40.0));    // zone declared wider than the notch: lit inside it, hard edge
+        var narrower46 = MaskConsistency.Check(dis46, Set46(10.0, 40.0)); // zone declared narrower: the mask is the tighter one
+        var higher46 = MaskConsistency.Check(dis46, Set46(22.0, 50.0));   // floor declared above the plateau's edge: lit below it
+        var lower46 = MaskConsistency.Check(dis46, Set46(22.0, 30.0));    // floor declared below: the mask is the tighter one
+        int consistentAlpha46 = asFiled46.Rows.Count(r => r.Alpha == MaskConsistency.Verdict.Consistent);
+        bool ok46 = asFiled46.Overall == MaskConsistency.Verdict.Consistent
+            && wider46.Overall == MaskConsistency.Verdict.LitInside
+            && narrower46.Overall == MaskConsistency.Verdict.MaskTighter
+            && higher46.Overall == MaskConsistency.Verdict.LitInside
+            && lower46.Overall == MaskConsistency.Verdict.MaskTighter
+            && consistentAlpha46 >= 50;
+        // A derived mask beside its own derived gates: the main-lobe edge of
+        // beams gated at their boresight reaches inside the zone and below the
+        // floor, and stops well short of the arc -- LIT INSIDE, never saturated.
+        string derived46 = @"C:\Projects\radians.beamlab\dataset\margin\steam-2\steam-2.mask.lat10p0-ae1p0-svc-50to50.xml";
+        string derivedOk46 = "derived mask not present, not tested";
+        bool derivedFine46 = true;
+        if (File.Exists(derived46))
+        {
+            var rec46 = MaskConsistency.Check(derived46, 1150.0, Set46(22.0, 40.0));
+            var litA46 = rec46.Rows.Where(r => r.Alpha == MaskConsistency.Verdict.LitInside).ToList();
+            derivedFine46 = rec46.Overall == MaskConsistency.Verdict.LitInside
+                && litA46.Count > 0 && litA46.All(r => r.ReachAlpha > MaskConsistency.CellTolDeg && r.ReachAlpha < 22.0 - MaskConsistency.CellTolDeg)
+                && !rec46.Rows.Any(r => r.Alpha == MaskConsistency.Verdict.Saturated || r.Elev == MaskConsistency.Verdict.Saturated);
+            derivedOk46 = $"derived={rec46.Overall} litBlocks={litA46.Count} reachAlpha={(litA46.Count > 0 ? litA46.Min(r => r.ReachAlpha).ToString("F1") : "-")}";
+        }
+        Check("V46 mask consistency: filed notch consistent at its own gates, lit inside when a wider gate is declared, tighter when dark beyond it; a derived mask reads lit inside, not saturated",
+            ok46 && derivedFine46,
+            $"filed={asFiled46.Overall} wider={wider46.Overall} narrower={narrower46.Overall} higherFloor={higher46.Overall} lowerFloor={lower46.Overall} consistentAlphaBlocks={consistentAlpha46}; {derivedOk46}");
+    }
+    else Check("V46 mask consistency against declared gates", true, "filing not present, skipped");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
 

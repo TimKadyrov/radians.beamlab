@@ -354,13 +354,19 @@ examination-only run held the record&rsquo;s R&nbsp;set fixed and swapped in the
 result differs from the cap-4 record at one latitude by 0.1&nbsp;dB and at the other six not at
 all: the exclusion&rsquo;s share is nil, and the whole E1 gain &mdash; <strong>3.5 to
 6.4&nbsp;dB</strong> by latitude &mdash; is the top-4 envelope&rsquo;s. Why the tightened
-exclusion did not register has since been measured: the derived mask already carries the alpha
-notch, so satellites inside 22&deg; of the arc contribute mask-suppressed values whatever the
-R&nbsp;set says about them. With <code>min_exclude</code> forced to 0&deg; against the record mask
-&mdash; no exclusion zone at all &mdash; E1 moved at none of the seven latitudes, max epfd by
-+0.1&nbsp;dB at one. The R-set exclusion is epfd-inert for a notched mask, and only for one:
-against a filing whose mask is flat near the arc it bites, and the result must not be
-generalised.</p>
+exclusion did not register has since been measured, and the first explanation offered for it
+&mdash; a notch in the derived mask &mdash; was wrong. With <code>min_exclude</code> forced to 0&deg;
+against the record mask &mdash; no exclusion zone at all &mdash; E1 moved at none of the seven
+latitudes, max epfd by +0.1&nbsp;dB at one. The dissection of that mask shows why, and it is not a
+notch: power within 3&nbsp;dB of the peak reaches alpha 12&ndash;16&deg; against the declared 22&deg;,
+the main-lobe edge of beams gated at their boresight reaching the neighbouring ground at this
+cell size. The mechanism is the algorithm&rsquo;s own: Step 22 counts main-beam satellites
+regardless of the zone, and when the zone is lifted the same satellites, being the strongest, are
+the first the capped pick takes. In-zone satellites near the victim&rsquo;s boresight are summed
+either way; the rest are too weak to register. The filed two-level mask measures inert for the
+complementary reason &mdash; its in-zone values sit 30&nbsp;dB down &mdash; so the result holds
+for both mask shapes met so far, and the consistency check now reports each mask&rsquo;s own
+reach into the declared zone rather than assuming one.</p>
 </div>
 
 <div class="tech">

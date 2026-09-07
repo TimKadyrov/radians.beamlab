@@ -229,6 +229,19 @@ internal static class ComplianceLoop
             Console.WriteLine(e1Note);
         }
 
+        // ---- Mask given: the mask-versus-gates consistency check --------------
+        // With footprint source "mask" the truth itself read the declared mask,
+        // which is the case where gates cannot be applied to the mask after the
+        // fact; whether the mask already carries them is part of the record.
+        MaskConsistency.Report? consistency = null;
+        if (prof.Down.FootprintSource == "mask" && File.Exists(declaredMask))
+        {
+            consistency = MaskConsistency.Check(declaredMask, altKm, derived.Set);
+            Console.WriteLine();
+            Console.WriteLine("mask consistency (the declared mask against the derived gates): " + consistency.Summary
+                + (consistency.Note.Length > 0 ? " (" + consistency.Note + ")" : ""));
+        }
+
         // ---- Optional: the granularity walk (minimise E1 over a fixed truth) -
         // The v3 objective. The truth does not move: these levers change what the
         // DECLARATION says, not what the system does -- the latitude band of the
@@ -355,6 +368,11 @@ internal static class ComplianceLoop
                     + $"{rows[i].WorstMarginDb - rowsE1[i].WorstMarginDb:F1} | {(rowsE1[i].WorstMarginDb <= rows[i].WorstMarginDb + 1e-9 ? "yes" : "**NO**")} |"));
             sb.AppendLine();
             sb.AppendLine("**" + E1Summary(rows, rowsE1, inv) + "**");
+        }
+        if (consistency is not null)
+        {
+            sb.AppendLine();
+            MaskConsistency.AppendSection(sb, consistency, inv, "derived R set");
         }
         if (advice is not null)
         {
@@ -549,6 +567,11 @@ internal static class ComplianceLoop
         Console.WriteLine("  limit : " + ComplianceViewModel.DescribeLimit(lim));
         Console.WriteLine(string.Create(inv,
             $"  sweep : lat {latFrom:F0}..{latTo:F0} step {latStep:F0}; {steps} steps of {stepSec:F0} s ({days:F3} d); floor {100.0 / steps:F3}%"));
+        // The mask is given here, not derived: before reading it, ask whether it
+        // already carries the shaping the R set declares (see MaskConsistency).
+        var consistency = MaskConsistency.Check(maskXmlPath, altKm, declared);
+        Console.WriteLine("  mask consistency: " + consistency.Summary
+            + (consistency.Note.Length > 0 ? " (" + consistency.Note + ")" : ""));
         var col = new ProgressCollector(echo: true);
         var rows = ComplianceViewModel.RunSweepProfile(sweep with { Declared = declared }, profE1, col);
 
@@ -575,6 +598,8 @@ internal static class ComplianceLoop
         sb.AppendLine("|---|---|---|---|");
         foreach (var r in rows)
             sb.AppendLine(string.Create(inv, $"| {r.LatDeg:F0} | {r.MaxEpfdDb:F1} | {r.WorstMarginDb:+0.0;-0.0} | {(r.Pass ? "PASS" : "FAIL")} |"));
+        sb.AppendLine();
+        MaskConsistency.AppendSection(sb, consistency, inv, "given R set");
         string outPath = Path.Combine(outDir, tag + ".md");
         File.WriteAllText(outPath, sb.ToString());
         Console.WriteLine("record: " + Path.GetRelativePath(repo, outPath) + string.Create(inv, $"; wall clock {t0.Elapsed.TotalMinutes:F1} min"));

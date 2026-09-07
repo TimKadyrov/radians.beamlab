@@ -214,6 +214,18 @@ at the swept exclusion. The summary prints it after every sweep and at the advis
 endpoints. Live-composition footprint only: a declared mask is a fixed file, and a power
 change would need the mask regenerated.</p></div>
 
+<div class="tech"><div class="t">Tech &middot; a mask that is given</div>
+<p>When the footprint source is a mask &mdash; a filed mask examined as it is, or any mask taken
+as input rather than derived &mdash; the loop cannot re-derive it and does not try: gates act on
+boresights, and the mask&rsquo;s per-direction maximum has already collapsed which beam produced
+each cell. It reports instead whether the mask already carries the shaping the R&nbsp;set
+declares: per latitude block, how far inside the declared exclusion zone and how far below the
+declared elevation floor power within 3&nbsp;dB of the block&rsquo;s peak reaches &mdash;
+CONSISTENT at the gate, MASK TIGHTER beyond it, LIT INSIDE when the reach stops short of the
+arc, SATURATED when it does not. The examination-only mode runs the same check on every mask it
+is given. A derived mask read this way shows the main-lobe edge of gated beams reaching inside
+the zone at its cell size; a filed two-level mask shows its rule.</p></div>
+
 <h2>Where the declaration comes from</h2>
 <p>The loop no longer <em>ends</em> where the deriver begins &mdash; the derivation is the
 loop&rsquo;s first step. Before the truth sweep runs, a saturated probe (no victim, no limit,

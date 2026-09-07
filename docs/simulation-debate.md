@@ -3706,3 +3706,92 @@ own generator. The discipline and the work item:
    capacity field, and the new probe cases the brief now specifies
    (read-rule 3.9, consistency 3.10). Until then the 29 August artefacts
    stand as structure examples only and their READMEs should say so.
+
+## Beamlab — the consistency check built, and three corrections it forced on the way, 7 September 2026
+
+The operator placed the mask-versus-gates consistency check inside the
+compliance loop, for the case where the pfd mask is given and not
+composed, and confirmed the line the adaptation rule draws: a declared
+mask cannot move; a derived mask moves inside the loop. Built as
+directed — it runs on the loop's mask-source path and in the
+examination-only mode, and writes a "Mask consistency" section into
+both records. Per latitude block of an az/el mask it measures how far
+inside the declared MIN_EXCLUDE zone, and how far below the declared
+MIN_ELEV floor, power within 3 dB of the block's peak reaches, and
+grades the answer: CONSISTENT (the mask's own edge sits at the gate),
+MASK TIGHTER (dark beyond the gate: the gate is inert), LIT INSIDE
+(near-peak power reaches inside and stops short of the arc or horizon),
+SATURATED (it reaches the arc or the horizon: no shaping at all — the
+section 3.10 case). The filed STEAM-2B mask reads CONSISTENT against
+the record's R set: 109 blocks consistent, 70 not exercised where no
+cell reaches the zone, elevation consistent at all 179. V46 pins the
+scheme on that filing with gates declared wider, narrower, higher and
+lower than its edges.
+
+Building it forced three corrections, each measured.
+
+**1. The inert exclusion had the wrong explanation.** I wrote, and the
+construction page said, that the derived mask carries the alpha notch.
+The dissection of the record mask says otherwise: near-peak power
+reaches alpha 11.7–16.4 deg against the declared 22, and ground
+elevation 37.3 deg against the declared 40, at every lit block. That is
+the main-lobe edge of beams gated at their boresight reaching the
+neighbouring ground at 183 km cells — the parity run saw the same
+spillover into the filed mask's hole on 3 September. The mechanism of
+the inertness is therefore the algorithm's, not the mask's: Step 22
+counts main-beam satellites regardless of the zone, and when the zone
+is lifted the same satellites, being the strongest, are the first the
+capped pick takes; the weaker in-zone satellites are too small to
+register. The filed two-level mask measures inert for the complementary
+reason — its in-zone values sit 30 dB down. The measurement (0.0 dB at
+seven latitudes) stands; the explanation is replaced on the
+construction page, and the check now reports each mask's own reach
+instead of assuming a notch. The derived mask reads LIT INSIDE, never
+SATURATED, and V46 pins that too.
+
+**2. The examination read no cap and no floor beyond the declared
+rows.** The resolver behind D5.1.4.1 clamps MIN_EXCLUDE to its end rows
+(interpolation, Part B) but returns the header value — absent, so no
+cap and no floor — for MIN_ELEV, MAX_CO_FREQ and MIN_DURATION at an
+earth-station latitude outside the array's latitude span. Every derived
+R set has rows at ±45 deg, so at victims 50 and 60 the examination
+applied no elevation floor and no Nco cap. The sixth instance of the
+band-versus-point family, this time on the examination's side, and the
+Rec's rule is the one the exclusion resolver already follows: Sec.
+D5.1.5 step 1 reads the nearest row, so the end rows govern beyond the
+array. Measured by extending the record's rows to ±65 at the same
+values, which emulates the nearest-row read:
+
+| lat | derived mask, record rows | derived mask, rows to 65 | filed mask, record rows | filed mask, rows to 65 |
+|---|---|---|---|---|
+| 50 | -24.1 | -24.0 | -6.2 | -2.0 |
+| 60 | -21.9 | -21.9 | -4.9 | -4.0 |
+
+(0.1 d; at 1.0 d the filed mask with rows to 65 reads -1.8 / -4.0.)
+
+The derived masks are unaffected within 0.1 dB — where the cap would
+bite, the mask is dark — so every standing figure on a derived mask
+survives. The filed mask is not: its high-latitude exceedance was
+inflated by the resolver, and under the nearest-row read the filing
+exceeds TABLE 22-1B by 0.5–2.0 dB at 0–50 deg and 4.0 dB at 60, firm
+across ten times the depth. The record and the construction page carry
+the corrected figures with the method named. The fix itself — clamp the
+three nearest-read arrays to their end rows, as the exclusion resolver
+does, with a check — changes the examination path and waits for the
+operator's word; until then the rows-to-65 emulation is the
+measurement.
+
+**3. The consistency check's first verdict scheme was built for a rule
+mask and misread a physical one.** "Lit inside the zone" and "saturated"
+had one name, INCONSISTENT, and the derived mask tripped it at every
+block. A physically derived mask always carries main-lobe reach past a
+boresight gate; only a mask lit to the arc itself carries no shaping.
+The scheme is now graded as above, with the reach in degrees, and the
+meaning text gives both readings a LIT INSIDE verdict admits — a gate
+declared wider than the mask's edge, or the main-lobe edge of gated
+beams — because the mask alone cannot separate them.
+
+Control for all three: same profile, design, limit row, victims and
+depth as the record; the record's R set and its rows-to-65 variant
+differ in the four added rows only; the dissection numbers are from the
+record's own mask file.
