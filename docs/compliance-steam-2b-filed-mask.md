@@ -76,11 +76,12 @@ restate.
 
 ## Correction, 7 September 2026 (later the same day)
 
-The verdicts above at latitudes 50 and 60 were inflated by the examination's own resolver. For an
-earth-station latitude outside the span of the declared rows -- the derived R set's rows sit at
-+-45 deg -- it read no elevation floor and no Nco cap instead of the nearest row (Sec. D5.1.5
-step 1), while it clamps MIN_EXCLUDE to its end rows. Re-examined with the same R set's rows
-extended to +-65 deg at the same values, which emulates the nearest-row read:
+The verdicts above at latitudes 50 and 60 were inflated by a declaration that was short. The
+derived R set's rows sit at +-45 deg and it carried no header, so beyond the rows it declared no
+elevation floor and no Nco cap -- and the examination read it exactly so, the header being the
+global value that covers what the table does not (EPS Sec. 6.7.2.2; MIN_EXCLUDE alone
+interpolates and clamps to its end rows). Re-examined with the same R set's rows extended to
++-65 deg at the same values, which supplies the missing coverage:
 
 | latitude | margin, 0.1 d | margin, 1.0 d |
 |---|---|---|
@@ -96,9 +97,15 @@ extended to +-65 deg at the same values, which emulates the nearest-row read:
 4.0 dB at 60**, firm across ten times the depth. The figures at 0..40 are unchanged. This project's
 derived masks are unaffected within 0.1 dB, because they are dark where the missing cap and floor
 would have admitted satellites. Records: `dataset/margin/examine/filed-mask-rows65-rset.md` and
-`filed-mask-rows65-rset-1d.md`. The resolver fix -- clamping the nearest-read arrays to their end
-rows, as the exclusion resolver already does -- awaits the operator's confirmation; until then the
-extended rows are the measurement. Every caveat of the first section still applies.
+`filed-mask-rows65-rset-1d.md`.
+
+The operator's ruling, later the same day: the header is the global value and covers what the
+table does not (EPS Sec. 6.7.2.2). The resolver was right; the derived R set was short -- rows at
++-45 and no header declares nothing beyond the rows. The deriver now writes the elevation and cap
+headers from the enforced set. The record's R set with those two headers added, examined under the
+unchanged resolver, reproduces the extended-rows figures exactly (-2.0 at 50, -4.0 at 60 at 0.1 d;
+`dataset/margin/examine/filed-mask-headers-rset.md`). Every caveat of the first section still
+applies.
 
 The mask-versus-gates consistency check, added the same day, reads this filing CONSISTENT with the
 record's R set: 109 latitude blocks consistent, 70 not exercised where no cell reaches the zone,

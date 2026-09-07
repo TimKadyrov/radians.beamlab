@@ -110,6 +110,17 @@ public static class OpParamsDeriver
             MaxCoFreqSat = maxPerSat > 0 ? maxPerSat : null,
             MinAngleAtSatDeg = double.IsFinite(minAngleSat) ? FloorTenth(minAngleSat) : null,
             MinAngleAtEsDeg = double.IsFinite(minAngleEs) ? FloorTenth(minAngleEs) : null,
+            // The header is the global value: it governs every latitude the
+            // per-latitude tables below do not cover (EPS Sec. 6.7.2.2 -- the
+            // array prevails inside its span, the header outside it). The
+            // tables refine the measurement within the served bands; beyond
+            // them the declaration promises what the system enforces
+            // everywhere. A set without headers declares nothing there, and
+            // the examination read it as no floor and no cap. MIN_DURATION is
+            // deliberately not carried: declaring it would switch the
+            // examination to the track-duration algorithm.
+            ElevAngleHeaderDeg = enforced.ElevAngleHeaderDeg,
+            MaxCoFreqHeader = enforced.MaxCoFreqHeader,
         };
         foreach (var (band, elev) in minElevByBand.OrderBy(kv => kv.Key))
         {

@@ -3795,3 +3795,50 @@ Control for all three: same profile, design, limit row, victims and
 depth as the record; the record's R set and its rows-to-65 variant
 differ in the four added rows only; the dissection numbers are from the
 record's own mask file.
+
+## Beamlab — the header is global: the resolver was right, the declaration was short, 7 September 2026
+
+A correction to the previous entry's second point, on the operator's
+ruling: "the header is global — it provides the values not covered by
+the table." That is EPS Sec. 6.7.2.2 as the resolver already implements
+it and as the design brief records it — the array prevails inside the
+latitudes it covers, the header applies outside them — and it settles
+the defect on the other side from where I placed it. The examination
+did not misread the derived R sets at latitudes 50 and 60; it read them
+exactly: rows at ±45 and no header, which declares nothing beyond the
+rows. The derivation wrote a declaration that was short.
+
+**The fix, declaration-side.** The deriver now carries the two global
+headers the enforced set already holds — the elevation floor and the
+co-frequency cap — so every latitude the measured tables do not cover
+is promised what the system enforces everywhere. MIN_DURATION is
+deliberately not carried: declaring it switches the examination to the
+track-duration algorithm. V38 pins that a derived set carries the
+headers and never the duration; V47 pins the reading — array inside its
+span, header outside, nothing when there is neither, and MIN_EXCLUDE on
+its own interpolate-and-clamp rule.
+
+**Verified before it was written.** The record's R set with the two
+headers added and nothing else changed, examined against the filed mask
+under the unchanged resolver, reproduces the rows-to-65 figures to the
+tenth: -2.0 at 50, -4.0 at 60, the other five unchanged. The corrected
+filed-mask figures stand as recorded — 0.5–2.0 dB at 0–50, 4.0 dB at
+60, firm across ten times the depth — and the record now names the
+header as the route. The derived masks are unaffected within 0.1 dB, as
+measured.
+
+**What this leaves.** Every R set derived so far on disk lacks the
+headers; the next derivation writes them. The 1.0 d run in flight was
+started from the earlier build and will write a set without them; its
+E1 at 50 and 60 is on a derived mask, where the effect measured at most
+0.1 dB, so the figures it produces stand and the set can be re-labelled
+with headers before it is filed anywhere. The read-rule law gains its
+missing clause on the construction page: beyond an array's span the
+header governs, and a declaration without one declares nothing there.
+
+**Housekeeping recorded.** The seven pre-fix derived masks under
+dataset/margin (31 August to 3 September, point-sampled) are deleted;
+the seven of 7 September stand. The operator's decision on the BL
+family — frozen versioned triples, provenance stamps, both curves, one
+re-emission after the probe cases — is the generator work item, and the
+29 August case READMEs now say they are structure examples until then.
