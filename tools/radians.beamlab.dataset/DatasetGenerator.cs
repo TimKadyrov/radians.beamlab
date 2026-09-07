@@ -132,12 +132,9 @@ public static class DatasetGenerator
 
     // ---- entry point ---------------------------------------------------
 
-    public static void Generate(DatasetOptions o)
+    /// <summary>The BR mask API directory: the option when given, else the known locations.</summary>
+    internal static string ResolveMasksDllDir(DatasetOptions o)
     {
-        if (!File.Exists(o.DonorSrsPath))
-            throw new InvalidOperationException($"donor SRS not found: {o.DonorSrsPath}");
-        if (!File.Exists(o.DonorMasksPath))
-            throw new InvalidOperationException($"donor Masks not found: {o.DonorMasksPath}");
         string dllDir = o.EpfdMasksDllDir ?? new[]
         {
             @"C:\Projects\_EPFD\radians\radians\dlls",
@@ -145,7 +142,16 @@ public static class DatasetGenerator
         }.FirstOrDefault(d => File.Exists(Path.Combine(d, "EpfdMasksApi64.dll")));
         if (dllDir is null || !File.Exists(Path.Combine(dllDir, "EpfdMasksApi64.dll")))
             throw new InvalidOperationException("EpfdMasksApi64.dll not found; pass EpfdMasksDllDir");
-        SrsMdbWriter.EpfdMasksDllDirectory = dllDir;
+        return dllDir;
+    }
+
+    public static void Generate(DatasetOptions o)
+    {
+        if (!File.Exists(o.DonorSrsPath))
+            throw new InvalidOperationException($"donor SRS not found: {o.DonorSrsPath}");
+        if (!File.Exists(o.DonorMasksPath))
+            throw new InvalidOperationException($"donor Masks not found: {o.DonorMasksPath}");
+        SrsMdbWriter.EpfdMasksDllDirectory = ResolveMasksDllDir(o);
 
         Directory.CreateDirectory(o.OutDir);
         string srcDir = Path.Combine(o.OutDir, "_src");
@@ -952,6 +958,12 @@ public static class DatasetGenerator
 
             Options: `--quick` (coarse), `--case BL-D1` (single case), `--donor-srs`,
             `--donor-masks`, `--dll-dir`, `--out`.
+
+            The same tool builds a cross-read package -- a filed pfd mask stored verbatim,
+            paired with a constellation from an orbit design and an R set this project
+            derived, in the same SRS + Masks form plus the S.1503-2 group parameters:
+
+                dotnet run --project tools/radians.beamlab.dataset -- --package NAME --design D.orbitdesign.json --rset R.operparams.json --mask MASK.xml [--mask-id N] [--band MIN MAX] [--ntc N] [--sat-name S] [--expected FILE] [--provenance TEXT]
 
             The constellation mixes orbit models across shells (see BL-ALL/README.md for
             the S.1503-4 B5.1 vs EPS 6.4.1.1 tension, which is deliberate). The system is

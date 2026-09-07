@@ -3649,3 +3649,27 @@ section 3.10 checks run as a tool, detection only, doubling as the
 self-check on every emitted dataset case and as an examination-side
 pre-check on incoming filings. The examination-only mode is its natural
 host.
+
+## Beamlab — the package, corrected to the operator's direction: raw XML, no Masks database, 7 September 2026
+
+Two notes on the entry above, which landed in commit 85cdc3e under a
+message about a consistency addendum — the commit's content is that
+entry; the addendum's text is not in the file.
+
+**Operator direction, applied.** "We don't need to package masks into
+mdb, we can use raw xml." The package now carries the filed mask and
+the R set as raw XML under `xml/` and no Masks database; the SRS notice
+stays, with mask_info registering mask 150 and param 1 so the links
+resolve to the files. The finding that the BR native store took the
+88 MB az/el mask as it is stands as recorded and is no longer used.
+`dataset/STEAM-2B-FILED/` is regenerated in that form: `900123480
+SRS.MDB`, `xml/mask150_pfd_azel_filed.xml`, `xml/param1_oper.xml`,
+`expected/`, README.
+
+**Where this leaves the thread.** Per the operator's ruling above, the
+STEAM-2B pfd-mask thread parks here with the package on the shelf for
+the cross-read when radians runs it. The 1.0 d run in flight is a
+composition-driven case — truth from the composed beams, declaration
+from the saturated probe — so it is the convergence purchase spent
+where the ruling says to spend it. The harness stands at 137 passed
+with V45 pinning the declared phase rows to the flown ones.

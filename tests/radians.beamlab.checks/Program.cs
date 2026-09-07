@@ -4978,6 +4978,57 @@ var looks = RandomLooks(300);
         $"free={uncapped44:F2} cap3={cap3_44:F2} cap1={cap1_44:F2} worstFree={freeWorst44} worstCapped={cappedWorst44} cells={free44.Count}");
 }
 
+
+// ---- V45: the declared notice flies the constellation's exact inter-plane phase ----
+{
+    // AddShell mirrored the Walker phasing only. A shell declared with an
+    // exact inter-plane phase (STEAM-2: 1.9 deg) propagated one system and
+    // filed another. The declared phase rows must be the propagated system's
+    // own initial phases, for both phasing forms.
+    bool PhasesAgree45(ConstellationShell sh)
+    {
+        var n45 = new SrsNotice { NtcId = 1, SatName = "V45" };
+        n45.AddShell(sh);
+        var c45 = new Constellation(new[] { sh });
+        if (n45.Phases.Count != c45.Elements.Count) return false;
+        for (int i = 0; i < n45.Phases.Count; i++)
+        {
+            var el = c45.Elements[i];
+            double flown = ((el.TrueAnomalyDeg + el.ArgumentOfPerigeeDeg) % 360.0 + 360.0) % 360.0;
+            double d = Math.Abs(n45.Phases[i].PhaseAngDeg - flown);
+            if (Math.Min(d, 360.0 - d) > 1e-9) return false;
+        }
+        return true;
+    }
+    var exact45 = new ConstellationShell
+    {
+        AltitudeKm = 1150.0, InclinationDeg = 53.0, PlaneCount = 4, SatsPerPlane = 5,
+        WalkerPhasingF = 0, InterPlanePhaseDeg = 1.9, NOrbits = 288,
+    };
+    var walker45 = new ConstellationShell
+    {
+        AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 3, SatsPerPlane = 4,
+        WalkerPhasingF = 1, NOrbits = 288,
+    };
+    bool exactOk45 = PhasesAgree45(exact45);
+    bool walkerOk45 = PhasesAgree45(walker45);
+    // The exact phase shows in the declaration itself: plane 1 leads plane 0 by it.
+    var nx45 = new SrsNotice { NtcId = 1, SatName = "V45" };
+    nx45.AddShell(exact45);
+    double lead45 = nx45.Phases[exact45.SatsPerPlane].PhaseAngDeg - nx45.Phases[0].PhaseAngDeg;
+    bool leadOk45 = Math.Abs(lead45 - 1.9) < 1e-9;
+    // The sat_oper reconstruction of a flat MAX_CO_FREQ array: midpoints between rows, poles at the ends.
+    var set45 = new OperatingParamsSet();
+    foreach (double lat in new[] { -45.0, -35.0, -25.0, -15.0, -5.0, 5.0, 15.0, 25.0, 35.0, 45.0 }) set45.MaxCoFreqByLat.Add((lat, 4));
+    var bands45 = radians.beamlab.dataset.PackageBuilder.NearestReadBands(set45);
+    bool bandsOk45 = bands45.Count == 10 && bands45[0].LatFr == -90.0 && bands45[0].LatTo == -40.0
+        && bands45[4].LatFr == -10.0 && bands45[4].LatTo == 0.0 && bands45[9].LatFr == 40.0 && bands45[9].LatTo == 90.0
+        && bands45.All(b => b.NbrOpSat == 4);
+    Check("V45 declared notice flies the exact inter-plane phase; sat_oper is the nearest-read reconstruction",
+        exactOk45 && walkerOk45 && leadOk45 && bandsOk45,
+        $"exact={exactOk45} walker={walkerOk45} lead={lead45:F3} bands={bandsOk45}");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
 

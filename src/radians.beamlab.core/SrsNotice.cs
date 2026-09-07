@@ -172,9 +172,13 @@ public sealed class SrsNotice
                 // phase_ang: angle from the ascending node -- omega + true
                 // anomaly; Constellation applies the inverse, so the declared
                 // rows and the propagated system agree through the
-                // examination's own transform.
+                // examination's own transform. An exact inter-plane phase,
+                // when the shell carries one, replaces the Walker F term here
+                // exactly as it does in Constellation (V45 pins the two).
                 double phase = 360.0 * s / shell.SatsPerPlane
-                             + 360.0 * shell.WalkerPhasingF * p / (shell.PlaneCount * shell.SatsPerPlane)
+                             + (shell.InterPlanePhaseDeg is double ipp
+                                 ? ipp * p
+                                 : 360.0 * shell.WalkerPhasingF * p / (shell.PlaneCount * shell.SatsPerPlane))
                              + shell.InPlaneOffsetDeg;
                 Phases.Add(new SrsPhaseRow(orbId, s + 1, Norm360(phase)));
             }
