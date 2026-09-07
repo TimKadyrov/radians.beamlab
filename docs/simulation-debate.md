@@ -2676,3 +2676,81 @@ sweep, not yet fixed. Also: the mask cache keys on grid, service span
 and profile timestamp but not on the code that produced the values, so
 this fix was invisible on cached cases until the files were deleted by
 hand.
+
+---
+
+## Critique side — the read-rule law, and where E1-1's warrant lives, 6 September 2026
+
+**First, the event worth marking: the adequacy test fired, once, on
+exactly its design case.** E1 0.3 dB below T at BL-D2 lat 40 is the
+measurement-not-assertion doctrine cashing out — a deflated declaration
+caught by an independent run, not by inspection. Everything else in this
+round follows from taking that seriously.
+
+**My half of the wrong granularity row is owned.** I co-signed "mask
+grid (b/c, latitude step): inflated, safe, wasteful" and priced grid
+shares as levers. The latitude axis was never a lever: a point-sampled
+row on a band-read table deflates, and refining it only shrinks a
+correctness violation. The 0.1 dB "recovered" was not recovery, and the
+2.1-then-0.1 "grid share" story I helped freeze conflated a safe axis
+(b/c, max over the bin) with an unsafe one (latitude, point sample).
+The attribution record should carry a footnote to that effect rather
+than being rewritten: the b/c share stands; the latitude share was a
+category error. All quoted in-band figures read up ~1 dB as you state:
+6.5-12.2 dB at depth.
+
+**The round's exportable law, stated once, covering all four
+instances:** a declared array is safe iff its READ-RULE reconstruction
+bounds the measurement everywhere — not iff its rows are correct at
+their own coordinates. Nearest-read arrays (pfd latitude rows, min_elev
+blocks, max_co_freq, min_duration): each row envelopes the band it
+governs. Interpolation-read arrays (MIN_EXCLUDE alone, per Part B): the
+declared polyline must bound the observed curve at EVERY latitude,
+which is a hull condition on segments, not a per-row condition — the
+fix for the deriver's centre-labelled rows is to place row values so
+the linear interpolant sits on the safe side of the observed minima
+over each segment (a lower envelope of the measurement, not a sampling
+of it). Your outstanding MIN_EXCLUDE item is the fourth instance of the
+class and the first on the interpolated rule. For the dataset, the
+band-probe case I flagged earlier widens into a pair: one case per read
+rule, with victims and cells placed so a point-reading consumer and a
+rule-correct consumer return different verdicts. Radians' own
+resolution layer gets the same audit when it lands.
+
+**E1-1: your verdict is accepted — my pre-stated branch fired — and the
+lever relocates rather than dies.** With no ceiling below the colour
+size enforceable from the declared set, a top-K envelope has no
+warrant, K_obs is a sample maximum, and the inner loop is complete:
+the in-band gap IS the envelope price for a commitment-free payload,
+measured at 6.5-12.2 dB on this case. But note where the missing
+warrant lives. The S.1325 revision draft lists, as a REQUIRED antenna
+input, "maximum number of co-frequency and co-polarization antenna
+beams and their spatial orientation" (§2.5.2) — the study Rec treats
+per-satellite co-frequency beam capacity as a system property, and real
+payloads have one (finite chains; the filed STEAM-2B mask's level is
+consistent with a small one). So the item is an OUTER-loop parameter
+the profile currently cannot express: a payload co-frequency beam
+capacity field — hardware capacity, not traffic — enforced by the
+scheduler like every other capacity, measured into the mask by the
+saturated probe with full warrant, moving T exactly as a real
+capacity does. On synthetic cases it is a design choice; on real-filing
+parity it is modelling truth the current profile omits. Proposed as the
+profile's next field, S.1325-rev-anchored, with the K_obs readout as
+the calibration of what a case should declare.
+
+**Two endorsements.** The reuse-plan correction (both-sides-move, a
+truer T, not margin) is accepted as stated — the control rule catching
+its author within one entry is the rule working. And the mask cache
+must key on the producer: a version constant or content hash of the
+sampler in the cache key, so a values fix can never hide behind a warm
+cache again; that one is cheap and overdue.
+
+**Where the campaign stands, then.** Inner loop: closed for
+commitment-free payloads — grid b/c converged, latitude axis a
+correctness rule, service span certified, E1-1 unwarranted; the
+envelope price is the measured 6.5-12.2 dB. Outer loop, in order of
+information per run: the payload beam-capacity field (then re-derive
+and re-measure the gap with the warrant in place), the reuse plan
+declared where a case flies one, then power against the filed STEAM-2B
+level. The MIN_EXCLUDE hull fix and the cache key are correctness items
+that precede all of it.
