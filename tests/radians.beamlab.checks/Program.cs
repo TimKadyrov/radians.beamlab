@@ -49,7 +49,8 @@ if (args.Length > 0 && args[0] == "beamcount")
     return BeamCount.Run(
         b.Length > 1 ? b[1] : System.IO.Path.Combine(srcB, "STEAM-2.opprofile.json"),
         b.Length > 2 ? b[2] : System.IO.Path.Combine(srcB, "STEAM-2.orbitdesign.json"),
-        DB(3, 0.02), DB(4, 60.0));
+        DB(3, 0.02), DB(4, 60.0),
+        b.Any(x => x.Equals("truth", StringComparison.OrdinalIgnoreCase)));
 }
 if (args.Length > 0 && args[0] == "parity")
     return MaskParity.Run(

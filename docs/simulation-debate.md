@@ -2962,3 +2962,77 @@ named as the thing that moved.
 against the beam-count row and its tech box no longer says the commitment
 does not exist; the user guide describes the field. The attribution
 footnote on the margin-figure records stays on my ledger.
+
+## Beamlab — a cap that binds at peak and not today: the third regime, 6 September 2026
+
+The second variant is in, and it corrects a prediction of mine while
+completing the picture the field was built to draw.
+
+**Controls.** STEAM-2, global service area, 0.1 d (floor 0.694%), same
+certificate (11 lit, 0 dark). The profile differs from the record in one
+field: CoFrequencyBeamCapacity = 12, near the mode of the SATURATED
+distribution. One control does NOT hold and is named: the derived R set
+differs. The saturated probe placed 6 560 480 links against 6 575 111
+(0.22% fewer) and derived max_co_freq_sat 48 against 59 — the cap bound
+at peak. The epfd(down) algorithm does not read MAX_CO_FREQ_SAT, so the
+E1 change below is the mask's alone; but the declaration as a whole is
+tighter than the record's, and a reader comparing R sets should know why.
+
+| lat | T record | T cap 12 | E1 record | E1 cap 12 | gap record | gap cap 12 | recovered |
+|---|---|---|---|---|---|---|---|
+| 0 | -9.1 | -9.1 | -15.6 | -14.8 | 6.5 | 5.7 | 0.8 |
+| 10 | -4.8 | -4.8 | -13.7 | -12.6 | 8.9 | 7.8 | 1.1 |
+| 20 | -7.4 | -7.4 | -18.1 | -16.5 | 10.7 | 9.1 | 1.6 |
+| 30 | -5.7 | -5.7 | -12.5 | -10.6 | 6.8 | 4.9 | 1.9 |
+| 40 | -6.9 | -6.9 | -16.9 | -14.4 | 10.0 | 7.5 | 2.5 |
+| 50 | -11.9 | -11.9 | -24.1 | -21.7 | 12.2 | 9.8 | 2.4 |
+| 60 | -11.7 | -11.7 | -21.9 | -18.6 | 10.2 | 6.9 | 3.3 |
+
+**T did not move. To the decimal, at every latitude.** I predicted it
+would, and I chose 12 from the wrong distribution. The readout I picked
+it from was the SATURATED one — demand at the declared cap of four — and
+that is the distribution a declaration must envelope. But the truth sweep
+runs the profile's real traffic, one link per cell, roughly a quarter of
+the per-colour load. Measured under that traffic the worst colour on any
+satellite is 11 (once in 21 840 satellite-steps; mode 3; two thirds at 3
+or fewer) and nothing goes unserved. A cap of 12 is never reached today,
+so declaring it cannot move today's truth.
+
+**It binds at peak, and that is where its cost is.** Under saturation the
+worst colour reaches 12, the scheduler refuses beyond it, and 2.67% of
+the offered peak demand goes unserved (17 466 of 655 312 link-steps at
+0.01 d). The commitment is real and enforced; its price is blocking at
+peak, not epfd today.
+
+**So the field has three regimes, and only one of them was visible
+before this run.**
+
+| declared capacity | binds on the truth? | binds at peak? | T | E1 | cost |
+|---|---|---|---|---|---|
+| >= K_sat (20 here) | no | no | unchanged | -0.0 to -1.8 dB | none |
+| between K_truth and K_sat (12 here) | no | yes | unchanged | -0.8 to -3.3 dB | peak blocking (2.67%) and a tighter R set |
+| < K_truth (below 11 here) | yes | yes | moves | tighter still | today's service, as unserved demand |
+
+The middle row is the one an operator would want to know about: a
+commitment the system already honours at today's traffic, that buys 0.8
+to 3.3 dB on the examination, and whose only cost falls on the busiest
+hour. It is also the row the previous entry's framing — "moves T exactly
+as a real capacity does" — did not anticipate, because that framing
+assumed the cap would be set below what the system does today. Whether
+it does depends on which side of K_truth the operator declares.
+
+**The readout now measures both distributions.** A `truth` mode reports
+the real-traffic per-colour count, and both modes report whether the cap
+was reached and how much offered demand went unserved. Choosing a cap
+from the saturated distribution says what the declaration may envelope;
+choosing from the truth distribution says what declaring it costs today.
+They answer different questions, and I conflated them for one run.
+
+**The third regime is running**: capacity 4, which the truth distribution
+says binds on about a fifth of satellite-steps. T should move there, and
+the record will name it as the thing that moved.
+
+**Adequacy held at every latitude in both variants**, as it must: the
+scheduler binds exactly what the mask assumes, so the envelope cannot
+fall below the system it describes. That is the warrant working, not a
+coincidence.

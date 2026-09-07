@@ -26,7 +26,14 @@ using radians.beamlab.app;
 /// </summary>
 internal static class BeamCount
 {
-    public static int Run(string profilePath, string designPath, double days, double stepSec)
+    /// <param name="truth">
+    /// Measure under the profile's REAL traffic instead of the saturated probe.
+    /// The saturated distribution says what the system may light and is the
+    /// one a declaration must envelope; the truth distribution says what a cap
+    /// would bind on TODAY, and so whether declaring it moves T at all.
+    /// </param>
+    public static int Run(string profilePath, string designPath, double days, double stepSec,
+        bool truth = false)
     {
         var inv = CultureInfo.InvariantCulture;
         if (!File.Exists(profilePath) || !File.Exists(designPath))
@@ -42,7 +49,7 @@ internal static class BeamCount
 
         // The same saturated probe the declaration is derived from.
         var enforced0 = OperationComposer.Compose(prof0, altKm).Enforced;
-        var prof = ComplianceViewModel.Saturate(prof0, enforced0);
+        var prof = truth ? prof0 : ComplianceViewModel.Saturate(prof0, enforced0);
         var comp = OperationComposer.Compose(prof, altKm);
         var con = new Constellation(OperationComposer.ApplyToShells(prof, shells0));
         long steps = Math.Max(1, (long)Math.Round(days * 86400.0 / stepSec));
@@ -82,7 +89,7 @@ internal static class BeamCount
             $"system: {con.SatelliteCount} satellites at {altKm:F0} km; lattice {beamCount} beams, "
             + $"{n} colour(s), {perColour.Max()} beams in the largest colour"));
         Console.WriteLine(string.Create(inv,
-            $"probe: saturated, {steps} steps of {stepSec:F0} s ({days:F3} d); demand "
+            $"probe: {(truth ? "TRUTH traffic" : "saturated")}, {steps} steps of {stepSec:F0} s ({days:F3} d); demand "
             + $"{prof0.DemandLinksPerCell} -> {prof.DemandLinksPerCell}"));
 
         var sched = new Scheduler(con, comp.Geography, comp.Enforced,
@@ -90,12 +97,16 @@ internal static class BeamCount
 
         // Histogram of the per-satellite worst-colour active beam count.
         var hist = new SortedDictionary<int, long>();
-        long satSteps = 0, litSatSteps = 0;
+        long satSteps = 0, litSatSteps = 0, unserved = 0, granted = 0;
+        int? capDeclared = null;
         int worst = 0;
         var colourCount = new int[n];
         for (long k = 0; k < steps; k++)
         {
             var step = sched.Step(k * stepSec);
+            unserved += step.UnservedCellLinks;
+            granted += step.Links.Count;
+            capDeclared ??= new ScenePointing(comp.Scene).Resolve(con.StateAt(0, 0.0, simDur)).CoFrequencyBeamCapacity;
             foreach (var kv in step.ActiveBeams)
             {
                 satSteps++;
@@ -139,6 +150,14 @@ internal static class BeamCount
             "  drops only the tail. Expect materially less than this.");
         Console.WriteLine(string.Create(inv,
             $"satellite-steps: {satSteps} observed, {litSatSteps} with any beam lit."));
+        // A declared capacity costs nothing in epfd where it does not bind; where
+        // it binds, the cost is demand the scheduler could not place. Both sides
+        // of that ledger belong next to the dB it buys.
+        Console.WriteLine(string.Create(inv,
+            $"declared co-frequency beam capacity: {(capDeclared is int cd ? cd.ToString(inv) : "none")}; "
+            + $"the measured worst colour {(capDeclared is int cd2 && worst >= cd2 ? "REACHES the cap -- it binds" : "stays under it -- it does not bind at this traffic")}."));
+        Console.WriteLine(string.Create(inv,
+            $"demand placed: {granted} link-steps; unserved: {unserved} ({100.0 * unserved / Math.Max(1, granted + unserved):F2}% of offered)."));
         return 0;
     }
 
