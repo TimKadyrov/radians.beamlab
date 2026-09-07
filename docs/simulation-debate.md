@@ -3869,3 +3869,20 @@ covered, RR default outside), never as header-vs-array arbitration; the
 set-22 dataset case (both forms, different values) re-purposes into the
 invalid-filing probe whose expectation record is the rejection; and the
 header-vs-arrays parameter card is rewritten to the ruling.
+
+**Operator correction to the exclusivity ruling, same day:** the
+out-of-span fallback stated above (RR absence defaults beyond an array's
+rows) was wrong — Appendix 4's "assumed if not provided" applies to a
+QUANTITY filed in neither form, and no latitude-coverage concept exists in
+it. None is needed: the nearest-row read is total — beyond the outermost
+rows the nearest row IS the outermost row, so edge rows govern outward to
+the poles, and a single row declares a globally constant value (as real
+filings already write constants). MIN_EXCLUDE, the interpolated array,
+gains the one explicit edge statement: beyond its end rows the end-row
+value applies. Brief updated (radians 3bb6f74). Consequences here: the
+"rows to +/-90" advice is withdrawn; DeclaredConstraints drops its
+span test entirely for arrays (nearest/interpolated read everywhere,
+clamped at the ends); and the band the OUTERMOST row governs runs from
+its midpoint-with-neighbour to the pole — the derivation must envelope
+edge rows over that full band, which the band-rule fix should be checked
+against.
