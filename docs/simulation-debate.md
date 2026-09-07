@@ -4058,3 +4058,58 @@ the remaining uncertainty is the truth's tail alone.
 Controls: same profile in all but name, same design, limit row,
 victims, grid and step; depth the only variable; the record's artefacts
 and the 1.0 d artefacts compared file to file.
+
+## Beamlab — the pair bought: five latitudes firm, two still moving, and what the second half of a day contains, 7 September 2026
+
+The truth-only rerun exists and was used at once: the record's
+declaration read back, the probe skipped, the truth sweep and the
+examination run at 0.5 d — 720 steps of 60 s, floor 0.139% — in 85
+minutes against the 246 the full loop took at 1.0 d. The pair is
+(0.5 d, 1.0 d), tolerance 0.5 dB, all three statistics:
+
+| lat | T 0.5 d | T 1.0 d | moved | E1 0.5 d | E1 1.0 d | moved | gap 0.5 d | gap 1.0 d | moved | status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | -9.3 | -9.3 | 0.0 | -18.1 | -18.1 | 0.0 | 8.8 | 8.8 | 0.0 | firm |
+| 10 | -10.2 | -10.2 | 0.0 | -17.7 | -17.7 | 0.0 | 7.5 | 7.5 | 0.0 | firm |
+| 20 | -9.5 | -9.5 | 0.0 | -18.1 | -18.0 | +0.1 | 8.6 | 8.5 | -0.1 | firm |
+| 30 | -10.9 | -10.9 | 0.0 | -18.6 | -18.6 | 0.0 | 7.7 | 7.7 | 0.0 | firm |
+| 40 | -7.5 | -10.3 | -2.8 | -18.1 | -18.8 | -0.7 | 10.6 | 8.5 | -2.1 | provisional |
+| 50 | -11.9 | -9.3 | +2.6 | -23.5 | -20.0 | +3.5 | 11.6 | 10.7 | -0.9 | provisional |
+| 60 | -10.6 | -10.4 | +0.2 | -21.9 | -21.4 | +0.5 | 11.3 | 11.0 | -0.3 | firm |
+
+**What is now quotable as an absolute.** At 0, 10, 20, 30 and 60 deg, T,
+E1 and the gap each moved 0.5 dB or less between the two depths, so the
+1.0 d figures stand with their pair named: T from -9.3 to -10.9, E1
+from -17.7 to -18.6 in band, the in-band gap 7.5 to 8.8 dB, and 11.0 at
+latitude 60. The power headroom on the assumed payload, -10.9 dB at
+latitude 30, is firm. At 40 and 50 the truth moved 2.8 and 2.6 dB — the
+worst event at each arrived in the second half of the day — and E1 at
+50 moved 3.5, so those two latitudes keep their 1.0 d figures as
+provisional. The widest gap, 10.7 at 50, is therefore still a
+provisional figure; the firm range is 7.5 to 8.8.
+
+**One caveat that belongs with the pair.** The runs are deterministic
+and share their first 720 steps: the 0.5 d run is the first half of the
+1.0 d run. So the pair asks whether the second half of the day changes
+a figure, which is the rule's question, but it is not an independent
+draw. Where the two agree to the tenth at 0–30, that is the same events
+resolving the same percentile; where they differ at 40 and 50, a worse
+event arrived later. An independent pair would start the propagation
+from another epoch, which the loop does not yet offer.
+
+**What the pair says about the two earlier records.** The 0.1 d record's
+T at 50 (-11.9) is the 0.5 d value; the 1.0 d run alone found the
+-9.3. And the 0.1 d record's latitude structure, which the 1.0 d entry
+called sampling, was: at the five firm latitudes the 0.1 d figures were
+off by 0.2 to 5.4 dB from values that a further doubling did not move.
+
+**Cost and the next step.** The truth-only rerun makes any further pair
+a truth sweep alone: a 2.0 d run, about four and a half hours, would
+pair the 1.0 d figures at 40 and 50 directly. It is the one thing left
+that the tools cannot shorten further, and it is the operator's call
+whether two latitudes are worth it now or wait for the composition-
+driven cases the ruling put first.
+
+Controls: the record's R set and mask read back unchanged (the record
+states both files by name); same profile in all but name, same design,
+limit row, victims, grid and step; depth the only variable.
