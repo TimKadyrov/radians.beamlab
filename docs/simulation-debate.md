@@ -3673,3 +3673,36 @@ composition-driven case — truth from the composed beams, declaration
 from the saturated probe — so it is the convergence purchase spent
 where the ruling says to spend it. The harness stands at 137 passed
 with V45 pinning the declared phase rows to the flown ones.
+
+---
+
+## Operator decision — BL family re-emission, version stamps, both curves, 7 September 2026
+
+Recorded as the generator work item, from the operator's question "can the
+masks themselves move?" — they can and already have: the BL-* cases emitted
+on 29 August carry masks from before the band-enveloping fix, i.e.
+point-sampled rows under-declared in exactly the way the adequacy test later
+caught on BL-D2 (2.3-7.4 dB there). The shipped family is stale against its
+own generator. The discipline and the work item:
+
+1. **Masks move freely between revisions, never within one.** A dataset case
+   is a frozen triple — masks, R set, expectation records — internally
+   consistent at emission. Regeneration produces a new revision, all three
+   re-derived in one pass; nothing mutates a shipped case.
+2. **Every emission carries its provenance stamp.** The case sheet states
+   the producer version (the cache-key hash of the generating assemblies —
+   the existing mechanism), the mask grids, and the expectation depths, so
+   "the masks moved" between revisions is versioned, never silent.
+3. **Each downlink case ships BOTH curves.** The truth CDF (composition,
+   stable across derivation changes — it moves only with the system
+   definition) anchors the case's physics; the examination-read CDF (the
+   examination-only mode over the shipped masks and R set, at stated depth
+   and grid, with its convergence pair) is the bit-comparable expectation a
+   consumer must reproduce. Consumers are validated against the shipped
+   artefacts, not against beamlab's living code.
+4. **One re-emission of the whole family, after the beam-capacity field
+   lands** — so a single pass picks up the band-enveloping fix, the
+   service-span certificate, the converged grids (b/c 1, lat 5), the
+   capacity field, and the new probe cases the brief now specifies
+   (read-rule 3.9, consistency 3.10). Until then the 29 August artefacts
+   stand as structure examples only and their READMEs should say so.
