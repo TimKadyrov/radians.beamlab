@@ -3495,3 +3495,63 @@ the nearest-read probe, V41's raw-versus-safe MIN_EXCLUDE for the
 interpolation probe, V42's travelling worst margin for the sweep-grid
 probe — so the expectation records can be written from checks that
 already pass rather than from theory.
+
+---
+
+## Critique side — masks do not take gates after the fact: the adaptation rule, 7 September 2026
+
+Closing the exclusion-inertness thread with the general answer behind it,
+raised by the operator: STEAM-2B's min_exclude was inert because the filed
+mask already carries the notch — the mask was the given, and T with it. May
+the opposite case exist: a mask supplied as SATURATION (full load, no
+victim shaping) that the toolchain adapts to a provided min_exclude,
+min_elev and so on? Mostly no, and the no is structural.
+
+**Why gates cannot be applied to a mask after the fact.** A pfd mask is a
+per-direction envelope: each cell stores one number, the maximum composite
+pfd over the permitted beam configurations. The R-set gates act on
+BORESIGHTS — configurations — not on emission directions. Carving the
+exclusion notch into a saturated mask means removing main-lobe
+contributions at in-zone directions while keeping the side lobes of beams
+legitimately serving out-of-zone cells; that needs to know which
+configuration produced each cell's max, and the max has already collapsed
+exactly that. The envelope does not invert. Boresight-selective gates
+(min_exclude, azimuth-dependent min_elev) are therefore unrecoverable from
+the artefact alone — not for lack of data quality, but because the
+information was destroyed by construction.
+
+**The one warranted mask-level adaptation.** Gates that eliminate entire
+configurations by pure geometry survive the collapse: where no servable
+cell exists from a sub-satellite latitude (service span, coverage geometry,
+elevation floor), the satellite radiates nothing — no beams, hence no side
+lobes — and the whole row goes to the C1 null. That is the dark-row
+certificate, and it is the complete list. It worked without a payload model
+precisely because it zeroes configurations, not contributions.
+
+**What saturation-mask-plus-operational-gates actually is: an inconsistent
+filing, to be detected rather than repaired.** Direction of error first: an
+unadapted saturated mask is an envelope of a superset, so the examination
+stays conservative — it over-charges the operator, never under-protects the
+GSO. But it over-charges brutally: in-zone satellites enter as
+always-include spillover carrying main-beam-grade values. A declaration
+pair of min_exclude 22 deg beside a mask lit at alpha 5 deg is
+self-inconsistent, and the response is a consistency verdict, not surgery —
+the 4A/937 mask-vs-parameters C/N test is the published shape of that
+check, and France's 4A/945 scenario B is the precedent of a deliberately
+inconsistent case built to see what implementations do. The dataset should
+carry one such mask-shaping-consistency probe alongside the read-rule
+probes.
+
+**With an assumed pattern, a modeled reshaping is constructible — where we
+own the truth, and only there.** Assume a beam model and lattice and one
+can subtract the main-lobe class near the zone and floor at an estimated
+side-lobe level. For SYNTHESIZING dataset cases that is legitimate: the
+assumption is the truth generator, which is what the saturated probe
+already does properly — adaptation done right is re-derivation from the
+payload under the commitments, never surgery on the artefact. For judging a
+REAL filing it is not: the assumed pattern would be doing the judging, and
+this week measured what an assumed payload can sit from a filed one.
+
+**The rule, one line.** Mask given: use as-is (conservative), null the
+certifiable dark rows, flag gate/mask inconsistencies. Payload given: never
+adapt the mask — re-derive it.
