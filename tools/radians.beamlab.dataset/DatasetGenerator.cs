@@ -102,6 +102,10 @@ public static class DatasetGenerator
     private sealed record Band(string Key, char EmiRcp, double FMin, double FMax, int ParamId);
     private static readonly Band D1 = new("D1", 'E', 19700, 20200, 21);
     private static readonly Band D2 = new("D2", 'E', 17800, 18600, 22);
+    // The same band under a VALID (arrays-only) set: set 22 files two quantities in
+    // both forms and is the invalid-filing probe (design brief Sec. 3.8), so the
+    // everything case reads the D2 band through set 26 instead.
+    private static readonly Band D2v = new("D2", 'E', 17800, 18600, 26);
     private static readonly Band U1 = new("U1", 'R', 27500, 28600, 23);
     private static readonly Band U2 = new("U2", 'R', 29500, 30000, 24);
     private static readonly Band I1 = new("I1", 'E', 17800, 18400, 25);
@@ -350,10 +354,12 @@ public static class DatasetGenerator
     }
 
     /// <summary>
-    /// D2: header scalars AND arrays with deliberately different values, so
-    /// the array-prevails resolution (EPS 6.7.2.2) is load-bearing. Classic
-    /// algorithm: MIN_ANGLE_AT_ES set, MIN_DURATION absent (mutually
-    /// exclusive).
+    /// D2, the INVALID-FILING PROBE: header scalars AND arrays with different
+    /// values for max_co_freq and min_elev. Header and array are mutually
+    /// exclusive per quantity (design brief Sec. 3.8, EPS V43 Sec. 6.7.2.2), so
+    /// this set is invalid by construction; its expectation record is the
+    /// rejection, and the writer emits it only through the deliberate opt-in.
+    /// Classic algorithm otherwise: MIN_ANGLE_AT_ES set, MIN_DURATION absent.
     /// </summary>
     public static OperatingParamsSet Set22(int ntcId)
     {
@@ -363,6 +369,27 @@ public static class DatasetGenerator
             LowFreqMhz = D2.FMin, HighFreqMhz = D2.FMax,
             EsDensityPerKm2 = 0.00012, EsDistanceKm = 300, EsLatMinDeg = -70, EsLatMaxDeg = 70,
             ElevAngleHeaderDeg = 5.0, MaxCoFreqHeader = 4, MinAngleAtEsDeg = 2.5,
+        };
+        AddMinExcludeAllOrbits(s);
+        s.MaxCoFreqByLat.AddRange(new[] { (-60.0, 2), (60.0, 2) });
+        foreach (double lat in new[] { -60.0, 0.0, 60.0 })
+            s.MinElev.Add(new MinElevByLat { LatDeg = lat, ByAz = { (0.0, 10.0), (180.0, 10.0) } });
+        return s;
+    }
+
+    /// <summary>
+    /// D2, arrays only: set 22's per-latitude arrays without its header scalars
+    /// -- the VALID set through which BL-ALL reads the D2 band, so the family
+    /// keeps a valid examination of masks 2-5 while set 22 carries the probe.
+    /// </summary>
+    public static OperatingParamsSet Set26(int ntcId)
+    {
+        var s = new OperatingParamsSet
+        {
+            SatName = SatName, NtcId = ntcId, ParamId = D2v.ParamId,
+            LowFreqMhz = D2v.FMin, HighFreqMhz = D2v.FMax,
+            EsDensityPerKm2 = 0.00012, EsDistanceKm = 300, EsLatMinDeg = -70, EsLatMaxDeg = 70,
+            MinAngleAtEsDeg = 2.5,
         };
         AddMinExcludeAllOrbits(s);
         s.MaxCoFreqByLat.AddRange(new[] { (-60.0, 2), (60.0, 2) });
@@ -415,9 +442,48 @@ public static class DatasetGenerator
     public static OperatingParamsSet SetFor(int paramId, int ntcId) => paramId switch
     {
         21 => Set21(ntcId), 22 => Set22(ntcId), 23 => Set23(ntcId),
-        24 => Set24(ntcId), 25 => Set25(ntcId),
+        24 => Set24(ntcId), 25 => Set25(ntcId), 26 => Set26(ntcId),
         _ => throw new ArgumentOutOfRangeException(nameof(paramId)),
     };
+
+    /// <summary>The operating-parameter set ids a case carries (mask_lnk3).</summary>
+    public static IReadOnlyList<int> ParamsOf(string caseName) => CaseParams[caseName];
+
+    /// <summary>
+    /// The expected outcome for a set that files a quantity in both the header
+    /// and the array form: the rejection, with the diagnostic a consumer must
+    /// produce. No CDF is expected for such a case.
+    /// </summary>
+    public static string RejectionText(OperatingParamsSet set, double fMinMhz, double fMaxMhz)
+    {
+        var both = DeclaredConstraints.FormConflicts(set);
+        var sb = new StringBuilder();
+        sb.AppendLine("# Expected outcome: REJECTION -- an invalid operating-parameter set");
+        sb.AppendLine();
+        sb.AppendLine(FormattableString.Invariant(
+            $"Operating-parameter set param_id {set.ParamId} ({fMinMhz}-{fMaxMhz} MHz) files these quantities in both the header-attribute form and the per-latitude-array form, with different values:"));
+        sb.AppendLine();
+        foreach (var q in both) sb.AppendLine("- " + q);
+        sb.AppendLine();
+        sb.AppendLine("Header and array are mutually exclusive per quantity (design brief Sec. 3.8; EPS V43 Sec. 6.7.2.2): a valid set files each of min_elev, max_co_freq and min_duration in exactly one form. A set carrying both is an invalid filing. The expected consumer behaviour is a rejection with a diagnostic naming the quantities -- not an examination under any precedence rule, and not a silent choice of one form. No epfd CDF is expected for this case. The pfd masks and the notice are otherwise well-formed, so the rejection must come from the operating-parameter set and from nothing else.");
+        sb.AppendLine();
+        sb.AppendLine("Reference diagnostic (this toolchain):");
+        sb.AppendLine();
+        sb.AppendLine("    " + Diagnostic(set));
+        return sb.ToString();
+    }
+
+    /// <summary>The one-line diagnostic this toolchain prints for a both-forms set (the same line the examination mode prints).</summary>
+    public static string Diagnostic(OperatingParamsSet set)
+        => "INVALID operating-parameter set: filed in both header and array form -- "
+           + string.Join("; ", DeclaredConstraints.FormConflicts(set))
+           + " (design brief Sec. 3.8, EPS V43 Sec. 6.7.2.2). Not examined.";
+
+    private static void WriteRejectionExpectation(string path, OperatingParamsSet set, Band band)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        File.WriteAllText(path, RejectionText(set, band.FMin, band.FMax), Utf8NoBom);
+    }
 
     private static void BuildMaskSources(string srcDir, DatasetOptions o)
     {
@@ -444,13 +510,13 @@ public static class DatasetGenerator
         for (int g = 0; g < Gateways.Length; g++)
             GenerateEs4D(P(MaskDefs[7 + g].FileName), 8 + g, Gateways[g], o.Quick);
         o.Log("  masks 6-10 (S, ES 2-D, ES 4-D x3) done");
-        foreach (int pid in new[] { 21, 22, 23, 24, 25 })
+        foreach (int pid in new[] { 21, 22, 23, 24, 25, 26 })
             // Set 22 files max_co_freq and min_elev in both forms with different
             // values: by the ruling of 2026-09-07 (design brief Sec. 3.8) that is
             // the invalid-filing probe, emitted deliberately; its expectation
             // record is the rejection. Every other set is one form per quantity.
             OperParamsXmlWriter.Write(P(ParamFile(pid)), SetFor(pid, 0), allowBothForms: pid == D2.ParamId);
-        o.Log("  operating-parameter sets 21-25 done");
+        o.Log("  operating-parameter sets 21-26 done (22 = the invalid-filing probe, written on purpose)");
     }
 
     // ---- per-case notice content ---------------------------------------
@@ -489,7 +555,7 @@ public static class DatasetGenerator
         {
             foreach (int pid in pids)
             {
-                var b = new[] { D1, D2, U1, U2, I1 }.Single(x => x.ParamId == pid);
+                var b = new[] { D1, D2, D2v, U1, U2, I1 }.Single(x => x.ParamId == pid);
                 n.MaskInfo.Add(new SrsMaskInfo(pid, b.FMin, b.FMax, 'R', null));
                 n.OperatingParamIds.Add(pid);
             }
@@ -590,7 +656,9 @@ public static class DatasetGenerator
         ["BL-U1"] = new[] { 23 },
         ["BL-U2"] = new[] { 24 },
         ["BL-I1"] = new[] { 25 },
-        ["BL-ALL"] = new[] { 21, 22, 23, 24 },
+        // BL-ALL reads the D2 band through the valid arrays-only set 26; set 22,
+        // the both-forms probe, belongs to BL-D2 alone.
+        ["BL-ALL"] = new[] { 21, 26, 23, 24 },
     };
 
     private static void PatchNtcId(string srcPath, string dstPath, int ntcId)
@@ -617,7 +685,7 @@ public static class DatasetGenerator
         }
         foreach (int pid in CaseParams[caseName])
         {
-            var b = new[] { D1, D2, U1, U2, I1 }.Single(x => x.ParamId == pid);
+            var b = new[] { D1, D2, D2v, U1, U2, I1 }.Single(x => x.ParamId == pid);
             string dst = Path.Combine(xmlDir, ParamFile(pid));
             PatchNtcId(Path.Combine(srcDir, ParamFile(pid)), dst, ntc);
             contents.Add(new SrsMdbWriter.MaskContent(pid, dst, 'R', b.FMin, b.FMax));
@@ -643,8 +711,9 @@ public static class DatasetGenerator
                 expected.Add("down");
                 break;
             case "BL-D2":
-                WriteDownExpectation(Exp("epfd_down_cdf.csv"), null, Set22(ntc), D2, o);
-                expected.Add("down");
+                // The invalid-filing probe: the expectation is the rejection, not a CDF.
+                WriteRejectionExpectation(Exp("rejection.md"), Set22(ntc), D2);
+                expected.Add("rejection");
                 break;
             case "BL-U1":
                 WriteUpExpectation(Exp("epfd_up_cdf.csv"), Set23(ntc), U1,
@@ -668,7 +737,7 @@ public static class DatasetGenerator
                 break;
             case "BL-ALL":
                 WriteDownExpectation(Exp("epfd_down_cdf.csv"), null, Set21(ntc), D1, o);
-                WriteDownExpectation(null, Exp("epfd_is_cdf.csv"), Set22(ntc), D2, o);
+                WriteDownExpectation(null, Exp("epfd_is_cdf.csv"), Set26(ntc), D2v, o);
                 WriteUpExpectation(Exp("epfd_up_cdf.csv"), Set23(ntc), U1,
                     ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, o.Quick ? 900.0 : 450.0),
                     esPowerDbw: 12.0, antFreqMhz: 28000.0, antDiamM: 0.65,
@@ -678,7 +747,7 @@ public static class DatasetGenerator
         }
         File.WriteAllText(Path.Combine(caseDir, "README.md"), CaseReadme(caseName, ntc), Utf8NoBom);
         o.Log($"  {caseName}: SRS + Masks + README" +
-              (expected.Count > 0 ? $" + expectation CDFs ({string.Join("/", expected)})" : ""));
+              (expected.Count > 0 ? $" + expectation records ({string.Join("/", expected)})" : ""));
     }
 
     // ---- expectation data (simulated CDFs, sampling option 2) ----------
@@ -823,15 +892,21 @@ public static class DatasetGenerator
                   honours the declared MIN_DURATION (dwell) and Nco bounds.
                 """,
             "BL-D2" => """
-                Activates: downlink 17.8-18.6 GHz, classic algorithm with angular separation.
+                THE INVALID-FILING PROBE (design brief section 3.8). Downlink 17.8-18.6 GHz,
+                classic algorithm with angular separation -- and an operating-parameter set
+                that must be rejected.
                 - pfd masks 2/3/4, azimuth/elevation form, one per shell (mask_lnk1 per orb_id),
                   plus mask 5 for the named satellite orb_id 1 / sat_orb_id 1 (a 3 dB tighter
-                  payload commitment) -- the most-specific-link-prevails granularity case.
+                  payload commitment). The masks and the notice are well-formed; the valid
+                  examination of these masks lives in BL-ALL under set 26.
                 - Operating-parameter set 22: header scalars AND arrays with DIFFERENT values
-                  (elev_angle 5 vs MIN_ELEV rows 10; max_co_freq 4 vs rows 2): EPS 6.7.2.2
-                  array-prevails resolution is load-bearing. MIN_ANGLE_AT_ES = 2.5 deg set,
-                  MIN_DURATION absent (the two are mutually exclusive).
-                - expected/epfd_down_cdf.csv as in BL-D1, under set 22.
+                  (elev_angle 5 vs MIN_ELEV rows 10; max_co_freq 4 vs rows 2). Header and
+                  array are mutually exclusive per quantity (EPS V43 6.7.2.2): a set carrying
+                  both is an invalid filing, reported and not resolved. MIN_ANGLE_AT_ES =
+                  2.5 deg set, MIN_DURATION absent.
+                - expected/rejection.md: the expected outcome is a REJECTION naming the two
+                  quantities. No epfd CDF is expected; a consumer that examines this set under
+                  any precedence has failed the case.
                 """,
             "BL-U1" => """
                 Activates: uplink 27.5-28.6 GHz, typical earth stations.
@@ -884,11 +959,14 @@ public static class DatasetGenerator
                 - Scenario 2 "Track duration + typical uplink": E 19.7-20.2 GHz (mask 1) +
                   R 27.5-28.6 GHz (mask 7) -- mixed direction, both downlink algorithms
                   across the notice.
-                - Operating-parameter sets 21-24 via mask_lnk3.
+                - Operating-parameter sets 21, 26, 23 and 24 via mask_lnk3 -- one form per
+                  quantity in each (21 arrays-only, 23 header-only, 26 the D2 arrays-only set
+                  with set 22's array values; set 22 itself, the both-forms probe, belongs to
+                  BL-D2 alone).
                 - expected/: all three directions -- epfd_down_cdf.csv (19.7-20.2 GHz under
                   set 21), epfd_up_cdf.csv (27.5-28.6 GHz under set 23), and
                   epfd_is_cdf.csv (17.8-18.6 GHz emission composed toward the GSO
-                  satellite, byproduct of the downlink run under set 22).
+                  satellite, byproduct of the downlink run under set 26).
 
                 NOTE (S.1503-4 B5.1 tension): this notice mixes a repeating station-kept
                 shell (A) with non-repeating shells (B, C). EPS V42 places f_stn_keep,
@@ -921,11 +999,11 @@ public static class DatasetGenerator
             | Case | ntc_id | Focus |
             |---|---|---|
             | BL-D1 | 900123471 | track-duration downlink, alpha mask, arrays-only R set |
-            | BL-D2 | 900123472 | classic downlink, az/el masks per shell + named satellite, header-vs-array R set |
+            | BL-D2 | 900123472 | the INVALID-FILING probe: az/el masks per shell + named satellite, R set filing two quantities in both forms -- expected outcome a rejection |
             | BL-U1 | 900123473 | typical-ES uplink, 2-D E mask, header-only R set |
             | BL-U2 | 900123474 | specific gateways, 4-D E masks, e_as_stn |
             | BL-I1 | 900123475 | inter-satellite S mask |
-            | BL-ALL | 900123476 | everything in one notice, two mixed-direction scenarios |
+            | BL-ALL | 900123476 | everything in one notice, two mixed-direction scenarios; the D2 band under the valid arrays-only set 26 |
 
             Direction of comparison (design brief section 2): the examination result must
             sit AT OR ABOVE the simulated CDF at every percentile -- the masks are
@@ -963,9 +1041,10 @@ public static class DatasetGenerator
             Options: `--quick` (coarse), `--case BL-D1` (single case), `--donor-srs`,
             `--donor-masks`, `--dll-dir`, `--out`.
 
-            The same tool builds a cross-read package -- a filed pfd mask stored verbatim,
-            paired with a constellation from an orbit design and an R set this project
-            derived, in the same SRS + Masks form plus the S.1503-2 group parameters:
+            The same tool builds a cross-read package -- a filed pfd mask delivered verbatim
+            as raw XML, paired with a constellation from an orbit design and an R set this
+            project derived (one form per quantity), the notice in the same SRS form and no
+            copy of the gates in the SRS layer:
 
                 dotnet run --project tools/radians.beamlab.dataset -- --package NAME --design D.orbitdesign.json --rset R.operparams.json --mask MASK.xml [--mask-id N] [--band MIN MAX] [--ntc N] [--sat-name S] [--expected FILE] [--provenance TEXT]
 

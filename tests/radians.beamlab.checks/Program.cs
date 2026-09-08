@@ -2317,12 +2317,14 @@ var looks = RandomLooks(300);
         Check("T3 BL-ALL masks: 14 rows, native + container extract identical", okT3,
             $"rows={rowsT} extract={rT1},{rT8}");
 
-        // T4: expectation CDFs exist for the downlink cases, parse, and are
-        // monotone non-increasing in percent-exceeded.
+        // T4: expectation CDFs exist for every valid direction, parse, and are
+        // monotone non-increasing in percent-exceeded. BL-D2 is the invalid-
+        // filing probe (design brief Sec. 3.8): its expectation is the rejection
+        // record and no CDF, asserted below the loop.
         bool okT4 = true; string detT4 = "";
         var expT4 = new (string Case, string File)[]
         {
-            ("BL-D1", "epfd_down_cdf.csv"), ("BL-D2", "epfd_down_cdf.csv"),
+            ("BL-D1", "epfd_down_cdf.csv"),
             ("BL-U1", "epfd_up_cdf.csv"), ("BL-U2", "epfd_up_cdf.csv"),
             ("BL-I1", "epfd_down_cdf.csv"), ("BL-I1", "epfd_is_cdf.csv"),
             ("BL-ALL", "epfd_down_cdf.csv"), ("BL-ALL", "epfd_up_cdf.csv"),
@@ -2345,7 +2347,18 @@ var looks = RandomLooks(300);
             if (okT4 && (rows[0].P > 100.0 || rows[^1].P < 0.0)) { okT4 = false; detT4 = c + "/" + f + " pct range"; }
             if (okT4) detT4 += $"{c}:{rows.Count} ";
         }
-        Check("T4 expectation CDFs present for every direction, parse, monotone", okT4, detT4.Trim());
+        if (okT4)
+        {
+            string expD2 = Path.Combine(outDs, "BL-D2", "expected");
+            string rejPath = Path.Combine(expD2, "rejection.md");
+            string rej = File.Exists(rejPath) ? File.ReadAllText(rejPath) : "";
+            bool rejOk = rej.Contains("min_elev / elev_angle") && rej.Contains("max_co_freq (array)")
+                && rej.Contains("INVALID operating-parameter set: filed in both header and array form")
+                && !Directory.EnumerateFiles(expD2, "*.csv").Any();
+            if (!rejOk) { okT4 = false; detT4 = "BL-D2 rejection record " + (File.Exists(rejPath) ? "incomplete or a CDF is present" : "missing"); }
+            else detT4 += "BL-D2:rejection";
+        }
+        Check("T4 expectation records: CDFs present for every valid direction, parse, monotone; BL-D2 the rejection and no CDF", okT4, detT4.Trim());
         }
         catch (Exception ex)
         {
@@ -5205,6 +5218,50 @@ var looks = RandomLooks(300);
     catch (InvalidOperationException ex) { refuse48 = ex.Message.Contains("exactly one"); }
     Check("V48 truth-only rerun: the reused declaration reads back exactly, the newest mask is taken, a directory without a set is refused",
         setOk48 && maskOk48 && refuse48, $"set={setOk48} mask={maskOk48} refuse={refuse48}");
+}
+
+
+// ---- V49: the section 3.8 sets -- header-only, arrays-only, and the invalid both-forms probe ----
+{
+    // Design brief Sec. 3.8: the dataset carries one header-only set and one
+    // arrays-only set, both valid, and one set filing two quantities in both
+    // forms with different values -- an invalid filing whose expectation is the
+    // rejection. Set 22 is that probe and belongs to BL-D2 alone; BL-ALL reads
+    // the D2 band through the valid arrays-only set 26, which carries set 22's
+    // array values exactly.
+    var s21 = radians.beamlab.dataset.DatasetGenerator.Set21(1);
+    var s22 = radians.beamlab.dataset.DatasetGenerator.Set22(1);
+    var s23 = radians.beamlab.dataset.DatasetGenerator.Set23(1);
+    var s26 = radians.beamlab.dataset.DatasetGenerator.Set26(1);
+    bool arraysOnly49 = DeclaredConstraints.FormConflicts(s21).Count == 0
+        && s21.ElevAngleHeaderDeg is null && s21.MaxCoFreqHeader is null && s21.MinDurationSecHeader is null
+        && s21.MinElev.Count > 0 && s21.MaxCoFreqByLat.Count > 0 && s21.MinDurationByLat.Count > 0;
+    bool headerOnly49 = DeclaredConstraints.FormConflicts(s23).Count == 0
+        && s23.ElevAngleHeaderDeg is not null && s23.MaxCoFreqHeader is not null
+        && s23.MinElev.Count == 0 && s23.MaxCoFreqByLat.Count == 0 && s23.MinDurationByLat.Count == 0;
+    var both49 = DeclaredConstraints.FormConflicts(s22);
+    bool probe49 = both49.Count == 2 && both49.Any(c => c.StartsWith("min_elev")) && both49.Any(c => c.StartsWith("max_co_freq"))
+        && s22.ElevAngleHeaderDeg == 5.0 && s22.MaxCoFreqHeader == 4
+        && s22.MinElev.All(b => b.ByAz.All(r => r.ElevDeg == 10.0)) && s22.MaxCoFreqByLat.All(r => r.Value == 2);
+    bool valid26 = DeclaredConstraints.FormConflicts(s26).Count == 0 && s26.ParamId == 26
+        && s26.ElevAngleHeaderDeg is null && s26.MaxCoFreqHeader is null
+        && s26.LowFreqMhz == s22.LowFreqMhz && s26.HighFreqMhz == s22.HighFreqMhz
+        && s26.MinAngleAtEsDeg == s22.MinAngleAtEsDeg
+        && s26.MaxCoFreqByLat.SequenceEqual(s22.MaxCoFreqByLat)
+        && s26.MinElev.Count == s22.MinElev.Count
+        && s26.MinElev.Zip(s22.MinElev, (a, b) => a.LatDeg == b.LatDeg && a.ByAz.SequenceEqual(b.ByAz)).All(x => x)
+        && s26.MinExclude.Count == s22.MinExclude.Count;
+    var all49 = radians.beamlab.dataset.DatasetGenerator.ParamsOf("BL-ALL");
+    var d2_49 = radians.beamlab.dataset.DatasetGenerator.ParamsOf("BL-D2");
+    bool cases49 = all49.Contains(26) && !all49.Contains(22) && d2_49.SequenceEqual(new[] { 22 });
+    string rej49 = radians.beamlab.dataset.DatasetGenerator.RejectionText(s22, 17800, 18600);
+    string diag49 = radians.beamlab.dataset.DatasetGenerator.Diagnostic(s22);
+    bool rejection49 = rej49.Contains("REJECTION") && rej49.Contains("min_elev / elev_angle") && rej49.Contains("max_co_freq (array)")
+        && rej49.Contains("6.7.2.2") && rej49.Contains(diag49) && rej49.Contains("No epfd CDF is expected")
+        && diag49.StartsWith("INVALID operating-parameter set: filed in both header and array form");
+    Check("V49 section 3.8 sets: 21 arrays-only valid, 23 header-only valid, 22 both forms (the probe, BL-D2 alone), 26 arrays-only twin of 22 for BL-ALL; the rejection record carries the diagnostic",
+        arraysOnly49 && headerOnly49 && probe49 && valid26 && cases49 && rejection49,
+        $"arraysOnly={arraysOnly49} headerOnly={headerOnly49} probe={probe49} set26={valid26} cases={cases49} rejection={rejection49}");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

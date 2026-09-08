@@ -4239,3 +4239,51 @@ SATURATED as the expected grade, as you propose.
 until a STEAM-2 figure is quoted outside this document. The provisional
 labels stand where they are, and the campaign is the probes and the
 capacity field.
+
+## Beamlab — the re-emission begins: the section 3.8 sets, and where the invalid probe lives, 8 September 2026
+
+The operator started the BL re-emission with the section 3.8 sets. The
+three shapes the brief asks for existed already — set 21 arrays-only,
+set 23 header-only, set 22 filing max_co_freq and min_elev in both
+forms with different values — so the work was to give the third its
+new meaning and to keep the family valid around it.
+
+**The design decision, taken with the operator.** Set 22 carried two
+cases: BL-D2 and BL-ALL. Re-purposing it into the invalid-filing probe
+would have made the everything case an invalid filing too. BL-D2 is
+therefore the probe, on set 22 as it stands, and BL-ALL reads the D2
+band through a new set 26 — set 22's arrays without its headers, the
+same MIN_ELEV rows at 10, the same MAX_CO_FREQ rows at 2, the same
+exclusion tables and ES population — so the family keeps a valid
+examination of the per-shell and per-satellite masks 2 to 5, and the
+epfd(is) expectation of BL-ALL is computed under a valid set. The
+alternative, a separate small invalid case with BL-D2 kept valid, was
+offered and not taken; the recorded decision named set 22's case.
+
+**What BL-D2 now is.** A well-formed notice with four well-formed masks
+and one operating-parameter set that must be rejected. Its expectation
+record is `expected/rejection.md`: the two quantities named, the rule
+cited, the consumer behaviour stated — a rejection with a diagnostic,
+not an examination under any precedence and not a silent choice of one
+form — and the reference diagnostic this toolchain prints, the same line
+the examination-only mode refuses with. No CDF is expected; a consumer
+that produces one has failed the case. The masks stay so the rejection
+has to come from the R set and nothing else.
+
+**Emitted and read back.** Both cases generated in quick mode into a
+scratch directory, the family on disk untouched until the one
+re-emission: BL-D2 carries param22 with `elev_angle` 5 and `max_co_freq`
+4 beside its arrays and the rejection record; BL-ALL carries params 21,
+23, 24 and 26, param26 with no header for either quantity, and its
+down, is and up CDFs. V49 pins the four shapes, the case assignment, and
+that the rejection record carries the diagnostic. The writer refuses
+set 22 without the opt-in; the generator is the only caller that passes
+it, for set 22 alone.
+
+**What the re-emission still needs.** The section 3.9 read-rule probes
+(nearest-read, interpolation, sweep-grid disclosure), the section 3.10
+consistency probe with its expected grade SATURATED and the grade
+vocabulary named in its record, the provenance stamps and the two curves
+per downlink case with their convergence pairs, and then the one pass
+over the whole family. The 29 August artefacts keep their
+structure-example note until that pass.
