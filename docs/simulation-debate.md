@@ -4598,3 +4598,126 @@ BL-C1's record; changing the declaration (no gates) or the payload
 (smaller cells) changes what the family is. Either is a legitimate
 choice; it is not mine. The third open item, BL-R2's nature, does not
 block the run.
+
+## Beamlab — the joint strike: case (a) of the 11.32A note measured, a benign pair built, the consumer guide rewritten, 13 September 2026
+
+While the family re-emitted, the two other sessions on this machine —
+the radians session, on a two-body interference trial for the RR
+No. 11.32A concept note, and the regulations session, drafting that
+note and its Annex A — took the producer's numbers into their texts,
+and asked for three things in return. All three are done; the note's
+case (a) now rests on a measurement instead of an assertion, and the
+measurement changed one row of its table.
+
+**What went into Annex A first.** Four refinements from this week's
+records, each with a number: that a system gating its beams at their
+boresights reads SATURATED whenever the beams are wider than the
+declared angle (450 km cells from 1 200 km with an 8 degree gate: the
+arc lit, identical to no gate), so the table's tolerance belongs to
+that grade too; that the elevation floor is not verifiable from a
+range-shaped mask by inspection, by the near-peak reading or the lit
+one (20 to 27 degrees and 2.1 to 2.7 degrees respectively, with or
+without a floor), so a consistent elevation grade is not a verified
+floor; that detection is the only lever because the declared angle
+moves the epfd(down) worst margin by at most 0.9 dB while the mask
+values inside the zone charge the operator 11 to 24 dB — the
+Annex's "the verification precedes the examination and does not alter
+its result" became a measured statement; and the convergence-pair rule
+as a stopping rule for "run until the statistic converges", per
+percentile, with the body at 0.4 dB and the short-term end at 2 to
+18 dB. The regulations session drew a consequence — that a criterion
+resting on the body would be the more robust to compute — and I gave it
+the counterweight: robust, and blind to the in-line events the zone
+exists to prevent. It reversed the sentence and kept the compromise:
+decide on the converged body statistic, quote the short-term end with
+its depth named and as a bound.
+
+**Case (a), measured.** The note's case (a) proposes that in bands
+adjacent to those with Article 22 limits the neighbouring Table 22-1
+values be applied to a non-GSO system with a geostationary victim, so
+that an operator who protects the arc has a route to a favourable
+finding. It rested on the claim that such a system clears the values
+with room and one that does not protect the arc fails them; nobody had
+measured it, and the same session had already found case (b)
+unpassable, so the note had one leg. The measurement (`arcshield`
+mode, record `docs/arc-shield-case-a.md`): the family constellation at
+one payload — boresight pfd −119.8 dB(W/(m² MHz)), a working Ka-band
+downlink — as three systems: no zone declared and the arc lit; a
+declared 8 degree zone written into the mask as the −1000 notch; the
+same at 22 degrees. Each examined at victims 0 to 60 N against every
+plain FSS row of 22-1C for 19.7–20.2 GHz (70 cm, 90 cm, 2.5 m, 5 m; 40
+kHz and 1 MHz), 48 hours with the 24-hour prefix as the pair. On the
+70 cm row the arc-lit system fails by 20.3 dB at the 0.017% point, the
+8 degree protector sits at −2.5 dB and the 22 degree protector at −0.7
+dB, both at the 28.57% body point; the boresight pfd at which each just
+clears the row is −140.1, −122.3 and −120.5 dB(W/(m² MHz)). So the
+protector clears at a level at which such a system operates and the
+non-protector would have to run 18 to 20 dB below it, 15 to 25 dB
+below any working downlink — the disease case (b) died of, on the
+non-protecting system alone. Every row shows the same structure: the
+protector limited at the body by the cap and the side-lobe levels, the
+non-protector at the short-term end by the single main-beam pass
+inside the zone; the 40 kHz and 1 MHz rows identical to 0.1 dB, because
+the 1 MHz limits sit 14 dB above the 40 kHz ones and the flat-spectrum
+scaling is 13.98 — which the Annex now carries as a condition a Rule
+must state rather than an observation, since No. 22.5C.7 makes both
+bandwidths binding. The two grades the Rule would refer to came out as
+the table predicts, on masks built to test it: the notched masks read
+CONSISTENT at exactly their declared angle, the arc-lit mask CONSISTENT
+against its own no-zone declaration and SATURATED against a claimed 8
+degree zone (the arc lit in 9 of 15 blocks). That grading needed the
+alpha form, which the check could not read; the alpha axis needs no
+geometry, so the check gained `CheckAlphaForm` for the exclusion axis.
+Two caveats travel with the result and the Annex carries both
+prominently: the protector protects by declaration and mask together,
+so an operator protecting by scheduler alone with beams wider than its
+angle reads as the non-protector — a consequence the Rule now owns
+rather than discovers; and the protector's clearing level is set by the
+cap and the side lobes, not the zone, so "at a working level" is
+established for this payload family and is to be confirmed on a filed
+system. The regulations session anonymised the filed system I offered
+for that (the STEAM-2B mask: a genuine 22 degree zone, its clearing
+level on the 22-1B row within a few decibels of its filed power, its
+mask graded CONSISTENT at 22.0 degrees in 109 of 179 blocks) and
+declined to state an exceedance on a reconstruction at one victim in a
+document going to the Board — rightly. The transfer itself is confirmed
+on filed material only by that mask against the 22-1C row, which is
+queued behind the runs below, with the cap-4 and cap-2 readings side
+by side so that a lower level can be attributed to the cap or to the
+system.
+
+**The benign pair for case (b).** The radians session's trial needs a
+co-frequency pair whose in-line events are rare by geometry, in the
+dataset's format: it is built (`--trial two-body`) and on disk. TB-M, a
+20-satellite MEO at 8 000 km (2 × 10, 45 degrees, Case 1), against
+TB-L, the family's shell A (1 200 km, 55 degrees, 4 × 8, Case 2), in
+19.7–20.2 GHz — the band was my error at first (18.8–19.3 GHz is
+No. 5.523A with no Article 22 row to test against; the radians session
+caught it); and TB-M2 / TB-L2, the same systems serving 30 S–30 N and
+40–70 N. Each system has its notice, an az/el pfd mask linked in the
+scenario and an alpha-form mask stored beside it so the consumer's two
+readers can be compared on one system, an arrays-only set with no zone,
+minimum elevation 10 and cap 2, both payloads at one boresight pfd
+(−120.6 and −121.8 dB(W/(m² MHz)), the case (a) level, so the three
+measurements are comparable), a consistency record (every mask
+CONSISTENT on both axes against its set) and a provenance stamp. The
+span certificate did what it is for: the LEO serving 40–70 N radiates
+from 20 N northward only, 8 of its 13 latitude blocks dark; the MEO
+from 8 000 km reaches 30 S–30 N from every block, so its variant-2
+masks equal its variant-1 masks and the declaration alone carries the
+span. The terminal and the reference link budget are the trial plan's
+(radians, `architecture/two-body-trial-plan.md` section 4), cited from
+the READMEs rather than repeated.
+
+**The consumer guide.** Rewritten in the radians repository to the ten
+cases, what each expects the consumer to report, the read-rule ruling
+as the probes test it (including the requirement to print the resolved
+gates per victim, without which BL-R2 cannot be passed), the records,
+the family's no-zone declaration and the direction rule; committed
+there by the radians session unchanged. Its S.1503-4 implementation
+plan closes its Phase 1 precedence question by the 7 September ruling
+and points at this repository's resolver as the reference; its Phase 2
+gains the probe cases as acceptance tests.
+
+**State.** Harness 148 passed, 0 failed (V53 pins the pair). The
+re-emission of the family runs meanwhile; its entry follows.
