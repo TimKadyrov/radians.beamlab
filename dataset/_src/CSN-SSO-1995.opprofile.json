@@ -1,0 +1,31 @@
+{
+  "SchemaVersion": 1,
+  "Name": "CSN-SSO (filed 124520256) -- weak-form latitude check, row read at 19.95 GHz (22-1C, 70 cm), mask filed for 17.8-18.6 GHz",
+  "Downlink": {
+    "FrequencyGhz": 19.95,
+    "RefBwKHz": 40,
+    "GainPeakDbi": 35,
+    "BeamCellRadiusKm": 92,
+    "PatternFloorDbi": 5,
+    "TxEirpDbw": -33,
+    "PowerMode": "pfd",
+    "Aggregation": "cochannel",
+    "ReuseClusterIndex": 1,
+    "FootprintSource": "composition",
+    "MaskXmlPath": ""
+  },
+  "MinElevDeg": 40,
+  "ServiceLatMinDeg": -50,
+  "ServiceLatMaxDeg": 50,
+  "ServiceLonMinDeg": -180,
+  "ServiceLonMaxDeg": 180,
+  "CellKm": 183,
+  "TrackingPolicy": "Random",
+  "NcoPerCell": 4,
+  "DemandLinksPerCell": 1,
+  "ActivityFactor": 1,
+  "ActivityPeriodSec": 300,
+  "OperationalFraction": 1,
+  "IlluminationDutyCycle": 1,
+  "AlphaExclDeg": 22
+}
