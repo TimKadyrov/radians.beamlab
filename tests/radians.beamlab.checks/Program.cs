@@ -5444,21 +5444,30 @@ var looks = RandomLooks(300);
         && links51.Where(l => l.OrbId >= 1 && l.OrbId <= 4).All(l => l.MaskId == 14)
         && links51.Where(l => l.OrbId >= 5 && l.OrbId <= 10).All(l => l.MaskId == 15)
         && links51.Where(l => l.OrbId >= 11).All(l => l.MaskId == 16);
-    // The family finding, on the full-grid masks when they are on disk.
-    string fam51 = @"C:\Projects\radians.beamlab\dataset\_src\mask2_pfd_azel_shellA.xml";
-    bool family51 = true; string famText51 = "family masks not on disk, not graded";
+    // The family declares no exclusion zone (operator decision of 2026-09-13,
+    // after the finding that its 450 km cells leave a boresight gate no trace
+    // in the envelope): sets 21, 22, 25 and 26 read alpha0 = 0 everywhere, and a
+    // family mask graded against its own set is CONSISTENT on both axes.
+    var fam21 = radians.beamlab.dataset.DatasetGenerator.Set21(1);
+    var fam25 = radians.beamlab.dataset.DatasetGenerator.Set25(1);
+    var fam26 = radians.beamlab.dataset.DatasetGenerator.Set26(1);
+    bool noZone51 = new[] { fam21, radians.beamlab.dataset.DatasetGenerator.Set22(1), fam25, fam26 }.All(s =>
+        s.MinExclude.Count == 1 && s.MinExclude[0].OrbId == 0
+        && new[] { -70.0, -30.0, 0.0, 45.0, 70.0 }.All(lat => DeclaredConstraints.ExclusionAlphaDeg(s, lat, 1) == 0.0));
+    string outDsPath51 = Path.Combine(AppContext.BaseDirectory, "exp", "ds");   // the T-block's quick generation
+    string fam51 = Path.Combine(outDsPath51, "BL-D2", "xml", "mask2_pfd_azel_shellA.xml");
+    bool family51 = true; string famText51 = "family mask not generated, not graded";
     if (File.Exists(fam51))
     {
-        var rep51 = MaskConsistency.Check(fam51, 1200.0, radians.beamlab.dataset.DatasetGenerator.Set26(1));
+        var rep51 = MaskConsistency.Check(fam51, 1200.0, fam26);
         var lit51 = rep51.Rows.Where(r => r.Alpha != MaskConsistency.Verdict.Dark).ToList();
-        family51 = rep51.Overall == MaskConsistency.Verdict.Saturated
-            && lit51.Any(r => r.Alpha == MaskConsistency.Verdict.Saturated && r.ReachAlpha <= MaskConsistency.CellTolDeg)
-            && lit51.All(r => r.Elev == MaskConsistency.Verdict.Consistent);
-        famText51 = $"mask2 vs set26: {rep51.Overall}, exclusion saturated blocks {lit51.Count(r => r.Alpha == MaskConsistency.Verdict.Saturated)}, elevation consistent {lit51.Count(r => r.Elev == MaskConsistency.Verdict.Consistent)} of {lit51.Count}";
+        family51 = rep51.Overall == MaskConsistency.Verdict.Consistent
+            && lit51.All(r => r.Alpha == MaskConsistency.Verdict.Consistent && r.Elev == MaskConsistency.Verdict.Consistent);
+        famText51 = $"mask2 vs set26: {rep51.Overall} over {lit51.Count} lit blocks";
     }
-    Check("V51 section 3.10 consistency probe: set 30 one form per quantity with global reads; BL-C1 links the saturated masks per shell; the family's own D2 mask grades SATURATED on exclusion and CONSISTENT on elevation against its declared zone",
-        set51 && case51 && notice51 && family51,
-        $"set={set51} case={case51} notice={notice51} {famText51}");
+    Check("V51 section 3.10 consistency probe: set 30 one form per quantity with global reads; BL-C1 links the saturated masks per shell; the family declares no exclusion zone and its own D2 mask grades CONSISTENT on both axes against its set",
+        set51 && case51 && notice51 && noZone51 && family51,
+        $"set={set51} case={case51} notice={notice51} noZone={noZone51} {famText51}");
 }
 
 // ---- V52: provenance primitives and the curves' direction check ----

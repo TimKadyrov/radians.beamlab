@@ -28,10 +28,11 @@ namespace radians.beamlab.dataset;
 /// verdict a consumer that examines the pair anyway must reproduce: the
 /// epfd(down) examination at seven victims, per limit point, with the
 /// family's own boresight-gated D2 masks as the control at the same payload
-/// level. The control has a limit the record states too: on this family the
-/// boresight gate does not shape the exclusion at all (the family masks grade
-/// SATURATED on exclusion themselves), so the control isolates the elevation
-/// side of the inconsistency only.
+/// level. The control has a limit the record states too: the family declares
+/// no exclusion zone (its 450 km cells leave a boresight gate no trace in the
+/// envelope -- the finding that led to that declaration, 2026-09-13), so the
+/// control carries the elevation floor only, and the lit reach shows that
+/// floor is not carried as an edge either.
 /// </summary>
 public static class ConsistencyProbe
 {
@@ -148,7 +149,7 @@ public static class ConsistencyProbe
         sb.AppendLine();
         sb.AppendLine("## The conservative verdict");
         sb.AppendLine();
-        sb.AppendLine(string.Create(inv, $"The epfd(down) examination (Sec. D5.1.4.1) of the pair at seven victims -- earth stations at 0 to 60 N in 10-degree steps, longitude {F(EsLonDeg)}, wanted GSO satellite at {F(GsoLonDeg)} E, the limit row's own dish -- against the row's points. Beside it, the control: the same set 30 examined against the family's boresight-gated D2 masks (2, 3, 4: gates 8/10/8 deg at 10 deg minimum elevation) shifted to the same payload level, so that the only difference between the two columns is the shaping the masks carry."));
+        sb.AppendLine(string.Create(inv, $"The epfd(down) examination (Sec. D5.1.4.1) of the pair at seven victims -- earth stations at 0 to 60 N in 10-degree steps, longitude {F(EsLonDeg)}, wanted GSO satellite at {F(GsoLonDeg)} E, the limit row's own dish -- against the row's points. Beside it, the control: the same set 30 examined against the family's own D2 masks (2, 3, 4: composed with no exclusion gate, as the family declares none, and the 10-degree elevation floor on the beams' boresights) shifted to the same payload level, so that the only difference between the two columns is the elevation floor the control masks were composed under."));
         sb.AppendLine();
         sb.AppendLine("| victim | max epfd (dB(W/m2) in 40 kHz) | worst margin (dB) | verdict | margin per limit point: " + string.Join(" / ", lim.Points.Select(p => string.Create(inv, $"{p.Perc:G4}%"))) + " | 24 h prefix: worst margin | moved (dB) | control: max epfd | control: worst margin | control verdict |");
         sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|");
@@ -223,7 +224,7 @@ public static class ConsistencyProbe
     private static string ControlNote(List<Graded> controlGrades, CultureInfo inv)
     {
         var sb = new StringBuilder();
-        sb.Append("The control masks are the family's own derived masks, composed with the declared gates acting on the beams' boresights. Graded against set 30 they read: ");
+        sb.Append("The control masks are the family's own derived masks, composed with no exclusion gate -- the family declares no zone -- and with the 10-degree elevation floor acting on the beams' boresights. Graded against set 30, whose zone they were never meant to carry, they read: ");
         sb.Append(string.Join("; ", controlGrades.Select(g =>
         {
             var lit = g.Report.Rows.Where(r => r.Alpha != MaskConsistency.Verdict.Dark).ToList();
@@ -232,7 +233,7 @@ public static class ConsistencyProbe
             var reach = LitReach(g.Dissection);
             return string.Create(inv, $"mask {g.Mask.MaskId} (shell {g.Mask.Shell}) overall {MaskConsistency.Word(g.Report.Overall)}, exclusion saturated in {lit.Count(r => r.Alpha == MaskConsistency.Verdict.Saturated)} of {lit.Count} blocks (near-peak reaches alpha {wa.ReachAlpha:F1} against {wa.DeclaredAlpha:F1} at block {wa.LatDeg:0.#}), elevation {MaskConsistency.Word(lit.GroupBy(r => r.Elev).OrderByDescending(x => x.Count()).First().Key)} (near-peak reaches {we.ReachElev:F1} against {we.DeclaredElev:F1}; lit reach alpha {reach.Alpha:F1}, elevation {reach.Elev:F1})");
         })));
-        sb.Append(". On this family, then, the boresight gates shape neither axis of the envelope: the payload's 450 km cells are some 20 degrees wide from 1200 km, so an 8-degree exclusion gate on their centres leaves the GSO arc itself lit and a 10-degree elevation gate leaves the horizon lit. The control differs from the saturated masks only in the beams whose centres the gates removed -- those between the horizon and the 10-degree floor, and those within 8 degrees of the arc -- which is why its maxima sit a fraction of a decibel to a few decibels below the saturated masks' at every victim and its verdicts are the same. The control therefore shows the size of the gates' effect on the examination and nothing that would separate the two pairs by inspection: neither side of this probe's inconsistency has a mask-level control on this family. That is also a finding about the family's own D2 cases (BL-D2, BL-ALL), whose masks 2-5 declare a MIN_EXCLUDE and a MIN_ELEV their envelopes do not carry as edges: their pairs are inconsistent in the same sense as this probe's, by geometry rather than by construction. Writing the gates into those masks as rule notches is not open to the family, because their truth would then exceed the mask inside the zone; the options are a declaration without the gates, or a payload whose cells are small enough for the gates to shape the envelope.");
+        sb.Append(". So the control can say nothing about the exclusion side of this probe's inconsistency -- it has no exclusion gate either, by the family's declaration -- and on the elevation side the lit reach shows that a 10-degree boresight floor is not carried as an edge at this beam size: the payload's 450 km cells are some 20 degrees wide from 1200 km, and a beam centred at the floor spills to the horizon. The control differs from the saturated masks only in the beams whose centres the floor removed, which is why its maxima sit a fraction of a decibel to a few decibels below the saturated masks' at every victim and its verdicts are the same. It therefore shows the size of the elevation gate's effect on the examination and nothing that would separate the two pairs by inspection. History, for the record: the family once declared an 8-degree zone its masks did not carry -- an inconsistency of the same kind as this probe's, by geometry rather than by construction -- and now declares none; writing the zone into the family's masks as a rule notch was not open to it, because its truth curves would then exceed the mask inside the zone.");
         return sb.ToString();
     }
 

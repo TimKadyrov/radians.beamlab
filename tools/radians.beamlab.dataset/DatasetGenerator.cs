@@ -395,15 +395,19 @@ public static class DatasetGenerator
 
     // ---- operating-parameter sets (brief section 3.8 triplet) ----------
 
-    private static void AddMinExcludeAllOrbits(OperatingParamsSet s)
-    {
-        for (int orb = OrbA0; orb < OrbB0; orb++)
-            s.MinExclude.Add(new MinExcludeByOrbit { OrbId = orb, ByLat = { (-70.0, 6.0), (0.0, 8.0), (70.0, 6.0) } });
-        for (int orb = OrbB0; orb < OrbC0; orb++)
-            s.MinExclude.Add(new MinExcludeByOrbit { OrbId = orb, ByLat = { (-70.0, 8.0), (0.0, 10.0), (70.0, 8.0) } });
-        for (int orb = OrbC0; orb <= OrbLast; orb++)
-            s.MinExclude.Add(new MinExcludeByOrbit { OrbId = orb, ByLat = { (0.0, 8.0) } });
-    }
+    // The family declares NO exclusion zone: one all-orbits row of 0 (operator
+    // decision of 2026-09-13). Its payload has 450 km cells, some 20 degrees
+    // wide from 1200 km, so a boresight gate of a few degrees leaves no trace
+    // in the reachable envelope -- the masks light the GSO arc whatever the
+    // gate -- and a declared zone the masks do not carry made every downlink
+    // pair inconsistent (the finding of the section 3.10 probe). Declaration
+    // and masks now agree; the zone as a declared, varying element is
+    // exercised by the probe cases (BL-R2 interpolation, BL-R1/R3 rule
+    // notches, BL-C1 beside saturated masks). The masks are derived with the
+    // same gate (none), so mask and declaration stay two products of one
+    // construction.
+    private static void AddNoExclusionZone(OperatingParamsSet s)
+        => s.MinExclude.Add(new MinExcludeByOrbit { OrbId = 0, ByLat = { (0.0, 0.0) } });
 
     /// <summary>D1: per-latitude arrays only (no header scalars) -- track-duration algorithm.</summary>
     public static OperatingParamsSet Set21(int ntcId)
@@ -414,7 +418,7 @@ public static class DatasetGenerator
             LowFreqMhz = D1.FMin, HighFreqMhz = D1.FMax,
             EsDensityPerKm2 = 0.00012, EsDistanceKm = 300, EsLatMinDeg = -70, EsLatMaxDeg = 70,
         };
-        AddMinExcludeAllOrbits(s);
+        AddNoExclusionZone(s);
         s.MaxCoFreqByLat.AddRange(new[] { (-70.0, 2), (-50.0, 3), (50.0, 3), (70.0, 2) });
         s.MinDurationByLat.AddRange(new[] { (-70.0, 60), (-40.0, 120), (40.0, 120), (70.0, 60) });
         foreach (double lat in new[] { -60.0, -30.0, 0.0, 30.0, 60.0 })
@@ -443,7 +447,7 @@ public static class DatasetGenerator
             EsDensityPerKm2 = 0.00012, EsDistanceKm = 300, EsLatMinDeg = -70, EsLatMaxDeg = 70,
             ElevAngleHeaderDeg = 5.0, MaxCoFreqHeader = 4, MinAngleAtEsDeg = 2.5,
         };
-        AddMinExcludeAllOrbits(s);
+        AddNoExclusionZone(s);
         s.MaxCoFreqByLat.AddRange(new[] { (-60.0, 2), (60.0, 2) });
         foreach (double lat in new[] { -60.0, 0.0, 60.0 })
             s.MinElev.Add(new MinElevByLat { LatDeg = lat, ByAz = { (0.0, 10.0), (180.0, 10.0) } });
@@ -464,7 +468,7 @@ public static class DatasetGenerator
             EsDensityPerKm2 = 0.00012, EsDistanceKm = 300, EsLatMinDeg = -70, EsLatMaxDeg = 70,
             MinAngleAtEsDeg = 2.5,
         };
-        AddMinExcludeAllOrbits(s);
+        AddNoExclusionZone(s);
         s.MaxCoFreqByLat.AddRange(new[] { (-60.0, 2), (60.0, 2) });
         foreach (double lat in new[] { -60.0, 0.0, 60.0 })
             s.MinElev.Add(new MinElevByLat { LatDeg = lat, ByAz = { (0.0, 10.0), (180.0, 10.0) } });
@@ -508,7 +512,7 @@ public static class DatasetGenerator
             LowFreqMhz = I1.FMin, HighFreqMhz = I1.FMax,
             ElevAngleHeaderDeg = 5.0,
         };
-        s.MinExclude.Add(new MinExcludeByOrbit { OrbId = 0, ByLat = { (0.0, 10.0) } });
+        AddNoExclusionZone(s);
         return s;
     }
 
@@ -564,21 +568,23 @@ public static class DatasetGenerator
     {
         string P(string f) => Path.Combine(srcDir, f);
         // Declared operating constraints feed the reachable envelope: the
-        // exclusion ring and minimum elevation below bound the mask above.
+        // minimum elevation below bounds the mask above; the family declares
+        // no exclusion zone, so no boresight gate is applied (see
+        // AddNoExclusionZone) -- declaration and masks are derived together.
         GeneratePfd(P(MaskDefs[0].FileName),
             new[] { (ShellA, 0.0), (ShellB, 0.0), (ShellC, 0.0) }, D1, 1,
-            MaskPlotKind.AlphaDeltaLong, alphaExcl: 8.0, minElev: 10.0, o.Quick);
+            MaskPlotKind.AlphaDeltaLong, alphaExcl: 0.0, minElev: 10.0, o.Quick);
         o.Log("  mask 1 (alpha, all shells) done");
         GeneratePfd(P(MaskDefs[1].FileName), new[] { (ShellA, 0.0) }, D2, 2,
-            MaskPlotKind.AzEl, 8.0, 10.0, o.Quick);
+            MaskPlotKind.AzEl, 0.0, 10.0, o.Quick);
         GeneratePfd(P(MaskDefs[2].FileName), new[] { (ShellB, 0.0) }, D2, 3,
-            MaskPlotKind.AzEl, 10.0, 10.0, o.Quick);
+            MaskPlotKind.AzEl, 0.0, 10.0, o.Quick);
         GeneratePfd(P(MaskDefs[3].FileName), new[] { (ShellC, 0.0) }, D2, 4,
-            MaskPlotKind.AzEl, 8.0, 10.0, o.Quick);
+            MaskPlotKind.AzEl, 0.0, 10.0, o.Quick);
         // Named-satellite override: the first satellite of plane 1 commits
         // to a 3 dB tighter payload (mask_lnk1 granularity sat_orb_id).
         GeneratePfd(P(MaskDefs[4].FileName), new[] { (ShellA, -3.0) }, D2, 5,
-            MaskPlotKind.AzEl, 8.0, 10.0, o.Quick);
+            MaskPlotKind.AzEl, 0.0, 10.0, o.Quick);
         o.Log("  masks 2-5 (az/el per shell + named satellite) done");
         GenerateSs(P(MaskDefs[5].FileName), o.Quick);
         GenerateEs2D(P(MaskDefs[6].FileName), o.Quick);
@@ -1162,8 +1168,10 @@ public static class DatasetGenerator
                 Activates: downlink 19.7-20.2 GHz, track-duration algorithm.
                 - pfd mask 1, alpha/DeltaLongitude form, one mask for the whole constellation.
                 - Operating-parameter set 21: per-latitude ARRAYS ONLY (no header scalars):
-                  MIN_EXCLUDE varying by latitude and by orb_id (a value for every plane),
-                  MIN_ELEV[lat][az], MAX_CO_FREQ[lat], MIN_DURATION[lat].
+                  MIN_ELEV[lat][az], MAX_CO_FREQ[lat], MIN_DURATION[lat]; MIN_EXCLUDE declared as
+                  no zone (one all-orbits row of 0). The family's 450 km cells leave a boresight
+                  exclusion gate no trace in the envelope, so the declaration says what the masks
+                  carry; a declared, varying zone is exercised by the probe cases instead.
                 - expected/epfd_down_cdf.csv: simulated epfd(down) CDF under a scheduler that
                   honours the declared MIN_DURATION (dwell) and Nco bounds.
                 """,
@@ -1179,7 +1187,7 @@ public static class DatasetGenerator
                   (elev_angle 5 vs MIN_ELEV rows 10; max_co_freq 4 vs rows 2). Header and
                   array are mutually exclusive per quantity (EPS V43 6.7.2.2): a set carrying
                   both is an invalid filing, reported and not resolved. MIN_ANGLE_AT_ES =
-                  2.5 deg set, MIN_DURATION absent.
+                  2.5 deg set, MIN_DURATION absent, no exclusion zone declared.
                 - expected/rejection.md: the expected outcome is a REJECTION naming the two
                   quantities. No epfd CDF is expected; a consumer that examines this set under
                   any precedence has failed the case.
@@ -1219,7 +1227,7 @@ public static class DatasetGenerator
                   127520101 pairing of P and S masks in one emission band.
                 - Exercises the eq (3) / eq (4) phi split between artificial precession and
                   the time-step computation on shells B (derived) and C (declared).
-                - Operating-parameter set 25 (minimal, header elev_angle only).
+                - Operating-parameter set 25 (minimal: header elev_angle 5 deg, no cap, no zone).
                 - expected/epfd_down_cdf.csv and expected/epfd_is_cdf.csv from ONE emission
                   run: the epfd(is) statistic is a byproduct of the downlink simulation --
                   the same resolved beam sets composed toward the GSO satellite victim
@@ -1297,9 +1305,9 @@ public static class DatasetGenerator
             "BL-C1" => """
                 DECLARATION-CONSISTENCY PROBE (design brief section 3.10). Downlink 17.8-18.6 GHz.
                 - pfd masks 14/15/16, azimuth/elevation form, one per shell (mask_lnk1 per orb_id):
-                  the reachable envelope of the same payload composed with NO exclusion gate and NO
-                  elevation floor -- full load, no victim avoidance -- at a payload 45 dB below
-                  mask 1's.
+                  the reachable envelope of the same payload composed with NO elevation floor (and,
+                  like the family's own masks, no exclusion gate) -- full load, no victim avoidance
+                  -- at a payload 45 dB below mask 1's.
                 - Operating-parameter set 30 declares the shaping the masks ignore: all-orbits
                   MIN_EXCLUDE 8 deg, MIN_ELEV 10 deg, MAX_CO_FREQ 2, MIN_ANGLE_AT_ES 2.5 deg, one
                   row each. The pair is self-inconsistent by construction; nothing in it is
@@ -1311,14 +1319,14 @@ public static class DatasetGenerator
                   detectable by mask inspection on this family (near-peak grade and lit reach
                   read the same for the saturated masks and the gated control); the conservative
                   verdict of the examination that proceeds anyway at seven victims, per limit
-                  point, with the family's boresight-gated D2 masks as the control at the same
-                  payload; the 24 h / 48 h pair; artefact identities; provenance.
-                  expected/sweep_margins.csv (all victims, points, control) and
+                  point, with the family's own D2 masks (no exclusion gate, 10-degree floor) as
+                  the control at the same payload; the 24 h / 48 h pair; artefact identities;
+                  provenance. expected/sweep_margins.csv (all victims, points, control) and
                   expected/examination_lat40_cdf.csv.
-                - The control's limit, stated in the record: the family's own masks 2-5 grade
-                  SATURATED on exclusion against their declared zone too, and light the horizon
-                  despite their 10-degree floor (450 km cells: the boresight gates shape neither
-                  axis of the envelope) -- a finding for the family's re-emission.
+                - The control's limit, stated in the record: the family declares no exclusion
+                  zone (its 450 km cells leave a boresight gate no trace in the envelope), so the
+                  control has no exclusion gate to isolate, and its 10-degree floor is not carried
+                  as an edge either (both mask sets light the ground to the same lowest elevation).
                 """,
             _ => "",
         };
