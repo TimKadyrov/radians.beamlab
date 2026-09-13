@@ -2425,6 +2425,47 @@ var looks = RandomLooks(300);
             Check("T6 section 3.10 consistency probe: the record names the grade vocabulary and the expected grade, the control's limit, the limit row, identities and provenance; seven-victim table; the CDF at 40 N",
                 rec6 && sweep6 == 7 && cdf6, $"record={rec6} sweepRows={sweep6} cdf={cdf6}" + (File.Exists(p6) ? "" : " (record missing)"));
         }
+
+        // T7: every case is stamped (expected/provenance.md lists its artefacts by
+        // SHA-256, and the hashes are the files'); the truth cases carry
+        // expected/curves.md with the extension pair; BL-I1 carries the
+        // examination-read curve with the direction check; the track-duration
+        // cases say why they carry none.
+        {
+            bool stamps7 = true; string det7 = "";
+            foreach (string c in radians.beamlab.dataset.DatasetGenerator.CaseNames)
+            {
+                string stamp = Path.Combine(outDs, c, "expected", "provenance.md");
+                string txt = File.Exists(stamp) ? File.ReadAllText(stamp) : "";
+                int ntc7 = radians.beamlab.dataset.DatasetGenerator.NtcIdFor(c);
+                if (!(txt.Contains("SHA-256") && txt.Contains($"ntc_id {ntc7}") && txt.Contains("## The notice") && txt.Contains("## The masks") && txt.Contains("## The expectation records") && txt.Contains("Emission:")))
+                { stamps7 = false; det7 = c + " stamp " + (File.Exists(stamp) ? "incomplete" : "missing"); break; }
+            }
+            bool hashes7 = false;
+            if (stamps7)
+            {
+                string mask2 = Path.Combine(outDs, "BL-I1", "xml", "mask2_pfd_azel_shellA.xml");
+                string srs7 = Path.Combine(outDs, "BL-I1", "900123475 SRS.MDB");
+                string txt = File.ReadAllText(Path.Combine(outDs, "BL-I1", "expected", "provenance.md"));
+                hashes7 = txt.Contains(radians.beamlab.dataset.Provenance.Sha256Hex(mask2)) && txt.Contains(radians.beamlab.dataset.Provenance.Sha256Hex(srs7))
+                    && txt.Contains("epfd_down_examination_cdf.csv") && txt.Contains("curves.md");
+            }
+            bool curves7 = new[] { "BL-D1", "BL-U1", "BL-U2", "BL-I1", "BL-ALL" }.All(c =>
+            {
+                string p = Path.Combine(outDs, c, "expected", "curves.md");
+                return File.Exists(p) && File.ReadAllText(p).Contains("EXTENSION pair");
+            });
+            string i1 = Path.Combine(outDs, "BL-I1", "expected", "curves.md");
+            string i1txt = File.Exists(i1) ? File.ReadAllText(i1) : "";
+            bool exam7 = i1txt.Contains("Direction check:") && i1txt.Contains("gap E - T")
+                && CsvRows(Path.Combine(outDs, "BL-I1", "expected", "epfd_down_examination_cdf.csv")) >= 3;
+            string d1 = Path.Combine(outDs, "BL-D1", "expected", "curves.md");
+            bool track7 = File.Exists(d1) && File.ReadAllText(d1).Contains("track-duration algorithm")
+                && !File.Exists(Path.Combine(outDs, "BL-D1", "expected", "epfd_down_examination_cdf.csv"));
+            Check("T7 stamps and curves: every case stamped with its artefacts' SHA-256 (hashes verified on BL-I1); truth cases carry the extension pair; BL-I1 carries the examination-read curve with the direction check; track-duration cases carry none and say why",
+                stamps7 && hashes7 && curves7 && exam7 && track7,
+                $"stamps={stamps7} hashes={hashes7} curves={curves7} exam={exam7} track={track7} {det7}".Trim());
+        }
         }
         catch (Exception ex)
         {
@@ -5418,6 +5459,32 @@ var looks = RandomLooks(300);
     Check("V51 section 3.10 consistency probe: set 30 one form per quantity with global reads; BL-C1 links the saturated masks per shell; the family's own D2 mask grades SATURATED on exclusion and CONSISTENT on elevation against its declared zone",
         set51 && case51 && notice51 && family51,
         $"set={set51} case={case51} notice={notice51} {famText51}");
+}
+
+// ---- V52: provenance primitives and the curves' direction check ----
+{
+    // The stamp's identity is SHA-256 (a known vector), the producer id is a
+    // stable 8-hex-digit build key, and the direction check reads the two
+    // curves at the same percentiles.
+    string f52 = Path.Combine(AppContext.BaseDirectory, "exp", "v52.txt");
+    Directory.CreateDirectory(Path.GetDirectoryName(f52));
+    File.WriteAllText(f52, "abc");
+    bool sha52 = radians.beamlab.dataset.Provenance.Sha256Hex(f52) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+    string id52 = radians.beamlab.dataset.Provenance.ProducerId();
+    bool id52ok = id52.Length == 8 && id52.All(ch => Uri.IsHexDigit(ch)) && id52 == radians.beamlab.dataset.Provenance.ProducerId();
+    bool line52 = radians.beamlab.dataset.Provenance.Line(true).Contains("profile quick") && radians.beamlab.dataset.Provenance.Line(false).Contains(id52);
+    // Direction check on synthetic curves: E one bin above T everywhere holds; E below T at one percentile is a violation.
+    var pct52 = new[] { 100.0, 50.0, 10.0, 1.0, 0.1, 0.0 };
+    var t52 = new radians.beamlab.dataset.FamilyCurves.Curve("T", 1000, 0, -150.0, new[] { -170.0, -165.0, -160.0, -155.0, -150.0, -150.0 }, pct52);
+    var eUp52 = new radians.beamlab.dataset.FamilyCurves.Curve("E", 1000, 0, -148.0, new[] { -168.0, -163.0, -158.0, -153.0, -148.0, -148.0 }, pct52);
+    var eDown52 = new radians.beamlab.dataset.FamilyCurves.Curve("E", 1000, 0, -150.0, new[] { -170.0, -165.0, -161.0, -155.0, -150.0, -150.0 }, pct52);
+    var okDir52 = radians.beamlab.dataset.FamilyCurves.DirectionCheck(t52, eUp52);
+    var badDir52 = radians.beamlab.dataset.FamilyCurves.DirectionCheck(t52, eDown52);
+    bool dir52 = okDir52.Violations == 0 && Math.Abs(okDir52.MinGapDb - 2.0) < 1e-9
+        && badDir52.Violations >= 1 && badDir52.MinGapDb < 0;
+    bool floor52 = radians.beamlab.dataset.FamilyCurves.Percentiles(5760).Min() >= 100.0 / 5760 && radians.beamlab.dataset.FamilyCurves.Percentiles(240).Min() >= 100.0 / 240;
+    Check("V52 provenance and curves: SHA-256 known vector, stable 8-hex producer id, provenance line; the direction check holds on a curve above and reports a violation on a curve below; percentiles stop at the resolvable floor",
+        sha52 && id52ok && line52 && dir52 && floor52, $"sha={sha52} id={id52ok} line={line52} dir={dir52} floor={floor52}");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 using radians.beamlab;
 using radians.beamlab.app;
@@ -354,7 +353,7 @@ public static class ReadRuleProbes
         sb.AppendLine();
         sb.AppendLine(maskText);
         sb.AppendLine();
-        sb.AppendLine("Artefacts (frozen; checked by identity): mask " + Path.GetFileName(maskPath) + " SHA-256 " + Sha256Hex(maskPath) + "; operating-parameter set " + Path.GetFileName(paramPath) + " SHA-256 " + Sha256Hex(paramPath) + ".");
+        sb.AppendLine("Artefacts (frozen; checked by identity): mask " + Path.GetFileName(maskPath) + " SHA-256 " + Provenance.Sha256Hex(maskPath) + "; operating-parameter set " + Path.GetFileName(paramPath) + " SHA-256 " + Provenance.Sha256Hex(paramPath) + ".");
         sb.AppendLine();
         sb.AppendLine("Provenance: " + provenance);
     }
@@ -382,36 +381,4 @@ public static class ReadRuleProbes
     private static string LatText(double lat) => lat == 0.0 ? "0" : F(Math.Abs(lat)) + (lat > 0 ? " N" : " S");
     private static string Word(bool pass) => pass ? "PASS" : "FAIL";
 
-    /// <summary>SHA-256 of a file, lower-case hex: the identity a frozen artefact is checked by.</summary>
-    public static string Sha256Hex(string path)
-    {
-        using var s = File.OpenRead(path);
-        return Convert.ToHexString(SHA256.HashData(s)).ToLowerInvariant();
-    }
-
-    /// <summary>
-    /// Short id of the code that produced the values: FNV-1a over the module
-    /// version ids of the three assemblies that decide them (core: the
-    /// examination and the export writer; app: the envelope sampler; this
-    /// tool: the constructions). Stable within a build, different across
-    /// builds -- the same construction as the loop's mask cache key.
-    /// </summary>
-    public static string ProducerId()
-    {
-        var ids = new[]
-        {
-            typeof(IPfdMaskSampler).Assembly.ManifestModule.ModuleVersionId,
-            typeof(ReachableEnvelopeSampler).Assembly.ManifestModule.ModuleVersionId,
-            typeof(ReadRuleProbes).Assembly.ManifestModule.ModuleVersionId,
-        };
-        ulong h = 1469598103934665603UL;
-        foreach (var id in ids)
-            foreach (byte x in id.ToByteArray()) { h ^= x; h *= 1099511628211UL; }
-        return h.ToString("x16", CultureInfo.InvariantCulture)[..8];
-    }
-
-    /// <summary>The provenance line stamped into every probe record.</summary>
-    public static string Provenance(bool quick)
-        => string.Create(CultureInfo.InvariantCulture,
-            $"producer radians.beamlab.dataset (app {typeof(ReachableEnvelopeSampler).Assembly.GetName().Version?.ToString(3)}), build id {ProducerId()}, generated {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC, profile {(quick ? "quick" : "full")}.");
 }

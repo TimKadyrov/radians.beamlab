@@ -180,7 +180,7 @@ public static class ConsistencyProbe
         sb.AppendLine();
         sb.AppendLine(string.Create(inv, $"Depth: {step:F0} s steps x {steps} = {step * steps / 3600.0:F0} h, and the {step * half / 3600.0:F0} h prefix as the extension pair.{(quick ? " QUICK profile: structure verification only, the numbers are not delivery numbers." : "")}"));
         sb.AppendLine();
-        sb.AppendLine("Artefacts (frozen; checked by identity): " + string.Join("; ", masks.Select(m => "mask " + Path.GetFileName(m.Path) + " SHA-256 " + ReadRuleProbes.Sha256Hex(m.Path))) + "; operating-parameter set " + Path.GetFileName(paramPath) + " SHA-256 " + ReadRuleProbes.Sha256Hex(paramPath) + ".");
+        sb.AppendLine("Artefacts (frozen; checked by identity): " + string.Join("; ", masks.Select(m => "mask " + Path.GetFileName(m.Path) + " SHA-256 " + Provenance.Sha256Hex(m.Path))) + "; operating-parameter set " + Path.GetFileName(paramPath) + " SHA-256 " + Provenance.Sha256Hex(paramPath) + ".");
         sb.AppendLine();
         sb.AppendLine("Provenance: " + provenance);
         string rec = Path.Combine(expDir, "consistency-probe.md");
