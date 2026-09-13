@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Text;
 using radians.beamlab;
-using radians.beamlab.app;
+
+namespace radians.beamlab.app;
 
 /// <summary>
 /// The mask-versus-declaration consistency check, for the case where the pfd
@@ -26,23 +26,26 @@ using radians.beamlab.app;
 /// saturation-shaped mask the dataset's consistency probe is built to detect).
 /// The examination over-charges such masks and never under-protects; the
 /// check flags, it does not repair.
+///
+/// Lives in the app assembly so that the harness and the dataset generator
+/// grade with one implementation.
 /// </summary>
-internal static class MaskConsistency
+public static class MaskConsistency
 {
     /// <summary>One az/el cell of the mask grid: differences inside it are not evidence.</summary>
-    internal const double CellTolDeg = 1.0;
+    public const double CellTolDeg = 1.0;
 
-    internal enum Verdict { Consistent, MaskTighter, LitInside, Saturated, NotExercised, Dark }
+    public enum Verdict { Consistent, MaskTighter, LitInside, Saturated, NotExercised, Dark }
 
-    internal sealed record RowResult(
+    public sealed record RowResult(
         double LatDeg,
         double ReachAlpha, double DarkAlpha, double DeclaredAlpha, Verdict Alpha,
         double ReachElev, double DarkElev, double DeclaredElev, Verdict Elev);
 
-    internal sealed record Report(IReadOnlyList<RowResult> Rows, Verdict Overall, string Summary, string Caveat, string Note);
+    public sealed record Report(IReadOnlyList<RowResult> Rows, Verdict Overall, string Summary, string Caveat, string Note);
 
     /// <summary>Load the mask and check it; masks not in the az/el form are reported as not applicable.</summary>
-    internal static Report Check(string maskPath, double altitudeKm, OperatingParamsSet declared)
+    public static Report Check(string maskPath, double altitudeKm, OperatingParamsSet declared)
     {
         var mask = MaskXmlImport.Load(maskPath);
         if (mask.Kind != MaskPlotKind.AzEl)
@@ -52,7 +55,7 @@ internal static class MaskConsistency
         return Check(MaskDissect.Analyze(mask, altitudeKm), declared);
     }
 
-    internal static Report Check(MaskDissect.Result d, OperatingParamsSet declared)
+    public static Report Check(MaskDissect.Result d, OperatingParamsSet declared)
     {
         var rows = new List<RowResult>();
         foreach (var r in d.Lats)
@@ -138,7 +141,7 @@ internal static class MaskConsistency
         return new Report(rows, overall, sum.ToString(), CaveatText, string.Join("; ", notes));
     }
 
-    internal static string Word(Verdict v) => v switch
+    public static string Word(Verdict v) => v switch
     {
         Verdict.Consistent => "CONSISTENT",
         Verdict.MaskTighter => "MASK TIGHTER THAN DECLARED",
@@ -159,7 +162,7 @@ internal static class MaskConsistency
     /// (Part B) through the same resolver the examination uses, the least
     /// restrictive table when several orbits declare their own.
     /// </summary>
-    internal static double DeclaredAlphaDeg(OperatingParamsSet p, double latDeg)
+    public static double DeclaredAlphaDeg(OperatingParamsSet p, double latDeg)
     {
         var tables = p.MinExclude.Where(e => e.ByLat.Count > 0).ToList();
         if (tables.Count == 0) return 0.0;
@@ -171,7 +174,7 @@ internal static class MaskConsistency
     /// (Sec. D5.1.5 step 1), the end rows governing beyond the array, the
     /// smallest azimuth value of that row; else the header value; else none.
     /// </summary>
-    internal static double DeclaredElevDeg(OperatingParamsSet p, double latDeg)
+    public static double DeclaredElevDeg(OperatingParamsSet p, double latDeg)
     {
         var blocks = p.MinElev.Where(b => b.ByAz.Count > 0).ToList();
         if (blocks.Count == 0) return p.ElevAngleHeaderDeg ?? 0.0;
@@ -180,7 +183,7 @@ internal static class MaskConsistency
     }
 
     /// <summary>Compact "a..b, c, d..e" rendering of a set of block latitudes (1 deg blocks).</summary>
-    internal static string Ranges(IEnumerable<double> lats, CultureInfo inv)
+    public static string Ranges(IEnumerable<double> lats, CultureInfo inv)
     {
         var s = lats.OrderBy(x => x).ToList();
         if (s.Count == 0) return "";
@@ -197,7 +200,7 @@ internal static class MaskConsistency
     }
 
     /// <summary>The record section: what was compared, the verdicts, what they mean.</summary>
-    internal static void AppendSection(StringBuilder sb, Report rep, CultureInfo inv, string declaredLabel)
+    public static void AppendSection(StringBuilder sb, Report rep, CultureInfo inv, string declaredLabel)
     {
         sb.AppendLine("## Mask consistency");
         sb.AppendLine();
@@ -222,7 +225,8 @@ internal static class MaskConsistency
         }
     }
 
-    private static string Meaning(Verdict v) => v switch
+    /// <summary>What a grade means, in the words the records use.</summary>
+    public static string Meaning(Verdict v) => v switch
     {
         Verdict.Saturated => "Near-peak power reaches the GSO arc or the horizon: the mask carries no exclusion or "
             + "elevation shaping at all. Beside declared gates this is a saturation-shaped mask. The examination counts "

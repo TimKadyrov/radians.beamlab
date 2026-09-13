@@ -4433,3 +4433,96 @@ needed there: the section 3.10 consistency probe with its expected
 grade SATURATED and the grade vocabulary in its record, the stamps and
 the two curves on the downlink cases, and the one pass — plus the
 operator's word on what BL-R2 is allowed to be.
+
+## Beamlab — the section 3.10 probe, and what the family's own masks turned out to carry, 13 September 2026
+
+The declaration-consistency probe exists as case BL-C1 (ntc_id
+900123480): operating-parameter set 30 in the D2 band declares an
+all-orbits exclusion zone of 8 degrees, an elevation floor of 10
+degrees, a cap of 2 and the classic algorithm's 2.5-degree separation,
+one row per quantity; its three pfd masks (14, 15, 16, one per shell in
+the azimuth/elevation form, linked per orbital-plane range like
+BL-D2's) are the reachable envelope of the same payload composed with
+no boresight gate and no elevation floor — full load, no victim
+avoidance — at a payload 45 dB below mask 1's. The grade vocabulary of
+the consistency check is written into the record, as agreed: six words,
+one per axis per latitude block. The dissection and the grader moved
+from the harness into the app assembly on the way, unchanged, so that
+the generator grades with the same code the loop and the examine mode
+use; the harness keeps a thin console front end.
+
+**The expected grade, measured.** SATURATED on the exclusion axis for
+every mask: near-peak power reaches alpha 0.0 against the declared 8 in
+five to seven blocks per mask, the arc itself lit at low latitudes, not
+exercised at high ones where no cell reaches the zone. On the
+elevation axis the grade reads CONSISTENT — and it reads CONSISTENT for
+the family's gated masks too, because the grade is keyed to near-peak
+power and a range-shaped envelope thins by more than 3 dB before it
+reaches low elevations. I added a second reading to the dissection for
+this, the lit reach (the lowest elevation still within 20 dB of the
+block peak), expecting it to see the missing floor. It does not, on
+this family: the saturated masks light the ground down to 2.7, 2.1 and
+10.4 degrees of elevation for shells A, B and C, and the gated control
+masks light it down to exactly the same values. A beam gated at a
+10-degree boresight floor spills to the horizon when the beam is 20
+degrees wide. So the record says what is true: the exclusion side of
+the inconsistency is detected and graded; the elevation side is real by
+construction and invisible to mask inspection on this family, with the
+control's difference at the victims as its only trace.
+
+**The conservative verdict.** The examination of the pair at seven
+victims, 0 to 60 N: FAIL everywhere, worst -24.1 dB at 40 N at the
+short-term end of the row (TABLE 22-1B, 1 m dish): the 10% point
+passes by 8 to 13 dB, the 1% point sits between -3 and +7 dB, and the
+short-term points fail by 11 to 24 dB. The binding contribution is the mechanism the
+brief names — a satellite crossing the earth station's main beam inside
+the declared zone, counted by Step 22 and carrying a main-beam-grade
+mask value because nothing in the mask is dark there. The control (set
+30 against the family's gated masks 2, 3, 4 at the same payload) fails
+at every victim too, with maxima 0.5 to 2.4 dB below the saturated
+masks': the whole effect of both gates on this examination. The verdict
+is firm in the 24 h prefix at every victim; the margins are firm to 0.5
+dB at four victims and provisional at three (0 N moved 17.5 dB — the
+closest main-beam pass of the run arrived in the second half), which
+the record states row by row. Margins at every limit point, the control
+and the pair are in the case's `sweep_margins.csv`.
+
+**The finding for the family.** Graded against their own declared set
+26, the family's D2 masks 2 to 5 read SATURATED on exclusion — near-peak
+power reaches alpha 0.0 to 0.3 against a declared 7.4 to 8.0 at the
+low-latitude blocks — and light the horizon under their 10-degree
+floor. On this payload, then, the boresight gates shape neither axis of
+the envelope: 450 km cells are some 20 degrees wide from 1200 km, and
+the derivation, correctly, shows what the payload does rather than what
+the set declares. BL-D2 and BL-ALL therefore pair a declared MIN_EXCLUDE
+and MIN_ELEV with masks that do not carry them as edges — inconsistent
+in the same sense as BL-C1, by geometry rather than by construction.
+This is the extreme form of the LIT INSIDE finding on STEAM-2's derived
+mask (there the spillover was 6 to 10 degrees at 183 km cells; here it
+reaches the arc). It is a decision for the re-emission: a declaration
+without the gates, or a payload whose cells are small enough for the
+gates to shape the envelope. Writing the gates into the family's masks
+as rule notches, as the section 3.9 probes do, is not open to the
+family, because their truth curves would then exceed the mask inside
+the zone and the acceptance direction would be violated by
+construction.
+
+**Two limitations of the grader, recorded.** The elevation axis cannot
+see a missing floor on a range-shaped mask, by either reading; and the
+exclusion axis at high latitudes reads NOT EXERCISED where the geometry
+puts no cell inside the zone, which is correct but means a mask is
+graded only where the arc is in view. Neither is changed here: V46 pins
+the grader's behaviour on the filed STEAM-2B mask and on the derived
+mask, and changing the criterion would move those — a test conflict I
+would rather surface than absorb. V51 pins the family finding itself
+(mask 2 against set 26: SATURATED on exclusion, CONSISTENT on
+elevation).
+
+**State.** Harness 145 passed, 0 failed with T6 and V51 new; the quick
+family generation now carries ten cases; the full-depth emission of
+BL-C1 takes about five minutes on top of the mask sources. The family on
+disk is untouched. What the re-emission still needs: the provenance
+stamps and both curves on the downlink cases, then the one pass — and
+now three decisions ahead of it: BL-R2's nature, the family's gates,
+and whether the grader's elevation axis should gain a lit-reach
+criterion (which would re-grade STEAM-2's derived mask).

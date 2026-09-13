@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using radians.beamlab;
 using radians.beamlab.app;
+using static radians.beamlab.GeoMath;
 
 namespace radians.beamlab.dataset;
 
@@ -23,9 +24,12 @@ namespace radians.beamlab.dataset;
 /// </summary>
 public static class ProbeExamination
 {
-    /// <summary>One examination at one victim: the statistic, the verdict, and the binned CDF behind them.</summary>
+    /// <summary>The margin at one limit point: the limit epfd minus the epfd exceeded for at most the point's percentage.</summary>
+    public sealed record PointMargin(double Perc, double LimitEpfdDb, double MeasuredEpfdDb, double MarginDb);
+
+    /// <summary>One examination at one victim: the statistic, the verdict, the margin at every limit point, and the binned CDF behind them.</summary>
     public sealed record Verdict(double LatDeg, double MaxEpfdDb, double WorstMarginDb, bool Pass,
-        long QuietSteps, long Steps, double[] Epfd, double[] Pct);
+        long QuietSteps, long Steps, double[] Epfd, double[] Pct, IReadOnlyList<PointMargin> Points);
 
     /// <summary>The Article 22 row a probe verdicts against.</summary>
     public sealed record LimitRow(string Label, double DishM, List<radlimits.LimitPoint> Points);
@@ -70,7 +74,7 @@ public static class ProbeExamination
     /// minimum over the row's points of (limit epfd minus the epfd exceeded
     /// for at most the point's percentage); positive is room to spare.
     /// </summary>
-    public static Verdict Examine(Constellation con, MaskFootprint mask, OperatingParamsSet set, LimitRow lim,
+    public static Verdict Examine(Constellation con, IMaskPfdRead mask, OperatingParamsSet set, LimitRow lim,
         double freqMhz, double victimLatDeg, double esLonDeg, double gsoLonDeg, double stepSec, long steps)
     {
         var victim = new EpfdDownVictim
@@ -81,9 +85,44 @@ public static class ProbeExamination
         var res = EpfdDownMask.Run(con, mask, set, victim, stepSec, steps, lim.Points, stepSec * steps);
         var (passResults, _) = res.Accumulator.CompareWithLimits(lim.Points);
         var (epfd, pct) = res.Accumulator.BuildCdf();
-        double worst = lim.Points.Min(l => ComplianceViewModel.MarginDb(epfd, pct, l.EPFD, l.Perc));
+        var points = lim.Points.Select(l =>
+        {
+            int i = Array.FindIndex(pct, v => v <= l.Perc);
+            double measured = i < 0 ? epfd[^1] : epfd[i];
+            return new PointMargin(l.Perc, l.EPFD, measured, l.EPFD - measured);
+        }).ToList();
+        double worst = points.Min(pm => pm.MarginDb);
         return new Verdict(victimLatDeg, res.MaxEpfdDb, worst, passResults.All(p => p),
-            res.QuietSteps, steps, epfd, pct);
+            res.QuietSteps, steps, epfd, pct, points);
+    }
+
+    // ---- composite reads ---------------------------------------------------------
+
+    /// <summary>
+    /// One mask per shell, dispatched by the satellite's shell index: the
+    /// examination of a notice whose pfd masks are linked per orbital-plane
+    /// range (mask_lnk1 per orb_id), as BL-D2 and the consistency probe file
+    /// them. Shell order = the constellation's shell order.
+    /// </summary>
+    public sealed class ShellMaskRead : IMaskPfdRead
+    {
+        private readonly IMaskPfdRead[] _byShell;
+        public ShellMaskRead(IEnumerable<IMaskPfdRead> byShell) => _byShell = byShell.ToArray();
+        public double PfdDb(SatelliteState state, Vec3 satPosKm, Vec3 esPosKm)
+            => _byShell[state.ShellIndex].PfdDb(state, satPosKm, esPosKm);
+    }
+
+    /// <summary>A mask read shifted by a constant (dB) -- a control at another payload level; the -1000 null stays a null.</summary>
+    public sealed class OffsetMaskRead : IMaskPfdRead
+    {
+        private readonly IMaskPfdRead _inner;
+        private readonly double _deltaDb;
+        public OffsetMaskRead(IMaskPfdRead inner, double deltaDb) { _inner = inner; _deltaDb = deltaDb; }
+        public double PfdDb(SatelliteState state, Vec3 satPosKm, Vec3 esPosKm)
+        {
+            double v = _inner.PfdDb(state, satPosKm, esPosKm);
+            return v <= MaskLatBlock.UnreachableDb + 1 ? v : v + _deltaDb;
+        }
     }
 
     // ---- one-row sets: the value a given read would produce, pinned globally ----

@@ -41,7 +41,7 @@ public sealed class DatasetOptions
 public static class DatasetGenerator
 {
     public const string SatName = "BEAMLAB";
-    public static readonly string[] CaseNames = { "BL-D1", "BL-D2", "BL-U1", "BL-U2", "BL-I1", "BL-ALL", "BL-R1", "BL-R2", "BL-R3" };
+    public static readonly string[] CaseNames = { "BL-D1", "BL-D2", "BL-U1", "BL-U2", "BL-I1", "BL-ALL", "BL-R1", "BL-R2", "BL-R3", "BL-C1" };
     public static int NtcIdFor(string caseName) => 900123471 + Array.IndexOf(CaseNames, caseName);
 
     // ---- the one constellation (brief section 4) ----------------------
@@ -115,7 +115,9 @@ public static class DatasetGenerator
     private static readonly Band R1b = new("D1", 'E', 19700, 20200, 27);
     private static readonly Band R2b = new("D1", 'E', 19700, 20200, 28);
     private static readonly Band R3b = new("D1", 'E', 19700, 20200, 29);
-    private static readonly Band[] AllBands = { D1, D2, D2v, U1, U2, I1, R1b, R2b, R3b };
+    // The section 3.10 consistency probe files its set in the D2 band, whose masks are per shell.
+    private static readonly Band C1b = new("D2", 'E', 17800, 18600, 30);
+    private static readonly Band[] AllBands = { D1, D2, D2v, U1, U2, I1, R1b, R2b, R3b, C1b };
 
     private sealed record MaskDef(int MaskId, char FMask, char? FMaskType, Band Band, string FileName);
     private static readonly MaskDef[] MaskDefs =
@@ -134,6 +136,10 @@ public static class DatasetGenerator
         new(11, 'P', 'A', R1b, "mask11_pfd_alpha_probe_nearest.xml"),
         new(12, 'P', 'A', R2b, "mask12_pfd_alpha_probe_interp.xml"),
         new(13, 'P', 'A', R3b, "mask13_pfd_alpha_probe_sweep.xml"),
+        // Section 3.10 consistency probe: the saturated per-shell masks (no gate, no floor; ConsistencyProbe).
+        new(14, 'P', 'Z', C1b, "mask14_pfd_azel_saturated_shellA.xml"),
+        new(15, 'P', 'Z', C1b, "mask15_pfd_azel_saturated_shellB.xml"),
+        new(16, 'P', 'Z', C1b, "mask16_pfd_azel_saturated_shellC.xml"),
     };
     private static string ParamFile(int paramId) => $"param{paramId}_oper.xml";
 
@@ -283,8 +289,14 @@ public static class DatasetGenerator
     public sealed record ProbeMaskSpec(double GateAlphaDeg, double MinElevDeg, double TxDeltaDb,
         double NotchAlphaDeg, double BStepDeg);
 
-    /// <summary>The D1 band edges (MHz): the band the probe masks and sets are filed in.</summary>
+    /// <summary>The D1 band edges (MHz): the band the read-rule probe masks and sets are filed in.</summary>
     public static (double FMin, double FMax) ProbeBandMhz => (D1.FMin, D1.FMax);
+
+    /// <summary>The D2 band edges (MHz): the band the consistency probe is filed in.</summary>
+    public static (double FMin, double FMax) ConsistencyBandMhz => (D2.FMin, D2.FMax);
+
+    /// <summary>The altitude a shell's az/el mask is dissected at: the operating height for an elliptical shell.</summary>
+    public static double MaskAltitudeKm(ConstellationShell sh) => sh.OperatingHeightKm ?? sh.AltitudeKm;
 
     /// <summary>Monotone non-increasing hull from the far end: a valid upper envelope.</summary>
     private static double[] Hull(double[] raw)
@@ -505,6 +517,7 @@ public static class DatasetGenerator
         21 => Set21(ntcId), 22 => Set22(ntcId), 23 => Set23(ntcId),
         24 => Set24(ntcId), 25 => Set25(ntcId), 26 => Set26(ntcId),
         27 => ReadRuleProbes.Set27(ntcId), 28 => ReadRuleProbes.Set28(ntcId), 29 => ReadRuleProbes.Set29(ntcId),
+        30 => ConsistencyProbe.Set30(ntcId),
         _ => throw new ArgumentOutOfRangeException(nameof(paramId)),
     };
 
@@ -576,13 +589,20 @@ public static class DatasetGenerator
         GenerateProbeMask(P(MaskDefs[11].FileName), 12, ReadRuleProbes.MaskSpecR2, o.Quick);
         GenerateProbeMask(P(MaskDefs[12].FileName), 13, ReadRuleProbes.MaskSpecR3, o.Quick);
         o.Log("  masks 11-13 (section 3.9 probe masks: rule notch + power offset) done");
-        foreach (int pid in new[] { 21, 22, 23, 24, 25, 26, 27, 28, 29 })
+        // The saturated masks: the same payload composed with NO boresight gate
+        // and NO elevation floor -- full load, no victim avoidance -- beside a
+        // set that declares both (design brief Sec. 3.10).
+        GeneratePfd(P(MaskDefs[13].FileName), new[] { (ShellA, ConsistencyProbe.TxDeltaDb) }, C1b, 14, MaskPlotKind.AzEl, 0.0, 0.0, o.Quick);
+        GeneratePfd(P(MaskDefs[14].FileName), new[] { (ShellB, ConsistencyProbe.TxDeltaDb) }, C1b, 15, MaskPlotKind.AzEl, 0.0, 0.0, o.Quick);
+        GeneratePfd(P(MaskDefs[15].FileName), new[] { (ShellC, ConsistencyProbe.TxDeltaDb) }, C1b, 16, MaskPlotKind.AzEl, 0.0, 0.0, o.Quick);
+        o.Log("  masks 14-16 (section 3.10 saturated masks: no gate, no floor) done");
+        foreach (int pid in new[] { 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 })
             // Set 22 files max_co_freq and min_elev in both forms with different
             // values: by the ruling of 2026-09-07 (design brief Sec. 3.8) that is
             // the invalid-filing probe, emitted deliberately; its expectation
             // record is the rejection. Every other set is one form per quantity.
             OperParamsXmlWriter.Write(P(ParamFile(pid)), SetFor(pid, 0), allowBothForms: pid == D2.ParamId);
-        o.Log("  operating-parameter sets 21-29 done (22 = the invalid-filing probe, written on purpose; 27-29 = the read-rule probes)");
+        o.Log("  operating-parameter sets 21-30 done (22 = the invalid-filing probe, written on purpose; 27-29 = the read-rule probes; 30 = the consistency probe)");
     }
 
     // ---- per-case notice content ---------------------------------------
@@ -598,13 +618,14 @@ public static class DatasetGenerator
             });
     }
 
-    private static void AddShellPfdLinks(SrsScenario sc, ref int seq, bool namedOverride)
+    private static void AddShellPfdLinks(SrsScenario sc, ref int seq, bool namedOverride,
+        int maskA = 2, int maskB = 3, int maskC = 4)
     {
         if (namedOverride)
             sc.PfdMaskLinks.Add(new SrsMaskLink(seq++, MaskId: 5, OrbId: OrbA0, SatOrbId: 1));
-        for (int orb = OrbA0; orb < OrbB0; orb++) sc.PfdMaskLinks.Add(new SrsMaskLink(seq++, 2, orb));
-        for (int orb = OrbB0; orb < OrbC0; orb++) sc.PfdMaskLinks.Add(new SrsMaskLink(seq++, 3, orb));
-        for (int orb = OrbC0; orb <= OrbLast; orb++) sc.PfdMaskLinks.Add(new SrsMaskLink(seq++, 4, orb));
+        for (int orb = OrbA0; orb < OrbB0; orb++) sc.PfdMaskLinks.Add(new SrsMaskLink(seq++, maskA, orb));
+        for (int orb = OrbB0; orb < OrbC0; orb++) sc.PfdMaskLinks.Add(new SrsMaskLink(seq++, maskB, orb));
+        for (int orb = OrbC0; orb <= OrbLast; orb++) sc.PfdMaskLinks.Add(new SrsMaskLink(seq++, maskC, orb));
     }
 
     public static SrsNotice BuildNotice(string caseName)
@@ -725,6 +746,17 @@ public static class DatasetGenerator
                 n.Scenarios.Add(sc);
                 break;
             }
+            case "BL-C1":
+            {
+                // Saturated masks per shell beside a set that declares shaping (design brief Sec. 3.10; ConsistencyProbe).
+                Masks(14, 15, 16); Params(CaseParams[caseName]);
+                var sc = new SrsScenario { ScenId = 1, ScenName = "Probe 3.10 consistency saturated masks 17.8-18.6" };
+                sc.Frequencies.Add(new SrsFreqRange(1, D2.EmiRcp, D2.FMin, D2.FMax));
+                int seq = 1;
+                AddShellPfdLinks(sc, ref seq, namedOverride: false, maskA: 14, maskB: 15, maskC: 16);
+                n.Scenarios.Add(sc);
+                break;
+            }
         }
         n.Validate();
         return n;
@@ -741,6 +773,7 @@ public static class DatasetGenerator
         ["BL-R1"] = new[] { 11 },
         ["BL-R2"] = new[] { 12 },
         ["BL-R3"] = new[] { 13 },
+        ["BL-C1"] = new[] { 14, 15, 16 },
     };
     private static readonly Dictionary<string, int[]> CaseParams = new()
     {
@@ -755,6 +788,7 @@ public static class DatasetGenerator
         ["BL-R1"] = new[] { 27 },
         ["BL-R2"] = new[] { 28 },
         ["BL-R3"] = new[] { 29 },
+        ["BL-C1"] = new[] { 30 },
     };
 
     private static void PatchNtcId(string srcPath, string dstPath, int ntcId)
@@ -847,7 +881,7 @@ public static class DatasetGenerator
                 // The read-rule probes: the expectation is the EXAMINATION's verdict at
                 // named victims (or the resolved value), measured here against the
                 // band's Article 22 row; see ReadRuleProbes.
-                var lim = ProbeLimitRow(o);
+                var lim = LimitRowFor(o, D1);
                 string maskFile = Path.Combine(xmlDir, MaskDefs.Single(d => d.MaskId == CaseMasks[caseName][0]).FileName);
                 string paramFile = Path.Combine(xmlDir, ParamFile(CaseParams[caseName][0]));
                 string prov = ReadRuleProbes.Provenance(o.Quick);
@@ -861,23 +895,41 @@ public static class DatasetGenerator
                 expected.Add("probe");
                 break;
             }
+            case "BL-C1":
+            {
+                // The consistency probe: the grades of the saturated masks against the
+                // declared set, and the conservative verdict of the examination that
+                // proceeds anyway, with the family's gated masks as the control.
+                var lim = LimitRowFor(o, C1b);
+                var shells = new[] { (Shell: ShellA, Name: "A"), (Shell: ShellB, Name: "B"), (Shell: ShellC, Name: "C") };
+                var probeMasks = CaseMasks[caseName].Select((id, i) => new ConsistencyProbe.ProbeMask(
+                    Path.Combine(xmlDir, MaskDefs.Single(d => d.MaskId == id).FileName), shells[i].Name, MaskAltitudeKm(shells[i].Shell), id)).ToList();
+                var controlMasks = new[] { 2, 3, 4 }.Select((id, i) => new ConsistencyProbe.ProbeMask(
+                    Path.Combine(srcDir, MaskDefs.Single(d => d.MaskId == id).FileName), shells[i].Name, MaskAltitudeKm(shells[i].Shell), id)).ToList();
+                var em = ConsistencyProbe.Emit(caseDir, probeMasks, controlMasks, Path.Combine(xmlDir, ParamFile(30)),
+                    ConsistencyProbe.Set30(ntc), lim, o.Quick, ReadRuleProbes.Provenance(o.Quick));
+                o.Log("    " + em.Headline);
+                expected.Add("probe");
+                break;
+            }
         }
         File.WriteAllText(Path.Combine(caseDir, "README.md"), CaseReadme(caseName, ntc), Utf8NoBom);
         o.Log($"  {caseName}: SRS + Masks + README" +
               (expected.Count > 0 ? $" + expectation records ({string.Join("/", expected)})" : ""));
     }
 
-    private static ProbeExamination.LimitRow _probeLimitRow;
+    private static readonly Dictionary<int, ProbeExamination.LimitRow> _limitRows = new();
 
-    /// <summary>The Article 22 row the section 3.9 probes verdict against (the D1 band), loaded once per run.</summary>
-    private static ProbeExamination.LimitRow ProbeLimitRow(DatasetOptions o)
+    /// <summary>The Article 22 row a probe band verdicts against, loaded once per band per run.</summary>
+    private static ProbeExamination.LimitRow LimitRowFor(DatasetOptions o, Band band)
     {
-        if (_probeLimitRow is not null) return _probeLimitRow;
+        if (_limitRows.TryGetValue(band.ParamId, out var cached)) return cached;
         string db = ProbeExamination.ResolveLimitsDb(o.LimitsDbPath)
-            ?? throw new InvalidOperationException("BR limits database (EPFD_limits_RES85_WRC23.mdb) not found; pass LimitsDbPath -- the section 3.9 probes verdict against real Article 22 rows");
-        _probeLimitRow = ProbeExamination.LoadLimitRow(db, ResolveMasksDllDir(o), D1.FMin, D1.FMax, 40.0,
+            ?? throw new InvalidOperationException("BR limits database (EPFD_limits_RES85_WRC23.mdb) not found; pass LimitsDbPath -- the probe cases verdict against real Article 22 rows");
+        var row = ProbeExamination.LoadLimitRow(db, ResolveMasksDllDir(o), band.FMin, band.FMax, 40.0,
             Shells.Min(s => s.OperatingHeightKm ?? s.AltitudeKm));
-        return _probeLimitRow;
+        _limitRows[band.ParamId] = row;
+        return row;
     }
 
     // ---- expectation data (simulated CDFs, sampling option 2) ----------
@@ -1148,6 +1200,32 @@ public static class DatasetGenerator
                   expected/sweep_margins.csv: the examination at every whole degree 70 S-70 N, so
                   any grid that is a subset of the 1-degree grid can be looked up.
                 """,
+            "BL-C1" => """
+                DECLARATION-CONSISTENCY PROBE (design brief section 3.10). Downlink 17.8-18.6 GHz.
+                - pfd masks 14/15/16, azimuth/elevation form, one per shell (mask_lnk1 per orb_id):
+                  the reachable envelope of the same payload composed with NO exclusion gate and NO
+                  elevation floor -- full load, no victim avoidance -- at a payload 45 dB below
+                  mask 1's.
+                - Operating-parameter set 30 declares the shaping the masks ignore: all-orbits
+                  MIN_EXCLUDE 8 deg, MIN_ELEV 10 deg, MAX_CO_FREQ 2, MIN_ANGLE_AT_ES 2.5 deg, one
+                  row each. The pair is self-inconsistent by construction; nothing in it is
+                  malformed.
+                - expected/consistency-probe.md: the grade vocabulary of the mask-versus-parameters
+                  consistency check and the expected grade SATURATED on the exclusion axis for
+                  every mask (with the measured near-peak reach against the declared zone); the
+                  elevation side of the inconsistency stated as real by construction but not
+                  detectable by mask inspection on this family (near-peak grade and lit reach
+                  read the same for the saturated masks and the gated control); the conservative
+                  verdict of the examination that proceeds anyway at seven victims, per limit
+                  point, with the family's boresight-gated D2 masks as the control at the same
+                  payload; the 24 h / 48 h pair; artefact identities; provenance.
+                  expected/sweep_margins.csv (all victims, points, control) and
+                  expected/examination_lat40_cdf.csv.
+                - The control's limit, stated in the record: the family's own masks 2-5 grade
+                  SATURATED on exclusion against their declared zone too, and light the horizon
+                  despite their 10-degree floor (450 km cells: the boresight gates shape neither
+                  axis of the envelope) -- a finding for the family's re-emission.
+                """,
             _ => "",
         };
         return $"# {caseName}\n\n{body}\n\n{common}\n";
@@ -1179,6 +1257,7 @@ public static class DatasetGenerator
             | BL-R1 | 900123477 | read-rule probe: MIN_ELEV nearest row -- victims half a step either side of the midpoint between two rows, the two verdicts differ |
             | BL-R2 | 900123478 | read-rule probe: MIN_EXCLUDE linear interpolation -- the resolved value at 25/30/35 N; the verdict is measured not to discriminate |
             | BL-R3 | 900123479 | sweep-grid disclosure probe: the worst victim between the 10-degree sweep points; the worst margin stated per sweep step |
+            | BL-C1 | 900123480 | declaration-consistency probe: saturated per-shell masks beside a set declaring an exclusion zone and an elevation floor -- expected grade SATURATED, and the conservative verdict of an examination that proceeds |
 
             Direction of comparison (design brief section 2): the examination result must
             sit AT OR ABOVE the simulated CDF at every percentile -- the masks are
@@ -1208,15 +1287,18 @@ public static class DatasetGenerator
             NUM_ES aggregation (Sec. D5.2.5), while these expectations transmit from the
             actually scheduled cells.
 
-            The three probe cases (BL-R1/R2/R3, design brief section 3.9) are different in kind:
-            their expectation is not a simulated CDF but the EXAMINATION's own verdict at named
-            victims -- S.1503-4 D5.1.4.1 over the case's mask and set, against the Article 22 row
-            of the band read from the BR limits database -- constructed so that how a per-latitude
-            array is read (nearest row; linear interpolation for MIN_EXCLUDE) is the only thing
-            that decides it. Their masks are rule masks: mask 1's construction with the exclusion
-            zone written in as a -1000 notch and the power lowered to the limit. Their records
-            carry the alternative reads beside the correct one, a 24 h / 48 h extension pair, the
-            limit row, the artefacts' SHA-256 identities and a provenance stamp.
+            The probe cases are different in kind: their expectation is not a simulated CDF but
+            the EXAMINATION's own verdict at named victims -- S.1503-4 D5.1.4.1 over the case's
+            masks and set, against the Article 22 row of the band read from the BR limits
+            database. The three read-rule probes (BL-R1/R2/R3, design brief section 3.9) are
+            constructed so that how a per-latitude array is read (nearest row; linear
+            interpolation for MIN_EXCLUDE) is the only thing that decides it; their masks are
+            rule masks -- mask 1's construction with the exclusion zone written in as a -1000
+            notch and the power lowered to the limit. The consistency probe (BL-C1, section
+            3.10) pairs saturated per-shell masks with a set that declares shaping, and expects
+            the inconsistency detected (grade SATURATED) before any verdict. Every probe record
+            carries a 24 h / 48 h extension pair, the limit row, the artefacts' SHA-256
+            identities and a provenance stamp.
 
             Regeneration requires the donor databases (schema source: worked case
             127520101), the BR native EpfdMasksApi64.dll, and for the probe cases the BR

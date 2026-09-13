@@ -70,7 +70,7 @@ if (args.Length > 0 && args[0] == "parity")
         args.Length > 1 ? args[1] : @"c:\_3\mask ntc_id 317520389 mask_id 150 17700-20200 MHz.xml",
         args.Length > 2 ? double.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 5.0);
 if (args.Length > 0 && args[0] == "dissect")
-    return MaskDissect.Run(
+    return MaskDissectCli.Run(
         args.Length > 1 ? args[1] : @"c:\_3\mask ntc_id 317520389 mask_id 150 17700-20200 MHz.xml",
         args.Length > 2 ? double.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 1150.0);
 if (args.Length > 0 && args[0] == "oracle")
@@ -84,6 +84,19 @@ if (args.Length > 0 && args[0] == "study")
 // Measurement scan behind the section 3.9 read-rule probes (ReadRuleScan).
 if (args.Length > 0 && args[0] == "probescan")
     return radians.beamlab.checks.ReadRuleScan.Run(args.Skip(1).ToArray());
+// Grade a pfd mask against a dataset operating-parameter set (MaskConsistency):
+//   grade <mask.xml> <altitudeKm> <paramId>
+if (args.Length > 3 && args[0] == "grade")
+{
+    var repG = MaskConsistency.Check(args[1], double.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture),
+        radians.beamlab.dataset.DatasetGenerator.SetFor(int.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture), 0));
+    Console.WriteLine(repG.Summary);
+    if (repG.Note.Length > 0) Console.WriteLine(repG.Note);
+    foreach (var r in repG.Rows.Where(x => x.Alpha != MaskConsistency.Verdict.Dark))
+        Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"  block {r.LatDeg,5:0.#}: reach alpha {r.ReachAlpha,5:F1} dark {r.DarkAlpha,5:F1} declared {r.DeclaredAlpha,4:F1} {MaskConsistency.Word(r.Alpha),-30} | reach elev {r.ReachElev,5:F1} dark {r.DarkElev,5:F1} declared {r.DeclaredElev,4:F1} {MaskConsistency.Word(r.Elev)}"));
+    return 0;
+}
 
 int pass = 0, fail = 0;
 void Check(string name, bool ok, string detail = "")
@@ -2396,6 +2409,22 @@ var looks = RandomLooks(300);
             else detT5 += "csv ok, sweep rows 141";
         }
         Check("T5 section 3.9 probe cases: records carry the limit row, the artefact identities and provenance; examination CDFs at the victims; the 141-latitude sweep table", okT5, detT5.Trim());
+
+        // T6: the section 3.10 consistency probe emits its record (grade vocabulary,
+        // the expected grade, the control's limit, the limit row, identities,
+        // provenance) and its tables. Quick profile: structure, not delivery numbers.
+        {
+            string p6 = Path.Combine(outDs, "BL-C1", "expected", "consistency-probe.md");
+            string txt6 = File.Exists(p6) ? File.ReadAllText(p6) : "";
+            bool rec6 = txt6.Contains("Expected grade") && txt6.Contains("Grade vocabulary") && txt6.Contains("SATURATED (no shaping)") && txt6.Contains("lit reach")
+                && txt6.Contains("LIT INSIDE THE DECLARED GATE") && txt6.Contains("MASK TIGHTER THAN DECLARED") && txt6.Contains("NOT EXERCISED")
+                && txt6.Contains("The conservative verdict") && txt6.Contains("What the control can and cannot show")
+                && txt6.Contains("4A/937") && txt6.Contains("TABLE 22-1B") && txt6.Contains("SHA-256") && txt6.Contains("Provenance:") && txt6.Contains("QUICK profile");
+            int sweep6 = CsvRows(Path.Combine(outDs, "BL-C1", "expected", "sweep_margins.csv"));
+            bool cdf6 = CsvRows(Path.Combine(outDs, "BL-C1", "expected", "examination_lat40_cdf.csv")) >= 3;
+            Check("T6 section 3.10 consistency probe: the record names the grade vocabulary and the expected grade, the control's limit, the limit row, identities and provenance; seven-victim table; the CDF at 40 N",
+                rec6 && sweep6 == 7 && cdf6, $"record={rec6} sweepRows={sweep6} cdf={cdf6}" + (File.Exists(p6) ? "" : " (record missing)"));
+        }
         }
         catch (Exception ex)
         {
@@ -5345,6 +5374,50 @@ var looks = RandomLooks(300);
     Check("V50 section 3.9 probes: sets 27-29 one form per quantity; nearest read 10/55 at 25/35 N; interpolation 8/10/12 at 25/30/35 N; Nco 8 only in 63.75-66.25 N; cases and ntc ids; every notice lists its case's sets; probe masks notched and lowered",
         valid50 && r1_50 && r2_50 && r3_50 && cases50 && notice50 && masks50,
         $"valid={valid50} r1={r1_50} r2={r2_50} r3={r3_50} cases={cases50} notice={notice50} masks={masks50}");
+}
+
+// ---- V51: the section 3.10 consistency probe -- set 30, the case, the notice, and the family finding ----
+{
+    // Design brief Sec. 3.10: a set that declares shaping (exclusion zone, elevation
+    // floor) beside masks whose values ignore it. Set 30 is one form per quantity
+    // and reads as global constants; the case links the three saturated masks per
+    // shell; and the family's own D2 masks, when present on disk at full grid,
+    // grade SATURATED on exclusion against their declared zone (450 km cells make
+    // an 8-degree boresight gate invisible) and CONSISTENT on elevation -- the
+    // control's limit the probe record states.
+    var s30 = radians.beamlab.dataset.ConsistencyProbe.Set30(1);
+    bool set51 = DeclaredConstraints.FormConflicts(s30).Count == 0 && s30.ParamId == 30
+        && s30.ElevAngleHeaderDeg is null && s30.MaxCoFreqHeader is null && s30.MinDurationByLat.Count == 0
+        && Math.Abs(DeclaredConstraints.ExclusionAlphaDeg(s30, 45.0, 7) - 8.0) < 1e-9
+        && DeclaredConstraints.MinElevDeg(s30, -60.0, 270.0) == 10.0 && DeclaredConstraints.MaxCoFreq(s30, 0.0) == 2
+        && s30.MinAngleAtEsDeg == 2.5 && s30.LowFreqMhz == 17800 && s30.HighFreqMhz == 18600
+        && MaskConsistency.DeclaredAlphaDeg(s30, 20.0) == 8.0 && MaskConsistency.DeclaredElevDeg(s30, 20.0) == 10.0;
+    bool case51 = radians.beamlab.dataset.DatasetGenerator.CaseNames.Contains("BL-C1")
+        && radians.beamlab.dataset.DatasetGenerator.ParamsOf("BL-C1").SequenceEqual(new[] { 30 })
+        && radians.beamlab.dataset.DatasetGenerator.NtcIdFor("BL-C1") == 900123480
+        && radians.beamlab.dataset.ConsistencyProbe.TxDeltaDb < 0 && radians.beamlab.dataset.ConsistencyProbe.SweepLatsDeg.Length == 7;
+    var n51 = radians.beamlab.dataset.DatasetGenerator.BuildNotice("BL-C1");
+    var links51 = n51.Scenarios.Single().PfdMaskLinks;
+    bool notice51 = n51.OperatingParamIds.SequenceEqual(new[] { 30 })
+        && n51.MaskInfo.Count(m => m.FMask == 'P') == 3 && links51.Count == 12
+        && links51.Where(l => l.OrbId >= 1 && l.OrbId <= 4).All(l => l.MaskId == 14)
+        && links51.Where(l => l.OrbId >= 5 && l.OrbId <= 10).All(l => l.MaskId == 15)
+        && links51.Where(l => l.OrbId >= 11).All(l => l.MaskId == 16);
+    // The family finding, on the full-grid masks when they are on disk.
+    string fam51 = @"C:\Projects\radians.beamlab\dataset\_src\mask2_pfd_azel_shellA.xml";
+    bool family51 = true; string famText51 = "family masks not on disk, not graded";
+    if (File.Exists(fam51))
+    {
+        var rep51 = MaskConsistency.Check(fam51, 1200.0, radians.beamlab.dataset.DatasetGenerator.Set26(1));
+        var lit51 = rep51.Rows.Where(r => r.Alpha != MaskConsistency.Verdict.Dark).ToList();
+        family51 = rep51.Overall == MaskConsistency.Verdict.Saturated
+            && lit51.Any(r => r.Alpha == MaskConsistency.Verdict.Saturated && r.ReachAlpha <= MaskConsistency.CellTolDeg)
+            && lit51.All(r => r.Elev == MaskConsistency.Verdict.Consistent);
+        famText51 = $"mask2 vs set26: {rep51.Overall}, exclusion saturated blocks {lit51.Count(r => r.Alpha == MaskConsistency.Verdict.Saturated)}, elevation consistent {lit51.Count(r => r.Elev == MaskConsistency.Verdict.Consistent)} of {lit51.Count}";
+    }
+    Check("V51 section 3.10 consistency probe: set 30 one form per quantity with global reads; BL-C1 links the saturated masks per shell; the family's own D2 mask grades SATURATED on exclusion and CONSISTENT on elevation against its declared zone",
+        set51 && case51 && notice51 && family51,
+        $"set={set51} case={case51} notice={notice51} {famText51}");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
