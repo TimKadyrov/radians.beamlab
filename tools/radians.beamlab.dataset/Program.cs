@@ -6,6 +6,7 @@ using radians.beamlab.dataset;
 var inv = System.Globalization.CultureInfo.InvariantCulture;
 var o = new DatasetOptions { Log = Console.WriteLine };
 PackageOptions pkg = null;
+string trial = null;
 for (int i = 0; i < args.Length; i++)
 {
     string Next() => ++i < args.Length ? args[i]
@@ -20,6 +21,7 @@ for (int i = 0; i < args.Length; i++)
         case "--limits-db": o.LimitsDbPath = Next(); break;
         case "--case": o.OnlyCase = Next(); break;
         case "--quick": o.Quick = true; break;
+        case "--trial": trial = Next(); break;
         case "--package": Pkg().Name = Next(); break;
         case "--design": Pkg().DesignPath = Next(); break;
         case "--rset": Pkg().RsetJsonPath = Next(); break;
@@ -33,7 +35,7 @@ for (int i = 0; i < args.Length; i++)
         default:
             Console.Error.WriteLine($"unknown option {args[i]}");
             Console.Error.WriteLine("usage: radians.beamlab.dataset [--out DIR] [--donor-srs MDB] " +
-                "[--donor-masks MDB] [--dll-dir DIR] [--limits-db MDB] [--case BL-*] [--quick]");
+                "[--donor-masks MDB] [--dll-dir DIR] [--limits-db MDB] [--case BL-*] [--quick] [--trial two-body]");
             Console.Error.WriteLine("       radians.beamlab.dataset --package NAME --design JSON --rset JSON --mask XML " +
                 "[--mask-id N] [--band MIN MAX] [--ntc N] [--sat-name S] [--expected FILE] [--provenance TEXT] [--out DIR] ...");
             return 2;
@@ -43,6 +45,11 @@ for (int i = 0; i < args.Length; i++)
 try
 {
     if (pkg is not null) PackageBuilder.Build(pkg, o);
+    else if (trial is not null)
+    {
+        if (trial != "two-body") throw new ArgumentException($"unknown trial {trial} (known: two-body)");
+        TwoBodyTrial.Generate(o);
+    }
     else DatasetGenerator.Generate(o);
     return 0;
 }

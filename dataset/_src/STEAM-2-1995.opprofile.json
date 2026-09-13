@@ -1,0 +1,31 @@
+{
+  "SchemaVersion": 1,
+  "Name": "STEAM-2 (WP 4A Doc 4A/653 + filed mask; pattern, layout, reuse assumed) -- row read at 19.95 GHz (22-1C, 70 cm)",
+  "Downlink": {
+    "FrequencyGhz": 19.95,
+    "RefBwKHz": 40,
+    "GainPeakDbi": 35,
+    "BeamCellRadiusKm": 92,
+    "PatternFloorDbi": 5,
+    "TxEirpDbw": -33,
+    "PowerMode": "pfd",
+    "Aggregation": "cochannel",
+    "ReuseClusterIndex": 1,
+    "FootprintSource": "composition",
+    "MaskXmlPath": ""
+  },
+  "MinElevDeg": 40,
+  "ServiceLatMinDeg": -50,
+  "ServiceLatMaxDeg": 50,
+  "ServiceLonMinDeg": -180,
+  "ServiceLonMaxDeg": 180,
+  "CellKm": 183,
+  "TrackingPolicy": "Random",
+  "NcoPerCell": 4,
+  "DemandLinksPerCell": 1,
+  "ActivityFactor": 1,
+  "ActivityPeriodSec": 300,
+  "OperationalFraction": 1,
+  "IlluminationDutyCycle": 1,
+  "AlphaExclDeg": 22
+}

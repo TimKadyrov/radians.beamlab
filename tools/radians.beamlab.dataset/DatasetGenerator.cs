@@ -241,14 +241,28 @@ public static class DatasetGenerator
             => Math.Abs(yDeg) < _notchDeg - 1e-9 ? double.NegativeInfinity : _inner.SampleMaxIn(xDeg, yDeg, halfW, halfH);
     }
 
+    /// <summary>
+    /// A pfd mask for one system outside the BL family (the two-body trial):
+    /// the reachable envelope of one shell in the given form, under the given
+    /// minimum elevation with no exclusion gate, at a payload offset against
+    /// mask 1's; with spanOf, the declared service span is written in as dark
+    /// rows (the service-span certificate). Header identities as given.
+    /// </summary>
+    public static void GenerateSystemMask(string path, ConstellationShell shell, string satName, int ntcId,
+        double fMinMhz, double fMaxMhz, int maskId, MaskPlotKind kind, double minElevDeg, double txDeltaDb,
+        bool quick, OperatingParamsSet spanOf = null)
+        => GeneratePfd(path, new[] { (shell, txDeltaDb) }, new Band("TB", 'E', fMinMhz, fMaxMhz, 0), maskId, kind,
+            alphaExcl: 0.0, minElev: minElevDeg, quick, spanOf: spanOf, satName: satName, ntcId: ntcId);
+
     private static void GeneratePfd(string path, IReadOnlyList<(ConstellationShell Shell, double TxDeltaDb)> shells,
         Band band, int maskId, MaskPlotKind kind, double alphaExcl, double minElev, bool quick,
-        double? bStepDeg = null, double notchAlphaDeg = 0.0)
+        double? bStepDeg = null, double notchAlphaDeg = 0.0, OperatingParamsSet spanOf = null,
+        string satName = null, int ntcId = 0)
     {
         double latCap = shells.Max(s => MaskXmlExport.MaxLatitudeForInclination(s.Shell.InclinationDeg));
         var opts = new MaskXmlExportOptions
         {
-            SatName = SatName, NtcId = 0, MaskId = maskId,
+            SatName = satName ?? SatName, NtcId = ntcId, MaskId = maskId,
             LowFreqMhz = band.FMin, HighFreqMhz = band.FMax, RefBwKHz = 40,
             LatMinDeg = -Math.Min(70.0, latCap), LatMaxDeg = Math.Min(70.0, latCap),
             LatStepDeg = quick ? 35 : 10,
@@ -264,6 +278,13 @@ public static class DatasetGenerator
         {
             if (kind != MaskPlotKind.AlphaDeltaLong) throw new ArgumentException("the exclusion notch is defined on the alpha axis only");
             sampler = new ExclusionNotchSampler(sampler, notchAlphaDeg);
+        }
+        if (spanOf is not null)
+        {
+            // The declared service span written into the mask: rows from which no
+            // declared latitude is reachable at the declared floor are dark.
+            double alt = shells.Min(s => s.Shell.OperatingHeightKm ?? s.Shell.AltitudeKm);
+            sampler = new ServiceSpanSampler(sampler, spanOf, alt, opts.LatStepDeg);
         }
         MaskXmlExport.GenerateAsync(sampler, opts, null, CancellationToken.None)
             .GetAwaiter().GetResult();

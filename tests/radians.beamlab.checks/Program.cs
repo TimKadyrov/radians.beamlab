@@ -84,6 +84,9 @@ if (args.Length > 0 && args[0] == "study")
 // Measurement scan behind the section 3.9 read-rule probes (ReadRuleScan).
 if (args.Length > 0 && args[0] == "probescan")
     return radians.beamlab.checks.ReadRuleScan.Run(args.Skip(1).ToArray());
+// The case (a) measurement for the 11.32A concept note (ArcShield): arc-protecting vs not, against every 22-1C row.
+if (args.Length > 0 && args[0] == "arcshield")
+    return radians.beamlab.checks.ArcShield.Run(args.Skip(1).ToArray());
 // Grade a pfd mask against a dataset operating-parameter set (MaskConsistency):
 //   grade <mask.xml> <altitudeKm> <paramId>
 if (args.Length > 3 && args[0] == "grade")
@@ -5494,6 +5497,43 @@ var looks = RandomLooks(300);
     bool floor52 = radians.beamlab.dataset.FamilyCurves.Percentiles(5760).Min() >= 100.0 / 5760 && radians.beamlab.dataset.FamilyCurves.Percentiles(240).Min() >= 100.0 / 240;
     Check("V52 provenance and curves: SHA-256 known vector, stable 8-hex producer id, provenance line; the direction check holds on a curve above and reports a violation on a curve below; percentiles stop at the resolvable floor",
         sha52 && id52ok && line52 && dir52 && floor52, $"sha={sha52} id={id52ok} line={line52} dir={dir52} floor={floor52}");
+}
+
+// ---- V53: the two-body trial pair -- sets, notices, the pair's construction ----
+{
+    // The benign pair of the 11.32A trial: four systems (two variants), each an
+    // arrays-only set with no zone, MIN_ELEV 10 and cap 2 over its declared span,
+    // a notice with one shell, two pfd masks registered (az/el linked, alpha
+    // stored), and the set linked; the two payloads at one boresight pfd.
+    var tb = radians.beamlab.dataset.TwoBodyTrial.Systems;
+    bool ids53 = tb.Select(s => s.NtcId).Distinct().Count() == 4 && tb.All(s => s.NtcId > 900123480)
+        && tb.Select(s => s.ParamId).Distinct().Count() == 4 && tb.Select(s => s.Case).SequenceEqual(new[] { "TB-M", "TB-L", "TB-M2", "TB-L2" });
+    bool sets53 = tb.All(s =>
+    {
+        var p = radians.beamlab.dataset.TwoBodyTrial.SetFor(s);
+        return DeclaredConstraints.FormConflicts(p).Count == 0 && p.ElevAngleHeaderDeg is null && p.MaxCoFreqHeader is null
+            && DeclaredConstraints.ExclusionAlphaDeg(p, 45.0, 1) == 0.0 && DeclaredConstraints.MinElevDeg(p, 20.0, 90.0) == 10.0
+            && DeclaredConstraints.MaxCoFreq(p, -60.0) == 2 && p.EsLatMinDeg == s.EsLatMinDeg && p.EsLatMaxDeg == s.EsLatMaxDeg
+            && p.LowFreqMhz == 19700 && p.HighFreqMhz == 20200;
+    });
+    bool span53 = tb[2].EsLatMinDeg == -30 && tb[2].EsLatMaxDeg == 30 && tb[3].EsLatMinDeg == 40 && tb[3].EsLatMaxDeg == 70
+        && tb[0].EsLatMinDeg == -70 && tb[1].EsLatMaxDeg == 70;
+    bool shells53 = tb[0].Shell.AltitudeKm == 8000 && tb[0].Shell.PlaneCount * tb[0].Shell.SatsPerPlane == 20 && tb[0].Shell.InclinationDeg == 45
+        && ReferenceEquals(tb[1].Shell, radians.beamlab.dataset.DatasetGenerator.ShellA)
+        && Math.Abs(tb[0].TxDeltaDb - tb[1].TxDeltaDb - 20.0 * Math.Log10(8000.0 / 1200.0)) < 1e-9;
+    bool notices53 = tb.All(s =>
+    {
+        var n = radians.beamlab.dataset.TwoBodyTrial.BuildNotice(s);
+        var sc = n.Scenarios.Single();
+        return n.NtcId == s.NtcId && n.Orbits.Count == s.Shell.PlaneCount
+            && n.MaskInfo.Count(m => m.FMask == 'P') == 2 && n.MaskInfo.Count(m => m.FMask == 'R') == 1
+            && n.OperatingParamIds.SequenceEqual(new[] { s.ParamId })
+            && sc.PfdMaskLinks.Count == 1 && sc.PfdMaskLinks[0].MaskId == radians.beamlab.dataset.TwoBodyTrial.AzElMaskId
+            && sc.Frequencies.Single().FreqMinMhz == 19700;
+    });
+    Check("V53 two-body trial pair: four systems with distinct ids in 19.7-20.2 GHz; arrays-only sets with no zone, MIN_ELEV 10, cap 2 over the declared spans (variant 2 disjoint); MEO 20 sats at 8 000 km at the LEO's boresight pfd; notices register az/el + alpha masks and link the az/el one",
+        ids53 && sets53 && span53 && shells53 && notices53,
+        $"ids={ids53} sets={sets53} span={span53} shells={shells53} notices={notices53}");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

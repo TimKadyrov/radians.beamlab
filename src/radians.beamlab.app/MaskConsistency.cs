@@ -55,6 +55,55 @@ public static class MaskConsistency
         return Check(MaskDissect.Analyze(mask, altitudeKm), declared);
     }
 
+    /// <summary>
+    /// The exclusion axis of a mask in the alpha/deltaLongitude form, which needs
+    /// no geometry: the b axis IS the angle to the arc seen from the earth
+    /// station. Per latitude block, the smallest |alpha| node still within 3 dB
+    /// of the block peak is the near-peak reach; the grade follows the same
+    /// thresholds as the az/el check. The elevation axis is not readable in this
+    /// form without the ground mapping and is reported NOT EXERCISED; the dark
+    /// edge is not evaluated either, so MASK TIGHTER is never returned here.
+    /// </summary>
+    public static Report CheckAlphaForm(LoadedPfdMask mask, OperatingParamsSet declared)
+    {
+        if (mask.Kind != MaskPlotKind.AlphaDeltaLong)
+            return new Report(Array.Empty<RowResult>(), Verdict.NotExercised,
+                "not applicable: CheckAlphaForm reads the alpha/deltaLongitude form only", CaveatText, "");
+        var rows = new List<RowResult>();
+        foreach (var blk in mask.Blocks)
+        {
+            double peak = double.NegativeInfinity;
+            foreach (var row in blk.Rows) foreach (var v in row.Values) if (v > MaskLatBlock.UnreachableDb + 1) peak = Math.Max(peak, v);
+            double a0 = DeclaredAlphaDeg(declared, blk.LatDeg);
+            double e0 = DeclaredElevDeg(declared, blk.LatDeg);
+            if (double.IsNegativeInfinity(peak))
+            {
+                rows.Add(new RowResult(blk.LatDeg, 999, -1, a0, Verdict.Dark, 999, -1, e0, Verdict.Dark));
+                continue;
+            }
+            double reachA = 999;
+            foreach (var row in blk.Rows)
+                if (row.Values.Any(v => v >= peak - 3.0)) reachA = Math.Min(reachA, Math.Abs(row.B));
+            Verdict va = a0 <= 0.0 ? Verdict.Consistent
+                : reachA >= a0 - CellTolDeg ? Verdict.Consistent
+                : reachA <= CellTolDeg ? Verdict.Saturated
+                : Verdict.LitInside;
+            rows.Add(new RowResult(blk.LatDeg, reachA, -1, a0, va, 999, -1, e0, Verdict.NotExercised));
+        }
+        var lit = rows.Where(x => x.Alpha != Verdict.Dark).ToList();
+        int CountA(Verdict v) => lit.Count(x => x.Alpha == v);
+        Verdict overall = lit.Any(x => x.Alpha == Verdict.Saturated) ? Verdict.Saturated
+            : lit.Any(x => x.Alpha == Verdict.LitInside) ? Verdict.LitInside
+            : lit.Count == 0 ? Verdict.Dark : Verdict.Consistent;
+        var inv = CultureInfo.InvariantCulture;
+        var worst = lit.OrderBy(x => x.ReachAlpha).FirstOrDefault();
+        string sum = string.Create(inv,
+            $"exclusion (alpha form): consistent {CountA(Verdict.Consistent)}, lit inside {CountA(Verdict.LitInside)}, saturated {CountA(Verdict.Saturated)}; dark blocks {rows.Count - lit.Count} of {rows.Count}")
+            + (worst is null ? "" : string.Create(inv, $"; near-peak power reaches alpha {worst.ReachAlpha:F1} deg against a declared {worst.DeclaredAlpha:F1} (block {worst.LatDeg:0.#})"))
+            + "; elevation axis not readable in this form -> " + Word(overall);
+        return new Report(rows, overall, sum, CaveatText, "");
+    }
+
     public static Report Check(MaskDissect.Result d, OperatingParamsSet declared)
     {
         var rows = new List<RowResult>();
