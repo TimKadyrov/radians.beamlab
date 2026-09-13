@@ -4526,3 +4526,75 @@ stamps and both curves on the downlink cases, then the one pass — and
 now three decisions ahead of it: BL-R2's nature, the family's gates,
 and whether the grader's elevation axis should gain a lit-reach
 criterion (which would re-grade STEAM-2's derived mask).
+
+## Beamlab — stamps, both curves, and what the one case with an examination side shows, 13 September 2026
+
+The last two pieces before the one re-emission are in. Every case
+now writes `expected/provenance.md`: the producer build id, the time,
+the profile and the depth, and the SHA-256 of every file of the triple
+— the notice, the masks with their XML sources, the expectation records
+— so an artefact is checked by identity, as the pair rule's first half
+asks, and a file whose hash differs is not this emission's whatever its
+name says. And every case with a truth curve writes `expected/curves.md`:
+per direction, the truth curve at the tabulated percentiles beside its
+24 h prefix (the extension pair, named as such), and, where this
+producer has the examination side, the examination-read curve beside it
+with the gap and the direction check — examination at or above truth at
+every resolvable percentile, the brief's acceptance criterion.
+
+**Where the examination side exists, and where it does not.** This
+producer implements the classic downlink algorithm: Sec. D5.1.4.1 with
+MIN_ANGLE_AT_ES. A set that files MIN_DURATION selects the
+track-duration algorithm, which it does not implement; there is no
+epfd(is) examination (that reads the satellite e.i.r.p. mask, not the
+pfd mask) and no Sec. D5.2 epfd(up) examination. So the examination-read
+curve exists for exactly one direction of the family: BL-I1's downlink
+under set 25, masks 2, 3 and 4 per shell. BL-D1's and BL-ALL's downlink
+under set 21 carry a note instead of a curve, deliberately: a reading
+under the classic algorithm of a set that selects the other one would
+not be the consumer's reading, and the record says why rather than
+substituting it. This is worth a line in the decisions list: the family
+has three downlink truth curves and one examination-read curve beside
+them; the other two wait for a track-duration examination, which is
+radians' side of the house or a new piece here.
+
+**BL-I1 at depth.** The truth pair moved 0.4 dB or less at every
+percentile down to 0.1% and 2.6 dB at 0.05%, the maximum 3.6 dB; the
+examination pair 0.4 dB or less down to 1%, then 1.3, 0.2, 0.7 and 2.1
+dB, the maximum 6.6 dB. The direction check holds at all eleven
+resolvable percentiles, smallest gap +8.5 dB at 10%, the gap rising to
+12 to 17 dB in the tail. That gap is the projection margin of this case
+— larger than STEAM-2's 7.5 to 8.8 dB in band, for a reason the
+declaration makes visible: set 25 is the family's minimal set and files
+no MAX_CO_FREQ, so the examination sums every operating satellite it
+sees, while the truth's scheduler serves cells one satellite each. A
+consumer's own examination should land near this producer's curve; the
+gap is what a declaration with no cap buys the operator, and it is the
+kind of number the margin decomposition of the brief's section 2 is
+about. The 48-hour epfd(is) truth at the GSO satellite moved 0.2 dB or
+less down to 0.1% and 0.6 dB at the maximum.
+
+**Cost.** The truth pair doubles the truth time of every case: BL-I1's
+two truth runs took about eleven minutes, the two examinations and the
+records five more. The whole family at full depth, ten cases with all
+pairs and probes, should take about an hour and a half after the mask
+sources. Quick mode of the family is four minutes; the harness stands
+at 147 passed, 0 failed, with T7 (stamps verified by recomputing the
+hashes, curves present, BL-I1's examination curve and direction check,
+the track-duration cases carrying their note) and V52 (the SHA-256
+vector, the producer id, the direction check on synthetic curves).
+
+**What the re-emission needs, and why it waits.** The pipeline is
+ready: one run into `dataset/` replaces the 29 August structure
+examples with stamped triples. Two things stand in front of it. The
+first is mechanical: the old case directories carry files the
+regeneration would not remove — BL-D2's former CDF, BL-ALL's former
+param22 — so the six directories must be cleared first, which is a
+deletion I will not make without the word. The second is the decision
+from the section 3.10 entry: BL-D2 and BL-ALL declare a MIN_EXCLUDE and a
+MIN_ELEV their masks do not carry at this beam size. Re-emitting them as
+they are freezes that pair as a delivered artefact, documented in
+BL-C1's record; changing the declaration (no gates) or the payload
+(smaller cells) changes what the family is. Either is a legitimate
+choice; it is not mine. The third open item, BL-R2's nature, does not
+block the run.
