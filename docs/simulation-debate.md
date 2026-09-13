@@ -4721,3 +4721,68 @@ gains the probe cases as acceptance tests.
 
 **State.** Harness 148 passed, 0 failed (V53 pins the pair). The
 re-emission of the family runs meanwhile; its entry follows.
+
+## Beamlab — the one pass: the family re-emitted as stamped triples, declaring no zone, 13 September 2026
+
+The operator's three words settled the three decisions: clear the six,
+the gates as declared are made up and can be adjusted, BL-R2 stays.
+The re-emission ran from 17:26 to 18:42 local, and `dataset/` now holds
+the ten BL cases as frozen, version-stamped triples from one build
+(ec6501e6, full profile), beside the four TB systems of the two-body
+pair. The six 29 August directories are gone with their
+structure-example notes; the top README carries the emission stamp
+instead.
+
+**The gates.** The family's masks did not carry the exclusion zone its
+sets declared — at 450 km cells a boresight gate leaves no trace in the
+envelope — and the operator's word was that the declared values were
+made up and could be adjusted. With this payload the only exclusion
+value the masks carry is none, so sets 21, 22, 25 and 26 now file one
+all-orbits MIN_EXCLUDE row of 0, and masks 1 to 5 are derived with no
+gate, so declaration and masks are two products of one construction
+again. Minimum elevation stays at 10 (the near-peak grader reads it
+consistent, with the limitation recorded under the section 3.10 probe);
+the uplink sets keep their 10 degree zone, which governs earth-station
+pointing and is meaningful there. A declared, varying zone is exercised
+by the probe cases, where it belongs. V51 now asserts the no-zone reads
+and a CONSISTENT grading of mask 2 against set 26, a test changed on the
+operator's decision. BL-C1's control text was rewritten to what the
+control now is: the family's masks with the elevation floor only; the
+history is a sentence in its record.
+
+**What the pass produced.** Every case stamped (`expected/provenance.md`,
+SHA-256 of every artefact; BL-ALL lists 25 files); every truth case with
+its curves record: BL-D1's downlink pair moves 0.6 dB or less down to 1%
+of time and 2.0 dB at 0.2%, its maximum 4.0; BL-U1's uplink 0.7 dB or
+less; BL-U2's 0.8 dB or less with the maximum 1.6; BL-ALL's three
+directions likewise. BL-I1's examination-read curve against its truth:
+the direction holds at all eleven resolvable percentiles, the smallest
+gap now +10.0 dB at 5% (it was +8.5 at 10% with the zone declared: the
+scheduler no longer avoids the arc, the truth rose a little, the
+examination rose a little more). The four probes reproduce their
+scratch numbers exactly — BL-R1 FAIL −5.6 / PASS +1.8, BL-R2 resolved 8
+/ 10 / 12 with a 0.9 dB spread, BL-R3 +1.7 at 10 degrees and −1.6 /
+−1.8 / −1.8 at 5 / 2 / 1, BL-C1 SATURATED on exclusion for all three
+masks and FAIL at every victim, worst −24.1 dB at 40 N — as the
+determinism the family is built on says they should.
+
+**The two-body pair, beside it.** TB-M, TB-L, TB-M2 and TB-L2 sit in the
+same directory in the same format, for the radians session's trial
+(previous entry). They are not part of the BL family: no truth curves,
+no expectation of a verdict; their records are their construction, the
+consistency grades and the stamps.
+
+**What stays open.** The examination-read curve exists for one downlink
+direction of the family until a track-duration examination exists,
+here or in radians. The grader's elevation axis is blind to a missing
+floor on range-shaped masks by either reading. BL-R2 stays a
+resolved-value probe by the operator's word. And two things belong to
+the joint work rather than the family: a second filed system with a
+genuine zone and a low inclination, to test the mechanism behind the
+case (a) result's latitude dependence (the candidate's mask is not in
+this corpus), and the 60 N figure of the filed 53 degree system, kept
+anonymised and without an exceedance claim in the Bureau's paper, as the
+regulations session drafted it.
+
+Seven commits ahead of azure/main since the last push, none pushed;
+harness 148 passed, 0 failed.
