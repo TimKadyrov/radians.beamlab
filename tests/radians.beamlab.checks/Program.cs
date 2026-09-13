@@ -81,6 +81,9 @@ if (args.Length > 0 && args[0] == "study")
     return MarginFigure.Study(
         args.Length > 1 ? double.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture) : 60.0,
         args.Length > 2 ? long.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 0);
+// Measurement scan behind the section 3.9 read-rule probes (ReadRuleScan).
+if (args.Length > 0 && args[0] == "probescan")
+    return radians.beamlab.checks.ReadRuleScan.Run(args.Skip(1).ToArray());
 
 int pass = 0, fail = 0;
 void Check(string name, bool ok, string detail = "")
@@ -2359,6 +2362,40 @@ var looks = RandomLooks(300);
             else detT4 += "BL-D2:rejection";
         }
         Check("T4 expectation records: CDFs present for every valid direction, parse, monotone; BL-D2 the rejection and no CDF", okT4, detT4.Trim());
+
+        // T5: the section 3.9 read-rule probes emit their records (with the limit
+        // row, the artefact identities and a provenance stamp) and their
+        // examination tables. Quick profile: structure, not delivery numbers.
+        bool okT5 = true; string detT5 = "";
+        int CsvRows(string path) => File.Exists(path)
+            ? File.ReadAllLines(path).Count(l => l.Length > 0 && l[0] != '#' && (char.IsDigit(l[0]) || l[0] == '-'))
+            : -1;
+        foreach (var (c, f, phrase) in new[]
+        {
+            ("BL-R1", "read-rule-probe.md", "NEAREST-ROW read of MIN_ELEV"),
+            ("BL-R2", "read-rule-probe.md", "LINEAR INTERPOLATION"),
+            ("BL-R3", "sweep-grid-probe.md", "worst margin depends on the sweep grid"),
+        })
+        {
+            string p5 = Path.Combine(outDs, c, "expected", f);
+            string txt5 = File.Exists(p5) ? File.ReadAllText(p5) : "";
+            bool ok5 = txt5.Contains(phrase) && txt5.Contains("SHA-256") && txt5.Contains("Provenance:")
+                && txt5.Contains("TABLE 22-1C") && txt5.Contains("QUICK profile");
+            if (!ok5) { okT5 = false; detT5 = c + "/" + f + (File.Exists(p5) ? " incomplete" : " missing"); break; }
+            detT5 += c + " ";
+        }
+        if (okT5)
+        {
+            string ex5 = Path.Combine(outDs, "BL-R1", "expected");
+            bool r1csv = CsvRows(Path.Combine(ex5, "examination_lat25_cdf.csv")) >= 3 && CsvRows(Path.Combine(ex5, "examination_lat35_cdf.csv")) >= 3;
+            string ex25 = Path.Combine(outDs, "BL-R2", "expected");
+            bool r2csv = new[] { 25, 30, 35 }.All(l => CsvRows(Path.Combine(ex25, $"examination_lat{l}_cdf.csv")) >= 3);
+            int sweepRows = CsvRows(Path.Combine(outDs, "BL-R3", "expected", "sweep_margins.csv"));
+            bool r3csv = sweepRows == 141;
+            if (!(r1csv && r2csv && r3csv)) { okT5 = false; detT5 = $"csv r1={r1csv} r2={r2csv} sweepRows={sweepRows}"; }
+            else detT5 += "csv ok, sweep rows 141";
+        }
+        Check("T5 section 3.9 probe cases: records carry the limit row, the artefact identities and provenance; examination CDFs at the victims; the 141-latitude sweep table", okT5, detT5.Trim());
         }
         catch (Exception ex)
         {
@@ -5262,6 +5299,52 @@ var looks = RandomLooks(300);
     Check("V49 section 3.8 sets: 21 arrays-only valid, 23 header-only valid, 22 both forms (the probe, BL-D2 alone), 26 arrays-only twin of 22 for BL-ALL; the rejection record carries the diagnostic",
         arraysOnly49 && headerOnly49 && probe49 && valid26 && cases49 && rejection49,
         $"arraysOnly={arraysOnly49} headerOnly={headerOnly49} probe={probe49} set26={valid26} cases={cases49} rejection={rejection49}");
+}
+
+// ---- V50: the section 3.9 read-rule probes -- sets, reads, case assignment, notice/params agreement ----
+{
+    // Design brief Sec. 3.9: the nearest-read probe (set 27, MIN_ELEV rows at 20 N
+    // and 40 N, victims at 25 N and 35 N), the interpolation probe (set 28,
+    // all-orbits MIN_EXCLUDE rows whose interpolated values at 25/30/35 N differ
+    // from both rows) and the sweep-grid disclosure probe (set 29, MAX_CO_FREQ 8
+    // in a 2.5-degree band around 65 N). The sets are one form per quantity; the
+    // reads below are what the Recommendation's rules resolve; every case's
+    // notice lists exactly the sets its Masks database carries.
+    var s27 = radians.beamlab.dataset.ReadRuleProbes.Set27(1);
+    var s28 = radians.beamlab.dataset.ReadRuleProbes.Set28(1);
+    var s29 = radians.beamlab.dataset.ReadRuleProbes.Set29(1);
+    bool valid50 = new[] { s27, s28, s29 }.All(s => DeclaredConstraints.FormConflicts(s).Count == 0
+        && s.ElevAngleHeaderDeg is null && s.MaxCoFreqHeader is null && s.MinDurationSecHeader is null
+        && s.MinDurationByLat.Count == 0 && s.ParamId is >= 27 and <= 29);
+    bool r1_50 = DeclaredConstraints.MinElevDeg(s27, 25.0, 0.0) == 10.0 && DeclaredConstraints.MinElevDeg(s27, 35.0, 90.0) == 55.0
+        && DeclaredConstraints.MinElevDeg(s27, 0.0, 0.0) == 10.0 && DeclaredConstraints.MinElevDeg(s27, 70.0, 180.0) == 55.0
+        && DeclaredConstraints.MaxCoFreq(s27, 35.0) == 3 && Math.Abs(DeclaredConstraints.ExclusionAlphaDeg(s27, 35.0, 7) - 8.0) < 1e-9
+        && Math.Abs(radians.beamlab.dataset.ReadRuleProbes.Interpolated(35.0, 20.0, 10.0, 40.0, 55.0) - 43.75) < 1e-9
+        && Math.Abs(radians.beamlab.dataset.ReadRuleProbes.Interpolated(25.0, 20.0, 10.0, 40.0, 55.0) - 21.25) < 1e-9;
+    double A50(double lat) => DeclaredConstraints.ExclusionAlphaDeg(s28, lat, 3);
+    bool r2_50 = Math.Abs(A50(25.0) - 8.0) < 1e-9 && Math.Abs(A50(30.0) - 10.0) < 1e-9 && Math.Abs(A50(35.0) - 12.0) < 1e-9
+        && Math.Abs(A50(10.0) - 6.0) < 1e-9 && Math.Abs(A50(60.0) - 14.0) < 1e-9
+        && DeclaredConstraints.MaxCoFreq(s28, 30.0) == 1 && DeclaredConstraints.MinElevDeg(s28, 30.0, 0.0) == 10.0;
+    int C50(double lat) => DeclaredConstraints.MaxCoFreq(s29, lat);
+    bool r3_50 = C50(64.0) == 8 && C50(65.0) == 8 && C50(66.0) == 8 && C50(63.0) == 1 && C50(67.0) == 1
+        && C50(30.0) == 1 && C50(-70.0) == 1 && C50(70.0) == 1
+        && radians.beamlab.dataset.ReadRuleProbes.R3SweepLats.Count() == 141;
+    var names50 = radians.beamlab.dataset.DatasetGenerator.CaseNames;
+    bool cases50 = names50.Contains("BL-R1") && names50.Contains("BL-R2") && names50.Contains("BL-R3")
+        && radians.beamlab.dataset.DatasetGenerator.ParamsOf("BL-R1").SequenceEqual(new[] { 27 })
+        && radians.beamlab.dataset.DatasetGenerator.ParamsOf("BL-R2").SequenceEqual(new[] { 28 })
+        && radians.beamlab.dataset.DatasetGenerator.ParamsOf("BL-R3").SequenceEqual(new[] { 29 })
+        && radians.beamlab.dataset.DatasetGenerator.NtcIdFor("BL-R3") == 900123479;
+    // The notice's operating-parameter list must be the case's list for EVERY case
+    // (BL-ALL's notice had kept set 22 after the case moved to 26).
+    bool notice50 = names50.All(c => radians.beamlab.dataset.DatasetGenerator.BuildNotice(c).OperatingParamIds
+        .SequenceEqual(radians.beamlab.dataset.DatasetGenerator.ParamsOf(c)));
+    var m1 = radians.beamlab.dataset.ReadRuleProbes.MaskSpecR1; var m2 = radians.beamlab.dataset.ReadRuleProbes.MaskSpecR2; var m3 = radians.beamlab.dataset.ReadRuleProbes.MaskSpecR3;
+    bool masks50 = m1.NotchAlphaDeg == 8.0 && m2.NotchAlphaDeg == 6.0 && m3.NotchAlphaDeg == 8.0
+        && m1.TxDeltaDb < 0 && m2.TxDeltaDb < 0 && m3.TxDeltaDb < 0 && m1.BStepDeg == 2.0;
+    Check("V50 section 3.9 probes: sets 27-29 one form per quantity; nearest read 10/55 at 25/35 N; interpolation 8/10/12 at 25/30/35 N; Nco 8 only in 63.75-66.25 N; cases and ntc ids; every notice lists its case's sets; probe masks notched and lowered",
+        valid50 && r1_50 && r2_50 && r3_50 && cases50 && notice50 && masks50,
+        $"valid={valid50} r1={r1_50} r2={r2_50} r3={r3_50} cases={cases50} notice={notice50} masks={masks50}");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

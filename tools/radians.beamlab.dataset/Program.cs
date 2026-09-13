@@ -17,6 +17,7 @@ for (int i = 0; i < args.Length; i++)
         case "--donor-srs": o.DonorSrsPath = Next(); break;
         case "--donor-masks": o.DonorMasksPath = Next(); break;
         case "--dll-dir": o.EpfdMasksDllDir = Next(); break;
+        case "--limits-db": o.LimitsDbPath = Next(); break;
         case "--case": o.OnlyCase = Next(); break;
         case "--quick": o.Quick = true; break;
         case "--package": Pkg().Name = Next(); break;
@@ -32,7 +33,7 @@ for (int i = 0; i < args.Length; i++)
         default:
             Console.Error.WriteLine($"unknown option {args[i]}");
             Console.Error.WriteLine("usage: radians.beamlab.dataset [--out DIR] [--donor-srs MDB] " +
-                "[--donor-masks MDB] [--dll-dir DIR] [--case BL-*] [--quick]");
+                "[--donor-masks MDB] [--dll-dir DIR] [--limits-db MDB] [--case BL-*] [--quick]");
             Console.Error.WriteLine("       radians.beamlab.dataset --package NAME --design JSON --rset JSON --mask XML " +
                 "[--mask-id N] [--band MIN MAX] [--ntc N] [--sat-name S] [--expected FILE] [--provenance TEXT] [--out DIR] ...");
             return 2;

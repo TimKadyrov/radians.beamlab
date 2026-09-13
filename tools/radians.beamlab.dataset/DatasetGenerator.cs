@@ -23,6 +23,8 @@ public sealed class DatasetOptions
     public bool Quick { get; set; }
     /// <summary>Generate a single case (e.g. "BL-D1"); null generates the family.</summary>
     public string OnlyCase { get; set; }
+    /// <summary>The BR limits database the section 3.9 probes verdict against; null probes the known locations.</summary>
+    public string LimitsDbPath { get; set; }
     public Action<string> Log { get; set; } = _ => { };
 }
 
@@ -39,7 +41,7 @@ public sealed class DatasetOptions
 public static class DatasetGenerator
 {
     public const string SatName = "BEAMLAB";
-    public static readonly string[] CaseNames = { "BL-D1", "BL-D2", "BL-U1", "BL-U2", "BL-I1", "BL-ALL" };
+    public static readonly string[] CaseNames = { "BL-D1", "BL-D2", "BL-U1", "BL-U2", "BL-I1", "BL-ALL", "BL-R1", "BL-R2", "BL-R3" };
     public static int NtcIdFor(string caseName) => 900123471 + Array.IndexOf(CaseNames, caseName);
 
     // ---- the one constellation (brief section 4) ----------------------
@@ -109,6 +111,11 @@ public static class DatasetGenerator
     private static readonly Band U1 = new("U1", 'R', 27500, 28600, 23);
     private static readonly Band U2 = new("U2", 'R', 29500, 30000, 24);
     private static readonly Band I1 = new("I1", 'E', 17800, 18400, 25);
+    // The section 3.9 read-rule probes each file their own set in the D1 band (one set per band per notice).
+    private static readonly Band R1b = new("D1", 'E', 19700, 20200, 27);
+    private static readonly Band R2b = new("D1", 'E', 19700, 20200, 28);
+    private static readonly Band R3b = new("D1", 'E', 19700, 20200, 29);
+    private static readonly Band[] AllBands = { D1, D2, D2v, U1, U2, I1, R1b, R2b, R3b };
 
     private sealed record MaskDef(int MaskId, char FMask, char? FMaskType, Band Band, string FileName);
     private static readonly MaskDef[] MaskDefs =
@@ -123,6 +130,10 @@ public static class DatasetGenerator
         new(8, 'E', 'D', U2, "mask8_es_eirp_4d_gw5001.xml"),
         new(9, 'E', 'D', U2, "mask9_es_eirp_4d_gw5002.xml"),
         new(10, 'E', 'D', U2, "mask10_es_eirp_4d_gw5003.xml"),
+        // Section 3.9 probe masks: mask 1's construction with a rule notch and a power offset (ReadRuleProbes).
+        new(11, 'P', 'A', R1b, "mask11_pfd_alpha_probe_nearest.xml"),
+        new(12, 'P', 'A', R2b, "mask12_pfd_alpha_probe_interp.xml"),
+        new(13, 'P', 'A', R3b, "mask13_pfd_alpha_probe_sweep.xml"),
     };
     private static string ParamFile(int paramId) => $"param{paramId}_oper.xml";
 
@@ -203,8 +214,30 @@ public static class DatasetGenerator
             => _inner.Max(s => s.SampleMaxIn(xDeg, yDeg, halfW, halfH));
     }
 
+    /// <summary>
+    /// The declared exclusion zone written into an alpha/deltaLongitude mask:
+    /// alpha nodes strictly inside |alpha| &lt; notch read the Sec. C1 -1000
+    /// null -- no emission toward earth stations that close to the GSO arc --
+    /// while the node at the edge keeps its envelope value, so the bilinear
+    /// read (Sec. D5.1.5) ramps back to the lit level over one node step. A
+    /// rule notch, as real filings write it; the reachable envelope alone does
+    /// not produce one on this family, whose beams are far wider than the
+    /// zone. Used by the section 3.9 probe masks.
+    /// </summary>
+    private sealed class ExclusionNotchSampler : IPfdMaskSampler
+    {
+        private readonly IPfdMaskSampler _inner;
+        private readonly double _notchDeg;
+        public ExclusionNotchSampler(IPfdMaskSampler inner, double notchDeg) { _inner = inner; _notchDeg = notchDeg; }
+        public void PrepareLatitude(double latDeg) => _inner.PrepareLatitude(latDeg);
+        // AlphaDeltaLong axes: x = deltaLongitude, y = alpha.
+        public double SampleMaxIn(double xDeg, double yDeg, double halfW, double halfH)
+            => Math.Abs(yDeg) < _notchDeg - 1e-9 ? double.NegativeInfinity : _inner.SampleMaxIn(xDeg, yDeg, halfW, halfH);
+    }
+
     private static void GeneratePfd(string path, IReadOnlyList<(ConstellationShell Shell, double TxDeltaDb)> shells,
-        Band band, int maskId, MaskPlotKind kind, double alphaExcl, double minElev, bool quick)
+        Band band, int maskId, MaskPlotKind kind, double alphaExcl, double minElev, bool quick,
+        double? bStepDeg = null, double notchAlphaDeg = 0.0)
     {
         double latCap = shells.Max(s => MaskXmlExport.MaxLatitudeForInclination(s.Shell.InclinationDeg));
         var opts = new MaskXmlExportOptions
@@ -213,7 +246,7 @@ public static class DatasetGenerator
             LowFreqMhz = band.FMin, HighFreqMhz = band.FMax, RefBwKHz = 40,
             LatMinDeg = -Math.Min(70.0, latCap), LatMaxDeg = Math.Min(70.0, latCap),
             LatStepDeg = quick ? 35 : 10,
-            BStepDeg = quick ? 30 : 5, CStepDeg = quick ? 60 : 10,
+            BStepDeg = quick ? 30 : bStepDeg ?? 5, CStepDeg = quick ? 60 : 10,
             Kind = kind, Format = MaskExportFormat.Xml, OutputPath = path,
         };
         var samplers = shells
@@ -221,9 +254,37 @@ public static class DatasetGenerator
                 Vm(s.Shell, band.FMin / 1000.0, minElev, alphaExcl, s.TxDeltaDb), opts, s.Shell.InclinationDeg))
             .ToArray();
         IPfdMaskSampler sampler = samplers.Length == 1 ? samplers[0] : new MaxOfSamplers(samplers);
+        if (notchAlphaDeg > 0.0)
+        {
+            if (kind != MaskPlotKind.AlphaDeltaLong) throw new ArgumentException("the exclusion notch is defined on the alpha axis only");
+            sampler = new ExclusionNotchSampler(sampler, notchAlphaDeg);
+        }
         MaskXmlExport.GenerateAsync(sampler, opts, null, CancellationToken.None)
             .GetAwaiter().GetResult();
     }
+
+    /// <summary>
+    /// A probe pfd mask: mask 1's construction (alpha/deltaLongitude form over
+    /// all three shells, D1 band) with its own gating and a power offset -- the
+    /// masks the section 3.9 read-rule probes are examined against, and the
+    /// mask a measurement scan generates before the probe values are chosen.
+    /// </summary>
+    public static void GenerateProbeMask(string path, int maskId, ProbeMaskSpec spec, bool quick)
+        => GeneratePfd(path, new[] { (ShellA, spec.TxDeltaDb), (ShellB, spec.TxDeltaDb), (ShellC, spec.TxDeltaDb) }, D1, maskId,
+            MaskPlotKind.AlphaDeltaLong, spec.GateAlphaDeg, spec.MinElevDeg, quick,
+            bStepDeg: spec.BStepDeg, notchAlphaDeg: spec.NotchAlphaDeg);
+
+    /// <summary>
+    /// A probe mask's construction: the boresight gate and minimum elevation
+    /// the envelope is composed under, the power offset against mask 1's
+    /// payload, the rule notch written into the alpha axis (0 = none) and the
+    /// alpha node step (finer than mask 1's 5 deg so the notch edge is sharp).
+    /// </summary>
+    public sealed record ProbeMaskSpec(double GateAlphaDeg, double MinElevDeg, double TxDeltaDb,
+        double NotchAlphaDeg, double BStepDeg);
+
+    /// <summary>The D1 band edges (MHz): the band the probe masks and sets are filed in.</summary>
+    public static (double FMin, double FMax) ProbeBandMhz => (D1.FMin, D1.FMax);
 
     /// <summary>Monotone non-increasing hull from the far end: a valid upper envelope.</summary>
     private static double[] Hull(double[] raw)
@@ -443,6 +504,7 @@ public static class DatasetGenerator
     {
         21 => Set21(ntcId), 22 => Set22(ntcId), 23 => Set23(ntcId),
         24 => Set24(ntcId), 25 => Set25(ntcId), 26 => Set26(ntcId),
+        27 => ReadRuleProbes.Set27(ntcId), 28 => ReadRuleProbes.Set28(ntcId), 29 => ReadRuleProbes.Set29(ntcId),
         _ => throw new ArgumentOutOfRangeException(nameof(paramId)),
     };
 
@@ -510,13 +572,17 @@ public static class DatasetGenerator
         for (int g = 0; g < Gateways.Length; g++)
             GenerateEs4D(P(MaskDefs[7 + g].FileName), 8 + g, Gateways[g], o.Quick);
         o.Log("  masks 6-10 (S, ES 2-D, ES 4-D x3) done");
-        foreach (int pid in new[] { 21, 22, 23, 24, 25, 26 })
+        GenerateProbeMask(P(MaskDefs[10].FileName), 11, ReadRuleProbes.MaskSpecR1, o.Quick);
+        GenerateProbeMask(P(MaskDefs[11].FileName), 12, ReadRuleProbes.MaskSpecR2, o.Quick);
+        GenerateProbeMask(P(MaskDefs[12].FileName), 13, ReadRuleProbes.MaskSpecR3, o.Quick);
+        o.Log("  masks 11-13 (section 3.9 probe masks: rule notch + power offset) done");
+        foreach (int pid in new[] { 21, 22, 23, 24, 25, 26, 27, 28, 29 })
             // Set 22 files max_co_freq and min_elev in both forms with different
             // values: by the ruling of 2026-09-07 (design brief Sec. 3.8) that is
             // the invalid-filing probe, emitted deliberately; its expectation
             // record is the rejection. Every other set is one form per quantity.
             OperParamsXmlWriter.Write(P(ParamFile(pid)), SetFor(pid, 0), allowBothForms: pid == D2.ParamId);
-        o.Log("  operating-parameter sets 21-26 done (22 = the invalid-filing probe, written on purpose)");
+        o.Log("  operating-parameter sets 21-29 done (22 = the invalid-filing probe, written on purpose; 27-29 = the read-rule probes)");
     }
 
     // ---- per-case notice content ---------------------------------------
@@ -555,7 +621,7 @@ public static class DatasetGenerator
         {
             foreach (int pid in pids)
             {
-                var b = new[] { D1, D2, D2v, U1, U2, I1 }.Single(x => x.ParamId == pid);
+                var b = AllBands.Single(x => x.ParamId == pid);
                 n.MaskInfo.Add(new SrsMaskInfo(pid, b.FMin, b.FMax, 'R', null));
                 n.OperatingParamIds.Add(pid);
             }
@@ -565,7 +631,7 @@ public static class DatasetGenerator
         {
             case "BL-D1":
             {
-                Masks(1); Params(21);
+                Masks(1); Params(CaseParams[caseName]);
                 var sc = new SrsScenario { ScenId = 1, ScenName = "Track duration downlink 19.7-20.2 GHz" };
                 sc.Frequencies.Add(new SrsFreqRange(1, D1.EmiRcp, D1.FMin, D1.FMax));
                 sc.PfdMaskLinks.Add(new SrsMaskLink(1, 1));
@@ -574,7 +640,7 @@ public static class DatasetGenerator
             }
             case "BL-D2":
             {
-                Masks(2, 3, 4, 5); Params(22);
+                Masks(2, 3, 4, 5); Params(CaseParams[caseName]);
                 var sc = new SrsScenario { ScenId = 1, ScenName = "Classic downlink 17.8-18.6 GHz angular separation" };
                 sc.Frequencies.Add(new SrsFreqRange(1, D2.EmiRcp, D2.FMin, D2.FMax));
                 int seq = 1;
@@ -584,7 +650,7 @@ public static class DatasetGenerator
             }
             case "BL-U1":
             {
-                Masks(7); Params(23);
+                Masks(7); Params(CaseParams[caseName]);
                 var sc = new SrsScenario { ScenId = 1, ScenName = "Typical uplink 27.5-28.6 GHz" };
                 sc.Frequencies.Add(new SrsFreqRange(1, U1.EmiRcp, U1.FMin, U1.FMax));
                 sc.EsMaskLinks.Add(new SrsMaskLink(1, 7, EAsId: -1));
@@ -593,7 +659,7 @@ public static class DatasetGenerator
             }
             case "BL-U2":
             {
-                Masks(8, 9, 10); Params(24);
+                Masks(8, 9, 10); Params(CaseParams[caseName]);
                 AddEarthStations(n);
                 var sc = new SrsScenario { ScenId = 1, ScenName = "Specific gateway uplink 29.5-30.0 GHz" };
                 sc.Frequencies.Add(new SrsFreqRange(1, U2.EmiRcp, U2.FMin, U2.FMax));
@@ -604,7 +670,7 @@ public static class DatasetGenerator
             }
             case "BL-I1":
             {
-                Masks(2, 3, 4, 6); Params(25);
+                Masks(2, 3, 4, 6); Params(CaseParams[caseName]);
                 var sc = new SrsScenario { ScenId = 1, ScenName = "Inter-satellite 17.8-18.4 GHz" };
                 sc.Frequencies.Add(new SrsFreqRange(1, I1.EmiRcp, I1.FMin, I1.FMax));
                 int seq = 1;
@@ -615,7 +681,9 @@ public static class DatasetGenerator
             }
             case "BL-ALL":
             {
-                Masks(1, 2, 3, 4, 5, 6, 7, 8, 9, 10); Params(21, 22, 23, 24);
+                // The D2 band's set is 26 here (the valid arrays-only twin); set 22, the
+                // both-forms probe, belongs to BL-D2 alone -- CaseParams is the one list.
+                Masks(1, 2, 3, 4, 5, 6, 7, 8, 9, 10); Params(CaseParams[caseName]);
                 AddEarthStations(n);
                 var sc1 = new SrsScenario { ScenId = 1, ScenName = "Classic + inter-satellite + gateway uplink" };
                 sc1.Frequencies.Add(new SrsFreqRange(1, 'E', D2.FMin, D2.FMax));
@@ -635,6 +703,28 @@ public static class DatasetGenerator
                 n.Scenarios.Add(sc2);
                 break;
             }
+            case "BL-R1":
+            case "BL-R2":
+            case "BL-R3":
+            {
+                // One probe mask, one set, the D1 band (design brief Sec. 3.9; ReadRuleProbes).
+                int maskId = CaseMasks[caseName][0];
+                Masks(maskId); Params(CaseParams[caseName]);
+                var sc = new SrsScenario
+                {
+                    ScenId = 1,
+                    ScenName = caseName switch
+                    {
+                        "BL-R1" => "Probe 3.9 nearest-read MIN_ELEV 19.7-20.2 GHz",
+                        "BL-R2" => "Probe 3.9 interpolation MIN_EXCLUDE 19.7-20.2 GHz",
+                        _ => "Probe 3.9 sweep grid MAX_CO_FREQ 19.7-20.2 GHz",
+                    },
+                };
+                sc.Frequencies.Add(new SrsFreqRange(1, D1.EmiRcp, D1.FMin, D1.FMax));
+                sc.PfdMaskLinks.Add(new SrsMaskLink(1, maskId));
+                n.Scenarios.Add(sc);
+                break;
+            }
         }
         n.Validate();
         return n;
@@ -648,6 +738,9 @@ public static class DatasetGenerator
         ["BL-U2"] = new[] { 8, 9, 10 },
         ["BL-I1"] = new[] { 2, 3, 4, 6 },
         ["BL-ALL"] = new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 },
+        ["BL-R1"] = new[] { 11 },
+        ["BL-R2"] = new[] { 12 },
+        ["BL-R3"] = new[] { 13 },
     };
     private static readonly Dictionary<string, int[]> CaseParams = new()
     {
@@ -659,6 +752,9 @@ public static class DatasetGenerator
         // BL-ALL reads the D2 band through the valid arrays-only set 26; set 22,
         // the both-forms probe, belongs to BL-D2 alone.
         ["BL-ALL"] = new[] { 21, 26, 23, 24 },
+        ["BL-R1"] = new[] { 27 },
+        ["BL-R2"] = new[] { 28 },
+        ["BL-R3"] = new[] { 29 },
     };
 
     private static void PatchNtcId(string srcPath, string dstPath, int ntcId)
@@ -685,7 +781,7 @@ public static class DatasetGenerator
         }
         foreach (int pid in CaseParams[caseName])
         {
-            var b = new[] { D1, D2, D2v, U1, U2, I1 }.Single(x => x.ParamId == pid);
+            var b = AllBands.Single(x => x.ParamId == pid);
             string dst = Path.Combine(xmlDir, ParamFile(pid));
             PatchNtcId(Path.Combine(srcDir, ParamFile(pid)), dst, ntc);
             contents.Add(new SrsMdbWriter.MaskContent(pid, dst, 'R', b.FMin, b.FMax));
@@ -744,10 +840,44 @@ public static class DatasetGenerator
                     "victim GSO sat lon=10, boresight lat=45 lon=0; typical ES = scheduled cells, ceiling 12 dBW range-controlled + S.1428 0.65 m", o);
                 expected.Add("down"); expected.Add("is"); expected.Add("up");
                 break;
+            case "BL-R1":
+            case "BL-R2":
+            case "BL-R3":
+            {
+                // The read-rule probes: the expectation is the EXAMINATION's verdict at
+                // named victims (or the resolved value), measured here against the
+                // band's Article 22 row; see ReadRuleProbes.
+                var lim = ProbeLimitRow(o);
+                string maskFile = Path.Combine(xmlDir, MaskDefs.Single(d => d.MaskId == CaseMasks[caseName][0]).FileName);
+                string paramFile = Path.Combine(xmlDir, ParamFile(CaseParams[caseName][0]));
+                string prov = ReadRuleProbes.Provenance(o.Quick);
+                var em = caseName switch
+                {
+                    "BL-R1" => ReadRuleProbes.EmitR1(caseDir, maskFile, paramFile, ReadRuleProbes.Set27(ntc), lim, o.Quick, prov),
+                    "BL-R2" => ReadRuleProbes.EmitR2(caseDir, maskFile, paramFile, ReadRuleProbes.Set28(ntc), lim, o.Quick, prov),
+                    _ => ReadRuleProbes.EmitR3(caseDir, maskFile, paramFile, ReadRuleProbes.Set29(ntc), lim, o.Quick, prov),
+                };
+                o.Log("    " + em.Headline);
+                expected.Add("probe");
+                break;
+            }
         }
         File.WriteAllText(Path.Combine(caseDir, "README.md"), CaseReadme(caseName, ntc), Utf8NoBom);
         o.Log($"  {caseName}: SRS + Masks + README" +
               (expected.Count > 0 ? $" + expectation records ({string.Join("/", expected)})" : ""));
+    }
+
+    private static ProbeExamination.LimitRow _probeLimitRow;
+
+    /// <summary>The Article 22 row the section 3.9 probes verdict against (the D1 band), loaded once per run.</summary>
+    private static ProbeExamination.LimitRow ProbeLimitRow(DatasetOptions o)
+    {
+        if (_probeLimitRow is not null) return _probeLimitRow;
+        string db = ProbeExamination.ResolveLimitsDb(o.LimitsDbPath)
+            ?? throw new InvalidOperationException("BR limits database (EPFD_limits_RES85_WRC23.mdb) not found; pass LimitsDbPath -- the section 3.9 probes verdict against real Article 22 rows");
+        _probeLimitRow = ProbeExamination.LoadLimitRow(db, ResolveMasksDllDir(o), D1.FMin, D1.FMax, 40.0,
+            Shells.Min(s => s.OperatingHeightKm ?? s.AltitudeKm));
+        return _probeLimitRow;
     }
 
     // ---- expectation data (simulated CDFs, sampling option 2) ----------
@@ -976,6 +1106,48 @@ public static class DatasetGenerator
                 the tension is deliberate specification pressure and a consumer should
                 state which rule it applies.
                 """,
+            "BL-R1" => """
+                READ-RULE PROBE, NEAREST ROW (design brief section 3.9). Downlink 19.7-20.2 GHz.
+                - pfd mask 11, alpha/DeltaLongitude form: mask 1's construction with the declared
+                  exclusion zone written into the alpha axis as a -1000 notch (8 deg) and the
+                  payload 35.5 dB below mask 1's, so the BODY of the CDF sits at the limit and the
+                  main-beam pass (which no read rule touches) does not decide the verdict.
+                - Operating-parameter set 27: MIN_ELEV in two rows with different values (10 deg
+                  at 20 N, 55 deg at 40 N); MAX_CO_FREQ 3 and MIN_EXCLUDE 8 deg as single rows.
+                - expected/read-rule-probe.md: the verdicts at the victims 25 N and 35 N -- half a
+                  10-degree sweep step either side of the midpoint between the rows -- under the
+                  nearest-row read (they differ: FAIL at 25 N, PASS at 35 N), beside what
+                  interpolation, a point read and the other row would give; the 24 h / 48 h
+                  extension pair; the limit row; the artefacts' SHA-256. expected/
+                  examination_lat25_cdf.csv and _lat35_: the examination CDFs under the correct read.
+                """,
+            "BL-R2" => """
+                READ-RULE PROBE, LINEAR INTERPOLATION (design brief section 3.9). Downlink 19.7-20.2 GHz.
+                - pfd mask 12: mask 1's construction with a 6 deg -1000 notch on the alpha axis (the
+                  smaller row's value) and the payload 40.6 dB below mask 1's.
+                - Operating-parameter set 28: all-orbits MIN_EXCLUDE in two rows (6 deg at 20 N,
+                  14 deg at 40 N), so the interpolated values at 25/30/35 N are 8/10/12 deg and
+                  differ from both rows; MIN_ELEV 10 deg and MAX_CO_FREQ 1 as single rows.
+                - expected/read-rule-probe.md: the resolved exclusion angle a consumer must report at
+                  each victim, and the MEASURED FINDING that the epfd(down) examination's verdict does
+                  not discriminate this read on this family (every read within about 1 dB, all PASS)
+                  -- the discriminator is the resolved value, and the record says which direction
+                  would make it a verdict. expected/examination_lat25/30/35_cdf.csv under the
+                  correct read.
+                """,
+            "BL-R3" => """
+                SWEEP-GRID DISCLOSURE PROBE (design brief section 3.9). Downlink 19.7-20.2 GHz.
+                - pfd mask 13: mask 1's construction with the 8 deg notch and the payload 43.2 dB
+                  below mask 1's.
+                - Operating-parameter set 29: MAX_CO_FREQ 8 at 65 N between rows of 1 at 62.5 N and
+                  67.5 N -- under the nearest-row read the worst victim lies in 63.75-66.25 N,
+                  between the 10-degree sweep points; MIN_ELEV 10 deg and MIN_EXCLUDE 8 deg as
+                  single rows.
+                - expected/sweep-grid-probe.md: the worst margin per sweep step (10, 5, 2, 1 deg)
+                  with its latitude and the sweep verdict (compliant at 10 deg, exceeded finer);
+                  expected/sweep_margins.csv: the examination at every whole degree 70 S-70 N, so
+                  any grid that is a subset of the 1-degree grid can be looked up.
+                """,
             _ => "",
         };
         return $"# {caseName}\n\n{body}\n\n{common}\n";
@@ -1004,6 +1176,9 @@ public static class DatasetGenerator
             | BL-U2 | 900123474 | specific gateways, 4-D E masks, e_as_stn |
             | BL-I1 | 900123475 | inter-satellite S mask |
             | BL-ALL | 900123476 | everything in one notice, two mixed-direction scenarios; the D2 band under the valid arrays-only set 26 |
+            | BL-R1 | 900123477 | read-rule probe: MIN_ELEV nearest row -- victims half a step either side of the midpoint between two rows, the two verdicts differ |
+            | BL-R2 | 900123478 | read-rule probe: MIN_EXCLUDE linear interpolation -- the resolved value at 25/30/35 N; the verdict is measured not to discriminate |
+            | BL-R3 | 900123479 | sweep-grid disclosure probe: the worst victim between the 10-degree sweep points; the worst margin stated per sweep step |
 
             Direction of comparison (design brief section 2): the examination result must
             sit AT OR ABOVE the simulated CDF at every percentile -- the masks are
@@ -1033,13 +1208,25 @@ public static class DatasetGenerator
             NUM_ES aggregation (Sec. D5.2.5), while these expectations transmit from the
             actually scheduled cells.
 
+            The three probe cases (BL-R1/R2/R3, design brief section 3.9) are different in kind:
+            their expectation is not a simulated CDF but the EXAMINATION's own verdict at named
+            victims -- S.1503-4 D5.1.4.1 over the case's mask and set, against the Article 22 row
+            of the band read from the BR limits database -- constructed so that how a per-latitude
+            array is read (nearest row; linear interpolation for MIN_EXCLUDE) is the only thing
+            that decides it. Their masks are rule masks: mask 1's construction with the exclusion
+            zone written in as a -1000 notch and the power lowered to the limit. Their records
+            carry the alternative reads beside the correct one, a 24 h / 48 h extension pair, the
+            limit row, the artefacts' SHA-256 identities and a provenance stamp.
+
             Regeneration requires the donor databases (schema source: worked case
-            127520101) and the BR native EpfdMasksApi64.dll:
+            127520101), the BR native EpfdMasksApi64.dll, and for the probe cases the BR
+            limits database (EPFD_limits_RES85_WRC23.mdb) with EpfdLimitsApi64.dll beside the
+            masks DLL:
 
                 dotnet run --project tools/radians.beamlab.dataset -- --out dataset
 
             Options: `--quick` (coarse), `--case BL-D1` (single case), `--donor-srs`,
-            `--donor-masks`, `--dll-dir`, `--out`.
+            `--donor-masks`, `--dll-dir`, `--limits-db`, `--out`.
 
             The same tool builds a cross-read package -- a filed pfd mask delivered verbatim
             as raw XML, paired with a constellation from an orbit design and an R set this

@@ -4287,3 +4287,149 @@ vocabulary named in its record, the provenance stamps and the two curves
 per downlink case with their convergence pairs, and then the one pass
 over the whole family. The 29 August artefacts keep their
 structure-example note until that pass.
+
+## Beamlab — the section 3.9 probes built by measurement: two read rules that decide a verdict, one that cannot, 13 September 2026
+
+The three read-rule probes of the brief's section 3.9 now exist as
+cases BL-R1, BL-R2 and BL-R3 (ntc_id 900123477-479), each with its own
+operating-parameter set (27, 28, 29) and its own pfd mask (11, 12, 13)
+in the D1 band, 19.7-20.2 GHz. Their rows, values and power offsets
+were not reasoned out; they were chosen from a table. A harness mode
+(`probescan`) runs the examination — Sec. D5.1.4.1 over a probe mask
+and a one-row set that pins one quantity to a candidate value — at
+named victims against the band's Article 22 row read from the BR
+database, and reports the worst margin per (quantity, value, victim).
+On this family that examination costs about a second per victim at 48
+hours of 30 s steps, so the design space was measured, not guessed. Two
+structural facts came out before any probe could be built, and one of
+them changes what the interpolation probe can be.
+
+**First fact: the verdict was owned by a main-beam pass.** On the
+family's own mask 1, at every latitude tried, the worst margin sat at
+the short-term point (-154 dB(W/m2) for 0.017% of the time) and came
+from a single satellite crossing the line from the earth station to the
+wanted GSO satellite: maximum epfd -99, against a CDF body near -142 at
+the 28.57% point, while the two limit points are only 28 dB apart. That
+pass is counted by Step 22 whatever the operating parameters say (a
+satellite in the earth station's main beam contributes regardless of
+the gates), so no read rule can move it — and it was lit in the mask
+because the family's beams are 450 km cells from 1200 km, some 20
+degrees wide, and an 8-degree boresight gate leaves the alpha axis lit
+straight through zero. A probe whose verdict is decided there tests
+nothing. The probe masks therefore carry a rule notch: mask 1's
+reachable-envelope construction with the alpha nodes strictly inside
+the declared exclusion angle set to the Sec. C1 -1000 null, alpha nodes
+every 2 degrees so the notch edge is sharp, and the payload lowered by
+35 to 43 dB so that the BODY of the CDF sits at the limit. With the
+notch the maximum drops to about -129 and the body point becomes
+binding by 12 to 18 dB; the read rules then have something to decide.
+
+**Second fact: the exclusion read is nearly inert in the down
+examination.** With the notch at 6 degrees and the mask lit outside it,
+pinning the all-orbits MIN_EXCLUDE to 6, 10, 14, 18, 22, 26 or 30
+degrees moved the worst margin at 25, 30 and 35 N by at most 0.9 dB
+(cap 1) and 0.3 dB (cap 3); the GSO satellite overhead instead of 10
+degrees east made no difference. The mechanism is the Recommendation's
+own design: a satellite the gate removes is counted anyway when it
+sits in the main beam (Step 22, threshold min(Gmax - 30 dB,
+Grx(alpha0)), which widens exactly as the declared zone widens), and
+elsewhere the removed satellite is replaced under the MAX_CO_FREQ pick
+by another of like receive gain. This is the same result the
+min_exclude-0 check gave on STEAM-2's consistent mask (0.0 dB), now
+measured on a mask that is lit inside the zone: the exclusion
+declaration has no epfd(down) consequence beyond a fraction of a
+decibel, consistent mask or not. A probe "with the verdict keyed to the
+interpolated value", as the brief's table words it, cannot be built in
+this direction on this family — nor, I think, on any family, since the
+mechanism is not geometric.
+
+**BL-R1, the nearest-read probe, on MIN_ELEV.** Rows at 20 N (10
+degrees) and 40 N (55 degrees), victims at 25 N and 35 N — half a
+10-degree sweep step either side of the midpoint, which is itself not a
+victim because the nearest-row read is undefined there. Notch 8, cap 3,
+exclusion 8, payload 35.5 dB below mask 1's. Measured at 48 hours: the
+correct read gives FAIL at 25 N (-5.6 dB) and PASS at 35 N (+1.8 dB);
+interpolation gives FAIL at both (-4.2, -1.7); a point read that finds
+no row at the victim's latitude gives FAIL at both (-6.1, -6.7); the
+other row gives +2.1 and -6.5. So both wrong readers are caught by the
+verdict at 35 N, and the record carries all four rows per victim so a
+consumer can see which one it reproduced. The 24-hour prefix moved no
+margin by more than 0.1 dB. Two choices in this construction deserve a
+word. Elevation rather than the cap: the two levers are of a size
+(10 -> 40 degrees moves the body 4.3 dB, cap 1 -> 4 moves it 4.5), but
+an interpolating consumer of an integer array has to round, and 1.75
+truncates to 1 — the correct verdict by accident. And 55 degrees rather
+than 40: the interpolated value at 35 N is 43.75, and the margin there
+barely moves between 40 and 50 degrees (-37.3, -36.9 at mask 1's power)
+before jumping at 55 (-33.7); the row value had to sit across the limit
+from the interpolated one, so the row went to 55.
+
+**BL-R2, the interpolation probe, on MIN_EXCLUDE — the resolved value
+is the discriminator.** All-orbits rows 6 degrees at 20 N and 14 at
+40 N, so the interpolated values at 25, 30 and 35 N are 8, 10 and 12 —
+different from both rows, as the brief asks — with the notch at 6 (the
+smaller row, so the mask is consistent where the 20 N row governs and
+lit inside the zone toward 40 N, deliberately), cap 1, payload 40.6 dB
+below mask 1's. Measured: every read at every victim PASSES, margins
++1.8 to +3.3, the spread across reads 0.9 dB. The record therefore says
+what it can honestly say: the expected outcome is the resolved
+exclusion angle at each victim — 8.0, 10.0, 12.0 — which a consumer is
+asked to report from its resolution layer (the brief itself calls the
+probes acceptance tests of that layer), beside the nearest-row values
+it would have reported instead (6; a tie at 30 N; 14) and the point
+read's none; the verdict is stated as PASS under every read, and the
+finding above is written into the record with its mechanism. If the
+operator wants a verdict-keyed interpolation probe, the direction that
+would give one is epfd(up): there the exclusion angle decides which
+satellite each earth station points at, and the station's off-axis
+angle toward the GSO victim moves with it, about 9 dB of sidelobe gain
+between 6 and 14 degrees. This producer has the truth side of that
+direction (the scheduler honours the interpolated read) but not the
+examination side (Sec. D5.2 over the e.i.r.p. mask), so that probe is a
+decision, not a next step.
+
+**BL-R3, the sweep-grid disclosure probe, on MAX_CO_FREQ.** Rows 1 at
+62.5 N, 8 at 65 N, 1 at 67.5 N: under the nearest-row read the cap of 8
+governs 63.75-66.25 N and 1 everywhere else, the outermost rows
+governing outward. Notch 8, elevation 10, exclusion 8, payload 43.2 dB
+below mask 1's. The examination was run at every whole degree from 70 S
+to 70 N (282 runs with the pair), and the record states the worst
+margin per sweep step with its latitude: 10 degrees, +1.7 at 70 N, the
+sweep COMPLIANT; 5 degrees, -1.6 at 65 N, EXCEEDED; 2 and 1 degree,
+-1.8 at 66 N, EXCEEDED. The disclosure the brief asks for is thereby a
+verdict: the same filing passes or fails depending on the grid it was
+swept with, and a consumer quoting a gridless worst margin has quoted
+nothing. The full table is in the case's `sweep_margins.csv`, so any
+grid that is a subset of the 1-degree grid can be looked up; the
+southern hemisphere was measured to make sure no grid point there
+undercuts the spike (its worst is +2.6 at 65 S).
+
+**What every probe record carries.** The correct read and the wrong
+reads side by side; the 24 h / 48 h extension pair (named as such —
+the shorter run is the first half of the longer, not an independent
+draw; nothing moved more than 0.1 dB, the body points converge fast);
+the limit row and its points — TABLE 22-1C, the D1 band's, 70 cm dish,
+the same row-choice rule the compliance loop applies; the SHA-256 of
+the mask and of the set, the identity a frozen artefact is checked by;
+and a provenance line with the producer build id and the emission
+time. That is the first appearance of the stamps decided for the
+re-emission; the family's other cases receive theirs at the one pass.
+The examination CDFs at the victims are written beside the records.
+
+**A defect found on the way and fixed.** The 3.8 step moved BL-ALL's D2
+band to set 26 in the case list, but the notice builder still listed
+set 22 — the SRS said 22 in mask_info and mask_lnk3 while the Masks
+database carried param26. The harness had checked the case list and
+the XML files, not the notice. Every notice now takes its set list from
+the one list, and V50 pins notice = case list for every case. This was
+in abc82a9, unpushed; it is corrected before anything leaves.
+
+**Cost and state.** Quick-mode generation of the whole family, nine
+cases, takes 3.3 minutes; the full-depth emission of the three probe
+cases about 30 minutes (each `--case` run regenerates all mask
+sources); the harness stands at 143 passed, 0 failed (T5 and V50 new).
+The family on disk is untouched until the one re-emission. Still
+needed there: the section 3.10 consistency probe with its expected
+grade SATURATED and the grade vocabulary in its record, the stamps and
+the two curves on the downlink cases, and the one pass — plus the
+operator's word on what BL-R2 is allowed to be.
