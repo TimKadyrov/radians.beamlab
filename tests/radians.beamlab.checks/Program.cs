@@ -5536,6 +5536,89 @@ var looks = RandomLooks(300);
         $"ids={ids53} sets={sets53} span={span53} shells={shells53} notices={notices53}");
 }
 
+// ---- V54: the alpha-form exclusion grading (MaskConsistency.CheckAlphaForm) ----
+{
+    // The alpha axis of an alpha/deltaLongitude mask IS the angle to the arc, so
+    // its exclusion grade needs no geometry: a mask with a rule notch reads
+    // CONSISTENT at its declared angle, the same payload without a notch reads
+    // SATURATED against a claimed zone and CONSISTENT against none, and an
+    // az/el mask is reported not applicable. Quick-grid probe masks (alpha
+    // nodes every 30 deg) are enough to pin the thresholds.
+    string dir54 = Path.Combine(AppContext.BaseDirectory, "exp", "v54");
+    Directory.CreateDirectory(dir54);
+    string notched54 = Path.Combine(dir54, "notch8.xml"), lit54 = Path.Combine(dir54, "notch0.xml");
+    if (!File.Exists(notched54))
+        radians.beamlab.dataset.DatasetGenerator.GenerateProbeMask(notched54, 11, new radians.beamlab.dataset.DatasetGenerator.ProbeMaskSpec(8.0, 10.0, -30.0, 8.0, 2.0), quick: true);
+    if (!File.Exists(lit54))
+        radians.beamlab.dataset.DatasetGenerator.GenerateProbeMask(lit54, 11, new radians.beamlab.dataset.DatasetGenerator.ProbeMaskSpec(0.0, 10.0, -30.0, 0.0, 2.0), quick: true);
+    OperatingParamsSet Zone54(double alpha)
+    {
+        var s = new OperatingParamsSet { SatName = "V54", NtcId = 1, ParamId = 1, LowFreqMhz = 19700, HighFreqMhz = 20200 };
+        radians.beamlab.dataset.ProbeExamination.WithMinElev(radians.beamlab.dataset.ProbeExamination.WithNco(s, 2), 10.0);
+        return alpha > 0 ? radians.beamlab.dataset.ProbeExamination.WithAlpha(s, alpha) : s;
+    }
+    var mNotched54 = MaskXmlImport.Load(notched54);
+    var mLit54 = MaskXmlImport.Load(lit54);
+    var gNotched = MaskConsistency.CheckAlphaForm(mNotched54, Zone54(8.0));
+    var gLitClaimed = MaskConsistency.CheckAlphaForm(mLit54, Zone54(8.0));
+    var gLitNone = MaskConsistency.CheckAlphaForm(mLit54, Zone54(0.0));
+    var litRows54 = gNotched.Rows.Where(r => r.Alpha != MaskConsistency.Verdict.Dark).ToList();
+    bool notchedOk54 = gNotched.Overall == MaskConsistency.Verdict.Consistent && litRows54.Count > 0
+        && litRows54.All(r => r.ReachAlpha >= 8.0 - MaskConsistency.CellTolDeg && r.Elev == MaskConsistency.Verdict.NotExercised);
+    bool claimedOk54 = gLitClaimed.Overall == MaskConsistency.Verdict.Saturated
+        && gLitClaimed.Rows.Where(r => r.Alpha != MaskConsistency.Verdict.Dark).All(r => r.ReachAlpha <= MaskConsistency.CellTolDeg);
+    bool noneOk54 = gLitNone.Overall == MaskConsistency.Verdict.Consistent;
+    string azel54 = Path.Combine(AppContext.BaseDirectory, "exp", "ds", "BL-D2", "xml", "mask2_pfd_azel_shellA.xml");
+    bool naOk54 = !File.Exists(azel54) || MaskConsistency.CheckAlphaForm(MaskXmlImport.Load(azel54), Zone54(8.0)).Overall == MaskConsistency.Verdict.NotExercised;
+    Check("V54 alpha-form exclusion grading: a rule-notched mask reads CONSISTENT at its declared angle (elevation not exercised); the unnotched payload reads SATURATED against a claimed 8 deg zone and CONSISTENT against none; an az/el mask is not applicable",
+        notchedOk54 && claimedOk54 && noneOk54 && naOk54,
+        $"notched={gNotched.Overall} claimed={gLitClaimed.Overall} none={gLitNone.Overall} azel={naOk54}");
+}
+
+// ---- T8: the two-body trial pair emits (quick profile) with its grades, span certificate and stamps ----
+{
+    string donorSrs8 = @"C:\Projects\_EPFD\epfd-reference\Cases\S.1503-4\127520101 SRS.MDB";
+    string donorMasks8 = @"C:\Projects\_EPFD\epfd-reference\Cases\S.1503-4\127520101 Masks.MDB";
+    string dllDir8 = new[] { @"C:\Projects\_EPFD\radians\radians\dlls", @"C:\Projects\_EPFD\radians\radians\bin\Debug\net10.0-windows7.0" }
+        .FirstOrDefault(d => File.Exists(Path.Combine(d, "EpfdMasksApi64.dll")));
+    if (File.Exists(donorSrs8) && File.Exists(donorMasks8) && dllDir8 is not null)
+    {
+        try
+        {
+            string out8 = Path.Combine(AppContext.BaseDirectory, "exp", "tb");
+            if (Directory.Exists(out8)) Directory.Delete(out8, recursive: true);
+            radians.beamlab.dataset.TwoBodyTrial.Generate(new radians.beamlab.dataset.DatasetOptions
+            {
+                DonorSrsPath = donorSrs8, DonorMasksPath = donorMasks8, EpfdMasksDllDir = dllDir8, OutDir = out8, Quick = true,
+            });
+            bool files8 = radians.beamlab.dataset.TwoBodyTrial.Systems.All(s =>
+            {
+                string d = Path.Combine(out8, s.Case);
+                return File.Exists(Path.Combine(d, $"{s.NtcId} SRS.MDB")) && File.Exists(Path.Combine(d, $"{s.NtcId} Masks.MDB"))
+                    && File.Exists(Path.Combine(d, "README.md")) && File.Exists(Path.Combine(d, "expected", "consistency.md"))
+                    && File.Exists(Path.Combine(d, "expected", "provenance.md"))
+                    && Directory.GetFiles(Path.Combine(d, "xml"), "*.xml").Length == 3;
+            }) && File.Exists(Path.Combine(out8, "TB-README.md"));
+            int Dark8(string c)
+            {
+                string txt = File.ReadAllText(Path.Combine(out8, c, "expected", "consistency.md"));
+                var m = System.Text.RegularExpressions.Regex.Match(txt, @"az/el mask 1 \(mapped at \d+ km\): \*\*[^*]+\*\* -- [^\n]*?dark blocks (\d+) of (\d+)");
+                return m.Success ? int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture) : -1;
+            }
+            bool grades8 = radians.beamlab.dataset.TwoBodyTrial.Systems.All(s =>
+                File.ReadAllText(Path.Combine(out8, s.Case, "expected", "consistency.md")).Contains("**CONSISTENT**"));
+            int darkL2 = Dark8("TB-L2"), darkM2 = Dark8("TB-M2"), darkL = Dark8("TB-L");
+            bool span8 = darkL2 > 0 && darkM2 == 0 && darkL == 0;
+            bool pfd8 = File.ReadAllText(Path.Combine(out8, "TB-M", "expected", "consistency.md")).Contains("dB(W/(m2 MHz))")
+                && File.ReadAllText(Path.Combine(out8, "TB-L", "README.md")).Contains("two-body-trial-plan.md");
+            Check("T8 two-body trial pair (quick): four stamped cases with az/el + alpha masks and a set; every mask CONSISTENT against its set; the span certificate darkens the LEO's variant-2 rows and none of the MEO's; the READMEs cite the trial plan",
+                files8 && grades8 && span8 && pfd8, $"files={files8} grades={grades8} darkL2={darkL2} darkM2={darkM2} darkL={darkL} pfd={pfd8}");
+        }
+        catch (Exception ex) { Check("T8 two-body trial pair generation", false, "exception: " + ex.Message); }
+    }
+    else Check("T8 two-body trial pair generation", true, "donor MDBs or EpfdMasksApi64.dll not present, skipped");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
 

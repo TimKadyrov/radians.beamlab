@@ -242,6 +242,17 @@ multi-shell documents, builder and simulation runner). Prints PASS/FAIL
 per check; exit code 0 iff all pass. A few
 checks use a local ITU reference filing and skip cleanly when it is absent.
 
+The same executable carries the producer's headless measurement modes,
+each opt-in by its first argument and each writing the record it is named
+for: `margin` (the projection-margin figure), `loop` (the compliance loop),
+`examine` (a given mask and R set examined alone), `dissect` and `parity`
+(a filed az/el mask read back into its operating rules, and compared with
+the producer's own export), `oracle` (the propagator against a published
+case), `study` (the payload envelope study), `probescan` (the read-rule
+probe measurement scan), `arcshield` (the arc-protection measurement of the
+11.32A concept note) and `grade` (a mask against a dataset set). Each is
+documented at its dispatch in `tests/radians.beamlab.checks/Program.cs`.
+
 `countries.json` is searched in the working directory, the application
 binary directory, and the project root — drop a Natural Earth GeoJSON
 there and restart.
