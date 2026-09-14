@@ -84,6 +84,19 @@ if (args.Length > 0 && args[0] == "study")
 // Measurement scan behind the section 3.9 read-rule probes (ReadRuleScan).
 if (args.Length > 0 && args[0] == "probescan")
     return radians.beamlab.checks.ReadRuleScan.Run(args.Skip(1).ToArray());
+// The margin decomposition of the design brief's section 2 (MarginDecomposition): T, E_sel, E1 on one victim grid.
+if (args.Length > 0 && args[0] == "decompose")
+{
+    string[] m = args;
+    string srcM = System.IO.Path.Combine(@"C:Projectsadians.beamlab", "dataset", "_src");
+    double DM(int i, double dflt) => m.Length > i && double.TryParse(m[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : dflt;
+    return radians.beamlab.checks.MarginDecomposition.Run(
+        m.Length > 1 ? m[1] : System.IO.Path.Combine(srcM, "STEAM-2.opprofile.json"),
+        m.Length > 2 ? m[2] : System.IO.Path.Combine(srcM, "STEAM-2.orbitdesign.json"),
+        m.Length > 3 ? m[3] : System.IO.Path.Combine(@"C:Projectsadians.beamlab", "dataset", "margin", "steam-2"),
+        DM(4, 0.1), DM(5, 60.0), DM(6, 0.0), DM(7, 60.0), DM(8, 10.0),
+        m.Length > 9 ? m[9] : "steam-2");
+}
 // The case (a) measurement for the 11.32A concept note (ArcShield): arc-protecting vs not, against every 22-1C row.
 if (args.Length > 0 && args[0] == "arcshield")
     return radians.beamlab.checks.ArcShield.Run(args.Skip(1).ToArray());
@@ -5617,6 +5630,44 @@ var looks = RandomLooks(300);
         catch (Exception ex) { Check("T8 two-body trial pair generation", false, "exception: " + ex.Message); }
     }
     else Check("T8 two-body trial pair generation", true, "donor MDBs or EpfdMasksApi64.dll not present, skipped");
+}
+
+// ---- V55: the live-composition read reproduces the truth when nothing is declared ----
+{
+    // The decomposition's zero: the examination's selection over LIVE values
+    // (E_sel) with no gate declared -- no zone, elevation floor 0, no cap, no
+    // angular separation -- counts every visible satellite once at its live
+    // pfd, which is exactly the truth's sum. Same comb, same scheduler
+    // sequence, so the CDFs must agree bin for bin; the maxima to double
+    // precision (the -1000 null of a dark satellite adds 1e-100 to a sum).
+    var shells55 = new[] { new ConstellationShell { AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 2, SatsPerPlane = 3 } };
+    var con55 = new Constellation(shells55);
+    var scene55 = new PfdMaskViewModel { AltitudeKm = 1200.0, FrequencyGHz = 19.7, MinElevDeg = 10.0, RefBwKHz = 40.0 };
+    var geo55 = ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, 900.0);
+    var enforced55 = new OperatingParamsSet { SatName = "V55", LowFreqMhz = 19700, HighFreqMhz = 19700, ElevAngleHeaderDeg = 10.0 };
+    var nothing55 = new OperatingParamsSet { SatName = "V55", LowFreqMhz = 19700, HighFreqMhz = 19700, ElevAngleHeaderDeg = 0.0 };
+    double dur55 = 60.0 * 90;
+    var limits55 = new List<radlimits.LimitPoint> { new() { EPFD = -160, Perc = 5.0 }, new() { EPFD = -150, Perc = 1.0 } };
+    bool ok55 = true; string det55 = "";
+    foreach (double lat in new[] { 30.0, 50.0 })
+    {
+        var victim55 = new EpfdDownVictim { EsLatDeg = lat, EsLonDeg = 0.0, GsoLonDeg = 10.0, Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 19700.0, 1.0) };
+        var truth55 = EpfdDown.Run(con55, new ScheduledPointing(con55, geo55, enforced55, scene55, dur55), victim55, 60.0, 90, limits55, dur55);
+        var live55 = new radians.beamlab.checks.LiveCompositionRead(new ScheduledPointing(con55, geo55, enforced55, scene55, dur55));
+        var esel55 = EpfdDownMask.Run(con55, live55, nothing55, victim55, 60.0, 90, limits55, dur55);
+        var (eT, pT) = truth55.Accumulator.BuildCdf();
+        var (eS, pS) = esel55.Accumulator.BuildCdf();
+        bool binsEqual = eT.Length == eS.Length && pT.Length == pS.Length
+            && eT.Zip(eS, (x, y) => x == y).All(x => x) && pT.Zip(pS, (x, y) => x == y).All(x => x);
+        bool same = binsEqual && Math.Abs(truth55.MaxEpfdDb - esel55.MaxEpfdDb) < 1e-6;
+        // And with a cap of 1 declared, E_sel must sit at or below T (selection removes, never adds, against live values).
+        var capped55 = new OperatingParamsSet { SatName = "V55", LowFreqMhz = 19700, HighFreqMhz = 19700, ElevAngleHeaderDeg = 0.0, MaxCoFreqHeader = 1 };
+        var eselCap55 = EpfdDownMask.Run(con55, new radians.beamlab.checks.LiveCompositionRead(new ScheduledPointing(con55, geo55, enforced55, scene55, dur55)), capped55, victim55, 60.0, 90, limits55, dur55);
+        bool capBelow = eselCap55.MaxEpfdDb <= truth55.MaxEpfdDb + 1e-9;
+        ok55 &= same && capBelow && truth55.MaxEpfdDb > -300;
+        det55 += string.Create(CultureInfo.InvariantCulture, $"lat{lat:F0}: same={same} maxT={truth55.MaxEpfdDb:F3} maxSel={esel55.MaxEpfdDb:F3} cap1={eselCap55.MaxEpfdDb:F3} ");
+    }
+    Check("V55 live-composition read: with nothing declared the examination's selection over live values reproduces the truth bin for bin; with a cap of 1 it sits at or below it", ok55, det55.Trim());
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

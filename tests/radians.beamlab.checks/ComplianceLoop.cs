@@ -688,7 +688,7 @@ internal static class ComplianceLoop
         return 0;
     }
     /// <summary>One-line rendering of a derived R set, for the console and the record.</summary>
-    private static string DescribeSet(OperatingParamsSet p, CultureInfo inv)
+    internal static string DescribeSet(OperatingParamsSet p, CultureInfo inv)
     {
         var bits = new List<string>();
         var ex = p.MinExclude.FirstOrDefault(m => m.ByLat.Count > 0);
