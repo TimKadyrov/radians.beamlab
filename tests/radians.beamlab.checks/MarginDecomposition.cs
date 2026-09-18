@@ -24,9 +24,14 @@ namespace radians.beamlab.checks;
 /// over the mask). With no gate declared it reproduces T exactly (V55).
 ///
 /// The pointing is a ScheduledPointing whose schedule is computed once per
-/// time step; the examination calls this read per satellite in time order, so
-/// the resolved beam sets of each step are cached and shared across the
-/// victims of a sweep instead of re-running the scheduler per victim.
+/// time step; the examination calls this read per satellite in time order.
+/// ONE READ SERVES ONE PASS. The scheduler carries dwell memory and, under
+/// the Random policy, a seeded key sequence, so a second pass over the same
+/// times (another victim) that resolves a satellite the first pass never saw
+/// re-enters the scheduler at an earlier time from a later state and gets a
+/// different schedule. The cross-time cache (cacheAll) is therefore only
+/// exact within a single pass; a sweep builds a fresh read per victim, and
+/// the 14 September decomposition record was re-run for that reason.
 /// </summary>
 internal sealed class LiveCompositionRead : IMaskPfdRead
 {
@@ -133,10 +138,13 @@ internal static class MarginDecomposition
         Console.WriteLine(string.Create(inv, $"  T done ({t0.Elapsed.TotalMinutes:F1} min)"));
 
         // ---- E_sel: the declared set's selection over the live values ---------------
-        var live = new LiveCompositionRead(new ScheduledPointing(con, comp.Geography, comp.Enforced, comp.Scene, simDur, comp.CoverageRadiusKm, comp.Policy, comp.IlluminationDutyCycle));
+        // A fresh read, and so a fresh scheduler, per victim: each pass then steps
+        // the same seeded schedule the truth stepped (V55), instead of re-entering
+        // a scheduler that has already run to the end for an earlier victim.
         var Esel = new List<Curve>();
         foreach (double lat in lats)
         {
+            var live = new LiveCompositionRead(new ScheduledPointing(con, comp.Geography, comp.Enforced, comp.Scene, simDur, comp.CoverageRadiusKm, comp.Policy, comp.IlluminationDutyCycle), cacheAll: false);
             var r = EpfdDownMask.Run(con, live, declared, Victim(lat), stepSec, steps, lim.Points, simDur);
             var (e, p) = r.Accumulator.BuildCdf();
             Esel.Add(new Curve(r.MaxEpfdDb, r.QuietSteps, e, p));
