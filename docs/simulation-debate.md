@@ -4786,3 +4786,266 @@ regulations session drafted it.
 
 Ten commits ahead of azure/main since the last push, none pushed;
 harness 148 passed, 0 failed.
+
+## Beamlab — the step made parallel without a trace, and the cap-4 comb read at depth, 14 September 2026
+
+**What was asked.** Threads for the simulation, and a question worth
+answering first: parallel over time steps, or chunks of time, rather
+than inside a step? For the truth run, no. The scheduler is a state
+machine over time — a made link is held from one step to the next, and
+the Random policy the STEAM-2 profile declares draws its keys from one
+seeded generator in step order, then cell order, then satellite order.
+Steps on different threads would hold different links and hand different
+keys to different candidates: equivalent statistics, not the same run,
+and the same run is what makes a faster simulation a refactor instead of
+a new model. A time chunk with a sequential spine — assignment and draws
+in order, the heavy geometry pipelined ahead — would keep identity at the
+price of splitting the scheduler into stages and buffering every step's
+candidate lists, roughly cells times visible satellites each. Inside a
+step, everything expensive is per satellite and independent of the other
+satellites; and the two runs in progress this afternoon said where the
+seconds were: 6.9 per step for the truth over seven victims, 4.2 for one
+victim through the live-composition read, figures that fit about 1.8 ms
+per beam-lattice rebuild with the truth run rebuilding each satellite
+twice — once inside the scheduler, once in the snapshot. The mask
+examination is the one place time chunks are right: no scheduler, a
+stateless read, every step a function of its own time.
+
+**What was built.** One switch, `SimulationParallel` (default every
+processor; `BEAMLAB_THREADS` names a smaller count; 1 is the sequential
+code path, kept as it was). A pointing that can be resolved on several
+threads declares it (`IConcurrentBeamPointing`) and is asked to prepare
+the step once, on the calling thread, before the satellites fan out —
+the scheduled pointing computes its schedule there, under a lock, exactly
+when the sequential loop would have triggered it; the scene pointing
+keeps a pool of scene copies, each a settings copy of one frozen
+template, so a mutable generation scene is never shared. Inside the
+scheduler's step the two independent phases run in parallel —
+propagation, resolution and footprints per satellite; geometry, gates
+and covering beam per cell — and the Random policy's keys are then drawn
+on one thread, cell by cell and candidate by candidate, in the order the
+sequential loop drew them; the greedy assignment stays sequential. The
+down run computes each satellite's terms toward every victim in parallel
+and sums them in satellite order, so the accumulated values are the same
+bits. The mask examination runs its steps over time chunks when the read
+declares itself pure (`IPureMaskPfdRead`: the mask-file read and the
+dataset tool's wrappers; the live-composition read does not, and stays
+step by step), each worker on its own constellation clone because the
+vendored propagator keeps per-call scratch state, and the accumulator
+then takes the values in step order. V56 compares one thread against
+twenty-four as raw bits — 31 549 values: the down CDFs, maxima and quiet
+counts over three victims with the epfd(is) byproduct, twelve schedule
+steps' links, candidates and handover counts under the Random policy,
+epfd(up), the mask examination over time chunks, the live-composition
+examination — and finds no difference. Harness 152 passed, 0 failed.
+
+**What it bought.** A `bench` mode times the STEAM-2 step (1600
+satellites, 11 702 cells) at the current thread count: the truth step
+went from 5.93 s to 0.57 s on 24 cores with another job running, 10.3
+times; the examination step from 1.3 ms to 0.2 ms — it was never the
+cost. What remains sequential is about 0.34 s per step, the greedy
+assignment over the cells and the list of every candidate link the step
+exposes for the play session, roughly a million records per step; that
+is the next lever if one is wanted. The double rebuild per satellite per
+step is a further factor of two on the dominant cost and was left alone:
+a separate optimisation, not threading.
+
+**The cap-4 comb, read at depth.** The truth-only rerun of cap 4 at
+0.5 d (79.5 minutes, `docs/compliance-steam-2-cap4-05d.md`) against the
+baseline at the same depth: T −1.3 dB at the equator, +1.1 at 10, +0.6
+at 20, −0.2 at 30, 0.0 at 40, −0.5 at 50, −0.6 at 60. Both directions
+survive — a binding cap still moves T both ways — but the 0.1 d figures
+did not: the equatorial +1.5 read there is −1.3 here, and the largest
+gain moved to 10 N. The cap-4 truth itself moved 0.4 to 5.4 dB by
+latitude between the two depths, so it has no depth pair of its own and
+these figures carry their comb as the earlier ones did; a 0.5 d against
+1.0 d pair for cap 4 would have cost about 160 minutes at the old speed
+and costs a quarter of that now. The examination side at 0.5 d: widest
+gap 11.6 → 6.5 dB, E1 alone 3.6 to 6.3 dB by latitude — the envelope
+gain of the 0.1 d row, unchanged. The construction page's footnote is
+rewritten to the measured state; its previous text also mis-named the
+baseline pair's unconverged latitudes as 50 and 60, where the pair had
+moved at 40 and 50 — corrected in passing.
+
+**The brief's decomposition, measured — twice.** The STEAM-2 margin
+decomposition (T, E_sel, E1 on one victim grid, 0.1 d at 60 s, latitudes
+0 to 60) finished its first run after 92 minutes and read, at 50 N, a
+selection component of +2.4 dB at the 1% point: the examination's
+selection over the live values sitting ABOVE the truth. That is
+impossible when the two share a schedule — E_sel sums a subset of T's
+terms — so the instrument, not the system, was at fault. It was: the
+decomposition fed one live-composition read, with its cross-time cache,
+to all seven victims in turn. A later pass that met a satellite the
+first pass never saw (visible from 50 N, not from the equator) resolved
+it through the scheduled pointing at an earlier time from a later state
+— dwell memory carried to the end of the previous pass, the Random
+policy's seeded sequence already advanced — and got a different
+schedule. The equator's row, the first pass, was exact; every later
+row mixed schedules. V55 never saw it because it builds one read per
+latitude. The fix is the same: a fresh read, and so a fresh scheduler,
+per victim; the read's comment now says ONE READ SERVES ONE PASS and
+why. The re-run took 10.0 minutes against 92.0 on the same machine, and
+its T and E1 columns — every percentile at every latitude, the runs the
+threading touched — are the first run's to the last printed digit: the
+identity V56 pins on a small fixture holds at 1600 satellites.
+
+**What the corrected record says** (`docs/margin-decomposition-steam-2.md`).
+At the deciding point the selection component is 0.0 dB at five
+latitudes and −0.1 at 10 and 30 N; the envelope component is +6.5,
++9.0, +10.7, +6.9, +10.0, +12.1 and +10.2 dB at 0 to 60 N — the whole
+gap between the examination and the truth, at this depth and on this
+system, is the mask envelope's. In the body of the distribution the
+selection rules remove a little (−0.7 to −0.2 dB at the 10% point) and
+the envelope adds +5.6 to +13.7; at 50 N, where the contaminated run had
+read +2.4, the corrected selection component is 0.0 at 1% and at the
+maximum. The 0.1 d comb qualifies the absolute levels as before; the
+differences at matched depth are the quotable quantity, and the
+decomposition's zero — E_sel equals T bin for bin with nothing declared
+— is V55's checked invariant.
+
+**A defect of the harness file, found on the way.** The `decompose`
+mode's default paths never worked: the dispatch's path literals had been
+spliced into the harness through a script that processed escapes, so
+`@"C:\Projects\radians.beamlab"` had become `C:Projects`, a bare
+carriage return, `adians.beamlab` — the stray CRs that had made the file
+read as binary to git since the beamcount and decompose modes were added.
+Repaired byte for byte; the harness source is plain text again, and
+`decompose` and `beamcount` run with no arguments.
+
+**State.** Uncommitted, awaiting the operator's word: the threading
+change with V56 and the `bench` mode, the decomposition fix and the
+literal repair, the construction page's cap-4 footnote, the two records
+(`docs/compliance-steam-2-cap4-05d.md`, `docs/margin-decomposition-steam-2.md`)
+and this entry; one commit (the decomposition instrument) ahead of
+azure/main. Harness 152 passed, 0 failed on the final build.
+
+## Beamlab — two depth pairs bought in an hour: cap 4 firm both ways, and the decomposition at 0.5 d, 14 September 2026
+
+**What the speed was for.** The morning's rule was that a figure carries
+its comb until a pair firms or retires it; the afternoon's threading made
+pairs cheap. Two were bought at once, in sequence on the same machine:
+the cap-4 truth at 1.0 d (14.7 minutes; the 0.5 d run of the morning had
+taken 79.5 sequentially) and the STEAM-2 margin decomposition at 0.5 d.
+
+**Cap 4, pair-firm both ways.** The 1.0 d cap-4 truth against the 0.5 d
+one (`docs/compliance-steam-2-cap4-1d.md`, `-05d.md`): no figure moved at
+0, 10, 20 and 30; 2.8 and 2.9 dB at 40 and 50; 0.6 at 60 — the baseline
+pair's pattern exactly, the same two latitudes unconverged at this
+depth, so what moves there is the comb, not the cap. Read against the
+baseline at matched depth, the four firm latitudes give T −1.3 at the
+equator, +1.1 at 10, +0.6 at 20 and −0.2 at 30, identical at 0.5 and
+1.0 d. The both-directions claim of the regime table is therefore firm,
+with its figures changed from the 0.1 d comb: the equator worsens, 10 N
+improves. At 40 and 50 the two systems move together and their
+difference stays within 0.5 dB at both depths (0.0 and −0.5, then 0.0
+and −0.2). On the examination side the top-4 envelope gains 3.6 to 6.4 dB
+by latitude at 0.1, 0.5 and 1.0 d alike — the one figure of that row
+that never depended on depth — and the widest gap reads 11.0 → 5.9 dB
+at 1.0 d. The construction page's footnote is rewritten a second time
+today, from "carries its comb" to "pair-firm".
+
+**The decomposition at 0.5 d.** The brief's section 2 deliverable now
+has its pair (`docs/margin-decomposition-steam-2-05d.md`, 50.7 minutes
+on the parallel build against the 92 the 0.1 d run had taken
+sequentially). At the deciding point of every latitude the selection
+component is 0.0 dB — at 0.1 d it read 0.0 at five latitudes and −0.1
+at two — and the envelope component is the whole gap: +8.8, +7.5, +8.6,
++7.7, +10.6, +11.6 and +11.3 dB at 0 to 60, the baseline record's
+E1 − T at this depth to the decimal. In the body the selection rules
+remove 0.2 to 0.5 dB at the 10% point (0.2 to 0.7 at 0.1 d) and the
+envelope adds +5.5 to +13.7. What moved between the depths is the comb:
+the envelope component at the deciding point followed the truth's own
+movement (6.5 → 8.8 at the equator, 12.1 → 11.6 at 50) while the
+selection component did not move at all. The reading for the brief is
+one sentence: on STEAM-2 the format's price is the mask envelope's, and
+the selection rules the examination substitutes for the operator's
+scheduler cost nothing at the deciding point and a fraction of a decibel
+in the body. The construction page carries it as a box, "The gap,
+decomposed", with both records named.
+
+**State.** Uncommitted with everything since the morning: the threading
+change, the two cap-4 records and the two decomposition records, the
+construction page's footnote and box, the debate entries; one commit
+ahead of azure/main. Harness 152 passed, 0 failed on the build these
+runs used.
+
+## Beamlab — the two-day sweep: what a pair firms, and what it never can, 17 September 2026
+
+**The clean timing.** The bench pair re-run on an otherwise idle
+machine: the truth step at 24 threads reads 0.57 s, as it did on Sunday
+beside another job; at one thread it reads 10.9 s, against 5.9 s on
+Sunday. The box is a hybrid processor, eight performance cores and
+sixteen efficiency cores, so a lone thread's speed depends on the core
+it lands on, and the sequential baseline is not one number. The
+speed-up is quoted from here on as about ten to nineteen times, with
+both baselines named; the parallel figure is the stable one.
+
+**The 2.0 d sweep, and the qualifier it was to retire.** The
+construction page had said that latitudes 40 and 50 "stay provisional
+until a 2.0 d truth sweep pairs them", the two latitudes the 0.5/1.0 d
+pair had found unconverged. The sweep is in
+(`docs/compliance-steam-2-2d.md`, 2880 steps, 33 minutes on the
+parallel build, the record's declaration reused). Against 1.0 d the
+truth moved 0.4, 1.0, 2.7, 1.2, 0.1, 0.6 and 0.1 dB at 0 to 60. So 40
+and 50 are paired, 0.1 and 0.6 — and 10, 20 and 30 moved instead,
+latitudes the first pair had called firm to 0.0. The maximum at 20 N
+rose 2.7 dB in the second day. The lesson is the one the family's
+curves records already carried for the short-term end: the body of the
+distribution converges, the tail keeps finding rarer, stronger geometry
+as the run lengthens, and the deciding point sits in the tail. A pair
+therefore firms the body and only ever provisionally the tail; "firm"
+from one pair is a statement about the run length it covers. The
+examination moved with the truth where the truth moved (1.7 at 10, 1.6
+at 20, 1.3 at 50), the same geometry seen through the mask, and E1
+stayed at or above T at every latitude at every depth run so far —
+0.1, 0.5, 1.0 and 2.0 d. The gap in band reads 6.4 to 8.6 dB at 2.0 d
+(11.4 at 50). The rule that survives untouched is the one adopted on
+7 September: differences measured at fixed depth stand; absolute
+short-term levels carry their run length, at any run length. The page's
+sentence is rewritten to that.
+
+**State.** Unchanged since Sunday, plus today's record and the
+name-only profile copy: everything uncommitted, one commit ahead of
+azure/main, no code touched today, so the harness figure stands at
+152 passed, 0 failed.
+
+## Beamlab — the ladder's fourth rung, and what it says about the tail, 18 September 2026
+
+**The 4.0 d sweep.** One more doubling of the baseline truth-only
+sweep, the record's declaration reused, 5760 steps, 75 minutes on the
+parallel build (`docs/compliance-steam-2-4d.md`). Against 2.0 d the
+truth moved at three latitudes and stood at four: the equator worsened
+by 1.1 dB, 50 and 60 improved by 0.7 each, 10 to 40 did not move.
+Yesterday's doubling had moved 10, 20 and 30 and stood the rest; the
+one before had moved 40 and 50. So the pattern over three doublings is
+one or two latitudes per rung, never the same ones twice, and the sign
+goes both ways.
+
+**Two mechanisms, told apart by the maximum.** The records carry the
+maximum sample beside the worst margin, and the two do not always move
+together. At 20 N the maximum rose 2.7 dB in the second day and the
+margin followed: the deciding point there is the maximum against the
+0% row, and a maximum can only rise under extension. At 60 N the
+maximum has not changed since 0.5 d while the worst margin improved by
+1.0 dB over three doublings: the deciding point there is a resolved
+percentile, and a percentile falls when the samples that made it turn
+out to be a cluster diluted by a longer run. Both are the tail, and the
+tail is where the verdict is decided.
+
+**What holds.** E1 follows the same geometry through the mask, so the
+gap moves less than either curve: at 0 to 40 N it has read 6.4 to
+10.6 dB at every depth from 0.5 d, at 50 and 60 N 10.7 to 11.6, and
+E1 ≥ T at every latitude at every one of the five depths. The
+construction page now carries the ladder as a table — T and E1 worst
+margins at 0.1, 0.5, 1.0, 2.0 and 4.0 d, all seven latitudes — under
+the inner-loop box, and Annex A of the concept note gains two findings
+in its measured list: the decomposition (item 7, the gap is the
+envelope's) and the tail (item 8, a pair firms the body and only
+provisionally the tail). Neither changes a rule; both sharpen the
+7 September one: differences at fixed depth stand, absolute short-term
+levels carry their run length, at any run length.
+
+**State.** Uncommitted since 14 September, now with six records and
+three name-only profile copies on top of the threading change; one
+commit ahead of azure/main; no code touched since Sunday, harness
+152 passed, 0 failed.

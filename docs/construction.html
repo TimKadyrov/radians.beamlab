@@ -411,7 +411,7 @@ sits: K<sub>sat</sub>, the most same-colour beams the <em>saturated</em> probe e
 <tr><th>capacity</th><th>binds today</th><th>binds at peak</th><th>T</th><th>widest gap</th><th>cost today</th><th>cost at peak</th></tr>
 <tr><td>20 = K<sub>sat</sub></td><td>no</td><td>no</td><td>unchanged</td><td>12.2 &rarr; 10.9 dB</td><td>none</td><td>none</td></tr>
 <tr><td>12</td><td>no (worst 11)</td><td>yes</td><td>unchanged</td><td>12.2 &rarr; 9.8 dB</td><td>none</td><td>2.67% unserved; <code>max_co_freq_sat</code> 59 &rarr; 48</td></tr>
-<tr><td>4</td><td>yes (45% pinned)</td><td>yes</td><td>+1.5 to &minus;0.9 dB&thinsp;*</td><td>12.2 &rarr; 6.8 dB (E1 alone: &minus;3.5 to &minus;6.4)</td><td>~0 unserved; interference redistributed</td><td>47% unserved; <code>max_co_freq_sat</code> 59 &rarr; 16; exclusion tightened</td></tr>
+<tr><td>4</td><td>yes (45% pinned)</td><td>yes</td><td>&minus;1.3 to +1.1 dB (pair-firm)&thinsp;*</td><td>12.2 &rarr; 6.8 dB at 0.1&nbsp;d, 11.0 &rarr; 5.9 at 1.0&nbsp;d (E1 alone: 3.5 to 6.4 at every depth)</td><td>~0 unserved; interference redistributed</td><td>47% unserved; <code>max_co_freq_sat</code> 59 &rarr; 16; exclusion tightened</td></tr>
 </table>
 
 <p>The line between the rows is not whether T moves but whether the knob changes what the
@@ -427,13 +427,21 @@ honours at today&rsquo;s traffic, that buys 0.8&ndash;3.3&nbsp;dB on the examina
 only price falls on the busiest hour. The bottom row maps the extreme. Its lesson is not the
 dB: it is that <strong>a binding cap moves T in both directions</strong>. A refused link is
 not dropped, it is reassigned to the next-best satellite, and at some victims that satellite
-sits in worse geometry &mdash; T improved 1.5&nbsp;dB at the equator and worsened 0.9&nbsp;dB at
-latitude 50 from the same declaration. A tighter payload commitment is not monotone for
-compliance. * A 0.1&nbsp;d comb. The equatorial +1.5 sits at a
-latitude the depth pair later found firm to 0.0&nbsp;dB; the negative entries at 50 and 60 sit at
-the two latitudes it found unconverged at that depth, 2.6 to 2.8&nbsp;dB of movement, so the
-direction claim there carries its comb until a truth-only rerun of cap&nbsp;4 at depth firms or
-retires the sign. The mechanism, reassignment relocating interference, stands either way.</p>
+sits in worse geometry &mdash; T improved 1.1&nbsp;dB at latitude 10 and worsened 1.3&nbsp;dB at
+the equator from the same declaration, figures the depth pair finds firm. A tighter payload
+commitment is not monotone for compliance. * The table is a 0.1&nbsp;d comb. Cap&nbsp;4 now has a
+convergence pair of its own: truth-only reruns at 0.5&nbsp;d and 1.0&nbsp;d
+(<code>docs/compliance-steam-2-cap4-05d.md</code>, <code>docs/compliance-steam-2-cap4-1d.md</code>),
+each read against the baseline at the same depth. At the four latitudes the pair finds firm
+&mdash; 0, 10, 20 and 30, where no figure moved between the depths &mdash; T reads &minus;1.3, +1.1,
++0.6 and &minus;0.2&nbsp;dB: both directions, firm. At 40 and 50 the cap-4 truth moved 2.8 and
+2.9&nbsp;dB between the depths, as the baseline&rsquo;s did at the same two latitudes; the two
+systems move together there and their matched-depth difference stays within 0.5&nbsp;dB (0.0 and
+&minus;0.5 at 0.5&nbsp;d, 0.0 and &minus;0.2 at 1.0&nbsp;d); 60 reads &minus;0.6 then &minus;0.2. The
+0.1&nbsp;d figures did not survive: the equatorial +1.5 read there is &minus;1.3 at both depths. The
+examination side: widest gap 11.0 &rarr; 5.9&nbsp;dB at 1.0&nbsp;d, and E1 alone gains 3.6 to
+6.4&nbsp;dB by latitude at every depth measured &mdash; the envelope gain of the 0.1&nbsp;d row is
+depth-stable. The mechanism, reassignment relocating interference, stands either way.</p>
 
 <div class="tech">
 <div class="t">A control that did not hold, then measured</div>
@@ -475,15 +483,71 @@ derivation does not &mdash; the R&nbsp;set and the mask derived at 1.0&nbsp;d ar
 record&rsquo;s, so E1&rsquo;s movement was the examination sampling a fixed declaration &mdash; while
 the truth does, by up to 5.4&nbsp;dB at single latitudes, flattening to &minus;9.3&hellip;&minus;10.9 across
 all seven. Its pair, a truth-only rerun at 0.5&nbsp;d, moved no figure by more than 0.5&nbsp;dB at
-latitudes 0, 10, 20, 30 and 60, so the gap is <strong>firm at 7.5 to 8.8&nbsp;dB</strong> in band
-there and T at &minus;9.3 to &minus;10.9; at 40 and 50 the truth moved 2.8 and 2.6&nbsp;dB between the
-two depths, so those two latitudes, and the widest gap of 10.7 at 50, stay provisional until a
-2.0&nbsp;d truth sweep pairs them. Differences measured at fixed depth stand. A cap below what today&rsquo;s
+latitudes 0, 10, 20, 30 and 60 and moved 40 and 50 by 2.8 and 2.6. The 2.0&nbsp;d sweep meant to
+pair those two (<code>docs/compliance-steam-2-2d.md</code>, 33 minutes on the parallel build) did:
+0.1 and 0.6&nbsp;dB. It also moved 10, 20 and 30 &mdash; by 1.0, 2.7 and 1.2&nbsp;dB &mdash;
+latitudes the first pair had called firm. The movement is at the short-term end, where the
+deciding point sits: each doubling of the run can find a rarer, stronger geometry (the maximum at
+20&nbsp;N rose 2.7&nbsp;dB in the second day), so a pair firms the body of the distribution and only
+ever provisionally its tail. A fourth doubling, 4.0&nbsp;d, moved the equator by 1.1&nbsp;dB and 50 and
+60 by 0.7 each and left the other four where they were. The gap at 0 to 40&nbsp;N reads
+<strong>7.5 to 8.8&nbsp;dB</strong> at 1.0&nbsp;d, <strong>6.4 to 8.6</strong> at 2.0&nbsp;d and
+<strong>6.4 to 8.8</strong> at 4.0&nbsp;d (11.1 to 11.4 at 50 and 60); the ladder below has all five
+depths. Differences measured at fixed depth stand. A cap below what today&rsquo;s
 traffic reaches recovers more and moves T &mdash; in both
 directions, since refused links are reassigned rather than dropped &mdash; which makes it a
 design decision about the system rather than a better description of it.</p>
 </div>
 
+<div class="tech">
+<div class="t">The depth ladder</div>
+<p>The same truth-only sweep of the committed STEAM-2 declaration at five run lengths, each an
+extension of the last on one comb, the record&rsquo;s declaration reused: the worst margin of T and
+of E1 by latitude, in dB. The body of each CDF settles by 0.5&nbsp;d; the deciding point sits at the
+short-term end, and at each doubling one or two latitudes move by 1 to 3&nbsp;dB while the others
+stand &mdash; not the same ones twice. Two mechanisms: a maximum can only rise under extension
+(20&nbsp;N, +2.7&nbsp;dB in the second day), and a resolved percentile can fall as rarer samples
+dilute a cluster (60&nbsp;N: its maximum unchanged since 0.5&nbsp;d, its worst margin improved by
+1.0&nbsp;dB over three doublings). E1 follows the same geometry through the mask, so the gap moves
+less than either curve: 6.4 to 10.6&nbsp;dB at 0 to 40&nbsp;N and 10.7 to 11.6 at 50 and 60 at every
+depth from 0.5&nbsp;d, and E1&nbsp;&ge;&nbsp;T at every latitude at every depth.</p>
+<table class="ex">
+<tr><th>latitude</th><th colspan="5">T worst margin</th><th colspan="5">E1 worst margin</th></tr>
+<tr><th></th><th>0.1&nbsp;d</th><th>0.5</th><th>1.0</th><th>2.0</th><th>4.0</th><th>0.1&nbsp;d</th><th>0.5</th><th>1.0</th><th>2.0</th><th>4.0</th></tr>
+<tr><td>0</td><td>&minus;9.1</td><td>&minus;9.3</td><td>&minus;9.3</td><td>&minus;9.7</td><td>&minus;10.8</td><td>&minus;15.6</td><td>&minus;18.1</td><td>&minus;18.1</td><td>&minus;18.1</td><td>&minus;18.1</td></tr>
+<tr><td>10</td><td>&minus;4.8</td><td>&minus;10.2</td><td>&minus;10.2</td><td>&minus;11.2</td><td>&minus;11.2</td><td>&minus;13.7</td><td>&minus;17.7</td><td>&minus;17.7</td><td>&minus;19.4</td><td>&minus;19.4</td></tr>
+<tr><td>20</td><td>&minus;7.4</td><td>&minus;9.5</td><td>&minus;9.5</td><td>&minus;12.2</td><td>&minus;12.2</td><td>&minus;18.1</td><td>&minus;18.1</td><td>&minus;18.0</td><td>&minus;19.6</td><td>&minus;19.7</td></tr>
+<tr><td>30</td><td>&minus;5.7</td><td>&minus;10.9</td><td>&minus;10.9</td><td>&minus;12.1</td><td>&minus;12.1</td><td>&minus;12.5</td><td>&minus;18.6</td><td>&minus;18.6</td><td>&minus;18.5</td><td>&minus;18.5</td></tr>
+<tr><td>40</td><td>&minus;6.9</td><td>&minus;7.5</td><td>&minus;10.3</td><td>&minus;10.2</td><td>&minus;10.2</td><td>&minus;16.9</td><td>&minus;18.1</td><td>&minus;18.8</td><td>&minus;18.8</td><td>&minus;19.0</td></tr>
+<tr><td>50</td><td>&minus;11.9</td><td>&minus;11.9</td><td>&minus;9.3</td><td>&minus;9.9</td><td>&minus;9.2</td><td>&minus;24.1</td><td>&minus;23.5</td><td>&minus;20.0</td><td>&minus;21.3</td><td>&minus;20.3</td></tr>
+<tr><td>60</td><td>&minus;11.7</td><td>&minus;10.6</td><td>&minus;10.4</td><td>&minus;10.3</td><td>&minus;9.6</td><td>&minus;21.9</td><td>&minus;21.9</td><td>&minus;21.4</td><td>&minus;21.4</td><td>&minus;21.0</td></tr>
+</table>
+<p>Records: <code>docs/compliance-steam-2.md</code> (0.1&nbsp;d) and <code>-05d</code>, <code>-1d</code>,
+<code>-2d</code>, <code>-4d</code>; the 4.0&nbsp;d sweep took 75 minutes on the parallel build. The 0.1&nbsp;d
+column derives its declaration; the others reuse it. Differences at fixed depth stand; absolute
+short-term levels carry their run length, at any run length.</p>
+</div>
+<div class="tech">
+<div class="t">The gap, decomposed</div>
+<p>The brief&rsquo;s section&nbsp;2 asks not how close the examination comes to the truth but
+where its gap comes from. The decomposition runs three curves on one victim grid and one comb:
+<strong>T</strong>, every visible satellite at its live value, no selection;
+<strong>E<sub>sel</sub></strong>, the examination&rsquo;s selection rules (Sec.&nbsp;D5.1.4.1: the
+elevation gate, the exclusion zone, the MAX_CO_FREQ pick by highest contribution, MIN_ANGLE_AT_ES
+pruning, the main-beam always-include) applied to those same live values; <strong>E1</strong>, the
+same selection over the declared mask. E<sub>sel</sub>&nbsp;&minus;&nbsp;T is what the selection rules
+do to the count; E1&nbsp;&minus;&nbsp;E<sub>sel</sub> is what the mask envelope adds. On STEAM-2 against
+the committed declaration, at the deciding point of every latitude from 0 to 60, the selection
+component is <strong>0.0&nbsp;dB</strong> at 0.5&nbsp;d and 0.0 to &minus;0.1 at 0.1&nbsp;d; in the body of
+the distribution it removes 0.2 to 0.7&nbsp;dB at the 10% point. The envelope component is the whole
+gap: <strong>+6.5 to +12.1&nbsp;dB</strong> at 0.1&nbsp;d and <strong>+7.5 to +11.6</strong> at
+0.5&nbsp;d, by latitude. The price of the format on this system is the mask envelope&rsquo;s, not the
+selection rules&rsquo;, and the granularity levers above act on exactly that component. The zero is
+checked, not assumed: with nothing declared E<sub>sel</sub> equals T bin for bin (V55). Records:
+<code>docs/margin-decomposition-steam-2.md</code> (0.1&nbsp;d) and
+<code>docs/margin-decomposition-steam-2-05d.md</code> (0.5&nbsp;d); differences at matched depth are
+the quotable quantity, the absolute levels carry their comb.</p>
+</div>
 <h2>The rules the construction obeys</h2>
 
 <p>Each of these was bought with a measurement, and each is stated so it can be checked
