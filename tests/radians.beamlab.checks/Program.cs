@@ -5829,6 +5829,68 @@ var looks = RandomLooks(300);
         $"threads 1 vs {wide56}: {seq56.Sig.Count} values, first difference at {firstDiff56}; live={seq56.Live}; {par56.Detail}");
 }
 
+// ---- V57: the verdict rule -- the limit curve between its tabulated points ----
+{
+    // The design brief's rule (LimitCurveRule): PASS only if every tabulated point
+    // passes AND the distribution nowhere crosses the log-linear curve between
+    // the points. A distribution built to clear every tabulated point of the
+    // 22-1B row and to bulge above the curve between the 1% and 0.286% points
+    // must FAIL, with the crossing reported in the segment; the array scan must
+    // name the same bin as the vendored accumulator's own scan; the curve margin
+    // must be negative there and the rule margin never above the point margin.
+    // A second distribution that sits under the curve must PASS with the rule
+    // margin equal to the point margin.
+    var pts57 = new List<radlimits.LimitPoint>
+    {
+        new() { EPFD = -175.4, Perc = 100.0 }, new() { EPFD = -175.4, Perc = 10.0 },
+        new() { EPFD = -172.5, Perc = 1.0 }, new() { EPFD = -167.0, Perc = 0.286 },
+        new() { EPFD = -164.0, Perc = 0.029 }, new() { EPFD = -164.0, Perc = 0.0 },
+    };
+    var curve57 = LimitCurveRule.Curve(pts57);
+    radcompute1503_2.EpfdAccumulator Build57(double highDb)
+    {
+        var a = new radcompute1503_2.EpfdAccumulator(pts57);
+        a.AccumulateSample(highDb, 6);      // 0.6% of the time at the chosen level
+        a.AccumulateSample(-200.0, 994);    // the rest far below every point
+        return a;
+    }
+    // (a) bulge between the 1% and 0.286% points: -169 dB, where the curve allows about 0.45%.
+    var accCross = Build57(-169.0);
+    var (eC, pC) = accCross.BuildCdf();
+    var (pointsC, _) = accCross.CompareWithLimits(pts57);
+    bool pointsPassC = pointsC.All(x => x);
+    bool ruleC = LimitCurveRule.Pass(accCross, pts57);
+    var scanC = LimitCurveRule.Scan(eC, pC, curve57, pts57);
+    var ownC = accCross.FindWorstMaskViolation(pts57);
+    bool sameBin = scanC is not null && ownC.HasValue && Math.Abs(scanC.EpfdDb - ownC.Value.Epfd) < 0.051
+        && Math.Abs(scanC.ComputedPerc - ownC.Value.CalcPerc) < 1e-9 && Math.Abs(scanC.LimitPerc - ownC.Value.LimitPerc) < 1e-9;
+    double pointMarginC = pts57.Min(l => ComplianceViewModel.MarginDb(eC, pC, l.EPFD, l.Perc));
+    double curveMarginC = LimitCurveRule.CurveMarginDb(eC, pC, curve57, pts57);
+    bool crossOk = pointsPassC && !ruleC && scanC is not null && scanC.EpfdDb > -172.5 && scanC.EpfdDb < -167.0
+        && curveMarginC < 0.0 && Math.Min(pointMarginC, curveMarginC) <= pointMarginC + 1e-9;
+    // (b) under the curve: -174 dB, where the curve allows about 3.3%.
+    var accUnder = Build57(-174.0);
+    var (eU, pU) = accUnder.BuildCdf();
+    bool ruleU = LimitCurveRule.Pass(accUnder, pts57);
+    var scanU = LimitCurveRule.Scan(eU, pU, curve57, pts57);
+    double pointMarginU = pts57.Min(l => ComplianceViewModel.MarginDb(eU, pU, l.EPFD, l.Perc));
+    double curveMarginU = LimitCurveRule.CurveMarginDb(eU, pU, curve57, pts57);
+    // The curve margin is a whole-bin shift: shifting the distribution by exactly that much must
+    // leave the curve clear, one more bin must cross it (mid-bin samples so binning cannot waver).
+    var accMid = Build57(-173.95);
+    var (eM, pM) = accMid.BuildCdf();
+    double curveMarginMid = LimitCurveRule.CurveMarginDb(eM, pM, curve57, pts57);
+    var (eAt, pAt) = Build57(-173.95 + curveMarginMid).BuildCdf();
+    var (eOver, pOver) = Build57(-173.95 + curveMarginMid + 0.1).BuildCdf();
+    bool shiftOk = curveMarginMid > 0.0 && LimitCurveRule.Scan(eAt, pAt, curve57, pts57) is null && LimitCurveRule.Scan(eOver, pOver, curve57, pts57) is not null;
+    bool underOk = ruleU && scanU is null && curveMarginU >= 0.0 && shiftOk;
+    // (c) the rule is named, with its tolerance.
+    bool named = LimitCurveRule.Name().Contains("0.05 dB") && LimitCurveRule.Name().Contains("limit curve");
+    Check("V57 verdict rule: a distribution clearing every tabulated point but crossing the log-linear curve between them FAILS, the array scan names the accumulator's own worst bin, the curve margin is negative and the rule margin never exceeds the point margin; one under the curve passes, and its curve margin is exactly the shift at which the curve is reached; the rule names its tolerance",
+        crossOk && sameBin && underOk && named,
+        string.Create(CultureInfo.InvariantCulture, $"cross: points={pointsPassC} rule={ruleC} scan={(scanC is null ? "none" : scanC.Text)} own={(ownC.HasValue ? ownC.Value.Epfd.ToString("F1", CultureInfo.InvariantCulture) : "none")} pointMargin={pointMarginC:+0.0;-0.0} curveMargin={curveMarginC:+0.0;-0.0}; under: rule={ruleU} scan={(scanU is null ? "none" : "crossing")} pointMargin={pointMarginU:+0.0;-0.0} curveMargin={curveMarginU:+0.0;-0.0} shiftTest={shiftOk} (curve margin mid-bin {curveMarginMid:+0.0;-0.0})"));
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
 

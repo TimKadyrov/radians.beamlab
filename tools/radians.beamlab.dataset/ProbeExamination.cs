@@ -29,7 +29,14 @@ public static class ProbeExamination
 
     /// <summary>One examination at one victim: the statistic, the verdict, the margin at every limit point, and the binned CDF behind them.</summary>
     public sealed record Verdict(double LatDeg, double MaxEpfdDb, double WorstMarginDb, bool Pass,
-        long QuietSteps, long Steps, double[] Epfd, double[] Pct, IReadOnlyList<PointMargin> Points);
+        long QuietSteps, long Steps, double[] Epfd, double[] Pct, IReadOnlyList<PointMargin> Points,
+        LimitCurveRule.Crossing Crossing, double CurveMarginDb)
+    {
+        /// <summary>The margin under the verdict rule: the smaller of the point-wise and the curve margin.</summary>
+        public double RuleMarginDb => Math.Min(WorstMarginDb, CurveMarginDb);
+        public string CurveMarginText => CurveMarginDb.ToString("+0.0;-0.0", System.Globalization.CultureInfo.InvariantCulture);
+        public string CrossingText => Crossing is null ? "none" : Crossing.Text;
+    }
 
     /// <summary>The Article 22 row a probe verdicts against.</summary>
     public sealed record LimitRow(string Label, double DishM, List<radlimits.LimitPoint> Points);
@@ -92,8 +99,14 @@ public static class ProbeExamination
             return new PointMargin(l.Perc, l.EPFD, measured, l.EPFD - measured);
         }).ToList();
         double worst = points.Min(pm => pm.MarginDb);
-        return new Verdict(victimLatDeg, res.MaxEpfdDb, worst, passResults.All(p => p),
-            res.QuietSteps, steps, epfd, pct, points);
+        // The verdict rule (LimitCurveRule): every tabulated point AND no crossing of the
+        // log-linear curve between them; the crossing and the curve margin are reported.
+        var curve = LimitCurveRule.Curve(lim.Points);
+        var crossing = LimitCurveRule.Scan(epfd, pct, curve, lim.Points);
+        double curveMargin = LimitCurveRule.CurveMarginDb(epfd, pct, curve, lim.Points);
+        bool pass = passResults.All(p => p) && res.Accumulator.FindWorstMaskViolation(lim.Points) is null;
+        return new Verdict(victimLatDeg, res.MaxEpfdDb, worst, pass,
+            res.QuietSteps, steps, epfd, pct, points, crossing, curveMargin);
     }
 
     // ---- composite reads ---------------------------------------------------------

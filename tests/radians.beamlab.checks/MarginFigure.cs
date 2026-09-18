@@ -209,7 +209,7 @@ internal static class MarginFigure
         WriteCdf(Path.Combine(outDir, $"margin{tag}.E2.csv"), epfdE2, pctE2);
 
         static bool Verdict(radcompute1503_2.EpfdAccumulator acc, List<radlimits.LimitPoint> lp)
-        { var (p, _) = acc.CompareWithLimits(lp); return p.All(x => x); }
+            => LimitCurveRule.Pass(acc, lp);   // the verdict rule: every tabulated point AND no crossing of the curve
         bool passT = Verdict(runT.Accumulator, limitPoints);
         bool passE1 = Verdict(runE1.Accumulator, limitPoints);
         bool passE2 = Verdict(runE2.Accumulator, limitPoints);
@@ -554,7 +554,7 @@ internal static class MarginFigure
         WriteCdf(Path.Combine(outDir, $"study{tag}.E2.csv"), eE2, pE2);
         WriteCdf(Path.Combine(outDir, $"study{tag}.E1fine.csv"), eE1f, pE1f);
         static bool Pass(radcompute1503_2.EpfdAccumulator a, List<radlimits.LimitPoint> lp)
-        { var (p, _) = a.CompareWithLimits(lp); return p.All(x => x); }
+            => LimitCurveRule.Pass(a, lp);   // the verdict rule: every tabulated point AND no crossing of the curve
 
         // ---- 4. The study document ---------------------------------------
         var sb = new StringBuilder();

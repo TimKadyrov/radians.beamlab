@@ -161,11 +161,11 @@ internal static class ComplianceLoop
         var col = new ProgressCollector(echo: true);
         var rows = ComplianceViewModel.RunSweep(sweep, prof.AlphaExclDeg, col);
         Console.WriteLine();
-        Console.WriteLine("lat | max epfd | worst margin | verdict | quiet steps");
+        Console.WriteLine("lat | max epfd | point margin | curve margin | verdict | quiet steps");
         foreach (var r in rows)
             Console.WriteLine(string.Create(inv,
-                $"{r.LatDeg,4:F0} | {r.MaxEpfdDb,9:F1} | {r.WorstMarginDb,+9:F1} | {(r.Pass ? "PASS" : "FAIL"),4} | {r.QuietSteps}"));
-        double worstAll = rows.Min(r => r.WorstMarginDb);
+                $"{r.LatDeg,4:F0} | {r.MaxEpfdDb,9:F1} | {r.WorstMarginDb,+9:F1} | {r.CurveMarginText,9} | {(r.Pass ? "PASS" : "FAIL"),4} | {r.QuietSteps}"));
+        double worstAll = rows.Min(r => r.RuleMarginDb);
         string headroom = prof.Down.FootprintSource != "mask" && double.IsFinite(worstAll)
             ? string.Create(inv, $" -- power headroom {worstAll:+0.0;-0.0} dB on per-beam TxEirpDbw (dB-for-dB)")
             : "";
@@ -374,12 +374,14 @@ internal static class ComplianceLoop
             + $"below is the worst over THESE latitudes; the sweep evaluates real victims at discrete "
             + $"points, so a finer grid can find worse between them -- carry the step with the figure."));
         sb.AppendLine();
-        sb.AppendLine("| latitude | max epfd (dB) | worst margin (dB) | deciding point (% of time) | verdict | quiet steps |");
-        sb.AppendLine("|---|---|---|---|---|---|");
+        sb.AppendLine("| latitude | max epfd (dB) | point margin (dB) | deciding point (% of time) | curve margin (dB) | curve crossing | verdict | quiet steps |");
+        sb.AppendLine("|---|---|---|---|---|---|---|---|");
         foreach (var r in rows)
-            sb.AppendLine(string.Create(inv, $"| {r.LatDeg:F0} | {r.MaxEpfdDb:F1} | {r.WorstMarginDb:+0.0;-0.0} | {r.DecidingText} | {(r.Pass ? "PASS" : "FAIL")} | {r.QuietSteps} |"));
+            sb.AppendLine(string.Create(inv, $"| {r.LatDeg:F0} | {r.MaxEpfdDb:F1} | {r.WorstMarginDb:+0.0;-0.0} | {r.DecidingText} | {r.CurveMarginText} | {r.CrossingText} | {(r.Pass ? "PASS" : "FAIL")} | {r.QuietSteps} |"));
         sb.AppendLine();
-        sb.AppendLine("The deciding point is the limit point at the worst margin: \"max\" is the maximum sample against the 0% row, which can only rise as the run lengthens; a percentage names a resolved percentile, which can move either way.");
+        sb.AppendLine(LimitCurveRule.Name());
+        sb.AppendLine();
+        sb.AppendLine("The deciding point is the limit point at the worst point margin: \"max\" is the maximum sample against the 0% row, which can only rise as the run lengthens; a percentage names a resolved percentile, which can move either way.");
         sb.AppendLine();
         sb.AppendLine("**" + ComplianceViewModel.SummarizeRows(rows) + headroom + "**");
         sb.AppendLine();
@@ -402,12 +404,14 @@ internal static class ComplianceLoop
                 + "mask and the derived R set instead. The gap is the margin the declaration gives away -- and, at "
                 + "the same dB-for-dB rate, the operating power the system could have been licensed for.");
             sb.AppendLine();
-            sb.AppendLine("| latitude | T margin (dB) | E1 margin (dB) | gap (dB) | deciding point T / E1 | E1 >= T |");
-            sb.AppendLine("|---|---|---|---|---|---|");
+            sb.AppendLine("| latitude | T margin (dB) | E1 margin (dB) | gap (dB) | deciding point T / E1 | curve margin T / E1 (dB) | E1 >= T |");
+            sb.AppendLine("|---|---|---|---|---|---|---|");
             for (int i = 0; i < rowsE1.Count; i++)
                 sb.AppendLine(string.Create(inv,
                     $"| {rows[i].LatDeg:F0} | {rows[i].WorstMarginDb:+0.0;-0.0} | {rowsE1[i].WorstMarginDb:+0.0;-0.0} | "
-                    + $"{rows[i].WorstMarginDb - rowsE1[i].WorstMarginDb:F1} | {rows[i].DecidingText} / {rowsE1[i].DecidingText} | {(rowsE1[i].WorstMarginDb <= rows[i].WorstMarginDb + 1e-9 ? "yes" : "**NO**")} |"));
+                    + $"{rows[i].WorstMarginDb - rowsE1[i].WorstMarginDb:F1} | {rows[i].DecidingText} / {rowsE1[i].DecidingText} | {rows[i].CurveMarginText} / {rowsE1[i].CurveMarginText} | {(rowsE1[i].WorstMarginDb <= rows[i].WorstMarginDb + 1e-9 ? "yes" : "**NO**")} |"));
+            sb.AppendLine();
+            sb.AppendLine("Margins and the gap in this table are point-wise; the curve margins beside them are the rule's second test.");
             sb.AppendLine();
             sb.AppendLine("**" + E1Summary(rows, rowsE1, inv) + "**");
         }
@@ -678,10 +682,12 @@ internal static class ComplianceLoop
         sb.AppendLine("- " + ComplianceViewModel.DescribeLimit(lim));
         sb.AppendLine(string.Create(inv, $"- sweep: lat {latFrom:F0}..{latTo:F0} step {latStep:F0}; {steps} steps of {stepSec:F0} s; floor {100.0 / steps:F3}%; wall clock {t0.Elapsed.TotalMinutes:F1} min"));
         sb.AppendLine();
-        sb.AppendLine("| latitude | max epfd (dB) | E1 margin (dB) | deciding point (% of time) | verdict |");
-        sb.AppendLine("|---|---|---|---|---|");
+        sb.AppendLine("| latitude | max epfd (dB) | E1 point margin (dB) | deciding point (% of time) | curve margin (dB) | curve crossing | verdict |");
+        sb.AppendLine("|---|---|---|---|---|---|---|");
         foreach (var r in rows)
-            sb.AppendLine(string.Create(inv, $"| {r.LatDeg:F0} | {r.MaxEpfdDb:F1} | {r.WorstMarginDb:+0.0;-0.0} | {r.DecidingText} | {(r.Pass ? "PASS" : "FAIL")} |"));
+            sb.AppendLine(string.Create(inv, $"| {r.LatDeg:F0} | {r.MaxEpfdDb:F1} | {r.WorstMarginDb:+0.0;-0.0} | {r.DecidingText} | {r.CurveMarginText} | {r.CrossingText} | {(r.Pass ? "PASS" : "FAIL")} |"));
+        sb.AppendLine();
+        sb.AppendLine(LimitCurveRule.Name());
         sb.AppendLine();
         MaskConsistency.AppendSection(sb, consistency, inv, "given R set");
         string outPath = Path.Combine(outDir, tag + ".md");

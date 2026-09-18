@@ -118,12 +118,21 @@ latitude as it starts and finishes (with its verdict and margin) and the fractio
 steps done within it; the advisors add one line per walk step, so a long run on a large
 constellation is never silent.</p>
 <div class="tech"><div class="t">Tech &middot; verdict and margin</div>
-<p>The verdict is the examination's own comparison: at every limit point, the simulated
-level exceeded for the allowed percentage of time must not pass the limit level
-(S.1503-4 &sect;D7.1.3, over the &sect;D7.1.2 CDF bins). The margin at one point is the
-limit epfd minus the measured epfd at that point's percentage; the row reports the minimum
-over the points &mdash; positive means room to spare, and the worst row is the binding
-latitude.</p></div>
+<p>The verdict follows the rule of the dataset design brief, <em>compliance against the
+Article&nbsp;22 limit curve</em>. Two tests, both required. At every tabulated limit point the
+simulated level exceeded for the allowed percentage of time must not pass the limit level
+(S.1503-4 &sect;D7.1.3, over the &sect;D7.1.2 CDF bins). And between the lowest and highest
+tabulated epfd the distribution must nowhere cross the limit <em>curve</em>, the log-linear
+interpolation of percentage between adjacent points, read with a tolerance of half a bin
+(0.05&nbsp;dB) towards lower epfd. The gaps between tabulated points are wide &mdash; 5.4 to
+34&nbsp;dB in Table&nbsp;22-1C &mdash; and a distribution can clear both ends of a gap and bulge
+above the curve inside it; the Bureau&rsquo;s reference implementation fails such a case, so the
+point-wise test alone is the lenient reading. Two margins are reported. The <strong>point
+margin</strong> is the limit epfd minus the measured epfd at each point&rsquo;s percentage,
+minimum over the points; the <strong>curve margin</strong> is the dB shift of the whole
+distribution that just clears the curve. The verdict&rsquo;s margin is the smaller of the two;
+positive means room to spare, and the worst row is the binding latitude. Every record names
+the rule and the tolerance it verdicts under.</p></div>
 
 <h2>The limits</h2>
 <p>The sweep verdicts against the limit points in the text box &mdash; one

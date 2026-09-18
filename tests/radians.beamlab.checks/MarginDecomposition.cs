@@ -182,6 +182,8 @@ internal static class MarginDecomposition
         sb.AppendLine();
         sb.AppendLine(string.Create(inv, $"System: {prof.Name}; {con.SatelliteCount} satellites. Declaration: `{Path.GetFileName(setPath)}` and `{Path.GetFileName(maskPath)}` ({ComplianceLoop.DescribeSet(declared, inv)}). Victim: earth station at longitude 0, GSO satellite at 10 E, {lim.DishM:F2} m S.1428 dish at {freqMhz / 1000.0:F2} GHz -- the row's own. Row: {lim.Label}. Depth: {steps} steps of {stepSec:F0} s ({days:F3} d), resolvable floor {100.0 / steps:F3}%."));
         sb.AppendLine();
+        sb.AppendLine("Margins in this record are point-wise (the limit minus the computed level at each tabulated percentage); no verdict is taken here, so the limit-curve rule's second test does not enter -- see the compliance records for verdicts under the rule.");
+        sb.AppendLine();
         sb.AppendLine("Quotability: the three runs share one comb, so their DIFFERENCES at matched depth are quotable without a pair (the rule of 7-8 September); the absolute levels at this depth are not converged where the records at 1.0 d say they are not, and are given for orientation only.");
         sb.AppendLine();
         sb.AppendLine("## Per latitude: worst margins and the components at the deciding point");

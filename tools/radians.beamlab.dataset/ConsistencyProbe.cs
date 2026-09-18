@@ -105,10 +105,10 @@ public static class ConsistencyProbe
         cs.AppendLine("# epfd(down) examination (S.1503-4 D5.1.4.1) over the saturated masks 14-16 under set 30, per victim latitude, ES lon 0, GSO 10 E; the row's own reference dish.");
         cs.AppendLine("# " + lim.Label);
         cs.AppendLine(string.Create(inv, $"# depth {step:F0} s x {steps} steps; half = the first {half} steps (extension pair); control = the family's boresight-gated masks 2-4 at the same payload offset."));
-        cs.AppendLine("lat_deg,max_epfd_db,worst_margin_db,pass," + string.Join(",", lim.Points.Select(p => string.Create(inv, $"margin_at_{p.Perc:G4}pct_db")))
+        cs.AppendLine("lat_deg,max_epfd_db,worst_margin_db,curve_margin_db,pass," + string.Join(",", lim.Points.Select(p => string.Create(inv, $"margin_at_{p.Perc:G4}pct_db")))
             + ",half_worst_margin_db,control_max_epfd_db,control_worst_margin_db,control_pass");
         foreach (var (lat, v, h, c) in rows)
-            cs.AppendLine(string.Create(inv, $"{lat:F0},{v.MaxEpfdDb:F2},{v.WorstMarginDb:F2},{(v.Pass ? 1 : 0)},")
+            cs.AppendLine(string.Create(inv, $"{lat:F0},{v.MaxEpfdDb:F2},{v.WorstMarginDb:F2},{v.CurveMarginDb:F2},{(v.Pass ? 1 : 0)},")
                 + string.Join(",", v.Points.Select(p => p.MarginDb.ToString("F2", inv)))
                 + string.Create(inv, $",{h.WorstMarginDb:F2},{c.MaxEpfdDb:F2},{c.WorstMarginDb:F2},{(c.Pass ? 1 : 0)}"));
         File.WriteAllText(csv, cs.ToString(), Utf8NoBom);
@@ -151,15 +151,15 @@ public static class ConsistencyProbe
         sb.AppendLine();
         sb.AppendLine(string.Create(inv, $"The epfd(down) examination (Sec. D5.1.4.1) of the pair at seven victims -- earth stations at 0 to 60 N in 10-degree steps, longitude {F(EsLonDeg)}, wanted GSO satellite at {F(GsoLonDeg)} E, the limit row's own dish -- against the row's points. Beside it, the control: the same set 30 examined against the family's own D2 masks (2, 3, 4: composed with no exclusion gate, as the family declares none, and the 10-degree elevation floor on the beams' boresights) shifted to the same payload level, so that the only difference between the two columns is the elevation floor the control masks were composed under."));
         sb.AppendLine();
-        sb.AppendLine("| victim | max epfd (dB(W/m2) in 40 kHz) | worst margin (dB) | verdict | margin per limit point: " + string.Join(" / ", lim.Points.Select(p => string.Create(inv, $"{p.Perc:G4}%"))) + " | 24 h prefix: worst margin | moved (dB) | control: max epfd | control: worst margin | control verdict |");
+        sb.AppendLine("| victim | max epfd (dB(W/m2) in 40 kHz) | point margin (dB) | curve margin (dB) | verdict | margin per limit point: " + string.Join(" / ", lim.Points.Select(p => string.Create(inv, $"{p.Perc:G4}%"))) + " | 24 h prefix: worst margin | moved (dB) | control: max epfd | control: worst margin | control verdict |");
         sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|");
         foreach (var (lat, v, h, c) in rows)
-            sb.AppendLine(string.Create(inv, $"| {lat:F0} N | {v.MaxEpfdDb:F2} | {v.WorstMarginDb:+0.0;-0.0;0.0} | {Word(v.Pass)} | ")
+            sb.AppendLine(string.Create(inv, $"| {lat:F0} N | {v.MaxEpfdDb:F2} | {v.WorstMarginDb:+0.0;-0.0;0.0} | {v.CurveMarginText} | {Word(v.Pass)} | ")
                 + string.Join(" / ", v.Points.Select(p => p.MarginDb.ToString("+0.0;-0.0;0.0", inv)))
                 + string.Create(inv, $" | {h.WorstMarginDb:+0.0;-0.0;0.0} | {v.WorstMarginDb - h.WorstMarginDb:+0.0;-0.0;0.0} | {c.MaxEpfdDb:F2} | {c.WorstMarginDb:+0.0;-0.0;0.0} | {Word(c.Pass)} |"));
         sb.AppendLine();
         int failing = rows.Count(r => !r.Sat.Pass);
-        var worstRow = rows.OrderBy(r => r.Sat.WorstMarginDb).First();
+        var worstRow = rows.OrderBy(r => r.Sat.RuleMarginDb).First();
         var bindingPoint = worstRow.Sat.Points.OrderBy(p => p.MarginDb).First();
         double maxDelta = rows.Max(r => r.Sat.MaxEpfdDb - r.Ctl.MaxEpfdDb);
         double minDelta = rows.Min(r => r.Sat.MaxEpfdDb - r.Ctl.MaxEpfdDb);
@@ -176,6 +176,8 @@ public static class ConsistencyProbe
             + (moving.Count > 0 ? " It moved more than 0.5 dB at " + string.Join(", ", moving.Select(r => string.Create(inv, $"{r.Lat:F0} N ({r.Sat.WorstMarginDb - r.SatHalf.WorstMarginDb:+0.0;-0.0} dB)"))) + ": there the binding point is the short-term end of the row, a single-event statistic set by the closest main-beam pass of the run, which converges slowly by nature; those margins are provisional, the verdict is not." : ""));
         sb.AppendLine();
         sb.AppendLine("Margins are quotable to the tolerance of the pair column (the 24 h run is the first half of the 48 h run: an extension pair, not an independent draw). The examination CDF at " + string.Create(inv, $"{FamilyVictimLatDeg:F0}") + " N under the saturated masks is written beside this record (" + Path.GetFileName(cdf) + "); the per-victim table with every limit point and the control is in " + Path.GetFileName(csv) + ". No truth curve accompanies this case: the pair does not describe one system.");
+        sb.AppendLine();
+        sb.AppendLine(LimitCurveRule.Name());
         sb.AppendLine();
         sb.AppendLine("Limit row (from the BR limits database, the same choice the compliance loop makes: the plain FSS row with the smallest reference dish): " + lim.Label + ". Points: " + string.Join("; ", lim.Points.Select(p => string.Create(inv, $"{p.EPFD:F1} dB(W/m2) in 40 kHz for {p.Perc:G4}% of time"))) + ". Worst margin = the minimum over the points of (limit epfd minus the epfd exceeded for at most the point's percentage), in the examination's 0.1 dB bins; positive is room to spare.");
         sb.AppendLine();
@@ -253,7 +255,7 @@ public static class ConsistencyProbe
         var sb = new StringBuilder();
         sb.AppendLine("# epfd(down) CDF -- the EXAMINATION (S.1503-4 D5.1.4.1 over the saturated masks and the declared set) at the victim, D7.1.2 bins (0.1 dB).");
         sb.AppendLine(string.Create(inv, $"# band={set.LowFreqMhz}-{set.HighFreqMhz} MHz  victim ES lat={lat:F0} lon={EsLonDeg:F0}, GSO lon={GsoLonDeg:F0}, dish {lim.DishM:F2} m (the limit row's)"));
-        sb.AppendLine(string.Create(inv, $"# steps={v.Steps}  quiet_steps={v.QuietSteps}  max_epfd_db={v.MaxEpfdDb:F3}  worst_margin_db={v.WorstMarginDb:F2}  verdict={Word(v.Pass)}"));
+        sb.AppendLine(string.Create(inv, $"# steps={v.Steps}  quiet_steps={v.QuietSteps}  max_epfd_db={v.MaxEpfdDb:F3}  worst_margin_db={v.WorstMarginDb:F2}  curve_margin_db={v.CurveMarginDb:F2}  verdict={Word(v.Pass)}  rule=limit-curve(tol 0.05 dB)"));
         sb.AppendLine("epfd_dbw_m2_40khz,percent_time_exceeded");
         int first = Array.FindIndex(v.Pct, p => p < 100.0);
         int last = Array.FindLastIndex(v.Pct, p => p > 0.0);

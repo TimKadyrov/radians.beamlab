@@ -57,8 +57,12 @@ public static class ReadRuleProbes
     public static readonly double[] R3StepsDeg = { 10.0, 5.0, 2.0, 1.0 };
 
     /// <summary>The probe masks: mask 1's construction with a rule notch on the alpha axis and a power offset that puts the body of the CDF at the limit.</summary>
-    public static DatasetGenerator.ProbeMaskSpec MaskSpecR1 => new(GateAlphaDeg: 8.0, MinElevDeg: 10.0, TxDeltaDb: -35.5, NotchAlphaDeg: 8.0, BStepDeg: 2.0);
-    public static DatasetGenerator.ProbeMaskSpec MaskSpecR2 => new(GateAlphaDeg: 6.0, MinElevDeg: 10.0, TxDeltaDb: -40.6, NotchAlphaDeg: 6.0, BStepDeg: 2.0);
+    // Power offsets re-tuned 2026-09-18 for the limit-curve verdict rule (measured by probescan
+    // at 48 h; margins move dB for dB with the offset): R1 -35.5 -> -37.0 so the correct read
+    // clears the curve at 35 N (+0.9 dB rule margin) while every wrong read still fails at both
+    // victims; R2 -40.6 -> -42.1 so every read passes under the rule (+0.6 dB or more).
+    public static DatasetGenerator.ProbeMaskSpec MaskSpecR1 => new(GateAlphaDeg: 8.0, MinElevDeg: 10.0, TxDeltaDb: -37.0, NotchAlphaDeg: 8.0, BStepDeg: 2.0);
+    public static DatasetGenerator.ProbeMaskSpec MaskSpecR2 => new(GateAlphaDeg: 6.0, MinElevDeg: 10.0, TxDeltaDb: -42.1, NotchAlphaDeg: 6.0, BStepDeg: 2.0);
     public static DatasetGenerator.ProbeMaskSpec MaskSpecR3 => new(GateAlphaDeg: 8.0, MinElevDeg: 10.0, TxDeltaDb: -43.2, NotchAlphaDeg: 8.0, BStepDeg: 2.0);
 
     /// <summary>Victim geometry shared with the family: earth station at longitude 0, wanted GSO satellite at 10 E.</summary>
@@ -196,11 +200,11 @@ public static class ReadRuleProbes
         sb.AppendLine();
         sb.AppendLine("The correct read (S.1503-4 Sec. D5.1.5 step 1; design brief Sec. 3.8 and 3.9): a MIN_ELEV row governs the half-step band either side of it, so the victim at " + F(NearestVictimsDeg[0]) + " N reads the " + F(RowLoLatDeg) + " N row and the victim at " + F(NearestVictimsDeg[1]) + " N reads the " + F(RowHiLatDeg) + " N row. Three wrong reads are measured beside it: linear interpolation between the rows, a point read that finds no row at the victim's own latitude (and therefore nothing declared: 0 deg), and the other row.");
         sb.AppendLine();
-        sb.AppendLine("| victim | read | min_elev used (deg) | max epfd (dB(W/m2) in 40 kHz) | worst margin (dB) | verdict | 24 h prefix: margin | moved (dB) |");
+        sb.AppendLine("| victim | read | min_elev used (deg) | max epfd (dB(W/m2) in 40 kHz) | point margin (dB) | curve margin (dB) | verdict | 24 h prefix: margin | moved (dB) |");
         sb.AppendLine("|---|---|---|---|---|---|---|---|");
         foreach (var (lat, reads) in rows)
             foreach (var r in reads)
-                sb.AppendLine(string.Create(inv, $"| {LatText(lat)} | {r.Label} | {r.ValueText} | {r.Full.MaxEpfdDb:F2} | {r.Full.WorstMarginDb:+0.0;-0.0;0.0} | {Word(r.Full.Pass)} | {r.Half.WorstMarginDb:+0.0;-0.0;0.0} | {r.Full.WorstMarginDb - r.Half.WorstMarginDb:+0.0;-0.0;0.0} |"));
+                sb.AppendLine(string.Create(inv, $"| {LatText(lat)} | {r.Label} | {r.ValueText} | {r.Full.MaxEpfdDb:F2} | {r.Full.WorstMarginDb:+0.0;-0.0;0.0} | {r.Full.CurveMarginText} | {Word(r.Full.Pass)} | {r.Half.WorstMarginDb:+0.0;-0.0;0.0} | {r.Full.WorstMarginDb - r.Half.WorstMarginDb:+0.0;-0.0;0.0} |"));
         sb.AppendLine();
         var v25 = rows[0].Reads[0].Full; var v35 = rows[1].Reads[0].Full;
         string headline = string.Create(inv, $"correct read: {Word(v25.Pass)} at {LatText(rows[0].Lat)} ({v25.WorstMarginDb:+0.0;-0.0} dB), {Word(v35.Pass)} at {LatText(rows[1].Lat)} ({v35.WorstMarginDb:+0.0;-0.0} dB)");
@@ -265,11 +269,11 @@ public static class ReadRuleProbes
         sb.AppendLine();
         sb.AppendLine("MEASURED FINDING -- the examination's verdict does NOT discriminate this read on this family. The epfd(down) examination (Sec. D5.1.4.1) removes satellites inside the exclusion zone from the operating population but counts them regardless when they sit in the earth station's main beam (Step 22, threshold min(Gmax - 30 dB, Grx(alpha0))), and elsewhere the removed satellites are replaced by others of like receive gain under the MAX_CO_FREQ pick. The table below measures every read at every victim: the margins differ by at most " + string.Create(inv, $"{spread:F1}") + " dB across reads, all within the same verdict. The discriminator of this probe is therefore the RESOLVED VALUE: a consumer is expected to report the exclusion angle it applies at each victim (its Sec. 6.7.2.2 resolution layer) and to match the second column above; its verdict is expected to be PASS at every victim whatever it resolves. A verdict-keyed interpolation probe would need a direction in which the resolved exclusion angle steers the geometry -- the epfd(up) examination, where earth stations point at satellites outside the zone -- which this producer does not emit.");
         sb.AppendLine();
-        sb.AppendLine("| victim | read | alpha0 used (deg) | max epfd (dB(W/m2) in 40 kHz) | worst margin (dB) | verdict | 24 h prefix: margin | moved (dB) |");
+        sb.AppendLine("| victim | read | alpha0 used (deg) | max epfd (dB(W/m2) in 40 kHz) | point margin (dB) | curve margin (dB) | verdict | 24 h prefix: margin | moved (dB) |");
         sb.AppendLine("|---|---|---|---|---|---|---|---|");
         foreach (var (lat, _, reads) in rows)
             foreach (var r in reads)
-                sb.AppendLine(string.Create(inv, $"| {LatText(lat)} | {r.Label} | {r.ValueText} | {r.Full.MaxEpfdDb:F2} | {r.Full.WorstMarginDb:+0.0;-0.0;0.0} | {Word(r.Full.Pass)} | {r.Half.WorstMarginDb:+0.0;-0.0;0.0} | {r.Full.WorstMarginDb - r.Half.WorstMarginDb:+0.0;-0.0;0.0} |"));
+                sb.AppendLine(string.Create(inv, $"| {LatText(lat)} | {r.Label} | {r.ValueText} | {r.Full.MaxEpfdDb:F2} | {r.Full.WorstMarginDb:+0.0;-0.0;0.0} | {r.Full.CurveMarginText} | {Word(r.Full.Pass)} | {r.Half.WorstMarginDb:+0.0;-0.0;0.0} | {r.Full.WorstMarginDb - r.Half.WorstMarginDb:+0.0;-0.0;0.0} |"));
         sb.AppendLine();
         var mid = rows.First(r => r.Lat == 30.0);
         string headline = string.Create(inv, $"resolved 8/10/12 deg at 25/30/35 N; verdict {Word(mid.Reads[0].Full.Pass)} under every read (spread {spread:F1} dB)");
@@ -307,9 +311,9 @@ public static class ReadRuleProbes
         cs.AppendLine("# epfd(down) examination (S.1503-4 D5.1.4.1) per victim latitude, ES lon 0, GSO 10 E; the row's own reference dish.");
         cs.AppendLine("# " + lim.Label);
         cs.AppendLine(string.Create(inv, $"# depth {step:F0} s x {steps} steps; the 24 h columns are the first half of the run (extension pair)."));
-        cs.AppendLine("lat_deg,max_co_freq_read,max_epfd_db,worst_margin_db,pass,quiet_steps,half_worst_margin_db,half_pass");
+        cs.AppendLine("lat_deg,max_co_freq_read,max_epfd_db,worst_margin_db,curve_margin_db,pass,quiet_steps,half_worst_margin_db,half_pass");
         foreach (var (lat, nco, full, h) in table)
-            cs.AppendLine(string.Create(inv, $"{lat:F0},{nco},{full.MaxEpfdDb:F2},{full.WorstMarginDb:F2},{(full.Pass ? 1 : 0)},{full.QuietSteps},{h.WorstMarginDb:F2},{(h.Pass ? 1 : 0)}"));
+            cs.AppendLine(string.Create(inv, $"{lat:F0},{nco},{full.MaxEpfdDb:F2},{full.WorstMarginDb:F2},{full.CurveMarginDb:F2},{(full.Pass ? 1 : 0)},{full.QuietSteps},{h.WorstMarginDb:F2},{(h.Pass ? 1 : 0)}"));
         File.WriteAllText(csv, cs.ToString(), Utf8NoBom);
 
         var sb = new StringBuilder();
@@ -319,16 +323,16 @@ public static class ReadRuleProbes
         sb.AppendLine();
         sb.AppendLine("The worst victim therefore lies between the 10-degree sweep points. A consumer quoting a gridless \"worst margin\" fails this expectation; the quotable statement is the worst margin AT A NAMED SWEEP STEP, and it is listed here for the steps below. The whole examination is measured at every whole degree of latitude from 70 S to 70 N (expected/sweep_margins.csv) so any grid that is a subset of the 1-degree grid can be looked up.");
         sb.AppendLine();
-        sb.AppendLine("| sweep step (deg) | victims | worst margin (dB) | at latitude | sweep verdict | 24 h prefix: worst margin | moved (dB) |");
+        sb.AppendLine("| sweep step (deg) | victims | worst point margin (dB) | curve margin there (dB) | at latitude | sweep verdict | 24 h prefix: worst margin | moved (dB) |");
         sb.AppendLine("|---|---|---|---|---|---|---|");
         var lines = new List<string>();
         foreach (double s in R3StepsDeg)
         {
             var grid = table.Where(t => Math.Abs(t.Lat / s - Math.Round(t.Lat / s)) < 1e-9).ToList();
-            var worst = grid.OrderBy(t => t.Full.WorstMarginDb).First();
-            var worstH = grid.OrderBy(t => t.Half.WorstMarginDb).First();
+            var worst = grid.OrderBy(t => t.Full.RuleMarginDb).First();
+            var worstH = grid.OrderBy(t => t.Half.RuleMarginDb).First();
             bool sweepPass = grid.All(t => t.Full.Pass);
-            sb.AppendLine(string.Create(inv, $"| {s:F0} | {grid.Count} | {worst.Full.WorstMarginDb:+0.0;-0.0;0.0} | {LatText(worst.Lat)} | {(sweepPass ? "COMPLIANT" : "EXCEEDED")} | {worstH.Half.WorstMarginDb:+0.0;-0.0;0.0} | {worst.Full.WorstMarginDb - worstH.Half.WorstMarginDb:+0.0;-0.0;0.0} |"));
+            sb.AppendLine(string.Create(inv, $"| {s:F0} | {grid.Count} | {worst.Full.WorstMarginDb:+0.0;-0.0;0.0} | {worst.Full.CurveMarginText} | {LatText(worst.Lat)} | {(sweepPass ? "COMPLIANT" : "EXCEEDED")} | {worstH.Half.WorstMarginDb:+0.0;-0.0;0.0} | {worst.Full.WorstMarginDb - worstH.Half.WorstMarginDb:+0.0;-0.0;0.0} |"));
             lines.Add(string.Create(inv, $"{s:F0} deg: {worst.Full.WorstMarginDb:+0.0;-0.0} at {LatText(worst.Lat)} {(sweepPass ? "COMPLIANT" : "EXCEEDED")}"));
         }
         sb.AppendLine();
@@ -347,6 +351,8 @@ public static class ReadRuleProbes
         DatasetGenerator.ProbeMaskSpec spec, bool quick, string provenance, CultureInfo inv, string maskText)
     {
         var (step, steps, half) = Depth(quick);
+        sb.AppendLine(LimitCurveRule.Name());
+        sb.AppendLine();
         sb.AppendLine("Limit row (from the BR limits database, the same choice the compliance loop makes: the plain FSS row with the smallest reference dish): " + lim.Label + ". Points: " + string.Join("; ", lim.Points.Select(p => string.Create(inv, $"{p.EPFD:F1} dB(W/m2) in 40 kHz for {p.Perc:G4}% of time"))) + ". Worst margin = the minimum over the points of (limit epfd minus the epfd exceeded for at most the point's percentage), in the examination's 0.1 dB bins; positive is room to spare.");
         sb.AppendLine();
         sb.AppendLine(string.Create(inv, $"Depth: {step:F0} s steps x {steps} = {step * steps / 3600.0:F0} h, and the {step * half / 3600.0:F0} h prefix as the extension pair.{(quick ? " QUICK profile: structure verification only, the numbers are not delivery numbers." : "")}"));
@@ -365,7 +371,7 @@ public static class ReadRuleProbes
         var sb = new StringBuilder();
         sb.AppendLine("# epfd(down) CDF -- the EXAMINATION (S.1503-4 D5.1.4.1 over the declared mask and set) at the victim, D7.1.2 bins (0.1 dB).");
         sb.AppendLine(string.Create(inv, $"# band={set.LowFreqMhz}-{set.HighFreqMhz} MHz  victim ES lat={lat:F0} lon={EsLonDeg:F0}, GSO lon={GsoLonDeg:F0}, dish {lim.DishM:F2} m (the limit row's)  {readText}"));
-        sb.AppendLine(string.Create(inv, $"# steps={v.Steps}  quiet_steps={v.QuietSteps}  max_epfd_db={v.MaxEpfdDb:F3}  worst_margin_db={v.WorstMarginDb:F2}  verdict={Word(v.Pass)}"));
+        sb.AppendLine(string.Create(inv, $"# steps={v.Steps}  quiet_steps={v.QuietSteps}  max_epfd_db={v.MaxEpfdDb:F3}  worst_margin_db={v.WorstMarginDb:F2}  curve_margin_db={v.CurveMarginDb:F2}  verdict={Word(v.Pass)}  rule=limit-curve(tol 0.05 dB)"));
         sb.AppendLine("epfd_dbw_m2_40khz,percent_time_exceeded");
         int first = Array.FindIndex(v.Pct, p => p < 100.0);
         int last = Array.FindLastIndex(v.Pct, p => p > 0.0);

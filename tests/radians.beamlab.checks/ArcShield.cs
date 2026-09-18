@@ -118,9 +118,9 @@ internal static class ArcShield
                     cells.Add(new Cell(lat, full, h));
                 }
                 results[(ri, sys.Notch)] = cells;
-                var worst = cells.OrderBy(c => c.Full.WorstMarginDb).First();
+                var worst = cells.OrderBy(c => c.Full.RuleMarginDb).First();
                 Console.WriteLine(string.Create(inv,
-                    $"  {row.DishM,4:F2} m {row.RefBwKHz,5:F0} kHz | notch {sys.Notch,2:F0} | worst {worst.Full.WorstMarginDb,6:+0.0;-0.0} dB at {worst.Lat:F0} N ({worst.Full.Points.OrderBy(p => p.MarginDb).First().Perc:G4}% point) | prefix {worst.Half.WorstMarginDb,6:+0.0;-0.0}"));
+                    $"  {row.DishM,4:F2} m {row.RefBwKHz,5:F0} kHz | notch {sys.Notch,2:F0} | worst {worst.Full.RuleMarginDb,6:+0.0;-0.0} dB at {worst.Lat:F0} N ({worst.Full.Points.OrderBy(p => p.MarginDb).First().Perc:G4}% point) | prefix {worst.Half.RuleMarginDb,6:+0.0;-0.0}"));
             }
         }
 
@@ -153,22 +153,24 @@ internal static class ArcShield
         sb.AppendLine();
         sb.AppendLine("For each row: the worst margin over the victims of each system at the common payload, the victim and the binding point, the prefix's figure and how far it moved; then the DAYLIGHT -- the protecting system's worst margin minus the non-protecting system's, which is what protecting the arc is worth at the deciding point, independent of the payload level -- and the payload at which the protecting system would just clear the row, with the non-protecting system's margin at that same payload.");
         sb.AppendLine();
-        sb.AppendLine("| row | system | worst margin (dB) | at | binding point | prefix (24 h) | moved | daylight vs no notch (dB) | boresight pfd at which this system just clears, dB(W/(m2 MHz)) | non-protector at the protector's clearing level (dB) |");
+        sb.AppendLine(LimitCurveRule.Name());
+        sb.AppendLine();
+        sb.AppendLine("| row | system | worst rule margin (dB) | at | binding point | prefix (24 h) | moved | daylight vs no notch (dB) | boresight pfd at which this system just clears, dB(W/(m2 MHz)) | non-protector at the protector's clearing level (dB) |");
         sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|");
         foreach (var (ri, row) in rows.Select((r, i) => (i, r)))
         {
             var noNotch = results[(ri, notches.Min())];
-            double worstNo = noNotch.Min(c => c.Full.WorstMarginDb);
+            double worstNo = noNotch.Min(c => c.Full.RuleMarginDb);
             foreach (var sys in systems)
             {
                 var cells = results[(ri, sys.Notch)];
-                var w = cells.OrderBy(c => c.Full.WorstMarginDb).First();
+                var w = cells.OrderBy(c => c.Full.RuleMarginDb).First();
                 double bind = w.Full.Points.OrderBy(p => p.MarginDb).First().Perc;
-                string daylight = sys.Notch > 0 ? string.Create(inv, $"{w.Full.WorstMarginDb - worstNo:+0.0;-0.0}") : "-";
+                string daylight = sys.Notch > 0 ? string.Create(inv, $"{w.Full.RuleMarginDb - worstNo:+0.0;-0.0}") : "-";
                 // Margins move dB for dB with the payload: the system just clears the row when its peak is lowered by the (negative) worst margin, i.e. peak + margin; stated per MHz (flat spectrum, +13.98 dB on the 40 kHz mask).
-                string clear = string.Create(inv, $"{sys.Peak40 + 13.98 + w.Full.WorstMarginDb:F1}");
-                string nonAt = sys.Notch > 0 ? string.Create(inv, $"{worstNo - w.Full.WorstMarginDb:+0.0;-0.0} ({(worstNo - w.Full.WorstMarginDb < 0 ? "FAIL" : "PASS")})") : "-";
-                sb.AppendLine(string.Create(inv, $"| {row.DishM:F2} m, {row.RefBwKHz:F0} kHz | notch {sys.Notch:F0} | {w.Full.WorstMarginDb:+0.0;-0.0} | {w.Lat:F0} N | {bind:G4}% | {w.Half.WorstMarginDb:+0.0;-0.0} | {w.Full.WorstMarginDb - w.Half.WorstMarginDb:+0.0;-0.0} | {daylight} | {clear} | {nonAt} |"));
+                string clear = string.Create(inv, $"{sys.Peak40 + 13.98 + w.Full.RuleMarginDb:F1}");
+                string nonAt = sys.Notch > 0 ? string.Create(inv, $"{worstNo - w.Full.RuleMarginDb:+0.0;-0.0} ({(worstNo - w.Full.RuleMarginDb < 0 ? "FAIL" : "PASS")})") : "-";
+                sb.AppendLine(string.Create(inv, $"| {row.DishM:F2} m, {row.RefBwKHz:F0} kHz | notch {sys.Notch:F0} | {w.Full.RuleMarginDb:+0.0;-0.0} | {w.Lat:F0} N | {bind:G4}% | {w.Half.RuleMarginDb:+0.0;-0.0} | {w.Full.RuleMarginDb - w.Half.RuleMarginDb:+0.0;-0.0} | {daylight} | {clear} | {nonAt} |"));
             }
         }
         sb.AppendLine();
@@ -185,7 +187,7 @@ internal static class ArcShield
                 var parts = systems.Select(s =>
                 {
                     var c = results[(ri, s.Notch)].First(x => x.Lat == lat);
-                    return string.Create(inv, $"{c.Full.WorstMarginDb:+0.0;-0.0} / {c.Full.Points.OrderBy(p => p.MarginDb).First().Perc:G4}%");
+                    return string.Create(inv, $"{c.Full.RuleMarginDb:+0.0;-0.0} / {c.Full.Points.OrderBy(p => p.MarginDb).First().Perc:G4}%");
                 });
                 sb.AppendLine(string.Create(inv, $"| {lat:F0} N | ") + string.Join(" | ", parts) + " |");
             }
@@ -215,17 +217,17 @@ internal static class ArcShield
         var row70 = rows.Select((r, i) => (r, i)).FirstOrDefault(x => Math.Abs(x.r.RefBwKHz - 40.0) < 1e-6);
         if (row70.r is not null)
         {
-            double wNo = results[(row70.i, notches.Min())].Min(c => c.Full.WorstMarginDb);
+            double wNo = results[(row70.i, notches.Min())].Min(c => c.Full.RuleMarginDb);
             foreach (var sys in systems.Where(s => s.Notch > 0))
             {
-                double wP = results[(row70.i, sys.Notch)].Min(c => c.Full.WorstMarginDb);
+                double wP = results[(row70.i, sys.Notch)].Min(c => c.Full.RuleMarginDb);
                 sb.AppendLine(string.Create(inv, $"- {row70.r.Label}: protecting the arc with a {sys.Notch:F0} deg zone is worth {wP - wNo:+0.0;-0.0} dB at the deciding point. At the payload where that system just clears the row, the system that does not protect the arc sits at {wNo - wP:+0.0;-0.0} dB: {(wNo - wP < 0 ? "it fails" : "it passes too, and the row does not discriminate")}."));
             }
         }
         var worstLats = systems.Where(sy => sy.Notch > 0).Select(sy =>
         {
-            var w = results[(row70.i, sy.Notch)].OrderBy(c => c.Full.WorstMarginDb).First();
-            return string.Create(inv, $"notch {sy.Notch:F0} at {w.Lat:F0} N ({w.Full.WorstMarginDb:+0.0;-0.0} dB)");
+            var w = results[(row70.i, sy.Notch)].OrderBy(c => c.Full.RuleMarginDb).First();
+            return string.Create(inv, $"notch {sy.Notch:F0} at {w.Lat:F0} N ({w.Full.RuleMarginDb:+0.0;-0.0} dB)");
         }).ToList();
         if (row70.r is not null && worstLats.Count > 0)
             sb.AppendLine("- Latitude: the protectors' worst victims on the " + row70.r.Label.Split(" -- ")[0] + " row are " + string.Join(", ", worstLats) + ". The mechanism is general high-latitude geometry, not a property of one system: the arc sits low from a high-latitude earth station, so a zone about it removes little of the sky, and an inclined shell's sub-satellite density peaks near its inclination latitude, so more and closer satellites are in view there. The magnitude depends on the shell's inclination and satellite count -- the same reading of a filed 1 600-satellite system at 53 deg inclination gave 12.7 dB at 60 N against 8.5-9.9 dB at 0-50 N -- so a criterion of this kind bites hardest at latitudes near the interferer's inclination, which an operator serving those latitudes may not be able to meet by arc protection alone; Article 22 itself grades its further limits by latitude above 57.5 deg (No. 22.5C.4).");

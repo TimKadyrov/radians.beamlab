@@ -1285,13 +1285,13 @@ public static class DatasetGenerator
                 READ-RULE PROBE, NEAREST ROW (design brief section 3.9). Downlink 19.7-20.2 GHz.
                 - pfd mask 11, alpha/DeltaLongitude form: mask 1's construction with the declared
                   exclusion zone written into the alpha axis as a -1000 notch (8 deg) and the
-                  payload 35.5 dB below mask 1's, so the BODY of the CDF sits at the limit and the
+                  payload 37.0 dB below mask 1's, so the BODY of the CDF sits at the limit and the
                   main-beam pass (which no read rule touches) does not decide the verdict.
                 - Operating-parameter set 27: MIN_ELEV in two rows with different values (10 deg
                   at 20 N, 55 deg at 40 N); MAX_CO_FREQ 3 and MIN_EXCLUDE 8 deg as single rows.
                 - expected/read-rule-probe.md: the verdicts at the victims 25 N and 35 N -- half a
                   10-degree sweep step either side of the midpoint between the rows -- under the
-                  nearest-row read (they differ: FAIL at 25 N, PASS at 35 N), beside what
+                  nearest-row read and the limit-curve verdict rule (they differ: FAIL at 25 N, PASS at 35 N), beside what
                   interpolation, a point read and the other row would give; the 24 h / 48 h
                   extension pair; the limit row; the artefacts' SHA-256. expected/
                   examination_lat25_cdf.csv and _lat35_: the examination CDFs under the correct read.
@@ -1299,7 +1299,7 @@ public static class DatasetGenerator
             "BL-R2" => """
                 READ-RULE PROBE, LINEAR INTERPOLATION (design brief section 3.9). Downlink 19.7-20.2 GHz.
                 - pfd mask 12: mask 1's construction with a 6 deg -1000 notch on the alpha axis (the
-                  smaller row's value) and the payload 40.6 dB below mask 1's.
+                  smaller row's value) and the payload 42.1 dB below mask 1's.
                 - Operating-parameter set 28: all-orbits MIN_EXCLUDE in two rows (6 deg at 20 N,
                   14 deg at 40 N), so the interpolated values at 25/30/35 N are 8/10/12 deg and
                   differ from both rows; MIN_ELEV 10 deg and MAX_CO_FREQ 1 as single rows.
@@ -1367,7 +1367,7 @@ public static class DatasetGenerator
             simulated CDFs for the case's directions -- epfd(down), epfd(up) and
             epfd(is) -- in the examination's own 0.1 dB bins.
 
-            Generation profile of this copy: {profile}. Emission: {Provenance.Line(o.Quick)}
+            Generation profile of this copy: {profile}. Emission: {Provenance.Line(o.Quick)}{(o.OnlyCase is null ? "" : " -- this run emitted case " + o.OnlyCase + " only; every other case keeps the stamp in its own expected/provenance.md")}
 
             Each case is a frozen, version-stamped triple: the notice (SRS.MDB), the masks
             (Masks.MDB with the XML sources) and the expectation records. Its

@@ -27,6 +27,27 @@ public sealed record ComplianceRow(double LatDeg, double MaxEpfdDb, double Worst
         : DecidingPercent <= 0.0 ? "max"
         : DecidingPercent.ToString("G4", CultureInfo.InvariantCulture) + "%";
 
+    /// <summary>
+    /// The worst crossing of the limit curve between the tabulated points --
+    /// the rule's second test (<see cref="LimitCurveRule"/>); null when the
+    /// distribution clears the curve everywhere.
+    /// </summary>
+    public LimitCurveRule.Crossing? CurveCrossing { get; init; }
+
+    /// <summary>
+    /// The curve margin: the dB shift of the whole distribution that just
+    /// clears the curve, negative when it crosses as it stands. NaN when no
+    /// limit was compared.
+    /// </summary>
+    public double CurveMarginDb { get; init; } = double.NaN;
+
+    /// <summary>The margin under the rule: the smaller of the point-wise and the curve margin.</summary>
+    public double RuleMarginDb => double.IsNaN(CurveMarginDb) ? WorstMarginDb : Math.Min(WorstMarginDb, CurveMarginDb);
+
+    public string CurveMarginText => double.IsFinite(CurveMarginDb)
+        ? CurveMarginDb.ToString("+0.0;-0.0", CultureInfo.InvariantCulture) : "-";
+    public string CrossingText => CurveCrossing is null ? "none" : CurveCrossing.Text;
+
     public string LatText => LatDeg.ToString("F0", CultureInfo.InvariantCulture);
     public string MaxText => double.IsFinite(MaxEpfdDb)
         ? MaxEpfdDb.ToString("F1", CultureInfo.InvariantCulture) : "quiet";
@@ -79,7 +100,11 @@ public sealed class ComplianceViewModel : ObservableObject
     // The template pair is wide (it sets the accumulator's bin range) and
     // verdict-permissive under the D7.1.3 rule Pt <= Pi; replace it with
     // the real Article 22 rows for the band and dish.
-    private string _limitsText = "-300 100\n0 0.0001";
+    // The verdict-permissive template: 100% of the time allowed at every level up to 0 dB,
+    // a flat limit curve. Under the limit-curve rule a two-point list is a CURVE between
+    // its points, so the earlier template (-300 at 100%, 0 at 0.0001%) was a steep line
+    // that every real distribution crossed; it was permissive only point-wise.
+    private string _limitsText = "-300 100\n0 100";
     /// <summary>Limit points, one "epfd_db percent_time" per line (the applicable Article 22 table rows).</summary>
     public string LimitsText { get => _limitsText; set => SetField(ref _limitsText, value); }
 
@@ -248,12 +273,26 @@ public sealed class ComplianceViewModel : ObservableObject
             var (epfd, pct) = res.Accumulator.BuildCdf();
             double worst = sweep.Limits.Count == 0 ? double.PositiveInfinity
                 : sweep.Limits.Min(l => MarginDb(epfd, pct, l.EPFD, l.Perc));
-            bool pass = passResults.All(p => p);
+            // The verdict rule (LimitCurveRule): every tabulated point AND no crossing
+            // of the log-linear curve between them; the crossing and the curve margin
+            // are reported beside the point margin.
+            bool pass = sweep.Limits.Count == 0
+                ? passResults.All(p => p)
+                : LimitCurveRule.Pass(res.Accumulator, sweep.Limits);
+            LimitCurveRule.Crossing crossing = null;
+            double curveMargin = double.NaN;
+            if (sweep.Limits.Count > 0)
+            {
+                var curve = LimitCurveRule.Curve(sweep.Limits);
+                crossing = LimitCurveRule.Scan(epfd, pct, curve, sweep.Limits);
+                curveMargin = LimitCurveRule.CurveMarginDb(epfd, pct, curve, sweep.Limits);
+            }
             // The first limit point at the worst margin names the deciding point.
             double deciding = double.NaN;
             foreach (var l in sweep.Limits)
                 if (MarginDb(epfd, pct, l.EPFD, l.Perc) == worst) { deciding = l.Perc; break; }
-            rows.Add(new ComplianceRow(lat, res.MaxEpfdDb, worst, pass, res.QuietSteps) { DecidingPercent = deciding });
+            rows.Add(new ComplianceRow(lat, res.MaxEpfdDb, worst, pass, res.QuietSteps)
+                { DecidingPercent = deciding, CurveCrossing = crossing, CurveMarginDb = curveMargin });
             progress?.Report(new SweepProgress(string.Create(inv,
                 $"lat {lat:F0} ({i + 1}/{nLat}): worst margin {worst:+0.0;-0.0} dB {(pass ? "PASS" : "FAIL")}"),
                 fraction));
@@ -415,12 +454,13 @@ public sealed class ComplianceViewModel : ObservableObject
     public static string SummarizeRows(IReadOnlyList<ComplianceRow> rows)
     {
         var failing = rows.Where(r => !r.Pass).ToList();
+        // The margins here are rule margins: the smaller of the point-wise and the curve margin.
         return failing.Count == 0
             ? string.Create(CultureInfo.InvariantCulture,
-                $"COMPLIANT at all {rows.Count} latitude(s); worst margin {rows.Min(r => r.WorstMarginDb):+0.0;-0.0} dB")
+                $"COMPLIANT at all {rows.Count} latitude(s); worst margin {rows.Min(r => r.RuleMarginDb):+0.0;-0.0} dB under the limit-curve rule")
                 + SamplingNote(rows)
             : string.Create(CultureInfo.InvariantCulture,
-                $"EXCEEDED at {failing.Count} of {rows.Count} latitude(s) ({string.Join(", ", failing.Select(f => f.LatText))}); worst margin {failing.Min(r => r.WorstMarginDb):+0.0;-0.0} dB")
+                $"EXCEEDED at {failing.Count} of {rows.Count} latitude(s) ({string.Join(", ", failing.Select(f => f.LatText))}); worst margin {failing.Min(r => r.RuleMarginDb):+0.0;-0.0} dB under the limit-curve rule")
                 + SamplingNote(rows);
     }
 

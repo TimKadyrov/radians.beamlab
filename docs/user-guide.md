@@ -635,11 +635,15 @@ vendored reader radians uses, and Use fills the limit text with the
 chosen row's points — what the sweep verdicts against stays visible and
 editable, so a hand-entered table and a loaded one are the same thing
 checked the same way. Per-latitude short-term rows are shown for hand
-transcription (the flat text cannot express them). Each point is verdicted with the
-examination's own §D7.1.3 comparison (pass iff the measured exceedance
-at every limit epfd stays within the allowed percentage) and reported
-with the worst dB margin read off the CDF (positive = room to spare);
-failing rows show red, and the table exports to CSV. The summary also
+transcription (the flat text cannot express them). The verdict follows the
+design brief's rule, compliance against the Article 22 limit curve: pass iff
+the measured exceedance at every tabulated limit epfd stays within the
+allowed percentage (the examination's own §D7.1.3 comparison) and the CDF
+nowhere crosses the log-linear curve between the tabulated points
+(tolerance 0.05 dB towards lower epfd). Each row reports the worst point
+margin read off the CDF (positive = room to spare) and the curve margin,
+the dB shift that just clears the curve; the summary quotes the smaller of
+the two and names the rule. Failing rows show red, and the table exports to CSV. The summary also
 prints the **power headroom**: epfd moves exactly dB-for-dB with the
 per-beam Tx power density, so the worst margin doubles as the TxEirpDbw
 headroom at the swept exclusion (live-composition footprint only — a

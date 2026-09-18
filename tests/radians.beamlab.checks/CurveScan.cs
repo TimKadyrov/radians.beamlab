@@ -27,8 +27,6 @@ namespace radians.beamlab.checks;
 /// </summary>
 internal static class CurveScan
 {
-    private sealed record Violation(double EpfdDb, double CalcPerc, double AllowedPerc, double LimitPerc, double Ratio);
-
     public static int Run(string[] args)
     {
         var inv = CultureInfo.InvariantCulture;
@@ -47,8 +45,8 @@ internal static class CurveScan
         Console.WriteLine("  D1 row: " + limD1.Label);
         Console.WriteLine("  D2 row: " + limD2.Label);
         Console.WriteLine();
-        Console.WriteLine("case      | victim | record | point-wise | curve scan (worst bin)                                   | flip");
-        Console.WriteLine("----------|--------|--------|------------|----------------------------------------------------------|-----");
+        Console.WriteLine("case      | victim | record | point-wise | curve margin      | curve scan (worst bin)                                         | flip");
+        Console.WriteLine("----------|--------|--------|------------|-------------------|----------------------------------------------------------------|-----");
 
         int flips = 0, scanned = 0;
         // Part A: the expectation CDFs on disk.
@@ -114,39 +112,13 @@ internal static class CurveScan
     {
         double worstPoint = points.Min(l => ComplianceViewModel.MarginDb(epfd, pct, l.EPFD, l.Perc));
         bool pointPass = worstPoint >= 0.0;
-        var viol = Scan(epfd, pct, acc.BuildLinearizedLimit(points), points, tol);
+        var curve = acc.BuildLinearizedLimit(points);
+        var viol = LimitCurveRule.Scan(epfd, pct, curve, points, tol);
+        double curveMargin = LimitCurveRule.CurveMarginDb(epfd, pct, curve, points, tol);
         bool flip = pointPass && viol is not null;
         if (flip) flips++;
-        string scanText = viol is null ? "no crossing"
-            : string.Create(inv, $"crosses at {viol.EpfdDb:F1} dB: {viol.CalcPerc:G4}% vs allowed {viol.AllowedPerc:G4}% (limit {viol.LimitPerc:G4}%), x{viol.Ratio:F2}");
-        Console.WriteLine(string.Create(inv, $"{caseName,-9} | {victim,-6} | {recordVerdict,-6} | {(pointPass ? "PASS" : "FAIL")} {worstPoint,+5:0.0} | {scanText,-56} | {(flip ? "FLIP" : "-")}"));
-    }
-
-    /// <summary>The Bureau-side rule, mirrored: worst bin by calc/allowed over the tabulated span, curve-zero bins skipped.</summary>
-    private static Violation? Scan(double[] epfd, double[] pct, double[] curve, List<radlimits.LimitPoint> points, double tolDb)
-    {
-        double first = points.Min(p => p.EPFD), last = points.Max(p => p.EPFD);
-        double shift = tolDb / 0.1;
-        Violation? worst = null;
-        double worstRatio = 1.0;
-        for (int i = 0; i < curve.Length; i++)
-        {
-            if (epfd[i] < first - 1e-9 || epfd[i] > last + 1e-9) continue;
-            double limitHere = curve[i];
-            if (limitHere <= 0.0) continue;
-            double allowed = limitHere;
-            if (shift > 0.0 && i > 0 && curve[i - 1] > 0.0)
-                allowed = limitHere * Math.Pow(curve[i - 1] / limitHere, shift);
-            double calc = pct[i];
-            if (calc <= allowed) continue;
-            double ratio = calc / allowed;
-            if (ratio > worstRatio)
-            {
-                worstRatio = ratio;
-                worst = new Violation(Math.Round(epfd[i], 1), calc, allowed, limitHere, ratio);
-            }
-        }
-        return worst;
+        string scanText = viol is null ? "no crossing" : viol.Text;
+        Console.WriteLine(string.Create(inv, $"{caseName,-9} | {victim,-6} | {recordVerdict,-6} | {(pointPass ? "PASS" : "FAIL")} {worstPoint,+5:0.0} | curve margin {curveMargin,+5:0.0} | {scanText,-62} | {(flip ? "FLIP" : "-")}"));
     }
 
     private static (double[] Epfd, double[] Pct, string Verdict) ReadCdf(string path)

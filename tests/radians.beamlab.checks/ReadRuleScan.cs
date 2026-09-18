@@ -63,7 +63,7 @@ internal static class ReadRuleScan
         string outDir = Path.Combine(AppContext.BaseDirectory, "exp", "probescan");
         Directory.CreateDirectory(outDir);
         string maskPath = Path.Combine(outDir, string.Create(inv,
-            $"probe_gate{spec.GateAlphaDeg:F0}_minel{spec.MinElevDeg:F0}_notch{spec.NotchAlphaDeg:F0}_b{spec.BStepDeg:F0}_tx{spec.TxDeltaDb:F0}.xml"));
+            $"probe_gate{spec.GateAlphaDeg:F1}_minel{spec.MinElevDeg:F1}_notch{spec.NotchAlphaDeg:F1}_b{spec.BStepDeg:F1}_tx{spec.TxDeltaDb:F1}.xml"));   // one decimal: a cached mask must match its offset exactly
         var sw = Stopwatch.StartNew();
         if (!File.Exists(maskPath))
         {
@@ -104,13 +104,13 @@ internal static class ReadRuleScan
                 if (!pair)
                 {
                     Console.WriteLine(string.Create(inv,
-                        $"{q,-9}  {val,5:G4}  {lat,4:F0}   {v.MaxEpfdDb,8:F2}   {v.WorstMarginDb,12:+0.00;-0.00;0.00}   {(v.Pass ? "PASS" : "FAIL")}   {v.QuietSteps,5}   {t.Elapsed.TotalSeconds,4:F0}"));
+                        $"{q,-9}  {val,5:G4}  {lat,4:F0}   {v.MaxEpfdDb,8:F2}   {v.WorstMarginDb,12:+0.00;-0.00;0.00}   {v.CurveMarginText,8}   {(v.Pass ? "PASS" : "FAIL")}   {v.QuietSteps,5}   {t.Elapsed.TotalSeconds,4:F0}"));
                 }
                 else
                 {
                     var h = ProbeExamination.Examine(con, mask, set, lim, freqMhz, lat, 0.0, gsoLon, stepSec, steps / 2);
                     Console.WriteLine(string.Create(inv,
-                        $"{q,-9}  {val,5:G4}  {lat,4:F0}   {v.MaxEpfdDb,8:F2}   {v.WorstMarginDb,12:+0.00;-0.00;0.00}   {(v.Pass ? "PASS" : "FAIL")}   {v.QuietSteps,5} | " +
+                        $"{q,-9}  {val,5:G4}  {lat,4:F0}   {v.MaxEpfdDb,8:F2}   {v.WorstMarginDb,12:+0.00;-0.00;0.00}   {v.CurveMarginText,8}   {(v.Pass ? "PASS" : "FAIL")}   {v.QuietSteps,5} | " +
                         $"{h.MaxEpfdDb,8:F2}   {h.WorstMarginDb,12:+0.00;-0.00;0.00}   {(h.Pass ? "PASS" : "FAIL")}   {v.WorstMarginDb - h.WorstMarginDb,6:+0.00;-0.00;0.00}"));
                 }
             }

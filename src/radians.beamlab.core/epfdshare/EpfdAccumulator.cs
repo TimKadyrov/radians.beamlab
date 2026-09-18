@@ -348,6 +348,104 @@ namespace radcompute1503_2
             return (results, linearizedLimit);
         }
 
+        /// <summary>
+        /// Half a bin. Both curves are quantised to 0.1 dB, so a crossing
+        /// narrower than this is quantisation rather than an excess.
+        /// </summary>
+        public const double MaskToleranceDb = 0.05;
+
+        /// <summary>
+        /// Where the computed CDF crosses above the limit curve, and by how much.
+        /// LimitPerc is the limit itself, before the tolerance shift.
+        /// </summary>
+        public readonly struct MaskViolation
+        {
+            public MaskViolation(double epfd, double calcPerc, double limitPerc)
+            {
+                Epfd = epfd;
+                CalcPerc = calcPerc;
+                LimitPerc = limitPerc;
+            }
+            public double Epfd { get; }
+            public double CalcPerc { get; }
+            public double LimitPerc { get; }
+        }
+
+        /// <summary>
+        /// Scans the whole limit curve for an excess, not only its spec points.
+        ///
+        /// CompareWithLimits tests the points the limits database tabulates. The
+        /// Article 22 limit is the curve through them, which between two
+        /// tabulated points is the log-linear interpolation BuildLinearizedLimit
+        /// returns. A CDF can sit below both tabulated points and still cross
+        /// above the curve between them, and that is not a corner case: the
+        /// tabulated points are far apart (Table 22-1C for a 0.9 m antenna runs
+        /// 9 dB from its first point to its second), so it is what a marginally
+        /// exceeding filing looks like.
+        ///
+        /// Only the span between the first and last tabulated EPFD is examined.
+        /// Below the first point BuildLinearizedLimit extends the curve leftward
+        /// for drawing, but no limit applies there; at and above the last point
+        /// the curve is the never-to-be-exceeded cap, which CompareWithLimits
+        /// already tests at its own spec point.
+        ///
+        /// The tolerance is horizontal: a crossing counts only once the CDF is
+        /// more than toleranceDb to the right of the curve. Since the limit falls
+        /// as EPFD rises, that slack is the limit read toleranceDb to the LEFT of
+        /// each bin - log-linearly interpolated towards the previous bin's value,
+        /// the same interpolation the curve itself uses. A zero limit takes no
+        /// tolerance.
+        /// </summary>
+        public MaskViolation? FindWorstMaskViolation(
+            List<LimitPoint> limitPoints, double toleranceDb = MaskToleranceDb)
+        {
+            if (limitPoints == null || limitPoints.Count == 0)
+                return null;
+
+            var (_, percentages) = BuildCdf();
+            var linearizedLimit = BuildLinearizedLimit(limitPoints);
+
+            double firstEpfd = double.MaxValue;
+            double lastEpfd = double.MinValue;
+            foreach (var pt in limitPoints)
+            {
+                if (pt.EPFD < firstEpfd) firstEpfd = pt.EPFD;
+                if (pt.EPFD > lastEpfd) lastEpfd = pt.EPFD;
+            }
+
+            double shift = toleranceDb / BinWidth;
+            MaskViolation? worst = null;
+            double worstRatio = 1.0;
+
+            for (int i = 0; i < _nbBins; i++)
+            {
+                double epfd = _epfdMin + i * BinWidth;
+                if (epfd < firstEpfd - 1e-9 || epfd > lastEpfd + 1e-9)
+                    continue;
+
+                double limitHere = linearizedLimit[i];
+                if (limitHere <= 0.0)
+                    continue;
+
+                double allowed = limitHere;
+                if (shift > 0.0 && i > 0 && linearizedLimit[i - 1] > 0.0)
+                    allowed = limitHere * Math.Pow(linearizedLimit[i - 1] / limitHere, shift);
+
+                double calc = percentages[i];
+                if (calc <= allowed)
+                    continue;
+
+                double ratio = calc / allowed;
+                if (ratio > worstRatio)
+                {
+                    worstRatio = ratio;
+                    worst = new MaskViolation(Math.Round(epfd, 1), calc, limitHere);
+                }
+            }
+
+            return worst;
+        }
+
         // Serialization for save/load
         public class SaveState
         {
