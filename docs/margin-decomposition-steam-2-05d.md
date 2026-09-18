@@ -2,6 +2,8 @@
 
 *Produced by `dotnet run --project tests/radians.beamlab.checks -- decompose "STEAM-2.opprofile.json" "STEAM-2.orbitdesign.json" "steam-2" 0.5 60 0 60 10 steam-2-05d`, 2026-09-14; wall clock 50.7 min.*
 
+> Margins in this record are point-wise (the limit minus the computed level at each tabulated percentage); no verdict is taken here, so the limit-curve verdict rule adopted on 2026-09-18 does not enter. Records produced since state this convention themselves.
+
 ## What is decomposed
 
 The design brief (Sec. 2) asks not for closeness between the examination and the simulation but for a decomposition of their gap: how many decibels come from the mask envelope, how many from the selection rules, how many from the worst-case geometry, each isolated by defeating it in turn. Three runs on one victim do that here:

@@ -3,6 +3,8 @@
 *Produced by `dotnet run --project tests/radians.beamlab.checks -- examine "STEAM-2.opprofile.json" "STEAM-2.orbitdesign.json" "steam-2.operparams.json" "<filed mask>" <days> 60 0 60 10`, examination only -- no derivation probe, no truth sweep.*
 *Date: 2026-09-06. Wall clock 0.1 min (0.1 d) and 0.3 min (1.0 d).*
 
+> Verdict rule of this record: point-wise -- every tabulated Article 22 point, the rule in force when it was produced. On 2026-09-18 the design brief adopted the limit-curve rule (a distribution must also clear the log-linear curve between the tabulated points, tolerance 0.05 dB read towards lower epfd); records produced since name it and quote a curve margin beside the point margin. The verdicts here cannot change under it: every latitude fails at the tabulated points by the margins shown, and the curve test can only add failures. Every margin in this record is point-wise.
+
 ## What was examined
 
 - **The mask:** the operator's filed pfd mask for STEAM-2B (ntc_id 317520389, mask_id 150,

@@ -3,6 +3,8 @@
 *Produced by `dotnet run --project tests/radians.beamlab.checks -- loop "STEAM-2-cap12.opprofile.json" "STEAM-2.orbitdesign.json" 0.1 60 0 60 10`.*
 *Date: 2026-09-07. Wall clock 29.4 min.*
 
+> Verdict rule of this record: point-wise -- every tabulated Article 22 point, the rule in force when it was produced. On 2026-09-18 the design brief adopted the limit-curve rule (a distribution must also clear the log-linear curve between the tabulated points, tolerance 0.05 dB read towards lower epfd); records produced since name it and quote a curve margin beside the point margin. The verdicts here cannot change under it: every latitude fails at the tabulated points by the margins shown, and the curve test can only add failures. Every margin in this record is point-wise.
+
 ## The system under test
 
 - Shell(s): 1, 1600 satellites at 1150 km / inclination 53.0 deg.
