@@ -48,7 +48,7 @@ if (args.Length > 0 && args[0] == "loop")
 if (args.Length > 0 && args[0] == "beamcount")
 {
     string[] b = args;
-    string srcB = System.IO.Path.Combine(@"C:Projectsadians.beamlab", "dataset", "_src");
+    string srcB = System.IO.Path.Combine(@"C:\Projects\radians.beamlab", "dataset", "_src");
     double DB(int i, double dflt) => b.Length > i && double.TryParse(b[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : dflt;
     return BeamCount.Run(
         b.Length > 1 ? b[1] : System.IO.Path.Combine(srcB, "STEAM-2.opprofile.json"),
@@ -88,14 +88,28 @@ if (args.Length > 0 && args[0] == "probescan")
 if (args.Length > 0 && args[0] == "decompose")
 {
     string[] m = args;
-    string srcM = System.IO.Path.Combine(@"C:Projectsadians.beamlab", "dataset", "_src");
+    string srcM = System.IO.Path.Combine(@"C:\Projects\radians.beamlab", "dataset", "_src");
     double DM(int i, double dflt) => m.Length > i && double.TryParse(m[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : dflt;
     return radians.beamlab.checks.MarginDecomposition.Run(
         m.Length > 1 ? m[1] : System.IO.Path.Combine(srcM, "STEAM-2.opprofile.json"),
         m.Length > 2 ? m[2] : System.IO.Path.Combine(srcM, "STEAM-2.orbitdesign.json"),
-        m.Length > 3 ? m[3] : System.IO.Path.Combine(@"C:Projectsadians.beamlab", "dataset", "margin", "steam-2"),
+        m.Length > 3 ? m[3] : System.IO.Path.Combine(@"C:\Projects\radians.beamlab", "dataset", "margin", "steam-2"),
         DM(4, 0.1), DM(5, 60.0), DM(6, 0.0), DM(7, 60.0), DM(8, 10.0),
         m.Length > 9 ? m[9] : "steam-2");
+}
+// Seconds per simulated step at the current thread count (Bench): the STEAM-2 truth step and
+// the mask-examination step. Run once with BEAMLAB_THREADS=1 and once without for the speed-up.
+//   bench [profile] [design] [rsetDir] [steps] [stepSec]
+if (args.Length > 0 && args[0] == "bench")
+{
+    string[] b = args;
+    string srcB = System.IO.Path.Combine(@"C:\Projects\radians.beamlab", "dataset", "_src");
+    double DB(int i, double dflt) => b.Length > i && double.TryParse(b[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : dflt;
+    return radians.beamlab.checks.Bench.Run(
+        b.Length > 1 ? b[1] : System.IO.Path.Combine(srcB, "STEAM-2.opprofile.json"),
+        b.Length > 2 ? b[2] : System.IO.Path.Combine(srcB, "STEAM-2.orbitdesign.json"),
+        b.Length > 3 ? b[3] : System.IO.Path.Combine(@"C:\Projects\radians.beamlab", "dataset", "margin", "steam-2"),
+        (long)DB(4, 10), DB(5, 60.0));
 }
 // The case (a) measurement for the 11.32A concept note (ArcShield): arc-protecting vs not, against every 22-1C row.
 if (args.Length > 0 && args[0] == "arcshield")
@@ -5668,6 +5682,146 @@ var looks = RandomLooks(300);
         det55 += string.Create(CultureInfo.InvariantCulture, $"lat{lat:F0}: same={same} maxT={truth55.MaxEpfdDb:F3} maxSel={esel55.MaxEpfdDb:F3} cap1={eselCap55.MaxEpfdDb:F3} ");
     }
     Check("V55 live-composition read: with nothing declared the examination's selection over live values reproduces the truth bin for bin; with a cap of 1 it sits at or below it", ok55, det55.Trim());
+}
+
+// ---- V56: the parallel simulation is the sequential simulation bit for bit ----
+{
+    // Every parallel loop partitions work that is independent by construction
+    // -- the satellites of a step, the cells of a schedule step, the steps of
+    // a scheduler-free examination -- and reduces in the sequential order, so
+    // the thread count must leave no trace. Compared as raw bits: the CDF
+    // bins, maxima and quiet counts of epfd(down) over three victims with the
+    // epfd(is) byproduct; the schedule's links, candidates and handover
+    // counts under the Random policy (its seeded keys are drawn on one thread
+    // in the original order); epfd(up); the mask examination (time chunks,
+    // one constellation clone per worker) and the live-composition
+    // examination (step by step, the scheduler inside it parallel).
+    string expDir56 = Path.Combine(AppContext.BaseDirectory, "exp");
+    Directory.CreateDirectory(expDir56);
+    string mask56 = Path.Combine(expDir56, "v56mask.xml");
+    File.WriteAllText(mask56, """
+        <?xml version="1.0"?>
+        <srs>
+          <satellite_system sat_name="V56" ntc_id="1">
+            <pfd_mask mask_id="1" low_freq_mhz="19700" high_freq_mhz="19700" refbw_khz="40" type="azimuth_elevation">
+              <by_a a="0">
+                <by_b b="-90"><pfd c="-90">-120</pfd><pfd c="0">-117</pfd><pfd c="90">-116</pfd></by_b>
+                <by_b b="90"><pfd c="-90">-118</pfd><pfd c="0">-121</pfd><pfd c="90">-122</pfd></by_b>
+              </by_a>
+              <by_a a="50">
+                <by_b b="-90"><pfd c="-90">-123</pfd><pfd c="0">-119</pfd><pfd c="90">-118</pfd></by_b>
+                <by_b b="90"><pfd c="-90">-117</pfd><pfd c="0">-124</pfd><pfd c="90">-120</pfd></by_b>
+              </by_a>
+            </pfd_mask>
+          </satellite_system>
+        </srs>
+        """);
+
+    var shells56 = new[] { new ConstellationShell { AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 3, SatsPerPlane = 4, OperationalFraction = 0.75 } };
+    var scene56 = new PfdMaskViewModel { AltitudeKm = 1200.0, FrequencyGHz = 19.7, MinElevDeg = 10.0, RefBwKHz = 40.0 };
+    var geo56 = ServiceGeography.Grid(20.0, 60.0, -30.0, 30.0, 700.0, demandLinks: 2);
+    var decl56 = new OperatingParamsSet
+    {
+        SatName = "V56", LowFreqMhz = 19700, HighFreqMhz = 19700, ElevAngleHeaderDeg = 10.0,
+        MaxCoFreqHeader = 2, MinAngleAtEsDeg = 5.0, MaxCoFreqSat = 6, MinAngleAtSatDeg = 2.0,
+    };
+    decl56.MinExclude.Add(new MinExcludeByOrbit { OrbId = 0, ByLat = { (0.0, 6.0), (60.0, 4.0) } });
+    double step56 = 60.0; long steps56 = 45; double dur56 = step56 * steps56;
+    var limits56 = new List<radlimits.LimitPoint> { new() { EPFD = -160, Perc = 5.0 }, new() { EPFD = -150, Perc = 1.0 } };
+    EpfdDownVictim Victim56(double lat) => new()
+    {
+        EsLatDeg = lat, EsLonDeg = 0.0, GsoLonDeg = 10.0,
+        Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 19700.0, 1.0),
+    };
+    var isVictim56 = new EpfdGsoSatVictim
+    {
+        GsoLonDeg = 10.0, BoresightLatDeg = 40.0, BoresightLonDeg = 5.0,
+        Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APSREC408V01, 19700.0, null),
+        GmaxDbi = 40.7, Phi3DbDeg = 1.55,
+    };
+    var esUp56 = new EpfdUpEsModel
+    {
+        PowerDbw = 12.0,
+        Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 19700.0, 0.65),
+    };
+
+    // One full pass at a given thread count, reduced to the bits of everything it produced.
+    (List<long> Sig, bool Live, string Detail) Pass56(int degree)
+    {
+        SimulationParallel.MaxDegreeOfParallelism = degree;
+        var sig = new List<long>();
+        void Add(double v) => sig.Add(BitConverter.DoubleToInt64Bits(v));
+        void AddResult(radcompute1503_2.EpfdAccumulator acc, double max, long quiet)
+        {
+            var (e, p) = acc.BuildCdf();
+            sig.Add(e.Length);
+            foreach (double v in e) Add(v);
+            foreach (double v in p) Add(v);
+            Add(max);
+            sig.Add(quiet);
+        }
+        var con = new Constellation(shells56);
+
+        var down = EpfdDown.RunMany(con,
+            new ScheduledPointing(con, geo56, decl56, scene56, dur56, null, SelectionPolicy.Random),
+            new[] { Victim56(30.0), Victim56(45.0), Victim56(55.0) }, step56, steps56, limits56, dur56, isVictim56);
+        foreach (var r in down) AddResult(r.Accumulator, r.MaxEpfdDb, r.QuietSteps);
+        AddResult(down[0].IsAccumulator!, down[0].MaxEpfdIsDb, down[0].IsQuietSteps);
+
+        var sched = new Scheduler(con, geo56, decl56, new ScenePointing(scene56), dur56, null, SelectionPolicy.Random);
+        long links = 0;
+        for (int k = 0; k < 12; k++)
+        {
+            var st = sched.Step(k * step56);
+            foreach (var l in st.Links)
+            {
+                sig.Add(l.CellId); sig.Add(l.SatelliteNumber); sig.Add(l.BeamIndex);
+                Add(l.StartTimeSec); Add(l.ElevationDeg); Add(l.AlphaDeg);
+            }
+            foreach (var l in st.CandidateLinks)
+            {
+                sig.Add(l.CellId); sig.Add(l.SatelliteNumber); sig.Add(l.BeamIndex);
+                Add(l.ElevationDeg); Add(l.AlphaDeg);
+            }
+            sig.Add(st.VoluntaryHandovers); sig.Add(st.ForcedHandovers); sig.Add(st.UnservedCellLinks);
+            links += st.Links.Count;
+        }
+
+        var up = EpfdUp.Run(con, new Scheduler(con, geo56, decl56, new ScenePointing(scene56), dur56),
+            geo56, isVictim56, esUp56, step56, steps56, limits56, dur56);
+        AddResult(up.Accumulator, up.MaxEpfdDb, up.QuietSteps);
+
+        var exam = EpfdDownMask.Run(con, MaskFootprint.LoadFile(mask56), decl56, Victim56(45.0),
+            step56, steps56 * 4, limits56, dur56 * 4);
+        AddResult(exam.Accumulator, exam.MaxEpfdDb, exam.QuietSteps);
+
+        var live = new radians.beamlab.checks.LiveCompositionRead(
+            new ScheduledPointing(con, geo56, decl56, scene56, dur56, null, SelectionPolicy.Random));
+        var esel = EpfdDownMask.Run(con, live, decl56, Victim56(45.0), step56, steps56, limits56, dur56);
+        AddResult(esel.Accumulator, esel.MaxEpfdDb, esel.QuietSteps);
+
+        bool alive = down.Any(r => r.MaxEpfdDb > -300) && down[0].MaxEpfdIsDb > -300 && links > 0
+            && up.MaxEpfdDb > -300 && exam.MaxEpfdDb > -300 && esel.MaxEpfdDb > -300;
+        string detail = string.Create(CultureInfo.InvariantCulture,
+            $"down={down[0].MaxEpfdDb:F3}/{down[1].MaxEpfdDb:F3}/{down[2].MaxEpfdDb:F3} is={down[0].MaxEpfdIsDb:F3} links={links} up={up.MaxEpfdDb:F3} exam={exam.MaxEpfdDb:F3} esel={esel.MaxEpfdDb:F3}");
+        return (sig, alive, detail);
+    }
+
+    int degree56 = SimulationParallel.MaxDegreeOfParallelism;
+    int wide56 = Math.Max(2, Environment.ProcessorCount);
+    (List<long> Sig, bool Live, string Detail) seq56, par56;
+    try
+    {
+        seq56 = Pass56(1);
+        par56 = Pass56(wide56);
+    }
+    finally { SimulationParallel.MaxDegreeOfParallelism = degree56; }
+    int firstDiff56 = -1;
+    if (seq56.Sig.Count != par56.Sig.Count) firstDiff56 = Math.Min(seq56.Sig.Count, par56.Sig.Count);
+    else for (int i = 0; i < seq56.Sig.Count; i++) if (seq56.Sig[i] != par56.Sig[i]) { firstDiff56 = i; break; }
+    Check("V56 parallel simulation: every thread count reproduces the sequential run bit for bit -- epfd(down) with epfd(is), the Random-policy schedule, epfd(up), the mask examination over time chunks and the live-composition examination",
+        firstDiff56 < 0 && seq56.Live && par56.Live,
+        $"threads 1 vs {wide56}: {seq56.Sig.Count} values, first difference at {firstDiff56}; live={seq56.Live}; {par56.Detail}");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

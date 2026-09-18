@@ -23,7 +23,7 @@ namespace radians.beamlab.app;
 /// Reads are raw dB in the mask's declared reference bandwidth; the
 /// -1000 no-transmission floor stays numeric, as in the reference.
 /// </summary>
-public sealed class MaskFootprint : IMaskPfdRead
+public sealed class MaskFootprint : IPureMaskPfdRead
 {
     private readonly LoadedPfdMask _mask;
     private readonly PfdMaskField[] _fields;

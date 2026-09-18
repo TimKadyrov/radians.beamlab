@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Radians.Orbits.Core.Propagation;
 using Radians.Orbits.Core.Utilities;
 using static radians.beamlab.GeoMath;
@@ -173,6 +174,20 @@ public interface IBeamPointing
     ResolvedBeamSet Resolve(SatelliteState state);
 }
 
+/// <summary>
+/// A pointing whose <see cref="IBeamPointing.Resolve"/> may run on several
+/// threads at once for the satellites of ONE time step. <see cref="Prepare"/>
+/// is called once, on the calling thread, before that fan-out, so any work
+/// shared by the step (a schedule) is done there and in step order; every
+/// Resolve for that time must then return exactly what the sequential call
+/// would have returned. A pointing without this interface is resolved
+/// satellite by satellite on the calling thread.
+/// </summary>
+public interface IConcurrentBeamPointing : IBeamPointing
+{
+    void Prepare(double timeSeconds);
+}
+
 /// <summary>One satellite in a snapshot: state plus (optionally) resolved beams.</summary>
 public sealed record SatelliteSnapshot(SatelliteState State, ResolvedBeamSet? Beams);
 
@@ -197,6 +212,25 @@ public sealed class Constellation
     private readonly List<OrbitalElements> _elements = new();
     private readonly List<(int shell, int plane, int slot)> _identity = new();
     private readonly List<bool> _operational = new();
+    private readonly bool _anyOperational;
+
+    /// <summary>
+    /// An independent copy over the same elements: fresh propagators (the
+    /// vendored propagator keeps per-call scratch state, so one instance
+    /// serves one thread at a time), the elements, identities and
+    /// operational flags shared read-only. Same states at every time.
+    /// </summary>
+    private Constellation(Constellation other)
+    {
+        _elements = other._elements;
+        _identity = other._identity;
+        _operational = other._operational;
+        _anyOperational = other._anyOperational;
+        foreach (var el in _elements) _propagators.Add(new OrbitPropagator(el));
+    }
+
+    /// <summary>A copy for another thread -- see the copy constructor.</summary>
+    public Constellation Clone() => new(this);
 
     public Constellation(IReadOnlyList<ConstellationShell> shells)
     {
@@ -259,6 +293,7 @@ public sealed class Constellation
                 }
             }
         }
+        _anyOperational = _operational.Contains(true);
     }
 
     private static double Norm360(double v)
@@ -314,13 +349,29 @@ public sealed class Constellation
     public SystemSnapshot SnapshotAt(double timeSeconds, double simulationDurationSeconds,
                                      IBeamPointing? pointing = null)
     {
-        var sats = new List<SatelliteSnapshot>(_propagators.Count);
-        for (int i = 0; i < _propagators.Count; i++)
+        int n = _propagators.Count;
+        var sats = new SatelliteSnapshot[n];
+        void One(int i)
         {
             var state = StateAt(i, timeSeconds, simulationDurationSeconds);
             // Non-operational satellites fly but do not radiate.
-            sats.Add(new SatelliteSnapshot(state,
-                _operational[i] ? pointing?.Resolve(state) : EmptyBeams));
+            sats[i] = new SatelliteSnapshot(state,
+                _operational[i] ? pointing?.Resolve(state) : EmptyBeams);
+        }
+
+        // Satellites are independent within a step: one propagator each, and
+        // a pointing that declares itself concurrent. The step's shared work
+        // (the schedule) is prepared first, on this thread, exactly when the
+        // sequential loop would have triggered it -- at the first operational
+        // satellite -- so the scheduler advances identically.
+        if (SimulationParallel.Enabled && (pointing is null || pointing is IConcurrentBeamPointing))
+        {
+            if (_anyOperational && pointing is IConcurrentBeamPointing cp) cp.Prepare(timeSeconds);
+            Parallel.For(0, n, SimulationParallel.Options, One);
+        }
+        else
+        {
+            for (int i = 0; i < n; i++) One(i);
         }
         return new SystemSnapshot { TimeSeconds = timeSeconds, Satellites = sats };
     }

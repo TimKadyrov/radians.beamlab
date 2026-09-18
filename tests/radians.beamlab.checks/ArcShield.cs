@@ -83,7 +83,7 @@ internal static class ArcShield
         Directory.CreateDirectory(outDir);
         var con = new Constellation(DatasetGenerator.Shells);
         var (fMin, fMax) = DatasetGenerator.ProbeBandMhz;
-        var systems = new List<(double Notch, string Name, IMaskPfdRead Mask, OperatingParamsSet Set, string MaskFile, double Peak40, MaskConsistency.Report Grade)>();
+        var systems = new List<(double Notch, string Name, IPureMaskPfdRead Mask, OperatingParamsSet Set, string MaskFile, double Peak40, MaskConsistency.Report Grade)>();
         foreach (double notch in notches)
         {
             var spec = new DatasetGenerator.ProbeMaskSpec(GateAlphaDeg: notch, MinElevDeg: minEl, TxDeltaDb: tx, NotchAlphaDeg: notch, BStepDeg: 2.0);

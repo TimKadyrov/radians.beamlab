@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using radcompute1503_2;
 using radlimits;
 using static radians.beamlab.GeoMath;
@@ -17,6 +19,17 @@ namespace radians.beamlab;
 public interface IMaskPfdRead
 {
     double PfdDb(SatelliteState state, Vec3 satPosKm, Vec3 esPosKm);
+}
+
+/// <summary>
+/// A mask read with no state of its own: <see cref="IMaskPfdRead.PfdDb"/> is
+/// a function of its arguments alone (a mask file read the Sec. D5.1.5 way),
+/// so an examination over it depends on nothing but the time of each step
+/// and may evaluate its steps concurrently. A read that drives a scheduler
+/// or caches per step does not declare this and is examined step by step.
+/// </summary>
+public interface IPureMaskPfdRead : IMaskPfdRead
+{
 }
 
 /// <summary>
@@ -74,17 +87,19 @@ public static class EpfdDownMask
 
         double maxEpfd = double.NegativeInfinity;
         long quiet = 0;
-        var entries = new List<(double EpfdDb, bool Operating, bool MainBeam, Vec3 ToSat)>();
 
-        for (long k = 0; k < steps; k++)
+        // One step's epfd (dB) at step k, or -inf when nothing contributes.
+        // `con` supplies the states (the caller's constellation, or a worker's
+        // own clone on the parallel path) and `entries` is reusable scratch.
+        double StepEpfdDb(long k, Constellation con,
+            List<(double EpfdDb, bool Operating, bool MainBeam, Vec3 ToSat)> entries)
         {
-            if (progress is not null && k % progressEvery == 0) progress.Report((double)k / steps);
             double t = k * timeStepSec;
             entries.Clear();
 
             for (int i = 0; i < n; i++)
             {
-                var state = constellation.StateAt(i, t, simDur);
+                var state = con.StateAt(i, t, simDur);
                 var pos = state.PositionEcefKm;
                 double elev = ElevationAngleDeg(pos, es);
                 if (elev <= 0.0) continue;                    // Step 11 visibility
@@ -138,9 +153,13 @@ public static class EpfdDownMask
                 if (entries[e].MainBeam && !counted.Contains(e))
                     linear += Math.Pow(10.0, entries[e].EpfdDb / 10.0);
 
-            if (linear > 0.0)
+            return linear > 0.0 ? 10.0 * Math.Log10(linear) : double.NegativeInfinity;
+        }
+
+        void Accumulate(double epfd)
+        {
+            if (!double.IsNegativeInfinity(epfd))
             {
-                double epfd = 10.0 * Math.Log10(linear);
                 acc.AccumulateSample(epfd, 1);
                 if (epfd > maxEpfd) maxEpfd = epfd;
             }
@@ -148,6 +167,41 @@ public static class EpfdDownMask
             {
                 acc.AccumulateSample(double.NegativeInfinity, 1);
                 quiet++;
+            }
+        }
+
+        if (SimulationParallel.Enabled && mask is IPureMaskPfdRead)
+        {
+            // No scheduler and a stateless read: every step is a function of
+            // its time alone, so the steps are computed over time in parallel,
+            // each worker on its own constellation clone (the propagators keep
+            // per-call scratch state). The accumulator then takes the values in
+            // step order -- the same sequence of samples as the sequential loop.
+            var stepEpfd = new double[steps];
+            long done = 0;
+            Parallel.For(0L, steps, SimulationParallel.Options,
+                () => (Con: constellation.Clone(),
+                       Entries: new List<(double EpfdDb, bool Operating, bool MainBeam, Vec3 ToSat)>()),
+                (k, _, local) =>
+                {
+                    stepEpfd[k] = StepEpfdDb(k, local.Con, local.Entries);
+                    if (progress is not null)
+                    {
+                        long d = Interlocked.Increment(ref done);
+                        if (d % progressEvery == 0) progress.Report((double)d / steps);
+                    }
+                    return local;
+                },
+                _ => { });
+            for (long k = 0; k < steps; k++) Accumulate(stepEpfd[k]);
+        }
+        else
+        {
+            var entries = new List<(double EpfdDb, bool Operating, bool MainBeam, Vec3 ToSat)>();
+            for (long k = 0; k < steps; k++)
+            {
+                if (progress is not null && k % progressEvery == 0) progress.Report((double)k / steps);
+                Accumulate(StepEpfdDb(k, constellation, entries));
             }
         }
 

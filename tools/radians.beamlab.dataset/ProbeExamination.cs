@@ -104,20 +104,20 @@ public static class ProbeExamination
     /// range (mask_lnk1 per orb_id), as BL-D2 and the consistency probe file
     /// them. Shell order = the constellation's shell order.
     /// </summary>
-    public sealed class ShellMaskRead : IMaskPfdRead
+    public sealed class ShellMaskRead : IPureMaskPfdRead
     {
-        private readonly IMaskPfdRead[] _byShell;
-        public ShellMaskRead(IEnumerable<IMaskPfdRead> byShell) => _byShell = byShell.ToArray();
+        private readonly IPureMaskPfdRead[] _byShell;
+        public ShellMaskRead(IEnumerable<IPureMaskPfdRead> byShell) => _byShell = byShell.ToArray();
         public double PfdDb(SatelliteState state, Vec3 satPosKm, Vec3 esPosKm)
             => _byShell[state.ShellIndex].PfdDb(state, satPosKm, esPosKm);
     }
 
     /// <summary>A mask read shifted by a constant (dB) -- a control at another payload level; the -1000 null stays a null.</summary>
-    public sealed class OffsetMaskRead : IMaskPfdRead
+    public sealed class OffsetMaskRead : IPureMaskPfdRead
     {
-        private readonly IMaskPfdRead _inner;
+        private readonly IPureMaskPfdRead _inner;
         private readonly double _deltaDb;
-        public OffsetMaskRead(IMaskPfdRead inner, double deltaDb) { _inner = inner; _deltaDb = deltaDb; }
+        public OffsetMaskRead(IPureMaskPfdRead inner, double deltaDb) { _inner = inner; _deltaDb = deltaDb; }
         public double PfdDb(SatelliteState state, Vec3 satPosKm, Vec3 esPosKm)
         {
             double v = _inner.PfdDb(state, satPosKm, esPosKm);

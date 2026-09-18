@@ -82,9 +82,9 @@ public static class ConsistencyProbe
         var con = new Constellation(DatasetGenerator.Shells);
         double freqMhz = 0.5 * (s30.LowFreqMhz + s30.HighFreqMhz);
         var (step, steps, half) = ReadRuleProbes.Depth(quick);
-        IMaskPfdRead saturated = new ProbeExamination.ShellMaskRead(masks.Select(m => (IMaskPfdRead)MaskFootprint.LoadFile(m.Path)));
+        IMaskPfdRead saturated = new ProbeExamination.ShellMaskRead(masks.Select(m => (IPureMaskPfdRead)MaskFootprint.LoadFile(m.Path)));
         IMaskPfdRead control = new ProbeExamination.ShellMaskRead(controlMasks.Select(m =>
-            (IMaskPfdRead)new ProbeExamination.OffsetMaskRead(MaskFootprint.LoadFile(m.Path), TxDeltaDb)));
+            (IPureMaskPfdRead)new ProbeExamination.OffsetMaskRead(MaskFootprint.LoadFile(m.Path), TxDeltaDb)));
         var rows = new List<(double Lat, ProbeExamination.Verdict Sat, ProbeExamination.Verdict SatHalf, ProbeExamination.Verdict Ctl)>();
         foreach (double lat in SweepLatsDeg)
         {

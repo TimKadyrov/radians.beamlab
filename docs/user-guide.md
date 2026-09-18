@@ -698,7 +698,10 @@ and the run: GSO longitude; ES latitude/longitude, which also serve as
 the up/is victim's boresight; the S.1428 dish diameter (victim dish;
 also the transmitting ES when the profile's uplink side declares no
 dish); duration and time step. **Write CDFs…** executes on a
-worker thread and writes three CDF CSVs in S.1503-4 D7.1.2 bins (0.1 dB):
+worker thread, using every processor for the satellites of each step
+(set the `BEAMLAB_THREADS` environment variable to a smaller count to
+leave the machine responsive; the result does not depend on it), and
+writes three CDF CSVs in S.1503-4 D7.1.2 bins (0.1 dB):
 `base.down.csv`, `base.is.csv` (the byproduct at the GSO satellite
 victim — S.672, 40.7 dBi / 1.55°) and `base.up.csv` — then opens the
 **CDF viewer** over the written curves (epfd on a linear dB axis

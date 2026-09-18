@@ -11,11 +11,18 @@ namespace radians.beamlab.app;
 /// the ungated <see cref="ScenePointing"/> gives "reachable". Per-beam power
 /// is left unchanged (no budget redistribution), so occurring is a per-step
 /// subset of reachable by construction.
+///
+/// Concurrent: the schedule of a step is computed once, under a lock, by
+/// whichever call first names the step's time -- <see cref="Prepare"/> when
+/// a snapshot fans out, the first Resolve otherwise -- so the scheduler
+/// still advances step by step in call order; the gating then reads the
+/// finished step.
 /// </summary>
-public sealed class ScheduledPointing : IBeamPointing
+public sealed class ScheduledPointing : IConcurrentBeamPointing
 {
     private readonly ScenePointing _inner;
     private readonly Scheduler _scheduler;
+    private readonly object _gate = new();
     private double _cachedT = double.NaN;
     private ScheduleStep? _step;
 
@@ -30,18 +37,29 @@ public sealed class ScheduledPointing : IBeamPointing
     }
 
     /// <summary>The schedule used for the most recent step (diagnostics / tests).</summary>
-    public ScheduleStep? LastStep => _step;
+    public ScheduleStep? LastStep { get { lock (_gate) return _step; } }
+
+    /// <summary>Computes the step's schedule now, on this thread, before the satellites fan out.</summary>
+    public void Prepare(double timeSeconds) => StepAt(timeSeconds);
+
+    private ScheduleStep StepAt(double timeSeconds)
+    {
+        lock (_gate)
+        {
+            if (timeSeconds != _cachedT)
+            {
+                _step = _scheduler.Step(timeSeconds);
+                _cachedT = timeSeconds;
+            }
+            return _step!;
+        }
+    }
 
     public ResolvedBeamSet Resolve(SatelliteState state)
     {
-        if (state.TimeSeconds != _cachedT)
-        {
-            _step = _scheduler.Step(state.TimeSeconds);
-            _cachedT = state.TimeSeconds;
-        }
-
+        var step = StepAt(state.TimeSeconds);
         var set = _inner.Resolve(state);
-        _step!.ActiveBeams.TryGetValue(state.SatelliteNumber, out var on);
+        step.ActiveBeams.TryGetValue(state.SatelliteNumber, out var on);
         for (int i = 0; i < set.Beams.Count; i++)
         {
             if (on is null || !on.Contains(i))

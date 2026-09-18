@@ -1149,7 +1149,7 @@ public static class DatasetGenerator
         OperatingParamsSet declared, Band band, DatasetOptions o, long steps)
     {
         var con = new Constellation(Shells);
-        var reads = maskIds.Select(id => (IMaskPfdRead)MaskFootprint.LoadFile(
+        var reads = maskIds.Select(id => (IPureMaskPfdRead)MaskFootprint.LoadFile(
             Path.Combine(xmlDir, MaskDefs.Single(d => d.MaskId == id).FileName))).ToList();
         IMaskPfdRead masks = reads.Count == 1 ? reads[0] : new ProbeExamination.ShellMaskRead(reads);
         return FamilyCurves.Examination(label, con, masks, declared, band.FMin, 0.6, 45.0, 0.0, 10.0,

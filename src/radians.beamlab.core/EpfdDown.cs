@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using radantenna;
 using radcompute1503_2;
 using radlimits;
@@ -150,52 +151,80 @@ public static class EpfdDown
         double maxEpfdIs = double.NegativeInfinity;
         long quietIs = 0;
 
+        // Per-satellite linear terms of one step: terms[i * nv + v] toward
+        // victim v and termsIs[i] toward the GSO satellite, 0 where the
+        // satellite does not contribute. Satellites are independent once the
+        // snapshot is resolved, so the terms are computed in parallel; the
+        // sums are then taken in satellite order, the order of the sequential
+        // loop, so the accumulated values are identical bit for bit.
+        int nSat = constellation.SatelliteCount;
+        var terms = new double[nSat * nv];
+        var termsIs = new double[nSat];
+
         for (long k = 0; k < steps; k++)
         {
             if (progress is not null && k % progressEvery == 0) progress.Report((double)k / steps);
             double t = k * timeStepSec;
             var snap = constellation.SnapshotAt(t, simDur, pointing);
 
-            Array.Clear(linear, 0, nv);
-            double linearIs = 0.0;
-            foreach (var sat in snap.Satellites)
+            void Terms(int i)
             {
-                if (sat.Beams is null || sat.Beams.Beams.Count == 0) continue;
-                var pos = sat.State.PositionEcefKm;
-
-                if (accIs is not null && !EarthBlocked(pos, gsoIs))
+                var sat = snap.Satellites[i];
+                double termIs = 0.0;
+                int baseIdx = i * nv;
+                for (int v = 0; v < nv; v++) terms[baseIdx + v] = 0.0;
+                if (sat.Beams is not null && sat.Beams.Beams.Count > 0)
                 {
-                    var toGso = (gsoIs - pos).Normalized();
-                    double eirpIs = BeamComposer.ResolvedEirpDbw(sat.Beams, toGso);
-                    if (!double.IsNegativeInfinity(eirpIs))
+                    var pos = sat.State.PositionEcefKm;
+
+                    if (accIs is not null && !EarthBlocked(pos, gsoIs))
                     {
-                        double dIsM = (gsoIs - pos).Length * 1000.0;
-                        var toSatIs = (pos - gsoIs).Normalized();
-                        double psiDeg = Math.Acos(Math.Clamp(
-                            Vec3.Dot(isBoresightDir, toSatIs), -1.0, 1.0)) * 180.0 / Math.PI;
-                        linearIs += Math.Pow(10.0,
-                            (eirpIs - 10.0 * Math.Log10(4.0 * Math.PI * dIsM * dIsM)
-                             + isVictim!.RelativeGainDb(psiDeg)) / 10.0);
+                        var toGso = (gsoIs - pos).Normalized();
+                        double eirpIs = BeamComposer.ResolvedEirpDbw(sat.Beams, toGso);
+                        if (!double.IsNegativeInfinity(eirpIs))
+                        {
+                            double dIsM = (gsoIs - pos).Length * 1000.0;
+                            var toSatIs = (pos - gsoIs).Normalized();
+                            double psiDeg = Math.Acos(Math.Clamp(
+                                Vec3.Dot(isBoresightDir, toSatIs), -1.0, 1.0)) * 180.0 / Math.PI;
+                            termIs = Math.Pow(10.0,
+                                (eirpIs - 10.0 * Math.Log10(4.0 * Math.PI * dIsM * dIsM)
+                                 + isVictim!.RelativeGainDb(psiDeg)) / 10.0);
+                        }
+                    }
+
+                    for (int v = 0; v < nv; v++)
+                    {
+                        if (ElevationAngleDeg(pos, es[v]) <= 0.0) continue;   // below this ES horizon
+
+                        var toEs = (es[v] - pos).Normalized();
+                        double eirp = BeamComposer.ResolvedEirpDbw(sat.Beams, toEs);
+                        if (double.IsNegativeInfinity(eirp)) continue;
+
+                        double distM = (es[v] - pos).Length * 1000.0;
+                        double pfd = eirp - 10.0 * Math.Log10(4.0 * Math.PI * distM * distM);
+
+                        var toSat = (pos - es[v]).Normalized();
+                        double phiDeg = Math.Acos(Math.Clamp(Vec3.Dot(dirEsGso[v], toSat), -1.0, 1.0)) * 180.0 / Math.PI;
+                        double grx = victims[v].Antenna.GetAntGain(phiDeg, 0.0);
+
+                        terms[baseIdx + v] = Math.Pow(10.0, (pfd + grx - gmax[v]) / 10.0);
                     }
                 }
+                termsIs[i] = termIs;
+            }
 
+            if (SimulationParallel.Enabled) Parallel.For(0, nSat, SimulationParallel.Options, Terms);
+            else for (int i = 0; i < nSat; i++) Terms(i);
+
+            Array.Clear(linear, 0, nv);
+            double linearIs = 0.0;
+            for (int i = 0; i < nSat; i++)
+            {
+                if (termsIs[i] != 0.0) linearIs += termsIs[i];
+                int baseIdx = i * nv;
                 for (int v = 0; v < nv; v++)
-                {
-                    if (ElevationAngleDeg(pos, es[v]) <= 0.0) continue;   // below this ES horizon
-
-                    var toEs = (es[v] - pos).Normalized();
-                    double eirp = BeamComposer.ResolvedEirpDbw(sat.Beams, toEs);
-                    if (double.IsNegativeInfinity(eirp)) continue;
-
-                    double distM = (es[v] - pos).Length * 1000.0;
-                    double pfd = eirp - 10.0 * Math.Log10(4.0 * Math.PI * distM * distM);
-
-                    var toSat = (pos - es[v]).Normalized();
-                    double phiDeg = Math.Acos(Math.Clamp(Vec3.Dot(dirEsGso[v], toSat), -1.0, 1.0)) * 180.0 / Math.PI;
-                    double grx = victims[v].Antenna.GetAntGain(phiDeg, 0.0);
-
-                    linear[v] += Math.Pow(10.0, (pfd + grx - gmax[v]) / 10.0);
-                }
+                    if (terms[baseIdx + v] != 0.0) linear[v] += terms[baseIdx + v];
             }
 
             for (int v = 0; v < nv; v++)

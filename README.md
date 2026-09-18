@@ -250,8 +250,17 @@ for: `margin` (the projection-margin figure), `loop` (the compliance loop),
 the producer's own export), `oracle` (the propagator against a published
 case), `study` (the payload envelope study), `probescan` (the read-rule
 probe measurement scan), `arcshield` (the arc-protection measurement of the
-11.32A concept note) and `grade` (a mask against a dataset set). Each is
-documented at its dispatch in `tests/radians.beamlab.checks/Program.cs`.
+11.32A concept note), `decompose` (the margin decomposition), `grade` (a
+mask against a dataset set) and `bench` (seconds per simulated step at the
+current thread count). Each is documented at its dispatch in
+`tests/radians.beamlab.checks/Program.cs`.
+
+The simulation runs its independent work in parallel -- the satellites of
+a time step, the cells of a schedule step, the steps of a mask examination
+-- and reduces in the sequential order, so the output does not depend on
+the thread count (check V56 pins this bit for bit). It uses every
+processor unless the `BEAMLAB_THREADS` environment variable names a
+smaller count; `BEAMLAB_THREADS=1` runs the sequential code path.
 
 `countries.json` is searched in the working directory, the application
 binary directory, and the project root — drop a Natural Earth GeoJSON

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using static radians.beamlab.GeoMath;
 
 namespace radians.beamlab;
@@ -257,13 +258,13 @@ public sealed class Scheduler
         // Per-satellite reuse colours and the payload's per-colour beam capacity
         // come from the resolved set: the same values the mask envelopes over.
         var colours = new IReadOnlyList<int>?[n];
-        int? capColour = null;
-        for (int i = 0; i < n; i++)
+        var capacities = new int?[n];
+        void ResolveSatellite(int i)
         {
             states[i] = _con.StateAt(i, tSec, _simDurationSec);
             var resolved = _layout.Resolve(states[i]);
             colours[i] = resolved.ReuseColors;
-            capColour ??= resolved.CoFrequencyBeamCapacity;
+            capacities[i] = resolved.CoFrequencyBeamCapacity;
             var fps = new List<(int, double, double)>();
             for (int b = 0; b < resolved.Beams.Count; b++)
             {
@@ -279,9 +280,30 @@ public sealed class Scheduler
             footprints[i] = fps;
         }
 
-        // Candidates per cell, against the declared bounds.
-        var candidates = new Dictionary<int, List<Candidate>>();
-        for (int c = 0; c < _geo.Cells.Count; c++)
+        // Satellites are independent within a step (one propagator each; a
+        // layout that declares itself concurrent), so they resolve in parallel;
+        // the first declared capacity in satellite order is kept either way.
+        bool parallel = SimulationParallel.Enabled;
+        if (parallel && _layout is IConcurrentBeamPointing concurrentLayout)
+        {
+            concurrentLayout.Prepare(tSec);
+            Parallel.For(0, n, SimulationParallel.Options, ResolveSatellite);
+        }
+        else
+        {
+            for (int i = 0; i < n; i++) ResolveSatellite(i);
+        }
+        int? capColour = null;
+        for (int i = 0; i < n; i++) capColour ??= capacities[i];
+
+        // Candidates per cell, against the declared bounds. Cells are
+        // independent of one another (geometry, gates and covering beam read
+        // only the resolved states), so they are built in parallel; the
+        // Random policy's keys are then drawn on this thread in the original
+        // order -- cell by cell, candidate by candidate -- so the seeded
+        // sequence lands on the same candidates as the sequential loop.
+        var perCell = new List<Candidate>[_geo.Cells.Count];
+        void BuildCandidates(int c)
         {
             var cell = _geo.Cells[c];
             var es = _cellEcef[c];
@@ -313,18 +335,40 @@ public sealed class Scheduler
                 if (bestBeam < 0) continue;
 
                 int colour = colours[i] is { } cc && bestBeam < cc.Count ? cc[bestBeam] : 0;
-                list.Add(new Candidate(i, states[i].SatelliteNumber, bestBeam, elev, alpha,
-                    _policy == SelectionPolicy.Random ? _rng.NextDouble() : 0.0, colour));
+                list.Add(new Candidate(i, states[i].SatelliteNumber, bestBeam, elev, alpha, 0.0, colour));
             }
-            list.Sort((a, b) =>
+            perCell[c] = list;
+        }
+        void SortCandidates(int c)
+        {
+            perCell[c].Sort((a, b) =>
             {
                 int cmp = Metric(b).CompareTo(Metric(a));
                 if (cmp != 0) return cmp;
                 cmp = b.ElevationDeg.CompareTo(a.ElevationDeg);
                 return cmp != 0 ? cmp : a.SatelliteNumber.CompareTo(b.SatelliteNumber);
             });
-            candidates[cell.CellId] = list;
         }
+
+        if (parallel) Parallel.For(0, perCell.Length, SimulationParallel.Options, BuildCandidates);
+        else for (int c = 0; c < perCell.Length; c++) BuildCandidates(c);
+
+        if (_policy == SelectionPolicy.Random)
+        {
+            for (int c = 0; c < perCell.Length; c++)
+            {
+                var list = perCell[c];
+                for (int j = 0; j < list.Count; j++)
+                    list[j] = list[j] with { RandomKey = _rng.NextDouble() };
+            }
+        }
+
+        if (parallel) Parallel.For(0, perCell.Length, SimulationParallel.Options, SortCandidates);
+        else for (int c = 0; c < perCell.Length; c++) SortCandidates(c);
+
+        var candidates = new Dictionary<int, List<Candidate>>();
+        for (int c = 0; c < perCell.Length; c++)
+            candidates[_geo.Cells[c].CellId] = perCell[c];
 
         // Assignment with dwell. The remaining declared bounds gate candidate
         // ELIGIBILITY here, so contested capacity reassigns to the next-best
