@@ -1,6 +1,6 @@
 # Case (a) of the 11.32A concept note, measured: protecting the arc against the Table 22-1C values
 
-*Produced by `dotnet run --project tests/radians.beamlab.checks -- arcshield `, 2026-09-13; wall clock 1.7 min.*
+*Produced by `dotnet run --project tests/radians.beamlab.checks -- arcshield `, 2026-09-18; wall clock 4.5 min.*
 
 ## The question
 
@@ -31,32 +31,34 @@ The concept note's case (a) proposes, for bands adjacent to those with Article 2
 
 For each row: the worst margin over the victims of each system at the common payload, the victim and the binding point, the prefix's figure and how far it moved; then the DAYLIGHT -- the protecting system's worst margin minus the non-protecting system's, which is what protecting the arc is worth at the deciding point, independent of the payload level -- and the payload at which the protecting system would just clear the row, with the non-protecting system's margin at that same payload.
 
-| row | system | worst margin (dB) | at | binding point | prefix (24 h) | moved | daylight vs no notch (dB) | boresight pfd at which this system just clears, dB(W/(m2 MHz)) | non-protector at the protector's clearing level (dB) |
+Verdict rule: compliance against the Article 22 limit curve (design brief) -- PASS only if every tabulated limit point passes AND the distribution nowhere crosses the log-linear curve between the tabulated points, tolerance 0.05 dB read towards lower epfd. Margins quoted as 'point margin' are the limit minus the computed level at each tabulated percentage; the 'curve margin' is the dB shift of the whole distribution that just clears the curve; the rule margin is the smaller of the two.
+
+| row | system | worst rule margin (dB) | at | binding point | prefix (24 h) | moved | daylight vs no notch (dB) | boresight pfd at which this system just clears, dB(W/(m2 MHz)) | non-protector at the protector's clearing level (dB) |
 |---|---|---|---|---|---|---|---|---|---|
-| 0.70 m, 40 kHz | notch 0 | -20.3 | 40 N | 0.017% | -20.3 | +0.0 | - | -140.1 | - |
-| 0.70 m, 40 kHz | notch 8 | -2.5 | 60 N | 28.57% | -2.6 | +0.1 | +17.8 | -122.3 | -17.8 (FAIL) |
-| 0.70 m, 40 kHz | notch 22 | -0.7 | 60 N | 28.57% | -0.7 | +0.0 | +19.6 | -120.5 | -19.6 (FAIL) |
-| 0.70 m, 1000 kHz | notch 0 | -20.3 | 40 N | 0.017% | -20.3 | +0.0 | - | -140.1 | - |
-| 0.70 m, 1000 kHz | notch 8 | -2.5 | 60 N | 28.57% | -2.5 | +0.0 | +17.8 | -122.3 | -17.8 (FAIL) |
-| 0.70 m, 1000 kHz | notch 22 | -0.7 | 60 N | 28.57% | -0.7 | +0.0 | +19.6 | -120.5 | -19.6 (FAIL) |
-| 0.90 m, 40 kHz | notch 0 | -28.2 | 40 N | 0.057% | -30.5 | +2.3 | - | -148.0 | - |
-| 0.90 m, 40 kHz | notch 8 | -2.2 | 60 N | 9% | -2.2 | +0.0 | +26.0 | -122.0 | -26.0 (FAIL) |
-| 0.90 m, 40 kHz | notch 22 | +0.4 | 60 N | 9% | +0.4 | +0.0 | +28.6 | -119.4 | -28.6 (FAIL) |
-| 0.90 m, 1000 kHz | notch 0 | -28.1 | 40 N | 0.057% | -30.5 | +2.4 | - | -147.9 | - |
-| 0.90 m, 1000 kHz | notch 8 | -2.2 | 60 N | 9% | -2.2 | +0.0 | +25.9 | -122.0 | -25.9 (FAIL) |
-| 0.90 m, 1000 kHz | notch 22 | +0.4 | 60 N | 9% | +0.5 | -0.1 | +28.5 | -119.4 | -28.5 (FAIL) |
-| 2.50 m, 40 kHz | notch 0 | -26.9 | 40 N | 0.02% | -27.8 | +0.9 | - | -146.7 | - |
-| 2.50 m, 40 kHz | notch 8 | +18.2 | 10 N | 0.02% | +17.8 | +0.4 | +45.1 | -101.6 | -45.1 (FAIL) |
-| 2.50 m, 40 kHz | notch 22 | +25.6 | 60 N | 0.02% | +25.3 | +0.3 | +52.5 | -94.2 | -52.5 (FAIL) |
-| 2.50 m, 1000 kHz | notch 0 | -26.9 | 40 N | 0.02% | -27.8 | +0.9 | - | -146.7 | - |
-| 2.50 m, 1000 kHz | notch 8 | +18.2 | 10 N | 0.02% | +17.8 | +0.4 | +45.1 | -101.6 | -45.1 (FAIL) |
-| 2.50 m, 1000 kHz | notch 22 | +25.6 | 60 N | 0.02% | +25.3 | +0.3 | +52.5 | -94.2 | -52.5 (FAIL) |
-| 5.00 m, 40 kHz | notch 0 | -28.4 | 40 N | 0.01% | -28.4 | +0.0 | - | -148.2 | - |
-| 5.00 m, 40 kHz | notch 8 | +4.9 | 50 N | 10% | +4.9 | +0.0 | +33.3 | -114.9 | -33.3 (FAIL) |
-| 5.00 m, 40 kHz | notch 22 | +7.4 | 60 N | 10% | +7.4 | +0.0 | +35.8 | -112.4 | -35.8 (FAIL) |
-| 5.00 m, 1000 kHz | notch 0 | -28.4 | 40 N | 0.01% | -28.4 | +0.0 | - | -148.2 | - |
-| 5.00 m, 1000 kHz | notch 8 | +4.9 | 60 N | 10% | +4.8 | +0.1 | +33.3 | -114.9 | -33.3 (FAIL) |
-| 5.00 m, 1000 kHz | notch 22 | +7.4 | 60 N | 10% | +7.5 | -0.1 | +35.8 | -112.4 | -35.8 (FAIL) |
+| 0.70 m, 40 kHz | notch 0 | -23.3 | 40 N | 0.017% | -24.6 | +1.3 | - | -143.1 | - |
+| 0.70 m, 40 kHz | notch 8 | -4.9 | 60 N | 28.57% | -4.9 | +0.0 | +18.4 | -124.7 | -18.4 (FAIL) |
+| 0.70 m, 40 kHz | notch 22 | -4.3 | 40 N | 28.57% | -4.3 | +0.0 | +19.0 | -124.1 | -19.0 (FAIL) |
+| 0.70 m, 1000 kHz | notch 0 | -23.3 | 40 N | 0.017% | -24.5 | +1.2 | - | -143.1 | - |
+| 0.70 m, 1000 kHz | notch 8 | -4.9 | 60 N | 28.57% | -4.9 | +0.0 | +18.4 | -124.7 | -18.4 (FAIL) |
+| 0.70 m, 1000 kHz | notch 22 | -4.3 | 50 N | 28.57% | -4.3 | +0.0 | +19.0 | -124.1 | -19.0 (FAIL) |
+| 0.90 m, 40 kHz | notch 0 | -28.7 | 40 N | 0.057% | -31.0 | +2.3 | - | -148.5 | - |
+| 0.90 m, 40 kHz | notch 8 | -5.8 | 60 N | 9% | -5.8 | +0.0 | +22.9 | -125.6 | -22.9 (FAIL) |
+| 0.90 m, 40 kHz | notch 22 | -5.2 | 40 N | 9% | -5.2 | +0.0 | +23.5 | -125.0 | -23.5 (FAIL) |
+| 0.90 m, 1000 kHz | notch 0 | -28.6 | 40 N | 0.057% | -31.0 | +2.4 | - | -148.4 | - |
+| 0.90 m, 1000 kHz | notch 8 | -5.8 | 60 N | 9% | -5.8 | +0.0 | +22.8 | -125.6 | -22.8 (FAIL) |
+| 0.90 m, 1000 kHz | notch 22 | -5.2 | 50 N | 9% | -5.2 | +0.0 | +23.4 | -125.0 | -23.4 (FAIL) |
+| 2.50 m, 40 kHz | notch 0 | -29.0 | 40 N | 0.02% | -31.8 | +2.8 | - | -148.8 | - |
+| 2.50 m, 40 kHz | notch 8 | -2.9 | 60 N | 0.02% | -2.9 | +0.0 | +26.1 | -122.7 | -26.1 (FAIL) |
+| 2.50 m, 40 kHz | notch 22 | -2.3 | 40 N | 0.02% | -2.3 | +0.0 | +26.7 | -122.1 | -26.7 (FAIL) |
+| 2.50 m, 1000 kHz | notch 0 | -29.0 | 40 N | 0.02% | -31.8 | +2.8 | - | -148.8 | - |
+| 2.50 m, 1000 kHz | notch 8 | -2.9 | 60 N | 0.02% | -2.9 | +0.0 | +26.1 | -122.7 | -26.1 (FAIL) |
+| 2.50 m, 1000 kHz | notch 22 | -2.3 | 50 N | 0.02% | -2.3 | +0.0 | +26.7 | -122.1 | -26.7 (FAIL) |
+| 5.00 m, 40 kHz | notch 0 | -32.5 | 40 N | 0.01% | -35.6 | +3.1 | - | -152.3 | - |
+| 5.00 m, 40 kHz | notch 8 | -0.8 | 60 N | 10% | -0.8 | +0.0 | +31.7 | -120.6 | -31.7 (FAIL) |
+| 5.00 m, 40 kHz | notch 22 | -0.2 | 50 N | 10% | -0.2 | +0.0 | +32.3 | -120.0 | -32.3 (FAIL) |
+| 5.00 m, 1000 kHz | notch 0 | -32.5 | 40 N | 0.01% | -35.6 | +3.1 | - | -152.3 | - |
+| 5.00 m, 1000 kHz | notch 8 | -0.8 | 60 N | 10% | -0.8 | +0.0 | +31.7 | -120.6 | -31.7 (FAIL) |
+| 5.00 m, 1000 kHz | notch 22 | -0.2 | 50 N | 10% | -0.2 | +0.0 | +32.3 | -120.0 | -32.3 (FAIL) |
 
 ## Per victim, the 40 kHz rows
 
@@ -64,49 +66,49 @@ For each row: the worst margin over the victims of each system at the common pay
 
 | victim | notch 0: worst margin / binding point | notch 8: worst margin / binding point | notch 22: worst margin / binding point |
 |---|---|---|---|
-| 0 N | -18.5 / 0.017% | +0.6 / 28.57% | +1.3 / 28.57% |
-| 10 N | -11.8 / 0.017% | +0.4 / 28.57% | +1.0 / 28.57% |
-| 20 N | -17.0 / 0.017% | +0.0 / 28.57% | +0.5 / 28.57% |
-| 30 N | -19.4 / 0.017% | -0.7 / 28.57% | -0.1 / 28.57% |
-| 40 N | -20.3 / 0.017% | -1.7 / 28.57% | -0.4 / 28.57% |
-| 50 N | -14.3 / 0.017% | -2.3 / 28.57% | -0.6 / 28.57% |
-| 60 N | -18.2 / 0.017% | -2.5 / 28.57% | -0.7 / 28.57% |
+| 0 N | -18.5 / 0.017% | -0.7 / 28.57% | +0.4 / 28.57% |
+| 10 N | -12.7 / 0.017% | -1.3 / 28.57% | -0.2 / 28.57% |
+| 20 N | -17.0 / 0.017% | -2.3 / 28.57% | -1.2 / 28.57% |
+| 30 N | -19.4 / 0.017% | -3.9 / 28.57% | -3.2 / 28.57% |
+| 40 N | -23.3 / 0.017% | -4.7 / 28.57% | -4.3 / 28.57% |
+| 50 N | -16.6 / 0.017% | -4.8 / 28.57% | -4.3 / 28.57% |
+| 60 N | -22.2 / 0.017% | -4.9 / 28.57% | -4.2 / 28.57% |
 
 ### Article 22, TABLE 22-1C -- FSS 19700-20200 MHz, refbw 40 kHz, dish 0.90 m, regions XR1/XR2/XR3
 
 | victim | notch 0: worst margin / binding point | notch 8: worst margin / binding point | notch 22: worst margin / binding point |
 |---|---|---|---|
-| 0 N | -17.2 / 0.003% | +0.6 / 9% | +2.6 / 9% |
-| 10 N | -16.9 / 0.057% | -0.1 / 9% | +2.4 / 9% |
-| 20 N | -14.9 / 0.003% | -0.8 / 9% | +2.2 / 9% |
-| 30 N | -18.7 / 0.003% | -0.8 / 9% | +1.8 / 9% |
-| 40 N | -28.2 / 0.057% | -1.6 / 9% | +1.4 / 9% |
-| 50 N | -16.2 / 0.057% | -2.1 / 9% | +1.5 / 9% |
-| 60 N | -26.1 / 0.057% | -2.2 / 9% | +0.4 / 9% |
+| 0 N | -20.7 / 0.003% | -1.8 / 9% | -0.8 / 9% |
+| 10 N | -17.4 / 0.057% | -2.4 / 9% | -1.5 / 9% |
+| 20 N | -18.4 / 0.003% | -3.4 / 9% | -2.4 / 9% |
+| 30 N | -22.2 / 0.003% | -4.8 / 9% | -4.2 / 9% |
+| 40 N | -28.7 / 0.057% | -5.6 / 9% | -5.2 / 9% |
+| 50 N | -17.7 / 0.057% | -5.7 / 9% | -5.2 / 9% |
+| 60 N | -26.9 / 0.057% | -5.8 / 9% | -5.2 / 9% |
 
 ### Article 22, TABLE 22-1C -- FSS 19700-20200 MHz, refbw 40 kHz, dish 2.50 m, regions XR1/XR2/XR3
 
 | victim | notch 0: worst margin / binding point | notch 8: worst margin / binding point | notch 22: worst margin / binding point |
 |---|---|---|---|
-| 0 N | -3.6 / 0.00057% | +19.3 / 0.02% | +26.2 / 0.02% |
-| 10 N | -1.5 / 0.02% | +18.2 / 0.02% | +25.8 / 0.02% |
-| 20 N | -4.5 / 0.02% | +18.8 / 0.02% | +26.0 / 0.02% |
-| 30 N | -7.6 / 0.00057% | +18.6 / 0.02% | +26.2 / 0.02% |
-| 40 N | -26.9 / 0.02% | +18.5 / 0.02% | +26.2 / 0.02% |
-| 50 N | -3.2 / 0.02% | +19.1 / 0.02% | +26.1 / 0.02% |
-| 60 N | -15.9 / 0.00057% | +19.5 / 0.02% | +25.6 / 0.02% |
+| 0 N | -11.2 / 0.00057% | +1.2 / 0.02% | +2.3 / 0.02% |
+| 10 N | -5.2 / 0.02% | +0.6 / 0.02% | +1.6 / 0.02% |
+| 20 N | -7.4 / 0.02% | -0.4 / 0.02% | +0.7 / 0.02% |
+| 30 N | -15.2 / 0.00057% | -1.9 / 0.02% | -1.2 / 0.02% |
+| 40 N | -29.0 / 0.02% | -2.7 / 0.02% | -2.3 / 0.02% |
+| 50 N | -6.9 / 0.02% | -2.8 / 0.02% | -2.3 / 0.02% |
+| 60 N | -23.5 / 0.00057% | -2.9 / 0.02% | -2.3 / 0.02% |
 
 ### Article 22, TABLE 22-1C -- FSS 19700-20200 MHz, refbw 40 kHz, dish 5.00 m, regions XR1/XR2/XR3
 
 | victim | notch 0: worst margin / binding point | notch 8: worst margin / binding point | notch 22: worst margin / binding point |
 |---|---|---|---|
-| 0 N | -7.1 / 0.01% | +7.8 / 10% | +9.7 / 10% |
-| 10 N | -2.8 / 0.114% | +7.2 / 10% | +9.4 / 10% |
-| 20 N | -4.6 / 0.114% | +6.6 / 10% | +9.3 / 10% |
-| 30 N | -12.3 / 0.01% | +6.4 / 10% | +8.8 / 10% |
-| 40 N | -28.4 / 0.01% | +5.4 / 10% | +8.5 / 10% |
-| 50 N | -4.6 / 0.114% | +4.9 / 10% | +8.6 / 10% |
-| 60 N | -18.7 / 0.01% | +4.9 / 10% | +7.4 / 10% |
+| 0 N | -9.4 / 0.01% | +3.6 / 10% | +4.9 / 10% |
+| 10 N | -4.9 / 0.114% | +3.0 / 10% | +4.2 / 10% |
+| 20 N | -6.3 / 0.114% | +1.9 / 10% | +3.1 / 10% |
+| 30 N | -14.6 / 0.01% | +0.2 / 10% | +1.1 / 10% |
+| 40 N | -32.5 / 0.01% | -0.6 / 10% | -0.1 / 10% |
+| 50 N | -6.8 / 0.114% | -0.7 / 10% | -0.2 / 10% |
+| 60 N | -21.0 / 0.01% | -0.8 / 10% | +0.0 / 10% |
 
 ## The two grades the Rule would refer to
 
@@ -123,8 +125,8 @@ The masks' boresight pfd at the payload used here: notch 0: -133.8 dB(W/m2) in 4
 
 ## Reading it
 
-- Article 22, TABLE 22-1C -- FSS 19700-20200 MHz, refbw 40 kHz, dish 0.70 m, regions XR1/XR2/XR3: protecting the arc with a 8 deg zone is worth +17.8 dB at the deciding point. At the payload where that system just clears the row, the system that does not protect the arc sits at -17.8 dB: it fails.
-- Article 22, TABLE 22-1C -- FSS 19700-20200 MHz, refbw 40 kHz, dish 0.70 m, regions XR1/XR2/XR3: protecting the arc with a 22 deg zone is worth +19.6 dB at the deciding point. At the payload where that system just clears the row, the system that does not protect the arc sits at -19.6 dB: it fails.
-- Latitude: the protectors' worst victims on the Article 22, TABLE 22-1C row are notch 8 at 60 N (-2.5 dB), notch 22 at 60 N (-0.7 dB). The mechanism is general high-latitude geometry, not a property of one system: the arc sits low from a high-latitude earth station, so a zone about it removes little of the sky, and an inclined shell's sub-satellite density peaks near its inclination latitude, so more and closer satellites are in view there. The magnitude depends on the shell's inclination and satellite count -- the same reading of a filed 1 600-satellite system at 53 deg inclination gave 12.7 dB at 60 N against 8.5-9.9 dB at 0-50 N -- so a criterion of this kind bites hardest at latitudes near the interferer's inclination, which an operator serving those latitudes may not be able to meet by arc protection alone; Article 22 itself grades its further limits by latitude above 57.5 deg (No. 22.5C.4).
+- Article 22, TABLE 22-1C -- FSS 19700-20200 MHz, refbw 40 kHz, dish 0.70 m, regions XR1/XR2/XR3: protecting the arc with a 8 deg zone is worth +18.4 dB at the deciding point. At the payload where that system just clears the row, the system that does not protect the arc sits at -18.4 dB: it fails.
+- Article 22, TABLE 22-1C -- FSS 19700-20200 MHz, refbw 40 kHz, dish 0.70 m, regions XR1/XR2/XR3: protecting the arc with a 22 deg zone is worth +19.0 dB at the deciding point. At the payload where that system just clears the row, the system that does not protect the arc sits at -19.0 dB: it fails.
+- Latitude: the protectors' worst victims on the Article 22, TABLE 22-1C row are notch 8 at 60 N (-4.9 dB), notch 22 at 40 N (-4.3 dB). The mechanism is general high-latitude geometry, not a property of one system: the arc sits low from a high-latitude earth station, so a zone about it removes little of the sky, and an inclined shell's sub-satellite density peaks near its inclination latitude, so more and closer satellites are in view there. The magnitude depends on the shell's inclination and satellite count -- the same reading of a filed 1 600-satellite system at 53 deg inclination gave 12.7 dB at 60 N against 8.5-9.9 dB at 0-50 N -- so a criterion of this kind bites hardest at latitudes near the interferer's inclination, which an operator serving those latitudes may not be able to meet by arc protection alone; Article 22 itself grades its further limits by latitude above 57.5 deg (No. 22.5C.4).
 - The daylight is the difference between where the two systems' worst points fall: the non-protecting system's worst point is the short-term end of the row, set by a satellite crossing the earth station's main beam inside the zone with a main-beam-grade mask value (Step 22 counts it whatever the declaration says); the protecting system's worst point is the body of the row, set by the co-frequency cap and the side-lobe levels, which the notch does not touch. Protecting the arc therefore buys nothing at the body and everything at the short-term end.
 - Caveats: one constellation and one payload family; this producer's reading of Sec. D5.1.4.1; a rule notch as the protecting mask (the declaration and the mask agree by construction, which is exactly the route case (a) offers an operator); the antenna evaluated at 19.05 GHz rather than at the row's own band, a difference of a fraction of a decibel in the S.1428 pattern; the prefix column says how far each worst margin is from converged (the body converges in hours, the short-term end with the closest pass of the run).

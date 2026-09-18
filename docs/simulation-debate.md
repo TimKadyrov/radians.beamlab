@@ -5118,3 +5118,70 @@ dataset's expected verdicts, so it is the two operators' call. The
 radians session has put it to theirs; this record puts it to ours.
 Nothing in the verdict path was touched; the scan writes nothing. The
 accumulator sync (purely additive, 98 lines) waits for the same word.
+
+## Beamlab — the curve rule adopted: what changed in the verdict path, in two probe cases and in the case (a) numbers, 18 September 2026
+
+**The decision.** "Adopt the rule, commit and continue." The radians
+operator had already written the rule into the design brief; ours
+adopted it for the producer. This entry records what adoption meant.
+
+**The verdict path.** A core `LimitCurveRule` names the rule and carries
+it: the verdict is the accumulator's own point-wise comparison AND its
+curve scan (the vendored file synced byte for byte to radians'
+`c31f6db`, ninety-eight added lines and nothing removed); a crossing is
+reported at the bin of largest computed-over-allowed ratio with its
+allowed and untolerated values; and a **curve margin** is measured as
+the largest whole-bin shift of the whole distribution towards higher
+epfd that still leaves the curve clear — negative when it crosses as it
+stands — found by bisection, since shifting up can only add crossings.
+The point margin every record has quoted is kept and labelled; the
+verdict's margin is the smaller of the two. The compliance sweep, the
+probe examination, the margin figure, the arc-shield instrument and the
+probe records all verdict under the rule and print point margin, curve
+margin and crossing, with the rule and its tolerance named in every
+record. V57 pins it on a synthetic 22-1B row: a distribution clearing
+every tabulated point but bulging between the 1% and 0.286% points
+fails, the array scan names the accumulator's own bin, and the curve
+margin is exactly the shift at which the curve is reached.
+
+**Two things the adoption exposed.** The app's default limit template —
+100% at −300 dB, 0.0001% at 0 dB, the "verdict-permissive" pair — is
+under the rule a steep curve that every real distribution crosses; it
+was permissive only point-wise, and two long-standing checks (V23, V24)
+failed on it. The default is now the flat 100% line, and those checks
+pass unchanged: a fixture semantics change driven by the rule, disclosed
+here. And the probe scan's mask cache keyed its files on the integer
+part of the power offset, so a scan over half-decibel offsets reused
+one mask and reported one answer five times; the first re-tuning pass
+was worthless and the key now carries a decimal.
+
+**The two probe cases, re-tuned by measurement.** Margins move dB for
+dB with the payload offset, so one scan at the old offset and one at a
+candidate fix each probe. BL-R1: −35.5 → −37.0 dB; the correct read now
+reads FAIL at 25 N (point −4.1, curve −6.2) and PASS at 35 N (point
++3.3, curve +0.9, no crossing), the interpolation read FAIL at both
+(−0.8 rule margin at 35 N, the narrow side of the window), the point
+read FAIL at both, the other row PASS at 25 N as before. BL-R2: −40.6 →
+−42.1 dB; every read PASSES at 25, 30 and 35 N with curve margins +0.6
+to +1.5 and point margins +3.3 to +4.8, the spread between reads about
+a decibel, so the record's finding — the verdict does not discriminate
+this read, the resolved value does — stands under the rule. Both cases
+are re-emitted (build 518e50fc, 18 September); the other eight carry
+the 13 September emission. The curve scan over the whole dataset now
+reports no flip.
+
+**The case (a) numbers.** The arc-shield record regenerated under the
+rule: the daylight between protector and non-protector barely moves
+(70 cm row +18.4 / +19.0 dB against +17.8 / +19.6 point-wise; 90 cm
++22.9 / +23.5; 2.5 m +26.1 / +26.7; 5 m +31.7 / +32.3), but the absolute
+clearing levels drop 2.4 to 3.6 dB: at the payload used the protectors
+no longer clear the 70 cm row (rule margins −4.3 and −4.9 at the 28.57%
+body point); they clear it at −124.1 / −124.7 dB(W/(m² MHz)) and the
+90 cm row at −125.0 / −125.6, the 5 m row at −120.0 / −120.6, the
+non-protector at −143.1 to −152.3. Annex A's case (a) sentence now reads
+"about −120 to −126 depending on the victim dish" and "18 to 32 dB
+lower", and radians was asked to carry the correction to the 11.32A
+note. The point-wise record is kept beside the debate for comparison.
+
+**State.** Harness 153 passed, 0 failed. Committed on the operator's word;
+radians told which cases changed for the consumer guide.
