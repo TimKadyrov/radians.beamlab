@@ -97,6 +97,11 @@ if (args.Length > 0 && args[0] == "decompose")
         DM(4, 0.1), DM(5, 60.0), DM(6, 0.0), DM(7, 60.0), DM(8, 10.0),
         m.Length > 9 ? m[9] : "steam-2");
 }
+// The curve verdict rule over the dataset's expected examination CDFs (CurveScan): does any expected
+// verdict flip when the CDF is tested against the log-linear limit curve, not only its tabulated points?
+//   curvescan [toleranceDb]
+if (args.Length > 0 && args[0] == "curvescan")
+    return radians.beamlab.checks.CurveScan.Run(args.Skip(1).ToArray());
 // Seconds per simulated step at the current thread count (Bench): the STEAM-2 truth step and
 // the mask-examination step. Run once with BEAMLAB_THREADS=1 and once without for the speed-up.
 //   bench [profile] [design] [rsetDir] [steps] [stepSec]

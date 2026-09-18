@@ -14,6 +14,19 @@ namespace radians.beamlab.app;
 public sealed record ComplianceRow(double LatDeg, double MaxEpfdDb, double WorstMarginDb,
     bool Pass, long QuietSteps)
 {
+    /// <summary>
+    /// The limit point that decides the worst margin: its percentage of time
+    /// (0 = the maximum sample against the 0% row). NaN when no limit was
+    /// compared. Names where a verdict lives -- the short-term end moves with
+    /// the run length, the body does not -- so a record can say which.
+    /// </summary>
+    public double DecidingPercent { get; init; } = double.NaN;
+
+    /// <summary>The deciding point as text: "max" for the 0% row, else the percentage.</summary>
+    public string DecidingText => double.IsNaN(DecidingPercent) ? "-"
+        : DecidingPercent <= 0.0 ? "max"
+        : DecidingPercent.ToString("G4", CultureInfo.InvariantCulture) + "%";
+
     public string LatText => LatDeg.ToString("F0", CultureInfo.InvariantCulture);
     public string MaxText => double.IsFinite(MaxEpfdDb)
         ? MaxEpfdDb.ToString("F1", CultureInfo.InvariantCulture) : "quiet";
@@ -236,7 +249,11 @@ public sealed class ComplianceViewModel : ObservableObject
             double worst = sweep.Limits.Count == 0 ? double.PositiveInfinity
                 : sweep.Limits.Min(l => MarginDb(epfd, pct, l.EPFD, l.Perc));
             bool pass = passResults.All(p => p);
-            rows.Add(new ComplianceRow(lat, res.MaxEpfdDb, worst, pass, res.QuietSteps));
+            // The first limit point at the worst margin names the deciding point.
+            double deciding = double.NaN;
+            foreach (var l in sweep.Limits)
+                if (MarginDb(epfd, pct, l.EPFD, l.Perc) == worst) { deciding = l.Perc; break; }
+            rows.Add(new ComplianceRow(lat, res.MaxEpfdDb, worst, pass, res.QuietSteps) { DecidingPercent = deciding });
             progress?.Report(new SweepProgress(string.Create(inv,
                 $"lat {lat:F0} ({i + 1}/{nLat}): worst margin {worst:+0.0;-0.0} dB {(pass ? "PASS" : "FAIL")}"),
                 fraction));

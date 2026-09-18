@@ -5049,3 +5049,72 @@ levels carry their run length, at any run length.
 three name-only profile copies on top of the threading change; one
 commit ahead of azure/main; no code touched since Sunday, harness
 152 passed, 0 failed.
+
+## Beamlab — the verdict is not one rule: the limit curve between its points, and four expectations that turn on it, 18 September 2026
+
+**Where it came from.** The drift guard J0 went red this morning: the
+radians session had committed to its accumulator a scan of the whole
+Article 22 limit curve (`c31f6db`, "Detect epfd excess between
+tabulated limit points"), and our vendored copy is the file before it.
+Asked whether the scan is diagnostic or verdict, radians answered
+verdict: a filing passes only if every tabulated point passes AND the
+CDF nowhere crosses the log-linear curve through the points, read with
+a horizontal tolerance of half a bin (0.05 dB, their operator's
+parameter). Their reason is not a reading they chose: on a filed case
+the reference tool fails two examinations at bins where every tabulated
+point passes, and radians passed them until this commit. The Bureau's
+own implementation, then, applies the curve. Every beamlab verdict, and
+every expected verdict in the dataset, is point-wise.
+
+**The measurement.** A harness mode, `curvescan`, lays radians' rule
+bin for bin over the dataset's expected examination CDFs, using the
+vendored accumulator's own curve construction and the same limit rows
+from the Bureau's database, and re-examines the sweep-grid probe's
+10-degree grid at the record's depth. Point-wise margin against the
+curve scan, tolerance 0.05 dB (zero changes nothing below but one
+ratio):
+
+- BL-R1, 25 N: FAIL −5.6 dB; crosses at −177.6 dB, 61.2% against
+  10.5% allowed. No flip.
+- BL-R1, 35 N: PASS +1.8 dB; crosses at −180.5 dB, 23.0% against 20.5%
+  allowed (limit 20.2%), ratio 1.13. **Flips to FAIL.**
+- BL-R2, 25 / 30 / 35 N: PASS +3.3 / +3.0 / +2.5 dB; all cross at
+  −186.3 to −186.7 dB, ratios 1.00 / 1.12 / 1.19. **All three flip.**
+- BL-C1, 40 N: FAIL −24.1 dB; crosses at −164.2 dB, ratio 6.4. No flip.
+- BL-R3, 10-degree grid, fifteen victims: +1.7 to +6.7 dB at the
+  points, no crossing anywhere. Stable under either rule.
+
+**What it means.** The crossings sit in the body of the CDF. The 22-1C
+0.70 m row, read as the percentage of time the epfd may be exceeded,
+runs 100% at −187.4 dB, 28.571% at −182, 2.857% at −172, 0.017% and 0%
+at −154: BL-R2's crossings (−186.3 to −186.7 dB) lie in the first
+segment, 5.4 dB wide, BL-R1's (−177.6 and −180.5) in the second, 10 dB
+wide — the very region the probes were tuned to, so that the body and
+not a main-beam pass decides. A margin at the two neighbouring points
+does not bound the crossing: +1.8 dB at both ends and a 13% excess in
+the middle. Radians checked the Radio Regulations table itself (RR
+2024, Article 22): the database's 5, 8, 4 and 9 points for the four
+22-1C masks are the table's, every value identical, so the reference
+tool is not catching these crossings with a denser table; it scans the
+curve, and the dense-table alternative is closed. Radians also
+recomputed three of the scan's allowed values by hand from the row and
+found them to three figures, so the disagreement is about the rule, not
+anyone's arithmetic. For scale: the 2.5 m victim's first segment is
+34.4 dB wide with nothing tested inside; a probe whose body decides is
+exposed in proportion to the segment it sits in. Under the curve rule BL-R1's correct read gives FAIL at 25 and
+FAIL at 35, the pair the wrong reads give under the point-wise rule, so
+the nearest-row probe stops discriminating at the verdict level until
+its power offset is re-tuned against the curve; BL-R2's "every read
+PASS" is false under the curve rule, though its resolved-value
+discriminator survives. Two of the ten cases would need re-tuning and
+re-emission, and every record must name the rule it verdicts under.
+Two implementations read D7.1.3 point-wise (ours and a published
+Python simulator), one reads the curve (the reference), and the table
+holds no more points than the database: the reference reads the curve.
+
+**Who decides.** One named verdict rule in the design brief, both sides
+implementing it, is the proposal; it changes a shared artefact and the
+dataset's expected verdicts, so it is the two operators' call. The
+radians session has put it to theirs; this record puts it to ours.
+Nothing in the verdict path was touched; the scan writes nothing. The
+accumulator sync (purely additive, 98 lines) waits for the same word.

@@ -251,8 +251,9 @@ the producer's own export), `oracle` (the propagator against a published
 case), `study` (the payload envelope study), `probescan` (the read-rule
 probe measurement scan), `arcshield` (the arc-protection measurement of the
 11.32A concept note), `decompose` (the margin decomposition), `grade` (a
-mask against a dataset set) and `bench` (seconds per simulated step at the
-current thread count). Each is documented at its dispatch in
+mask against a dataset set), `bench` (seconds per simulated step at the
+current thread count) and `curvescan` (the dataset's expected examination
+CDFs under the curve verdict rule). Each is documented at its dispatch in
 `tests/radians.beamlab.checks/Program.cs`.
 
 The simulation runs its independent work in parallel -- the satellites of
