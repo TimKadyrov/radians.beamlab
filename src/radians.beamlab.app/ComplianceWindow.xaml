@@ -152,7 +152,8 @@
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="ES lat" Binding="{Binding LatText}" Width="60"/>
                         <DataGridTextColumn Header="max epfd (dB)" Binding="{Binding MaxText}" Width="100"/>
-                        <DataGridTextColumn Header="worst margin (dB)" Binding="{Binding MarginText}" Width="120"/>
+                        <DataGridTextColumn Header="point margin (dB)" Binding="{Binding MarginText}" Width="110"/>
+                        <DataGridTextColumn Header="curve margin (dB)" Binding="{Binding CurveMarginText}" Width="110"/>
                         <DataGridTextColumn Header="verdict" Binding="{Binding PassText}" Width="70"/>
                         <DataGridTextColumn Header="quiet" Binding="{Binding QuietSteps}" Width="60"/>
                     </DataGrid.Columns>

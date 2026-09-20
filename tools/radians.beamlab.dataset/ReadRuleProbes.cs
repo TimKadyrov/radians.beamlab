@@ -55,6 +55,9 @@ public static class ReadRuleProbes
     /// <summary>Sweep latitudes the disclosure probe is measured at: every whole degree of -70..70 (all the grids named in the record are subsets).</summary>
     public static IEnumerable<double> R3SweepLats => Enumerable.Range(-70, 141).Select(i => (double)i);
     public static readonly double[] R3StepsDeg = { 10.0, 5.0, 2.0, 1.0 };
+    /// <summary>Full emission: every tenth of a degree 70 S..70 N (1401 victims), so the record can quote the worst margin at 0.5 and 0.1 deg beside the default 1 deg (user's choice, 2026-09-18).</summary>
+    public static IEnumerable<double> R3FineSweepLats => Enumerable.Range(0, 1401).Select(i => Math.Round(-70.0 + i * 0.1, 1));
+    public static readonly double[] R3FineStepsDeg = { 10.0, 5.0, 2.0, 1.0, 0.5, 0.1 };
 
     /// <summary>The probe masks: mask 1's construction with a rule notch on the alpha axis and a power offset that puts the body of the CDF at the limit.</summary>
     // Power offsets re-tuned 2026-09-18 for the limit-curve verdict rule (measured by probescan
@@ -297,7 +300,7 @@ public static class ReadRuleProbes
         double freqMhz = 0.5 * (s29.LowFreqMhz + s29.HighFreqMhz);
         var (step, steps, half) = Depth(quick);
         var table = new List<(double Lat, int Nco, ProbeExamination.Verdict Full, ProbeExamination.Verdict Half)>();
-        foreach (double lat in R3SweepLats)
+        foreach (double lat in (quick ? R3SweepLats : R3FineSweepLats))
         {
             var full = ProbeExamination.Examine(con, mask, s29, lim, freqMhz, lat, EsLonDeg, GsoLonDeg, step, steps);
             var h = ProbeExamination.Examine(con, mask, s29, lim, freqMhz, lat, EsLonDeg, GsoLonDeg, step, half);
@@ -313,7 +316,7 @@ public static class ReadRuleProbes
         cs.AppendLine(string.Create(inv, $"# depth {step:F0} s x {steps} steps; the 24 h columns are the first half of the run (extension pair)."));
         cs.AppendLine("lat_deg,max_co_freq_read,max_epfd_db,worst_margin_db,curve_margin_db,pass,quiet_steps,half_worst_margin_db,half_pass");
         foreach (var (lat, nco, full, h) in table)
-            cs.AppendLine(string.Create(inv, $"{lat:F0},{nco},{full.MaxEpfdDb:F2},{full.WorstMarginDb:F2},{full.CurveMarginDb:F2},{(full.Pass ? 1 : 0)},{full.QuietSteps},{h.WorstMarginDb:F2},{(h.Pass ? 1 : 0)}"));
+            cs.AppendLine(string.Create(inv, $"{lat:F1},{nco},{full.MaxEpfdDb:F2},{full.WorstMarginDb:F2},{full.CurveMarginDb:F2},{(full.Pass ? 1 : 0)},{full.QuietSteps},{h.WorstMarginDb:F2},{(h.Pass ? 1 : 0)}"));
         File.WriteAllText(csv, cs.ToString(), Utf8NoBom);
 
         var sb = new StringBuilder();
@@ -326,16 +329,21 @@ public static class ReadRuleProbes
         sb.AppendLine("| sweep step (deg) | victims | worst point margin (dB) | curve margin there (dB) | at latitude | sweep verdict | 24 h prefix: worst margin | moved (dB) |");
         sb.AppendLine("|---|---|---|---|---|---|---|");
         var lines = new List<string>();
-        foreach (double s in R3StepsDeg)
+        foreach (double s in (quick ? R3StepsDeg : R3FineStepsDeg))
         {
-            var grid = table.Where(t => Math.Abs(t.Lat / s - Math.Round(t.Lat / s)) < 1e-9).ToList();
+            var grid = table.Where(t => Math.Abs(t.Lat / s - Math.Round(t.Lat / s)) < 1e-6).ToList();
             var worst = grid.OrderBy(t => t.Full.RuleMarginDb).First();
             var worstH = grid.OrderBy(t => t.Half.RuleMarginDb).First();
             bool sweepPass = grid.All(t => t.Full.Pass);
-            sb.AppendLine(string.Create(inv, $"| {s:F0} | {grid.Count} | {worst.Full.WorstMarginDb:+0.0;-0.0;0.0} | {worst.Full.CurveMarginText} | {LatText(worst.Lat)} | {(sweepPass ? "COMPLIANT" : "EXCEEDED")} | {worstH.Half.WorstMarginDb:+0.0;-0.0;0.0} | {worst.Full.WorstMarginDb - worstH.Half.WorstMarginDb:+0.0;-0.0;0.0} |"));
-            lines.Add(string.Create(inv, $"{s:F0} deg: {worst.Full.WorstMarginDb:+0.0;-0.0} at {LatText(worst.Lat)} {(sweepPass ? "COMPLIANT" : "EXCEEDED")}"));
+            sb.AppendLine(string.Create(inv, $"| {s:G} | {grid.Count} | {worst.Full.WorstMarginDb:+0.0;-0.0;0.0} | {worst.Full.CurveMarginText} | {LatText(worst.Lat)} | {(sweepPass ? "COMPLIANT" : "EXCEEDED")} | {worstH.Half.WorstMarginDb:+0.0;-0.0;0.0} | {worst.Full.WorstMarginDb - worstH.Half.WorstMarginDb:+0.0;-0.0;0.0} |"));
+            lines.Add(string.Create(inv, $"{s:G} deg: {worst.Full.WorstMarginDb:+0.0;-0.0} at {LatText(worst.Lat)} {(sweepPass ? "COMPLIANT" : "EXCEEDED")}"));
         }
         sb.AppendLine();
+        if (!quick)
+        {
+            sb.AppendLine("The 1-degree grid is the sweep step an examination uses by default; the 0.5 and 0.1-degree rows say whether a finer grid finds a worse victim between its points, and by how much.");
+            sb.AppendLine();
+        }
         sb.AppendLine("Latitudes reading " + R3NcoSpike + ": " + string.Join(", ", table.Where(t => t.Nco == R3NcoSpike).Select(t => LatText(t.Lat))) + ". Margins move dB-for-dB with the mask's power; the pair column says how far each figure is from converged (the 24 h run is the first half of the 48 h run: an extension pair, not an independent draw).");
         sb.AppendLine();
         AppendCommon(sb, lim, maskPath, paramPath, MaskSpecR3, quick, provenance, inv,

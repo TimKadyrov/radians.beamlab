@@ -1320,7 +1320,7 @@ public static class DatasetGenerator
                   single rows.
                 - expected/sweep-grid-probe.md: the worst margin per sweep step (10, 5, 2, 1 deg)
                   with its latitude and the sweep verdict (compliant at 10 deg, exceeded finer);
-                  expected/sweep_margins.csv: the examination at every whole degree 70 S-70 N, so
+                  expected/sweep_margins.csv: the examination at every tenth of a degree 70 S-70 N (every whole degree in quick generation), so
                   any grid that is a subset of the 1-degree grid can be looked up.
                 """,
             "BL-C1" => """

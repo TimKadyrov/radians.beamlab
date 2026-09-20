@@ -35,7 +35,8 @@ Functions (each a tab or tool window, launched from the Home page):
   an R-set file optionally swaps in the declared gates.
 - **Compliance loop** — derive the declaration from a saturated probe,
   sweep epfd(down) victims across a latitude grid, verdict against the
-  entered limit with the examination's own comparison, then examine that
+  entered limit under the limit-curve rule (every tabulated point, and the
+  log-linear curve between them), then examine that
   same truth against the declaration; walks the exclusion angle to the
   smallest compliant value, written back into the operation profile.
 

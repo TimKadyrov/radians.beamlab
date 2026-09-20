@@ -5185,3 +5185,74 @@ note. The point-wise record is kept beside the debate for comparison.
 
 **State.** Harness 153 passed, 0 failed. Committed on the operator's word;
 radians told which cases changed for the consumer guide.
+
+## Beamlab — after the rule: every record named, the sweep step measured to a tenth of a degree, and the ladder's fifth rung, 18 September 2026
+
+**Every record names its rule.** The fifteen historical records in
+`docs/` — thirteen compliance runs and the two decompositions — now open
+with the rule they verdicted under (point-wise, the rule in force when
+they were produced) and why their verdicts cannot change under the curve
+rule: none of them has a PASS row, and the curve test can only add
+failures. BL-R3 and BL-C1 were re-emitted so that all four probe records
+name the new rule and print the curve margin; their verdicts did not
+move. Annex A gained its item 9, the verdict-rule finding; the compliance
+window shows the curve margin beside the point margin; the README's
+compliance-loop bullet names the rule. The CSN-SSO weak-form check,
+re-examined under the rule, passes at every latitude with no crossing
+(point margins +9.0 to +22.3 dB, curve +7.1 to +19.3), so of the 11.32A
+note's measured statements only the case (a) clearing levels moved.
+
+**The sweep step, measured to a tenth of a degree.** The cover note's
+default-step example — one degree against a tenth — had been parked
+since the 14th. Picked today, it became two rows of the sweep-grid probe:
+BL-R3 is now examined at every tenth of a degree from 70 S to 70 N,
+1401 victims, and its record quotes the worst margin at 10, 5, 2, 1, 0.5
+and 0.1 degrees (point margin / curve margin under the rule):
+
+| step (deg) | victims | worst | where | verdict |
+|---|---|---|---|---|
+| 10 | 15 | +2.7 / +0.6 | 70 S | COMPLIANT |
+| 5 | 29 | −1.6 / −3.3 | 65 N | EXCEEDED |
+| 2 | 71 | −1.8 / −3.5 | 66 N | EXCEEDED |
+| 1 | 141 | −1.8 / −3.5 | 66 N | EXCEEDED |
+| 0.5 | 281 | −1.8 / −3.5 | 66 N | EXCEEDED |
+| 0.1 | 1401 | −1.8 / −3.5 | 65.9 N | EXCEEDED |
+
+The step matters where the record always said it did — between 10 and 5
+degrees the verdict flips, between 5 and 2 the margin moves 0.2 dB — and
+from one degree down to a tenth the worst margin does not move to the
+0.1 dB bin: the plateau at 65.9 to 66.2 N reads −1.80 / −3.50 at every
+finer step. On this probe the one-degree default finds the worst victim;
+the reason is the probe's own five-degree-wide spike, and a narrower
+feature would need the finer grid, so the rule stands as written: the
+margin is quoted with its step. The 1401 examinations took six minutes
+on the parallel build. Quick generation keeps the 141-victim, one-degree
+sweep, so the harness checks that pin it are untouched (153 passed,
+0 failed on the fine-sweep build).
+
+**The ladder's fifth rung, and the deciding points read at last.** The
+8.0 d baseline sweep (`docs/compliance-steam-2-8d.md`, 11 520 steps,
+128 minutes on the parallel build) moved one latitude: 20 N, by 1.1 dB,
+its maximum rising again from −151.9 to −150.8 dB; no other latitude
+moved by more than 0.2. That is the fifth doubling in a row to move one
+or two latitudes and stand the rest, never the same ones twice. The
+record is the first written under the rule, so it names what the
+earlier entries had to infer: the deciding point is the maximum against
+the 0% row at 0 to 40 N and the 1% point at 50 and 60 N — the two
+mechanisms of the 17th, read off the record instead of argued from the
+movement of the maximum. It also reports the curve: at every latitude
+the distribution crosses at −164.1 dB, on the segment between the
+0.286% and 0.029% points, by nine to forty-four times the allowed
+percentage, because the STEAM-2 tail sits far above the row's short-term
+end; the curve margin binds only at 40 N, and there by 0.2 dB (−10.6
+against a point margin of −10.4). E1 stayed at or above T at every
+latitude, as at the five depths before; the gap at 0 to 40 N reads 6.4
+to 8.6 dB, at 50 and 60 N 11.2 and 11.7. The ladder on the construction
+page has the sixth column.
+
+**State.** Uncommitted: Annex A item 9, the compliance grid's curve
+margin column, the README clause, the fine-sweep probe and its generator
+text, the construction page, the 8.0 d record and this entry; 84a241a
+unpushed. Harness 153 passed, 0 failed on the fine-sweep build. Radians
+has the sweep-step measurement for the cover note and the new BL-R3
+stamp; the consumer guide and the 11.32A note remain with their owners.
