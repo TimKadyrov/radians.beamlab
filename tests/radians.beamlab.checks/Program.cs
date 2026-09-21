@@ -129,7 +129,7 @@ if (args.Length > 3 && args[0] == "grade")
     if (repG.Note.Length > 0) Console.WriteLine(repG.Note);
     foreach (var r in repG.Rows.Where(x => x.Alpha != MaskConsistency.Verdict.Dark))
         Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture,
-            $"  block {r.LatDeg,5:0.#}: reach alpha {r.ReachAlpha,5:F1} dark {r.DarkAlpha,5:F1} declared {r.DeclaredAlpha,4:F1} {MaskConsistency.Word(r.Alpha),-30} | reach elev {r.ReachElev,5:F1} dark {r.DarkElev,5:F1} declared {r.DeclaredElev,4:F1} {MaskConsistency.Word(r.Elev)}"));
+            $"  block {r.LatDeg,5:0.#}: reach alpha {r.ReachAlpha,5:F1} dark {r.DarkAlpha,5:F1} declared {r.DeclaredAlpha,4:F1} {MaskConsistency.Word(r.Alpha),-30} | reach elev {r.ReachElev,5:F1} lit {MaskConsistency.LitText(r.LitReachElev, System.Globalization.CultureInfo.InvariantCulture),5} dark {r.DarkElev,5:F1} declared {r.DeclaredElev,4:F1} {MaskConsistency.Word(r.Elev)}"));
     return 0;
 }
 

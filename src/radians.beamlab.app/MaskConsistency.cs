@@ -27,6 +27,15 @@ namespace radians.beamlab.app;
 /// The examination over-charges such masks and never under-protects; the
 /// check flags, it does not repair.
 ///
+/// Beside the elevation grade the check reports the LIT REACH (the lowest
+/// ground elevation still within 20 dB of the block peak) and does not grade
+/// on it: measured 2026-09-20 on every mask the harness and the records pin, it
+/// sits at 2 to 3 degrees on every range-shaped low-orbit mask in the corpus
+/// whether or not a boresight floor gated the beams (the saturated masks and
+/// their floor-gated controls light the ground to the same elevation), so it
+/// cannot tell a missing floor from a spilling one; a hard-edged filed mask
+/// has it equal to the near-peak reach.
+///
 /// Lives in the app assembly so that the harness and the dataset generator
 /// grade with one implementation.
 /// </summary>
@@ -40,7 +49,8 @@ public static class MaskConsistency
     public sealed record RowResult(
         double LatDeg,
         double ReachAlpha, double DarkAlpha, double DeclaredAlpha, Verdict Alpha,
-        double ReachElev, double DarkElev, double DeclaredElev, Verdict Elev);
+        double ReachElev, double DarkElev, double DeclaredElev, Verdict Elev,
+        double LitReachElev);   // lowest ground elevation within 20 dB of the block peak; reported, not graded; NaN in the alpha form
 
     public sealed record Report(IReadOnlyList<RowResult> Rows, Verdict Overall, string Summary, string Caveat, string Note);
 
@@ -78,7 +88,7 @@ public static class MaskConsistency
             double e0 = DeclaredElevDeg(declared, blk.LatDeg);
             if (double.IsNegativeInfinity(peak))
             {
-                rows.Add(new RowResult(blk.LatDeg, 999, -1, a0, Verdict.Dark, 999, -1, e0, Verdict.Dark));
+                rows.Add(new RowResult(blk.LatDeg, 999, -1, a0, Verdict.Dark, 999, -1, e0, Verdict.Dark, double.NaN));
                 continue;
             }
             double reachA = 999;
@@ -88,7 +98,7 @@ public static class MaskConsistency
                 : reachA >= a0 - CellTolDeg ? Verdict.Consistent
                 : reachA <= CellTolDeg ? Verdict.Saturated
                 : Verdict.LitInside;
-            rows.Add(new RowResult(blk.LatDeg, reachA, -1, a0, va, 999, -1, e0, Verdict.NotExercised));
+            rows.Add(new RowResult(blk.LatDeg, reachA, -1, a0, va, 999, -1, e0, Verdict.NotExercised, double.NaN));
         }
         var lit = rows.Where(x => x.Alpha != Verdict.Dark).ToList();
         int CountA(Verdict v) => lit.Count(x => x.Alpha == v);
@@ -114,12 +124,14 @@ public static class MaskConsistency
             // Near-peak reach: the smallest alpha / lowest ground elevation at
             // which the block still radiates within 3 dB of its peak. Dark
             // edge: the largest alpha / elevation among cells 20 dB or more
-            // down, seen from the excluded side.
+            // down, seen from the excluded side. Lit reach: the lowest ground
+            // elevation still within 20 dB of the peak, carried beside the
+            // elevation grade and not graded (see the class summary).
             double reachA = r.PlateauMinAlpha, darkA = r.FloorMaxAlphaAboveElev;
             double reachE = r.PlateauMinElev, darkE = r.FloorMaxElevAboveAlpha;
             if (r.Plateau == 0)
             {
-                rows.Add(new RowResult(r.Lat, reachA, darkA, a0, Verdict.Dark, reachE, darkE, e0, Verdict.Dark));
+                rows.Add(new RowResult(r.Lat, reachA, darkA, a0, Verdict.Dark, reachE, darkE, e0, Verdict.Dark, r.LitMinElev));
                 continue;
             }
             Verdict va;
@@ -144,7 +156,7 @@ public static class MaskConsistency
             else
                 ve = Verdict.LitInside;                                                   // lit below, stops short
 
-            rows.Add(new RowResult(r.Lat, reachA, darkA, a0, va, reachE, darkE, e0, ve));
+            rows.Add(new RowResult(r.Lat, reachA, darkA, a0, va, reachE, darkE, e0, ve, r.LitMinElev));
         }
 
         var lit = rows.Where(x => x.Alpha != Verdict.Dark).ToList();
@@ -177,6 +189,18 @@ public static class MaskConsistency
             var worst = inE.OrderBy(x => x.ReachElev).First();
             sum.Append(string.Create(inv, $"; near-peak power reaches ground elevation {worst.ReachElev:F1} deg against a declared {worst.DeclaredElev:F1} (block {worst.LatDeg:0.#})"));
         }
+        // The lit reach beside the elevation grade: reported, not graded.
+        var floored = lit.Where(x => x.DeclaredElev > 0.0).ToList();
+        if (floored.Count > 0)
+        {
+            var below = floored.Where(x => x.LitReachElev < x.DeclaredElev - CellTolDeg).ToList();
+            if (below.Count > 0)
+            {
+                var lowest = below.OrderBy(x => x.LitReachElev).First();
+                sum.Append(string.Create(inv, $"; lit power (within 20 dB of the block peak; reported, not graded) reaches below the declared elevation floor in {below.Count} of {floored.Count} blocks, lowest {lowest.LitReachElev:F1} deg against a declared {lowest.DeclaredElev:F1} (block {lowest.LatDeg:0.#})"));
+            }
+            else sum.Append("; lit power (within 20 dB of the block peak; reported, not graded) stays above the declared elevation floor in every block");
+        }
         sum.Append(" -> " + Word(overall));
 
         var notes = new List<string>();
@@ -204,7 +228,9 @@ public static class MaskConsistency
         "Mask blocks are indexed by sub-satellite latitude; the R set's arrays by earth-station latitude. "
         + "The comparison is exact where the declared arrays are flat and approximate within the coverage "
         + "half-angle where they vary. Near-peak means within 3 dB of the block's peak; dark means 20 dB or "
-        + "more below it; tolerance one mask cell (1.0 deg).";
+        + "more below it; tolerance one mask cell (1.0 deg). The lit reach (the lowest ground elevation still within "
+        + "20 dB of the block peak) is reported beside the elevation grade and is not graded: a range-shaped mask lights "
+        + "the ground below a boresight floor whether or not the floor is declared, so it does not verify a floor either.";
 
     /// <summary>
     /// The declared exclusion angle at a latitude: the Rec's linear interpolation
@@ -255,7 +281,8 @@ public static class MaskConsistency
         sb.AppendLine();
         sb.AppendLine("The mask was given, not derived, so the question is whether it already carries the shaping the "
             + declaredLabel + " declares. Per latitude block of the mask: how far inside the declared MIN_EXCLUDE zone, "
-            + "and how far below the declared MIN_ELEV floor, power within 3 dB of the block's peak reaches.");
+            + "and how far below the declared MIN_ELEV floor, power within 3 dB of the block's peak reaches. Beside the "
+            + "elevation grade, the lit reach: how low power within 20 dB of the block's peak reaches, reported and not graded.");
         sb.AppendLine();
         sb.AppendLine("- " + rep.Summary);
         if (rep.Note.Length > 0) sb.AppendLine("- " + rep.Note + ".");
@@ -264,15 +291,19 @@ public static class MaskConsistency
         if (rep.Rows.Count > 0)
         {
             sb.AppendLine();
-            sb.AppendLine("| sub-satellite latitude | near-peak reaches alpha (deg) | declared MIN_EXCLUDE | exclusion | near-peak reaches elevation (deg) | declared MIN_ELEV | elevation |");
-            sb.AppendLine("|---|---|---|---|---|---|---|");
+            sb.AppendLine("| sub-satellite latitude | near-peak reaches alpha (deg) | declared MIN_EXCLUDE | exclusion | near-peak reaches elevation (deg) | lit reaches elevation (deg) | declared MIN_ELEV | elevation |");
+            sb.AppendLine("|---|---|---|---|---|---|---|---|");
             foreach (var r in rep.Rows.Where(x => x.Alpha != Verdict.Dark && Math.Abs(x.LatDeg) % 10 < 0.5))
                 sb.AppendLine(string.Create(inv,
-                    $"| {r.LatDeg:0.#} | {r.ReachAlpha:F1} | {r.DeclaredAlpha:F1} | {Word(r.Alpha)} | {r.ReachElev:F1} | {r.DeclaredElev:F1} | {Word(r.Elev)} |"));
+                    $"| {r.LatDeg:0.#} | {r.ReachAlpha:F1} | {r.DeclaredAlpha:F1} | {Word(r.Alpha)} | {r.ReachElev:F1} | {LitText(r.LitReachElev, inv)} | {r.DeclaredElev:F1} | {Word(r.Elev)} |"));
             sb.AppendLine();
             sb.AppendLine("Every tenth block is tabulated; the counts above cover all of them.");
         }
     }
+
+    /// <summary>The lit reach as the tables print it: one decimal, or "-" where the form does not give it.</summary>
+    public static string LitText(double litReachElev, CultureInfo inv)
+        => double.IsNaN(litReachElev) ? "-" : litReachElev.ToString("F1", inv);
 
     /// <summary>What a grade means, in the words the records use.</summary>
     public static string Meaning(Verdict v) => v switch

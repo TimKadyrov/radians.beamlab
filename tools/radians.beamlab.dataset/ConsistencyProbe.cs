@@ -24,7 +24,9 @@ namespace radians.beamlab.dataset;
 /// mask; on the elevation axis the near-peak grade reads CONSISTENT for a
 /// range-shaped envelope with or without a floor, a limitation the record
 /// states and supplements with the lit reach (power within 20 dB of the block
-/// peak), which does see the missing floor -- and states the conservative
+/// peak), which on this family does not separate them either: the beams spill
+/// to the horizon with or without the floor, and the record prints both values
+/// (measured 2026-09-12 and again 2026-09-20) -- and states the conservative
 /// verdict a consumer that examines the pair anyway must reproduce: the
 /// epfd(down) examination at seven victims, per limit point, with the
 /// family's own boresight-gated D2 masks as the control at the same payload

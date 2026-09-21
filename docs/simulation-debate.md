@@ -5256,3 +5256,97 @@ text, the construction page, the 8.0 d record and this entry; 84a241a
 unpushed. Harness 153 passed, 0 failed on the fine-sweep build. Radians
 has the sweep-step measurement for the cover note and the new BL-R3
 stamp; the consumer guide and the 11.32A note remain with their owners.
+
+## Beamlab — the decomposition at a third depth, the ladder's sixth rung, and the lit-reach criterion measured, 21 September 2026
+
+**The decomposition at 1.0 d.** The 0.5 d decomposition extended on its
+own comb to 1.0 d (`docs/margin-decomposition-steam-2-1d.md`, 1 440
+steps, 98 minutes on the parallel build), so the pair is a run and its
+prefix. The selection component is 0.0 dB at the deciding point of every
+latitude from 0 to 60 — the third depth to say so — and −0.2 to −0.5 at
+the 10% point; the envelope is the whole gap, +7.5 to +11.0 dB by
+latitude (+7.5 to +11.6 at 0.5 d, +6.5 to +12.1 at 0.1 d). Where the
+deciding-point margins moved between the two depths, the ladder's two
+mechanisms are both on show: at 40 N the maximum rose from −156.6 to
+−153.9 dB and T's worst margin moved from −7.5 to −10.3; at 50 N the 1%
+point fell from −160.6 to −163.2 dB and the worst margin from −11.9 to
+−9.3. E1 followed at both (−18.1 to −18.8, −23.5 to −20.0), so the gap
+moved 2.1 and 0.9 dB while the other five latitudes stood within 0.3.
+Annex A item 7 and the construction page's decomposition box carry the
+third depth.
+
+**The ladder's sixth rung.** The 16.0 d baseline sweep
+(`docs/compliance-steam-2-16d.md`, 23 040 steps, 211 minutes) moved two
+latitudes: the equator by 1.4 dB (its maximum from −153.3 to −151.9) and
+10 N by 1.8 (−152.9 to −151.1); 50 N's 1% point moved 0.3, 30 N 0.2,
+60 N 0.1, and 20 and 40 N did not move. The movers by doubling now read
+40 and 50; 10, 20 and 30; 0, 50 and 60; 20; 0 and 10 — the set changes
+at every doubling, but 0 N and 20 N have each moved twice, so the ladder
+box's "not the same ones twice" was too strong and now says what the
+table shows. The deciding points are the 8 d record's — the maximum at
+0 to 40 N, the 1% point at 50 and 60, for T and for E1 alike (E1's at
+40 N moved from the 0.286% point to the maximum) — and so is the
+crossing bin, −164.1 dB at every latitude, 9.5 to 45 times the allowed
+percentage; the curve margin binds at 50 N only, by 0.5 dB (−9.5 against
+−9.0), no longer at 40 N. E1 ≥ T at every latitude for the seventh
+depth; the gap 6.4 to 8.4 dB at 0 to 40 N and 11.7 at 50 and 60; the
+worst rule margin −13.3 dB at 20 N, as at 8 d. The ladder has its
+seventh column, the inner-loop passage its sixth doubling, Annex A
+item 8 the two depths it lacked.
+
+**The lit-reach criterion, measured before it was built.** The parked
+item read: a lit-reach criterion beside the near-peak one on the
+grader's elevation axis, which would make a missing floor visible on
+range-shaped masks and re-grade the STEAM-2 mask V46 pins. A scratch
+probe against the built assemblies graded every mask the harness and
+the records pin both ways (near-peak as now; lit power below the
+declared floor reading LIT INSIDE, at the horizon SATURATED). The
+premise does not hold: V46's derived mask is already LIT INSIDE on
+elevation by the near-peak reading (37.3 against the filed 40), and the
+criterion changes its reported reach to 11.0 without changing the word;
+the filed STEAM-2B mask is unchanged under all five gate pairs (hard
+edge: lit reach equals near-peak reach at 40.0). Where the criterion
+does change grades it flags floor-gated masks exactly as floor-less
+ones: BL-C1's shells A and B go CONSISTENT to LIT INSIDE on elevation
+for the saturated masks and for the controls alike (2.7 and 2.1 against
+10; shell C at 10.4 stands), the family's own mask 2 against set 26 goes
+CONSISTENT to LIT INSIDE at full depth (the quick mask V51 runs on stays
+at 53.5), and the two-body LEO masks TB-L and TB-L2 go CONSISTENT to LIT
+INSIDE (T8 asserts CONSISTENT); the MEO masks at 8 000 km stand at
+17.6. So on every range-shaped LEO mask in the corpus the lit reach sits
+at 2 to 3 degrees with or without a floor, which is what the 12
+September entry measured, and grading on it would apply a 20 dB
+standard on one axis while the exclusion axis grades at 3 dB. Options
+put to the operator, in order of my preference: the lit reach printed
+beside the near-peak reach in the grader's rows and records with the
+verdict still keyed to near-peak; the grade as prototyped, with T8
+changed on the operator's decision, BL-C1 and the two-body records
+re-emitted, and the family's MIN_ELEV declaration reopened; or nothing
+in code. One stale line found on the way: the consistency probe's class
+comment says the lit reach "does see the missing floor" while the record
+it writes says it does not. Decision below.
+
+**The lit reach reported, not graded.** On the operator's "continue"
+(21 September) the first option went in: the grader's row carries the
+lit reach on the elevation axis beside the near-peak reach, the summary
+sentence says in how many blocks lit power reaches below the declared
+floor and how low, or that it stays above the floor in every block, the
+record table and the console grade mode print the column, and the caveat
+states why it is not graded. Verdicts are untouched: every grade the
+harness pins reads as before. On STEAM-2's derived mask against set 30
+the sentence reads "stays above the declared elevation floor in every
+block" (lit reach 11.0 to 19.8 against 10); on BL-C1's mask 14 it reads
+"reaches below the declared elevation floor in 13 of 13 blocks, lowest
+2.7 deg against a declared 10.0". Annex A item 4 carries the measurement
+and the decision; the open-decision list's item 4 is settled on the
+criterion and still open on whether the Bureau's implementation should
+carry the check at all; the probe's class comment now says what its
+record says.
+
+**State.** Uncommitted: the two records, the construction page (ladder,
+passage, decomposition box), Annex A items 4, 7 and 8, the grader (the
+row's lit reach, the summary sentence, the record column, the console
+grade mode, the caveat), the probe's comment, this entry; 84a241a and
+ee1b5e3 unpushed. Harness on the lit-reach build: 153 passed, 0 failed
+(21 September, 08:00). The scratch probe lives in the session
+scratchpad and will be swept.
