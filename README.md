@@ -245,8 +245,11 @@ checks use a local ITU reference filing and skip cleanly when it is absent.
 
 The same executable carries the producer's headless measurement modes,
 each opt-in by its first argument and each writing the record it is named
-for: `margin` (the projection-margin figure), `loop` (the compliance loop),
-`examine` (a given mask and R set examined alone), `dissect` and `parity`
+for: `margin` (the projection-margin figure), `loop` (the compliance loop;
+`reuse=<run dir>` reads a run's declaration back instead of deriving it, and
+`gso=<deg>` / `eslon=<deg>` move the victim: the wanted GSO satellite's
+longitude offset east of the earth station and the earth station's longitude,
++10 and 0 by default), `examine` (a given mask and R set examined alone), `dissect` and `parity`
 (a filed az/el mask read back into its operating rules, and compared with
 the producer's own export), `oracle` (the propagator against a published
 case), `study` (the payload envelope study), `probescan` (the read-rule

@@ -51,7 +51,7 @@ internal static class ComplianceLoop
 {
     public static int Run(string profilePath, string designPath, double days, double stepSec,
         double latFrom, double latTo, double latStep, bool walk, bool minimise = false,
-        string? reuseDir = null)
+        string? reuseDir = null, double gsoOffset = 10.0, double esLon = 0.0)
     {
         var inv = CultureInfo.InvariantCulture;
         var t0 = Stopwatch.StartNew();
@@ -83,7 +83,7 @@ internal static class ComplianceLoop
 
         long steps = (long)Math.Round(days * 86400.0 / stepSec);
         var sweep = new ComplianceViewModel.Sweep(shells, prof,
-            EsLon: 0.0, GsoOffset: 10.0, DishM: dishM,
+            EsLon: esLon, GsoOffset: gsoOffset, DishM: dishM,
             LatFrom: latFrom, LatTo: latTo, LatStep: latStep,
             Steps: steps, StepSec: stepSec, Limits: limitPoints);
 
@@ -350,7 +350,7 @@ internal static class ComplianceLoop
         var sb = new StringBuilder();
         sb.AppendLine($"# Compliance loop: {prof.Name}");
         sb.AppendLine();
-        sb.AppendLine(string.Create(inv, $"*Produced by `dotnet run --project tests/radians.beamlab.checks -- loop \"{Path.GetFileName(profilePath)}\" \"{Path.GetFileName(designPath)}\" {days} {stepSec:F0} {latFrom:F0} {latTo:F0} {latStep:F0}{(walk ? " walk" : "")}{(reuseDir is not null ? " reuse=" + Path.GetRelativePath(repo, reuseDir).Replace('\\', '/') : "")}`.*"));
+        sb.AppendLine(string.Create(inv, $"*Produced by `dotnet run --project tests/radians.beamlab.checks -- loop \"{Path.GetFileName(profilePath)}\" \"{Path.GetFileName(designPath)}\" {days} {stepSec:F0} {latFrom:F0} {latTo:F0} {latStep:F0}{(walk ? " walk" : "")}{(reuseDir is not null ? " reuse=" + Path.GetRelativePath(repo, reuseDir).Replace('\\', '/') : "")}{(gsoOffset != 10.0 ? " gso=" + gsoOffset.ToString("0.#", inv) : "")}{(esLon != 0.0 ? " eslon=" + esLon.ToString("0.#", inv) : "")}`.*"));
         sb.AppendLine(string.Create(inv, $"*Date: {DateTime.Now:yyyy-MM-dd}. Wall clock {t0.Elapsed.TotalMinutes:F1} min.*"));
         sb.AppendLine();
         sb.AppendLine("## The system under test");
@@ -358,7 +358,7 @@ internal static class ComplianceLoop
         sb.AppendLine(string.Create(inv, $"- Shell(s): {shells.Length}, {new Constellation(shells).SatelliteCount} satellites at {altKm:F0} km / inclination {shells[0].InclinationDeg:F1} deg."));
         sb.AppendLine(string.Create(inv, $"- Enforced rules: minimum elevation {prof.MinElevDeg:F0} deg, exclusion alpha {prof.AlphaExclDeg:F1} deg, Nco {prof.NcoPerCell}, selection {prof.TrackingPolicy}."));
         sb.AppendLine(string.Create(inv, $"- Footprint source: {prof.Down.FootprintSource}{(prof.Down.FootprintSource == "mask" ? " (" + Path.GetFileName(prof.Down.MaskXmlPath) + ")" : " (live beam composition -- the truth)")}."));
-        sb.AppendLine(string.Create(inv, $"- Victim: earth station at longitude 0, GSO satellite +10 deg, dish {dishM:F2} m (the limit row's own reference diameter)."));
+        sb.AppendLine(string.Create(inv, $"- Victim: earth station at longitude {esLon:0.#}, GSO satellite {(gsoOffset >= 0 ? "+" : "")}{gsoOffset:0.#} deg, dish {dishM:F2} m (the limit row's own reference diameter)."));
         sb.AppendLine();
         sb.AppendLine("## The limit");
         sb.AppendLine();

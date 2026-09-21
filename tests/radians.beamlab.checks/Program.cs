@@ -37,13 +37,22 @@ if (args.Length > 0 && args[0] == "loop")
     // reuse=<run dir>: skip the probe, read that run's R set and mask back, and
     // run only the truth sweep and the examination at this depth.
     string? reuse = a.FirstOrDefault(x => x.StartsWith("reuse=", StringComparison.OrdinalIgnoreCase))?.Substring("reuse=".Length);
+    // gso=<deg> and eslon=<deg>: the victim geometry -- the wanted GSO satellite's longitude
+    // offset east of the earth station, and the earth station's longitude. Defaults +10
+    // and 0, the geometry every record before 2026-09-21 used.
+    double Opt(string key, double dflt)
+    {
+        string? v = a.FirstOrDefault(x => x.StartsWith(key, StringComparison.OrdinalIgnoreCase))?.Substring(key.Length);
+        return v is not null && double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double d) ? d : dflt;
+    }
+    double gso = Opt("gso=", 10.0), eslon = Opt("eslon=", 0.0);
     return ComplianceLoop.Run(
         a.Length > 1 ? a[1] : System.IO.Path.Combine(srcDir, "STEAM-2.opprofile.json"),
         a.Length > 2 ? a[2] : System.IO.Path.Combine(srcDir, "STEAM-2.orbitdesign.json"),
         D(3, 0.1), D(4, 60.0), D(5, 0.0), D(6, 60.0), D(7, 10.0),
         a.Any(x => x.Equals("walk", StringComparison.OrdinalIgnoreCase)),
         a.Any(x => x.Equals("minimise", StringComparison.OrdinalIgnoreCase)),
-        reuse);
+        reuse, gso, eslon);
 }
 if (args.Length > 0 && args[0] == "beamcount")
 {
