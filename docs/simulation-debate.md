@@ -5384,12 +5384,15 @@ reads 2.5 and 5.1 worse.
 
 **The depth check.** Two of those differences were large enough to be
 either geometry or the sampling of a maximum, so 0, 5 east and 10 west
-were run on to 2.0 d beside the 2.0 d baseline (15 to 17 minutes each).
+were run on to 2.0 d beside the 2.0 d baseline (15 to 17 minutes each),
+and 45 and 60 east followed (14 minutes each).
 The equator stood: overhead against 10 east, 4.1 dB on T and 2.1 on E1,
 against 4.3 and 2.1 at 0.5 d — pair-firm across a quadrupling. The 40 N
 difference collapsed: the baseline's own maximum rose 2.7 dB between
 the depths (the movement the ladder recorded at 40 N), and 10 west now
-reads 0.2 dB better on T and 0.6 worse on E1. And the only positive
+reads 0.2 dB better on T and 0.6 worse on E1. The two far offsets,
+whose E1 sat 0.6 and 1.1 dB below the default at 10 and 20 N at 0.5 d,
+read better than the default at every latitude at 2.0 d. And the only positive
 point margin any truth run has ever shown — +1.3 dB at the equator with
 the satellite 5 east, at 0.5 d — was a low maximum: −4.4 at 2.0 d, and
 the curve verdict FAIL at both depths (the distribution crosses the
@@ -5397,18 +5400,28 @@ the curve verdict FAIL at both depths (the distribution crosses the
 rule earned its keep on a real row.
 
 **The reading.** On this system the victim's geometry is worth about
-2 dB to the examination at the equator and about 1 dB or less elsewhere
-at the offsets sampled, against an envelope component of 7 to 11 dB;
-E1 ≥ T at all 84 victims of both depths. It is a lower bound: eight
+2 dB to the examination at the equator and 0.6 dB or less elsewhere at
+2.0 d over six offsets, against an envelope component of 7 to 11 dB;
+E1 ≥ T at all 98 victims of both depths. It is a lower bound: eight
 offsets and 10 degrees of latitude are coarse where the consumer's
 search is fine, and the ES longitude was not moved (a Walker shell has
 no preferred longitude). The construction page carries the two tables
 and the depth check in a box after the decomposition's; Annex A item
 10 states the finding.
 
-**State.** Uncommitted: the loop's two arguments (Program.cs dispatch
-and ComplianceLoop.Run), the README clause, ten new records (seven at
-0.5 d, three at 2.0 d), the construction page box, Annex A item 10,
-this entry. Name-only profile copies for the offsets sit untracked in
+**The operator's decision on the third component (21 September).** No
+worst-case victim is fed in from the consumer side: on the producer
+side the geometry search is the loop over the scenario's own grid
+points, the latitudes and now the GSO offsets. The sensitivity above is
+therefore the producer's measure of the component, not a stand-in for
+someone else's search; the +45 and +60 offsets were run on to 2.0 d
+and firmed the reading: 0.6 dB or less elsewhere.
+
+**State.** Committed 3f26ddc and pushed (835a4dd..3f26ddc): the loop's
+two arguments (Program.cs dispatch and ComplianceLoop.Run), the README
+clause, ten records (seven at 0.5 d, three at 2.0 d), the construction
+page box, Annex A item 10, this entry. Uncommitted after it: the +45 and
++60 records at 2.0 d and the depth-check sentences here, in the box and
+in Annex A item 10. Name-only profile copies for the offsets sit untracked in
 `dataset/_src` like the depth copies. 84a241a, ee1b5e3 and 14998cd
 unpushed.

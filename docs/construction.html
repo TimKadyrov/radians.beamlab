@@ -590,20 +590,21 @@ latitude against 3.3 to 14.9 for T and 4.1 to 12.2 for E1, so the envelope&rsquo
 property of the declaration, not of where the victim looks. The 10&deg;-east default is the worst
 offset for E1 at 30, 50 and 60&nbsp;N and within 1.1&nbsp;dB of the worst at 10 and 20; it is not the
 worst at the equator, where the satellite overhead reads 2.1&nbsp;dB worse on E1 and 4.3 on T, nor
-at 40&nbsp;N at this depth, where 10&deg; west reads 2.5 and 5.1 worse. Three offsets were then run
-on to 2.0&nbsp;d beside the 2.0&nbsp;d baseline. The equator&rsquo;s difference stood: overhead
+at 40&nbsp;N at this depth, where 10&deg; west reads 2.5 and 5.1 worse. Five offsets were then run
+on to 2.0&nbsp;d beside the 2.0&nbsp;d baseline: 10&deg; west, 0, 5, 45 and 60&deg; east. The equator&rsquo;s difference stood: overhead
 against 10&deg; east, 4.1&nbsp;dB on T and 2.1 on E1 (4.3 and 2.1 at 0.5&nbsp;d), pair-firm across a
 quadrupling. The 40&nbsp;N difference did not: the baseline&rsquo;s own maximum rose 2.7&nbsp;dB
 between the depths, as the ladder records, and 10&deg; west now reads 0.2&nbsp;dB better on T and
-0.6 worse on E1. And the one positive point margin any truth run has shown &mdash; +1.3&nbsp;dB at
+0.6 worse on E1. The two far offsets, whose E1 sat 0.6 and 1.1&nbsp;dB below the default at 10 and
+20&nbsp;N at 0.5&nbsp;d, read better than the default at every latitude at 2.0&nbsp;d. And the one positive point margin any truth run has shown &mdash; +1.3&nbsp;dB at
 the equator with the satellite 5&deg; east, at 0.5&nbsp;d &mdash; was a low maximum: at 2.0&nbsp;d
 it reads &minus;4.4, and the curve verdict was FAIL at both depths (the distribution crosses the
 0.029% segment at &minus;165.4&nbsp;dB by 1.6 times the allowed percentage). So on this system the
-victim&rsquo;s geometry is worth about 2&nbsp;dB to the examination at the equator and about
-1&nbsp;dB or less elsewhere at the offsets sampled, against an envelope component of 7 to
+victim&rsquo;s geometry is worth about 2&nbsp;dB to the examination at the equator and
+0.6&nbsp;dB or less elsewhere at 2.0&nbsp;d, against an envelope component of 7 to
 11&nbsp;dB &mdash; and it is a lower bound, because the sweep is coarse (eight offsets, 10&deg; of
 latitude) where the consumer&rsquo;s search is fine. Records:
-<code>docs/compliance-steam-2-gso*.md</code> (seven at 0.5&nbsp;d, three <code>-2d</code>) beside
+<code>docs/compliance-steam-2-gso*.md</code> (seven at 0.5&nbsp;d, five <code>-2d</code>) beside
 the baselines <code>-05d</code> and <code>-2d</code>; the loop&rsquo;s <code>gso=</code> and
 <code>eslon=</code> arguments move the victim.</p>
 </div>
