@@ -260,41 +260,15 @@ public sealed class ComplianceViewModel : ObservableObject
             ? MaskFootprint.LoadFile(comp.DownlinkMaskXmlPath)
             : null;
 
-        EpfdDownVictim Victim(double lat) => new()
-        {
-            EsLatDeg = lat, EsLonDeg = sweep.EsLon, GsoLonDeg = sweep.EsLon + sweep.GsoOffset,
-            Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, freqMhz, sweep.DishM),
-        };
+        EpfdDownVictim Victim(double lat) => VictimFor(sweep, freqMhz, lat);
 
         var rows = new List<ComplianceRow>();
         void AddRow(double lat, int i, double fraction, EpfdDownResult res)
         {
-            var (passResults, _) = res.Accumulator.CompareWithLimits(sweep.Limits);
-            var (epfd, pct) = res.Accumulator.BuildCdf();
-            double worst = sweep.Limits.Count == 0 ? double.PositiveInfinity
-                : sweep.Limits.Min(l => MarginDb(epfd, pct, l.EPFD, l.Perc));
-            // The verdict rule (LimitCurveRule): every tabulated point AND no crossing
-            // of the log-linear curve between them; the crossing and the curve margin
-            // are reported beside the point margin.
-            bool pass = sweep.Limits.Count == 0
-                ? passResults.All(p => p)
-                : LimitCurveRule.Pass(res.Accumulator, sweep.Limits);
-            LimitCurveRule.Crossing crossing = null;
-            double curveMargin = double.NaN;
-            if (sweep.Limits.Count > 0)
-            {
-                var curve = LimitCurveRule.Curve(sweep.Limits);
-                crossing = LimitCurveRule.Scan(epfd, pct, curve, sweep.Limits);
-                curveMargin = LimitCurveRule.CurveMarginDb(epfd, pct, curve, sweep.Limits);
-            }
-            // The first limit point at the worst margin names the deciding point.
-            double deciding = double.NaN;
-            foreach (var l in sweep.Limits)
-                if (MarginDb(epfd, pct, l.EPFD, l.Perc) == worst) { deciding = l.Perc; break; }
-            rows.Add(new ComplianceRow(lat, res.MaxEpfdDb, worst, pass, res.QuietSteps)
-                { DecidingPercent = deciding, CurveCrossing = crossing, CurveMarginDb = curveMargin });
+            var row = BuildRow(lat, res, sweep.Limits);
+            rows.Add(row);
             progress?.Report(new SweepProgress(string.Create(inv,
-                $"lat {lat:F0} ({i + 1}/{nLat}): worst margin {worst:+0.0;-0.0} dB {(pass ? "PASS" : "FAIL")}"),
+                $"lat {lat:F0} ({i + 1}/{nLat}): worst margin {row.WorstMarginDb:+0.0;-0.0} dB {(row.Pass ? "PASS" : "FAIL")}"),
                 fraction));
         }
 
@@ -340,6 +314,102 @@ public sealed class ComplianceViewModel : ObservableObject
             // The pass is the whole cost; the per-latitude verdicts below are
             // accumulator reads, so they report against a finished bar.
             for (int i = 0; i < nLat; i++) AddRow(lats[i], i, 1.0, res[i]);
+        }
+        return rows;
+    }
+
+    /// <summary>The GSO earth station of a sweep at one latitude: the limit row's dish, S.1428 pattern.</summary>
+    public static EpfdDownVictim VictimFor(Sweep sweep, double freqMhz, double lat) => new()
+    {
+        EsLatDeg = lat, EsLonDeg = sweep.EsLon, GsoLonDeg = sweep.EsLon + sweep.GsoOffset,
+        Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, freqMhz, sweep.DishM),
+    };
+
+    /// <summary>
+    /// One latitude's verdict row from a finished run: the point margins, the
+    /// verdict under the limit-curve rule (every tabulated point AND no
+    /// crossing of the log-linear curve between them), the crossing and the
+    /// curve margin, and the deciding point.
+    /// </summary>
+    public static ComplianceRow BuildRow(double lat, EpfdDownResult res, List<radlimits.LimitPoint> limits)
+    {
+        var (passResults, _) = res.Accumulator.CompareWithLimits(limits);
+        var (epfd, pct) = res.Accumulator.BuildCdf();
+        double worst = limits.Count == 0 ? double.PositiveInfinity
+            : limits.Min(l => MarginDb(epfd, pct, l.EPFD, l.Perc));
+        bool pass = limits.Count == 0
+            ? passResults.All(p => p)
+            : LimitCurveRule.Pass(res.Accumulator, limits);
+        LimitCurveRule.Crossing crossing = null;
+        double curveMargin = double.NaN;
+        if (limits.Count > 0)
+        {
+            var curve = LimitCurveRule.Curve(limits);
+            crossing = LimitCurveRule.Scan(epfd, pct, curve, limits);
+            curveMargin = LimitCurveRule.CurveMarginDb(epfd, pct, curve, limits);
+        }
+        // The first limit point at the worst margin names the deciding point.
+        double deciding = double.NaN;
+        foreach (var l in limits)
+            if (MarginDb(epfd, pct, l.EPFD, l.Perc) == worst) { deciding = l.Perc; break; }
+        return new ComplianceRow(lat, res.MaxEpfdDb, worst, pass, res.QuietSteps)
+            { DecidingPercent = deciding, CurveCrossing = crossing, CurveMarginDb = curveMargin };
+    }
+
+    /// <summary>
+    /// One latitude of the examination on the S.1503-4 time step: the dual
+    /// time step with the fine-step region of Sec. D4.7.1, the same with the
+    /// region as Sub-step 6.3 words it, and every fine step; with the samples
+    /// each evaluated and the fine steps the run spans.
+    /// </summary>
+    public sealed record D4Row(double LatDeg, ComplianceRow Dual, ComplianceRow DualMainBeamOnly,
+        ComplianceRow FineOnly, long DualSamples, long DualMainBeamOnlySamples, long FineSteps);
+
+    /// <summary>The Sec. D4 plan for a sweep: its shells, and the 3 dB beamwidth of its dish at the downlink frequency.</summary>
+    public static S1503TimeStep.Plan D4PlanFor(Sweep sweep, OperationProfile prof)
+        => S1503TimeStep.Downlink(sweep.Shells,
+            radantenna.AntennaLibrary.Compute3dBDeg(prof.Down.FrequencyGhz * 1000.0, sweep.DishM),
+            sweep.Steps * sweep.StepSec);
+
+    /// <summary>
+    /// The examination sweep on the time step of S.1503-4 Sec. D4, over the
+    /// same run length as the sweep's own step grid and with the same
+    /// propagation span, so the trajectories match the sweep's other
+    /// examinations and only the sampling differs. Reads the declared mask
+    /// of the profile (footprint source "mask") against the sweep's declared
+    /// set. One run per latitude, each over the whole fine-step grid.
+    /// </summary>
+    public static List<D4Row> RunD4ExamSweep(Sweep sweep, OperationProfile prof, S1503TimeStep.Plan plan,
+        IProgress<SweepProgress>? progress = null)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        var lats = new List<double>();
+        for (double l = sweep.LatFrom; l <= sweep.LatTo + 1e-9; l += sweep.LatStep) lats.Add(l);
+        int nLat = lats.Count;
+        var con = new Constellation(sweep.Shells);
+        var sh0 = sweep.Shells[0];
+        var comp = OperationComposer.Compose(prof, sh0.OperatingHeightKm ?? sh0.AltitudeKm);
+        if (!comp.UsesMaskFootprint)
+            throw new InvalidOperationException("the S.1503-4 time-step examination reads a declared mask; set the footprint source to mask");
+        var downMask = MaskFootprint.LoadFile(comp.DownlinkMaskXmlPath);
+        double simDur = sweep.Steps * sweep.StepSec;
+        double freqMhz = prof.Down.FrequencyGhz * 1000.0;
+        var rows = new List<D4Row>();
+        for (int i = 0; i < nLat; i++)
+        {
+            double lat = lats[i]; int iNow = i;
+            IProgress<double>? stepProgress = progress is null ? null : new Relay<double>(f =>
+                progress.Report(new SweepProgress(string.Create(inv,
+                    $"S.1503-4 step: lat {lat:F0} ({iNow + 1}/{nLat}) -- {f * 100:F0}% of the fine-step grid"),
+                    (iNow + f) / nLat)));
+            var r = EpfdDownMask.RunD4(con, downMask, sweep.Declared ?? comp.Enforced, VictimFor(sweep, freqMhz, lat),
+                plan, simDur, sweep.Limits, stepProgress);
+            var row = new D4Row(lat, BuildRow(lat, r.Dual, sweep.Limits), BuildRow(lat, r.DualMainBeamOnly, sweep.Limits),
+                BuildRow(lat, r.FineOnly, sweep.Limits), r.DualSamples, r.DualMainBeamOnlySamples, r.FineSteps);
+            rows.Add(row);
+            progress?.Report(new SweepProgress(string.Create(inv,
+                $"S.1503-4 step: lat {lat:F0} ({iNow + 1}/{nLat}): worst margin {row.Dual.WorstMarginDb:+0.0;-0.0} dB {(row.Dual.Pass ? "PASS" : "FAIL")}"),
+                (double)(iNow + 1) / nLat));
         }
         return rows;
     }

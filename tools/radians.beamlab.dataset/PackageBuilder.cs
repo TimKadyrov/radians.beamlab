@@ -27,7 +27,9 @@ public sealed class PackageOptions
     public int MaskId { get; set; } = 150;
     public double BandMinMhz { get; set; } = 17700;
     public double BandMaxMhz { get; set; } = 20200;
-    public int NtcId { get; set; } = 900123480;
+    // 900123481: the number after BL-C1's. The first package was emitted with
+    // BL-C1's own 900123480 (2026-09-07), a collision corrected on 2026-09-22.
+    public int NtcId { get; set; } = 900123481;
     public string SatName { get; set; } = "BEAMLAB-FILED";
     /// <summary>Optional record copied into expected/ (this project's verdicts at the victims).</summary>
     public string ExpectedPath { get; set; }

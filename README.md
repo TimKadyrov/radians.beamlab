@@ -249,7 +249,10 @@ for: `margin` (the projection-margin figure), `loop` (the compliance loop;
 `reuse=<run dir>` reads a run's declaration back instead of deriving it, and
 `gso=<deg>` / `eslon=<deg>` move the victim: the wanted GSO satellite's
 longitude offset east of the earth station and the earth station's longitude,
-+10 and 0 by default), `examine` (a given mask and R set examined alone), `dissect` and `parity`
++10 and 0 by default; `examstep=d4` also runs E1 on the time step of
+S.1503-4 Sec. D4, the fine step and the dual time step of Sec. D5.1.4.1, beside
+the E1 that shares the truth's step), `examine` (a given mask and R set
+examined alone, with the same `examstep=d4` option), `dissect` and `parity`
 (a filed az/el mask read back into its operating rules, and compared with
 the producer's own export), `oracle` (the propagator against a published
 case), `study` (the payload envelope study), `probescan` (the read-rule

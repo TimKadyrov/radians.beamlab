@@ -46,13 +46,16 @@ if (args.Length > 0 && args[0] == "loop")
         return v is not null && double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double d) ? d : dflt;
     }
     double gso = Opt("gso=", 10.0), eslon = Opt("eslon=", 0.0);
+    // examstep=d4: also run E1 on the S.1503-4 time step (Sec. D4, the dual time step
+    // of Sec. D5.1.4.1), beside the E1 that shares the truth's step.
+    bool examD4 = a.Any(x => x.Equals("examstep=d4", StringComparison.OrdinalIgnoreCase));
     return ComplianceLoop.Run(
         a.Length > 1 ? a[1] : System.IO.Path.Combine(srcDir, "STEAM-2.opprofile.json"),
         a.Length > 2 ? a[2] : System.IO.Path.Combine(srcDir, "STEAM-2.orbitdesign.json"),
         D(3, 0.1), D(4, 60.0), D(5, 0.0), D(6, 60.0), D(7, 10.0),
         a.Any(x => x.Equals("walk", StringComparison.OrdinalIgnoreCase)),
         a.Any(x => x.Equals("minimise", StringComparison.OrdinalIgnoreCase)),
-        reuse, gso, eslon);
+        reuse, gso, eslon, examD4);
 }
 if (args.Length > 0 && args[0] == "beamcount")
 {
@@ -67,12 +70,14 @@ if (args.Length > 0 && args[0] == "beamcount")
 }
 if (args.Length > 0 && args[0] == "examine")
 {
-    string[] e = args;
-    if (e.Length < 5) { Console.WriteLine("usage: examine profile design rset.json mask.xml [days] [stepSec] [latFrom] [latTo] [latStep] [tag]"); return 2; }
+    // examstep=d4 anywhere after the mode: also examine on the S.1503-4 time step.
+    bool examD4E = args.Any(x => x.Equals("examstep=d4", StringComparison.OrdinalIgnoreCase));
+    string[] e = args.Where(x => !x.StartsWith("examstep=", StringComparison.OrdinalIgnoreCase)).ToArray();
+    if (e.Length < 5) { Console.WriteLine("usage: examine profile design rset.json mask.xml [days] [stepSec] [latFrom] [latTo] [latStep] [tag] [examstep=d4]"); return 2; }
     double DE(int i, double dflt) => e.Length > i && double.TryParse(e[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : dflt;
     return ComplianceLoop.Examine(e[1], e[2], e[3], e[4],
         DE(5, 0.1), DE(6, 60.0), DE(7, 0.0), DE(8, 60.0), DE(9, 10.0),
-        e.Length > 10 ? e[10] : "examine");
+        e.Length > 10 ? e[10] : "examine", examD4E);
 }
 if (args.Length > 0 && args[0] == "parity")
     return MaskParity.Run(
@@ -5509,9 +5514,23 @@ var looks = RandomLooks(300);
             && lit51.All(r => r.Alpha == MaskConsistency.Verdict.Consistent && r.Elev == MaskConsistency.Verdict.Consistent);
         famText51 = $"mask2 vs set26: {rep51.Overall} over {lit51.Count} lit blocks";
     }
-    Check("V51 section 3.10 consistency probe: set 30 one form per quantity with global reads; BL-C1 links the saturated masks per shell; the family declares no exclusion zone and its own D2 mask grades CONSISTENT on both axes against its set",
-        set51 && case51 && notice51 && noZone51 && family51,
-        $"set={set51} case={case51} notice={notice51} noZone={noZone51} {famText51}");
+    // The delivered family mask (full profile, on disk) graded the same way: the
+    // quick-profile mask composes fewer beams (its lit reach is 53.5 deg where the
+    // delivered mask's is 2.7), so the family's own grade is pinned on the mask
+    // that is actually delivered whenever it is present (operator, 2026-09-22).
+    string delivered51 = @"C:\Projects\radians.beamlab\dataset\BL-D2\xml\mask2_pfd_azel_shellA.xml";
+    bool deliveredOk51 = true; string delText51 = "delivered mask not present, not graded";
+    if (File.Exists(delivered51))
+    {
+        var repD51 = MaskConsistency.Check(delivered51, 1200.0, fam26);
+        var litD51 = repD51.Rows.Where(r => r.Alpha != MaskConsistency.Verdict.Dark).ToList();
+        deliveredOk51 = repD51.Overall == MaskConsistency.Verdict.Consistent
+            && litD51.All(r => r.Alpha == MaskConsistency.Verdict.Consistent && r.Elev == MaskConsistency.Verdict.Consistent);
+        delText51 = $"delivered mask2 vs set26: {repD51.Overall} over {litD51.Count} lit blocks";
+    }
+    Check("V51 section 3.10 consistency probe: set 30 one form per quantity with global reads; BL-C1 links the saturated masks per shell; the family declares no exclusion zone and its own D2 mask, quick-profile and delivered, grades CONSISTENT on both axes against its set",
+        set51 && case51 && notice51 && noZone51 && family51 && deliveredOk51,
+        $"set={set51} case={case51} notice={notice51} noZone={noZone51} {famText51}; {delText51}");
 }
 
 // ---- V52: provenance primitives and the curves' direction check ----
@@ -5898,6 +5917,131 @@ var looks = RandomLooks(300);
     Check("V57 verdict rule: a distribution clearing every tabulated point but crossing the log-linear curve between them FAILS, the array scan names the accumulator's own worst bin, the curve margin is negative and the rule margin never exceeds the point margin; one under the curve passes, and its curve margin is exactly the shift at which the curve is reached; the rule names its tolerance",
         crossOk && sameBin && underOk && named,
         string.Create(CultureInfo.InvariantCulture, $"cross: points={pointsPassC} rule={ruleC} scan={(scanC is null ? "none" : scanC.Text)} own={(ownC.HasValue ? ownC.Value.Epfd.ToString("F1", CultureInfo.InvariantCulture) : "none")} pointMargin={pointMarginC:+0.0;-0.0} curveMargin={curveMarginC:+0.0;-0.0}; under: rule={ruleU} scan={(scanU is null ? "none" : "crossing")} pointMargin={pointMarginU:+0.0;-0.0} curveMargin={curveMarginU:+0.0;-0.0} shiftTest={shiftOk} (curve margin mid-bin {curveMarginMid:+0.0;-0.0})"));
+}
+
+// ---- V58: the examination's time step, S.1503-4 Sec. D4 ----
+{
+    // Sec. D4.2 fine step and Sec. D4.7.1 coarse ratio against published
+    // numbers: the reference tool's run report attached to WP 4A Doc 4A/509
+    // (UK, October 2021) examines Skybridge -- the Res. 770 reference
+    // constellation, 1469.155 km at 53 deg -- in four downlink runs at
+    // 37.995 GHz with dishes of 0.45, 0.6, 2 and 9 m, and prints each run's
+    // fine step and coarse multiplier: 289, 217, 65 and 14 ms; x19, x26, x86
+    // and x391. The 3 dB beamwidth is 70 lambda/D, as in the vendored
+    // antenna library. Then STEAM-2 by hand, several orbit types, and the
+    // Sec. D4.1 reduction for long non-repeating runs.
+    var inv58 = CultureInfo.InvariantCulture;
+    var sky58 = new[] { new ConstellationShell { AltitudeKm = 1469.155, InclinationDeg = 53.0, PlaneCount = 20, SatsPerPlane = 4, StationKeeping = true } };
+    var published58 = new (double Dish, double FineSec, int NCoarse)[] { (0.45, 0.289, 19), (0.6, 0.217, 26), (2.0, 0.065, 86), (9.0, 0.014, 391) };
+    var got58 = published58.Select(p => S1503TimeStep.Downlink(sky58, radantenna.AntennaLibrary.Compute3dBDeg(37995.0, p.Dish))).ToList();
+    bool skyOk58 = published58.Zip(got58).All(z => Math.Abs(z.Second.FineStepSec - z.First.FineSec) < 1e-9 && z.Second.NCoarse == z.First.NCoarse);
+    // STEAM-2 with the 1 m dish of TABLE 22-1B at 18.2 GHz: 0.208 s and x20 by hand.
+    double th58 = radantenna.AntennaLibrary.Compute3dBDeg(18200.0, 1.0);
+    var steam58 = new[] { new ConstellationShell { AltitudeKm = 1150.0, InclinationDeg = 53.0, PlaneCount = 32, SatsPerPlane = 50 } };
+    var planSteam58 = S1503TimeStep.Downlink(steam58, th58, 0.5 * 86400.0);
+    bool steamOk58 = Math.Abs(planSteam58.FineStepSec - 0.208) < 1e-9 && planSteam58.NCoarse == 20 && !planSteam58.LongRunReduced;
+    // Several orbit types: the smallest step governs; an elliptical shell steps at its operating height.
+    var multi58 = new[]
+    {
+        new ConstellationShell { AltitudeKm = 1200.0, InclinationDeg = 55.0, PlaneCount = 4, SatsPerPlane = 8 },
+        new ConstellationShell { AltitudeKm = 900.0, InclinationDeg = 90.0, PlaneCount = 4, SatsPerPlane = 8 },
+        new ConstellationShell { AltitudeKm = 2400.0, InclinationDeg = 63.4, PlaneCount = 2, SatsPerPlane = 4, Eccentricity = 0.2, OperatingHeightKm = 1000.0 },
+    };
+    var planMulti58 = S1503TimeStep.Downlink(multi58, th58);
+    double minPass58 = multi58.Min(s => S1503TimeStep.PassTimeSec(S1503TimeStep.StepAltitudeKm(s), s.InclinationDeg, th58));
+    bool multiOk58 = Math.Abs(planMulti58.PassTimeSec - minPass58) < 1e-12 && planMulti58.GoverningAltitudeKm == 900.0
+        && S1503TimeStep.StepAltitudeKm(multi58[2]) == 1000.0;
+    // Sec. D4.1: a non-repeating run beyond 1e8 fine steps reduces N_hit to
+    // 16 / min(N_coarse, sqrt(N_sat)); a station-kept one does not.
+    double longRun58 = 1.2e8 * planSteam58.FineStepSec;
+    var planLong58 = S1503TimeStep.Downlink(steam58, th58, longRun58);
+    double nhitExp58 = 16.0 / Math.Min(20.0, Math.Sqrt(1600.0));
+    bool longOk58 = planLong58.LongRunReduced && Math.Abs(planLong58.NhitUsed - nhitExp58) < 1e-12
+        && Math.Abs(planLong58.FineStepSec - S1503TimeStep.RoundToMillisecond(planSteam58.PassTimeSec / nhitExp58)) < 1e-9
+        && planLong58.NCoarse == Math.Max(1, (int)Math.Floor(nhitExp58 / 16.0 * 20));
+    var planKept58 = S1503TimeStep.Downlink(steam58.Select(s => s with { StationKeeping = true }).ToArray(), th58, longRun58);
+    longOk58 &= !planKept58.LongRunReduced;
+    Check("V58 S.1503-4 Sec. D4 time step: the four published Skybridge downlink runs of Doc 4A/509 reproduced to the millisecond with their coarse multipliers; STEAM-2 0.208 s x20; the smallest step governs across orbit types, an elliptical shell at its operating height; the Sec. D4.1 long-run reduction for non-repeating orbits only",
+        skyOk58 && steamOk58 && multiOk58 && longOk58,
+        string.Create(inv58, $"skybridge {string.Join(", ", got58.Select(g => g.FineStepSec.ToString("0.000", inv58) + " s x" + g.NCoarse))}; steam-2 {planSteam58.FineStepSec:0.000} s x{planSteam58.NCoarse}; ")
+        + string.Create(inv58, $"multi {planMulti58.FineStepSec:0.000} s at {planMulti58.GoverningAltitudeKm:F0} km; long run N_hit {planLong58.NhitUsed:0.###}, {planLong58.FineStepSec:0.000} s x{planLong58.NCoarse}, kept shell reduced={planKept58.LongRunReduced}"));
+}
+
+// ---- V59: the examination on the S.1503-4 time step ----
+{
+    // (a) With a plan whose fine step is the loop's own step and N_coarse = 1,
+    // RunD4 is the loop's examination bin for bin in all three readings: the
+    // shared per-step body and the Step 24 weights leave no trace.
+    // (b) The dual chain on a hand pattern: the first sample fine, a coarse
+    // step only after a non-critical sample and only with N_coarse fine steps
+    // still ahead, weights summing to the fine-step count.
+    // (c) On a real fine-step grid: every reading covers the same time, the
+    // dual readings keep a subset of the samples, and the 30 dB reading,
+    // whose region is the narrower, keeps no more samples than the Sec. D4.7.1
+    // one.
+    var inv59 = CultureInfo.InvariantCulture;
+    string expDir59 = Path.Combine(AppContext.BaseDirectory, "exp");
+    Directory.CreateDirectory(expDir59);
+    string mask59 = Path.Combine(expDir59, "v59mask.xml");
+    File.WriteAllText(mask59, """
+        <?xml version="1.0"?>
+        <srs>
+          <satellite_system sat_name="V59" ntc_id="1">
+            <pfd_mask mask_id="1" low_freq_mhz="19700" high_freq_mhz="19700" refbw_khz="40" type="azimuth_elevation">
+              <by_a a="0">
+                <by_b b="-90"><pfd c="-90">-120</pfd><pfd c="0">-117</pfd><pfd c="90">-116</pfd></by_b>
+                <by_b b="90"><pfd c="-90">-118</pfd><pfd c="0">-121</pfd><pfd c="90">-122</pfd></by_b>
+              </by_a>
+              <by_a a="50">
+                <by_b b="-90"><pfd c="-90">-123</pfd><pfd c="0">-119</pfd><pfd c="90">-118</pfd></by_b>
+                <by_b b="90"><pfd c="-90">-117</pfd><pfd c="0">-124</pfd><pfd c="90">-120</pfd></by_b>
+              </by_a>
+            </pfd_mask>
+          </satellite_system>
+        </srs>
+        """);
+    var fp59 = MaskFootprint.LoadFile(mask59);
+    var shells59 = new[] { new ConstellationShell { AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 3, SatsPerPlane = 4 } };
+    var con59 = new Constellation(shells59);
+    var decl59 = new OperatingParamsSet
+    {
+        SatName = "V59", LowFreqMhz = 19700, HighFreqMhz = 19700, ElevAngleHeaderDeg = 10.0,
+        MaxCoFreqHeader = 2, MinAngleAtEsDeg = 5.0,
+    };
+    decl59.MinExclude.Add(new MinExcludeByOrbit { OrbId = 0, ByLat = { (0.0, 6.0), (60.0, 4.0) } });
+    var victim59 = new EpfdDownVictim
+    {
+        EsLatDeg = 30.0, EsLonDeg = 0.0, GsoLonDeg = 10.0,
+        Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 19700.0, 1.0),
+    };
+    var limits59 = new List<radlimits.LimitPoint> { new() { EPFD = -160, Perc = 5.0 }, new() { EPFD = -150, Perc = 1.0 } };
+    double step59 = 60.0; long steps59 = 240; double dur59 = step59 * steps59;
+    bool Same59(EpfdDownResult x, EpfdDownResult y)
+    {
+        var (ex, px) = x.Accumulator.BuildCdf(); var (ey, py) = y.Accumulator.BuildCdf();
+        return ex.SequenceEqual(ey) && px.SequenceEqual(py) && x.MaxEpfdDb.Equals(y.MaxEpfdDb) && x.QuietSteps == y.QuietSteps && x.Steps == y.Steps;
+    }
+    var loop59 = EpfdDownMask.Run(con59, fp59, decl59, victim59, step59, steps59, limits59, dur59);
+    var asLoop59 = new S1503TimeStep.Plan(step59, 1, 0.0, 1.0, 16.0, 1200.0, 53.0, false);
+    var d4a59 = EpfdDownMask.RunD4(con59, fp59, decl59, victim59, asLoop59, dur59, limits59);
+    bool identOk59 = Same59(loop59, d4a59.FineOnly) && Same59(loop59, d4a59.Dual) && Same59(loop59, d4a59.DualMainBeamOnly)
+        && d4a59.FineSteps == steps59 && d4a59.DualSamples == steps59;
+    // (b) hand pattern, N_coarse 3, twelve fine steps
+    var flags59 = new[] { false, false, false, true, false, false, false, false, false, false, false, false };
+    var chain59 = EpfdDownMask.DualChain(flags59, 3);
+    var expect59 = new List<(long, int)> { (0, 1), (3, 3), (4, 1), (7, 3), (10, 3), (11, 1) };
+    bool chainOk59 = chain59.SequenceEqual(expect59) && chain59.Sum(c => c.Weight) == flags59.Length;
+    // (c) the real S.1503-4 plan over a short run
+    var plan59 = S1503TimeStep.Downlink(shells59, radantenna.AntennaLibrary.Compute3dBDeg(19700.0, 1.0));
+    var d4c59 = EpfdDownMask.RunD4(con59, fp59, decl59, victim59, plan59, dur59, limits59);
+    bool gridOk59 = d4c59.FineSteps == (long)Math.Round(dur59 / plan59.FineStepSec)
+        && d4c59.Dual.Steps == d4c59.FineSteps && d4c59.DualMainBeamOnly.Steps == d4c59.FineSteps
+        && d4c59.DualMainBeamOnlySamples <= d4c59.DualSamples && d4c59.DualSamples <= d4c59.FineSteps
+        && d4c59.Dual.MaxEpfdDb <= d4c59.FineOnly.MaxEpfdDb && d4c59.DualMainBeamOnly.MaxEpfdDb <= d4c59.FineOnly.MaxEpfdDb;
+    Check("V59 examination on the S.1503-4 time step: with the loop's own step and N_coarse 1 it is the loop's examination bin for bin in all three readings; the dual chain follows Sub-steps 6.1-6.3 with weights summing to the fine steps; on the real plan every reading spans the same time and the dual readings keep subsets of the fine samples",
+        identOk59 && chainOk59 && gridOk59,
+        string.Create(inv59, $"identical={identOk59} chain=[{string.Join(" ", chain59.Select(c => c.Index + ":" + c.Weight))}] plan {plan59.FineStepSec:0.000} s x{plan59.NCoarse}; ")
+        + string.Create(inv59, $"samples dual {d4c59.DualSamples} / 30 dB {d4c59.DualMainBeamOnlySamples} / fine {d4c59.FineSteps}; max fine {d4c59.FineOnly.MaxEpfdDb:F1} vs loop {loop59.MaxEpfdDb:F1} dB"));
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

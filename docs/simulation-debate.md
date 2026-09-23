@@ -5425,3 +5425,139 @@ page box, Annex A item 10, this entry. Uncommitted after it: the +45 and
 in Annex A item 10. Name-only profile copies for the offsets sit untracked in
 `dataset/_src` like the depth copies. 84a241a, ee1b5e3 and 14998cd
 unpushed.
+
+## Beamlab — a notice number reclaimed, and V51 on the mask that is delivered, 22 September 2026
+
+**The collision.** The STEAM-2B-FILED cross-read package, emitted on
+7 September, carried notice 900123480 in its SRS database, its mask XML
+root and its operating-parameter XML — the number BL-C1 took when the
+consistency probe was numbered, so two deliverables shared one ntc_id.
+The package builder's default was the culprit: the first package was
+built with that number and the default was set to match. The default
+is now 900123481, the number after BL-C1's, and the package was
+regenerated under it from the same inputs (the filed mask verbatim, the
+reconstructed constellation, the R set derived on 7 September, the
+expected record copied back, the provenance line unchanged): notice
+`900123481 SRS.MDB`, both XML roots rewritten, README regenerated and
+dated today. The stale `900123480 SRS.MDB` was removed from the package
+directory. The dataset's top-level README does not list the package (it
+has its own), the Confluence page lists it by the filed mask's identity,
+and radians' guide does not mention it; radians' session is not running,
+so the word to them waits.
+
+**V51 on the delivered mask.** The check that pins the family's own
+grade (mask 2 against set 26: CONSISTENT on both axes) graded the
+quick-profile mask the T-block generates, whose lit reach is 53.5
+degrees where the delivered mask's is 2.7 — a mask that composes far
+fewer beams. On the operator's decision the check now also grades the
+delivered mask on disk when it is present, with the same assertion; it
+reads CONSISTENT over its lit blocks. Harness 153 passed, 0 failed on
+the build.
+
+**State.** dbcba72 pushed (the far offsets); uncommitted: the package
+builder's default, V51, this entry. The package is regenerated on disk
+(gitignored).
+
+## Beamlab — the examination on the S.1503-4 time step, 23 September 2026
+
+**Why.** Every September record ran at 60 s steps, and at 0 to 40 N its
+verdict is decided by the maximum. The fine-comb check of 1 September had
+already shown that a 60 s step starves both curves of main-beam passes
+(on the family's 1 200 km system the maxima rose about 20 dB at 6 s and
+only 0.2 to 0.4 dB more at 1 s). The review of SHARC-Orbit, which
+implements the Recommendation's time step, brought the point back, and
+the operator asked for it on our side: the time-step function first, then
+the examination, E1, on that step. The truth's step is a separate
+decision, still open.
+
+**The time step.** A core function follows Sec. D4 as written. The fine
+step of Sec. D4.2 is the time a non-GSO satellite needs to cross the GSO
+earth station's 3 dB beam where that crossing is fastest, over the
+N_hit = 16 samples of Sec. D4.5, rounded to the millisecond; the lowest
+altitude governs, an elliptical shell at its minimum operating height,
+the smallest step over orbit types. The coarse step of Sec. D4.7.1 is
+N_coarse = floor(16 x 1.5 deg / beamwidth) fine steps, and Sec. D4.1
+lowers N_hit for a non-repeating run past 1e8 steps. The satellite rate
+is the closed form both implementations in hand use, 0.071 deg/s scaled
+by ((Re+h)/Re)^-1.5, which differs from the Kepler rate at the Earth's
+radius by 0.02 per cent. The check is external: the reference tool's run
+report attached to WP 4A Doc 4A/509 examines Skybridge, the Res. 770
+reference constellation at 1 469.155 km and 53 deg, in four downlink runs
+at 37.995 GHz with dishes of 0.45, 0.6, 2 and 9 m, and prints 289, 217,
+65 and 14 ms with coarse multipliers 19, 26, 86 and 391. The function
+reproduces all eight numbers to the millisecond and the unit (V58). For
+STEAM-2 and the 1 m dish of TABLE 22-1B at 18.2 GHz it gives 0.208 s and
+N_coarse 20, a coarse step of 4.16 s, against the 60 s the records used.
+
+**What radians does, noted on the operator's word.** Radians implements
+the S.1503-2 method. Its fine step and coarse ratio are the same formula
+(0.208 s for STEAM-2 by either rate form), but it switches to fine steps
+on an alpha threshold, max(3.5 deg, phi_r) or the exclusion angle plus
+1.5 deg with one angle for all latitudes, and sizes the run by the
+S.1503-2 table. It can confirm our fine step, not the switching rule or
+the run length; SHARC-Orbit, which implements the -4 gain rule, is the
+cross-check for those.
+
+**The Recommendation words the switch twice.** Sec. D4.7.1 defines the
+fine-step region as G_RX(phi) > min[Gmax - 30 dB, G_RX(alpha0[Latitude])],
+near the main beam or the exclusion-zone edge. The downlink algorithm's
+own Sub-step 6.3 in Sec. D5.1.4.1 says a fine step follows when any
+G_RX(phi) of the last time step was within 30 dB of peak. With STEAM-2's
+22 deg zone the first makes nearly every step fine and the second few.
+SHARC-Orbit applies the Sub-step order (6.1 first step fine, 6.2 fine
+when fewer than N_coarse steps remain, 6.3 fine after a critical step)
+with the Sec. D4.7.1 threshold, and radians' S.1503-2 rule also includes
+the zone edge, so that is the default here; the literal Sub-step 6.3
+reading is computed beside it. Step 24 counts each sample T_step / T_fine
+times, the step that reached it.
+
+**The examination on that step.** The examination's per-step body is now
+shared by the old run and a new one, with its arithmetic unchanged: the
+153 existing checks, the parallel bit-identity check among them, pass as
+before. The new run evaluates every fine step of the plan in parallel
+over time, records at each step whether a critical satellite is present
+under each reading, and then draws the two dual-time-step chains from
+those flags with their weights. Because each sample is a function of its
+time alone, the chains keep exactly the samples a dual-step run would
+compute; one pass gives the fine-only result and both readings. With the
+loop's own 60 s step and N_coarse 1 it reproduces the loop's examination
+bin for bin in all three readings, and the chain follows the sub-steps on
+a hand pattern (V59). The loop and the examine mode take `examstep=d4`
+and write a section "E1 on the S.1503-4 time step" beside the E1 that
+shares the truth's step; without the option every record is unchanged.
+Harness 155 passed, 0 failed.
+
+**What it shows on STEAM-2.** The committed declaration examined at half
+a day (`docs/compliance-steam-2-d4step.md`): the truth and the paired E1
+at 60 s reproduce the half-day record to the 0.1 dB, and E1 on the
+0.208 s step, 207 692 fine steps per latitude, took 0.8 minutes for all
+seven latitudes, so examination-grade E1 is cheap at any depth we use.
+At 0 to 40 N, where the maximum decides, the E1 point margin moved by
+-0.9, -2.0, -2.2, -0.1 and -0.7 dB: the maxima rose by 0.3 to 2.2 dB
+once the passes were sampled. At 50 N the 1% point decides and the
+margin improved by 3.0 dB, because 720 samples had placed that
+percentile high; 60 N moved by +0.5. The worst margin over the grid is
+-21.4 dB on the Recommendation's step against -23.5 on 60 s. The three
+readings agree to the 0.1 dB at every latitude: the Sec. D4.7.1 chain
+keeps 66 to 100 per cent of the fine steps (all of them from 30 N up,
+where some satellite is nearly always inside the 22 deg zone's edge
+region), the Sub-step 6.3 chain 9 to 49 per cent, and neither moves a
+worst margin. On this system the Recommendation's double wording does
+not change a result.
+
+**What it means for the records.** The September examination figures
+at 60 s are within about 2 dB of the Recommendation's sampling at the
+deciding maximum, optimistic by that much at 0 to 20 N, and one
+resolved percentile was 3 dB pessimistic. That is far from the 20 dB
+the 1 September check found on the family's maxima, but it concerns E1
+alone. The truth still runs on 60 s, so the gap between the two curves
+is a matched-step figure and stays one until the truth's step is
+decided; whether the gap moves is the question that decision answers.
+
+**State.** Uncommitted: the time-step function (new
+`src/radians.beamlab.core/S1503TimeStep.cs`), the examination file,
+the sweep layer, the loop and examine modes, the dispatch with V58 and
+V59, the README clause, the new record and this entry, beside the
+earlier uncommitted package default, V51 and entry e41. Harness 155
+passed, 0 failed. Open: the truth's step, the operator's decision among
+the three options put on 23 September.

@@ -51,7 +51,7 @@ internal static class ComplianceLoop
 {
     public static int Run(string profilePath, string designPath, double days, double stepSec,
         double latFrom, double latTo, double latStep, bool walk, bool minimise = false,
-        string? reuseDir = null, double gsoOffset = 10.0, double esLon = 0.0)
+        string? reuseDir = null, double gsoOffset = 10.0, double esLon = 0.0, bool d4Exam = false)
     {
         var inv = CultureInfo.InvariantCulture;
         var t0 = Stopwatch.StartNew();
@@ -270,6 +270,24 @@ internal static class ComplianceLoop
             Console.WriteLine(e1Note);
         }
 
+        // ---- Optional: E1 on the S.1503-4 time step (examstep=d4) ------------
+        // The same examination sampled as Sec. D4 prescribes, over the same run
+        // length and trajectories, beside the E1 above that shares the truth's
+        // step. The truth stays on the loop's step.
+        List<ComplianceViewModel.D4Row>? rowsD4 = null;
+        S1503TimeStep.Plan? planD4 = null;
+        if (d4Exam && rowsE1 is not null)
+        {
+            var sweepD4 = sweep with { Declared = declaredSet };
+            var profD4 = prof with
+            {
+                AlphaByLat = null,
+                Downlink = prof.Down with { FootprintSource = "mask", MaskXmlPath = declaredMask },
+            };
+            planD4 = ComplianceViewModel.D4PlanFor(sweepD4, profD4);
+            (rowsD4, _) = RunD4Console(sweepD4, profD4, planD4, rowsE1, inv);
+        }
+
         // ---- Mask given: the mask-versus-gates consistency check --------------
         // With footprint source "mask" the truth itself read the declared mask,
         // which is the case where gates cannot be applied to the mask after the
@@ -350,7 +368,7 @@ internal static class ComplianceLoop
         var sb = new StringBuilder();
         sb.AppendLine($"# Compliance loop: {prof.Name}");
         sb.AppendLine();
-        sb.AppendLine(string.Create(inv, $"*Produced by `dotnet run --project tests/radians.beamlab.checks -- loop \"{Path.GetFileName(profilePath)}\" \"{Path.GetFileName(designPath)}\" {days} {stepSec:F0} {latFrom:F0} {latTo:F0} {latStep:F0}{(walk ? " walk" : "")}{(reuseDir is not null ? " reuse=" + Path.GetRelativePath(repo, reuseDir).Replace('\\', '/') : "")}{(gsoOffset != 10.0 ? " gso=" + gsoOffset.ToString("0.#", inv) : "")}{(esLon != 0.0 ? " eslon=" + esLon.ToString("0.#", inv) : "")}`.*"));
+        sb.AppendLine(string.Create(inv, $"*Produced by `dotnet run --project tests/radians.beamlab.checks -- loop \"{Path.GetFileName(profilePath)}\" \"{Path.GetFileName(designPath)}\" {days} {stepSec:F0} {latFrom:F0} {latTo:F0} {latStep:F0}{(walk ? " walk" : "")}{(reuseDir is not null ? " reuse=" + Path.GetRelativePath(repo, reuseDir).Replace('\\', '/') : "")}{(gsoOffset != 10.0 ? " gso=" + gsoOffset.ToString("0.#", inv) : "")}{(esLon != 0.0 ? " eslon=" + esLon.ToString("0.#", inv) : "")}{(d4Exam ? " examstep=d4" : "")}`.*"));
         sb.AppendLine(string.Create(inv, $"*Date: {DateTime.Now:yyyy-MM-dd}. Wall clock {t0.Elapsed.TotalMinutes:F1} min.*"));
         sb.AppendLine();
         sb.AppendLine("## The system under test");
@@ -414,6 +432,11 @@ internal static class ComplianceLoop
             sb.AppendLine("Margins and the gap in this table are point-wise; the curve margins beside them are the rule's second test.");
             sb.AppendLine();
             sb.AppendLine("**" + E1Summary(rows, rowsE1, inv) + "**");
+            if (rowsD4 is not null && planD4 is not null)
+            {
+                sb.AppendLine();
+                AppendD4Section(sb, rowsE1, rowsD4, planD4, stepSec, days, truthStaysOnLoopStep: true, inv);
+            }
         }
         if (consistency is not null)
         {
@@ -605,7 +628,7 @@ internal static class ComplianceLoop
     /// </summary>
     public static int Examine(string profilePath, string designPath, string rsetJsonPath,
         string maskXmlPath, double days, double stepSec, double latFrom, double latTo,
-        double latStep, string tag)
+        double latStep, string tag, bool d4Exam = false)
     {
         var inv = CultureInfo.InvariantCulture;
         var t0 = Stopwatch.StartNew();
@@ -670,6 +693,15 @@ internal static class ComplianceLoop
                 $"{r.LatDeg,4:F0} | {r.MaxEpfdDb,9:F1} | {r.WorstMarginDb,+9:F1} | {(r.Pass ? "PASS" : "FAIL"),4}"));
         Console.WriteLine(ComplianceViewModel.SummarizeRows(rows));
 
+        // Optional: the same examination on the S.1503-4 time step.
+        List<ComplianceViewModel.D4Row>? rowsD4 = null;
+        S1503TimeStep.Plan? planD4 = null;
+        if (d4Exam)
+        {
+            planD4 = ComplianceViewModel.D4PlanFor(sweep, profE1);
+            (rowsD4, _) = RunD4Console(sweep with { Declared = declared }, profE1, planD4, rows, inv);
+        }
+
         // A record beside the artefacts, not in docs/: control runs are cited
         // from the debate, not filed as figures of their own.
         string outDir = Path.Combine(repo, "dataset", "margin", "examine");
@@ -689,12 +721,82 @@ internal static class ComplianceLoop
         sb.AppendLine();
         sb.AppendLine(LimitCurveRule.Name());
         sb.AppendLine();
+        if (rowsD4 is not null && planD4 is not null)
+        {
+            AppendD4Section(sb, rows, rowsD4, planD4, stepSec, days, truthStaysOnLoopStep: false, inv);
+            sb.AppendLine();
+        }
         MaskConsistency.AppendSection(sb, consistency, inv, "given R set");
         string outPath = Path.Combine(outDir, tag + ".md");
         File.WriteAllText(outPath, sb.ToString());
         Console.WriteLine("record: " + Path.GetRelativePath(repo, outPath) + string.Create(inv, $"; wall clock {t0.Elapsed.TotalMinutes:F1} min"));
         return 0;
     }
+    /// <summary>
+    /// Run the examination on the S.1503-4 time step for a sweep and print it
+    /// beside the same examination on the sweep's own step.
+    /// </summary>
+    private static (List<ComplianceViewModel.D4Row> Rows, double Minutes) RunD4Console(
+        ComplianceViewModel.Sweep sweep, OperationProfile prof, S1503TimeStep.Plan plan,
+        List<ComplianceRow> onLoopStep, CultureInfo inv)
+    {
+        var t0 = Stopwatch.StartNew();
+        Console.WriteLine();
+        Console.WriteLine("examination on the S.1503-4 time step: " + plan.Text);
+        var rowsD4 = ComplianceViewModel.RunD4ExamSweep(sweep, prof, plan, new ProgressCollector(echo: true));
+        Console.WriteLine();
+        Console.WriteLine("lat | E1 loop step | E1 S.1503-4 dual | change | fine only | 30 dB reading | samples dual/30dB/fine");
+        for (int i = 0; i < rowsD4.Count; i++)
+        {
+            var d = rowsD4[i];
+            Console.WriteLine(string.Create(inv,
+                $"{d.LatDeg,4:F0} | {onLoopStep[i].WorstMarginDb,12:+0.0;-0.0} | {d.Dual.WorstMarginDb,16:+0.0;-0.0} | "
+                + $"{d.Dual.WorstMarginDb - onLoopStep[i].WorstMarginDb,6:+0.0;-0.0} | {d.FineOnly.WorstMarginDb,9:+0.0;-0.0} | "
+                + $"{d.DualMainBeamOnly.WorstMarginDb,13:+0.0;-0.0} | {d.DualSamples}/{d.DualMainBeamOnlySamples}/{d.FineSteps}"));
+        }
+        Console.WriteLine(string.Create(inv, $"S.1503-4 time-step examination: {t0.Elapsed.TotalMinutes:F1} min"));
+        return (rowsD4, t0.Elapsed.TotalMinutes);
+    }
+
+    /// <summary>The record section of the examination on the S.1503-4 time step.</summary>
+    private static void AppendD4Section(StringBuilder sb, List<ComplianceRow> onLoopStep,
+        List<ComplianceViewModel.D4Row> rowsD4, S1503TimeStep.Plan plan, double stepSec, double days,
+        bool truthStaysOnLoopStep, CultureInfo inv)
+    {
+        sb.AppendLine("## E1 on the S.1503-4 time step");
+        sb.AppendLine();
+        sb.AppendLine("The same examination sampled as S.1503-4 Sec. D4 prescribes: " + plan.Text + ". "
+            + string.Create(inv, $"It covers the same {days:0.###} d as the {stepSec:0.###} s step above and propagates the same trajectories, ")
+            + "so the change between the two is the time step alone."
+            + (truthStaysOnLoopStep
+                ? string.Create(inv, $" The truth stays on the {stepSec:0.###} s step, so the gap and the E1 >= T check above remain the matched-step comparison.")
+                : ""));
+        sb.AppendLine();
+        sb.AppendLine("The dual time step follows Sec. D5.1.4.1 Sub-steps 6.1 to 6.3, each sample counted T_step / T_fine times (Step 24). "
+            + "The Recommendation words the fine-step region twice: Sec. D4.7.1 defines it as G_RX(phi) > min[Gmax - 30 dB, G_RX(alpha0[Latitude])], "
+            + "near the main beam or the exclusion-zone edge, while Sub-step 6.3 says a G_RX(phi) within 30 dB of peak. The dual columns use the "
+            + "Sec. D4.7.1 definition, the 30 dB column the Sub-step 6.3 wording; the fine column evaluates every fine step.");
+        sb.AppendLine();
+        sb.AppendLine(string.Create(inv, $"| latitude | E1 point margin, {stepSec:0.###} s step (dB) | E1 point margin, S.1503-4 step, dual (dB) | change (dB) | deciding point | curve margin, dual (dB) | verdict, dual | E1 fine only (dB) | E1 dual, 30 dB reading (dB) | max epfd, {stepSec:0.###} s / S.1503-4 (dB) | samples dual / 30 dB / fine |"));
+        sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|");
+        for (int i = 0; i < rowsD4.Count; i++)
+        {
+            var d = rowsD4[i]; var e = onLoopStep[i];
+            sb.AppendLine(string.Create(inv,
+                $"| {d.LatDeg:F0} | {e.WorstMarginDb:+0.0;-0.0} | {d.Dual.WorstMarginDb:+0.0;-0.0} | {d.Dual.WorstMarginDb - e.WorstMarginDb:+0.0;-0.0} | "
+                + $"{d.Dual.DecidingText} | {d.Dual.CurveMarginText} | {(d.Dual.Pass ? "PASS" : "FAIL")} | {d.FineOnly.WorstMarginDb:+0.0;-0.0} | "
+                + $"{d.DualMainBeamOnly.WorstMarginDb:+0.0;-0.0} | {e.MaxEpfdDb:F1} / {d.Dual.MaxEpfdDb:F1} | {d.DualSamples} / {d.DualMainBeamOnlySamples} / {d.FineSteps} |"));
+        }
+        if (rowsD4.Count > 0)
+        {
+            var changes = rowsD4.Select((d, i) => d.Dual.WorstMarginDb - onLoopStep[i].WorstMarginDb).ToList();
+            sb.AppendLine();
+            sb.AppendLine(string.Create(inv,
+                $"**On the S.1503-4 time step the E1 point margin changes by {changes.Min():+0.0;-0.0} to {changes.Max():+0.0;-0.0} dB across the latitudes; "
+                + $"worst {rowsD4.Min(d => d.Dual.WorstMarginDb):+0.0;-0.0} dB against {onLoopStep.Min(r => r.WorstMarginDb):+0.0;-0.0} dB on the {stepSec:0.###} s step.**"));
+        }
+    }
+
     /// <summary>One-line rendering of a derived R set, for the console and the record.</summary>
     internal static string DescribeSet(OperatingParamsSet p, CultureInfo inv)
     {
