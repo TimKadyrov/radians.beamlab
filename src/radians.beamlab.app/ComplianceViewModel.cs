@@ -94,8 +94,24 @@ public sealed class ComplianceViewModel : ObservableObject
     private string _durationDaysText = "0.1";
     public string DurationDaysText { get => _durationDaysText; set => SetField(ref _durationDaysText, value); }
 
-    private string _stepSecText = "60";
+    // Preset 1 s: sampled every second the examination of STEAM-2 reads within
+    // 0.1 dB of the S.1503-4 Sec. D4 step at every latitude
+    // (docs/simulation-debate.md), so the truth runs there by default.
+    private string _stepSecText = "1";
     public string StepSecText { get => _stepSecText; set => SetField(ref _stepSecText, value); }
+
+    /// <summary>
+    /// The examination's time step, index-aligned with <see cref="ExamStepIndex"/>:
+    /// the predefined step above, or the fine and coarse steps of S.1503-4
+    /// Sec. D4 with the dual time step of Sec. D5.1.4.1. It applies to the
+    /// sweep of a declared-mask profile; the truth and the advisors always
+    /// run on the predefined step.
+    /// </summary>
+    public IReadOnlyList<string> ExamStepChoices { get; } = new[] { "predefined step", "S.1503-4 fine/coarse" };
+
+    private int _examStepIndex;
+    /// <summary>0 = the predefined step, 1 = the S.1503-4 time step (<see cref="ExamStepChoices"/>).</summary>
+    public int ExamStepIndex { get => _examStepIndex; set => SetField(ref _examStepIndex, value); }
 
     // The template pair is wide (it sets the accumulator's bin range) and
     // verdict-permissive under the D7.1.3 rule Pt <= Pi; replace it with
@@ -203,9 +219,10 @@ public sealed class ComplianceViewModel : ObservableObject
         ProgressPercent = 0;
         StatusText = "sweeping latitudes...";
         var progress = UiProgress();
+        bool onS1503Step = _examStepIndex == 1;
         try
         {
-            var rows = await Task.Run(() => RunSweep(sweep, sweep.Profile.AlphaExclDeg, progress));
+            var (rows, plan) = await Task.Run(() => RunOnExamStep(sweep, onS1503Step, progress));
             ProgressPercent = 100;
             Rows.Clear();
             foreach (var r in rows) Rows.Add(r);
@@ -221,11 +238,35 @@ public sealed class ComplianceViewModel : ObservableObject
                 ? string.Create(CultureInfo.InvariantCulture,
                     $" -- power headroom {worstAll:+0.0;-0.0} dB on per-beam TxEirpDbw (dB-for-dB)")
                 : "";
+            string stepNote = plan is not null
+                ? "on the S.1503-4 time step (" + plan.Text + ") -- "
+                : onS1503Step
+                    ? "the S.1503-4 time step applies to a declared-mask examination; the truth ran on the predefined step -- "
+                    : "";
             StatusText = gap + (sweep.Profile.Down.FootprintSource == "mask"
-                ? "declared-mask footprint -- " : "") + SummarizeRows(rows) + headroom;
+                ? "declared-mask footprint -- " : "") + stepNote + SummarizeRows(rows) + headroom;
         }
         catch (Exception ex) { StatusText = "sweep failed: " + ex.Message; }
         finally { IsRunning = false; }
+    }
+
+    /// <summary>
+    /// The window's sweep on the chosen examination step. A declared-mask
+    /// profile on the S.1503-4 step is examined by <see cref="RunD4ExamSweep"/>
+    /// -- the dual time step with the Sec. D4.7.1 fine-step region -- over the
+    /// sweep's run length and the profile variant <see cref="RunSweep"/>
+    /// examines, so only the sampling differs; everything else, the truth
+    /// above all, runs on the predefined step. The plan is returned when the
+    /// S.1503-4 step was used, null otherwise.
+    /// </summary>
+    public static (List<ComplianceRow> Rows, S1503TimeStep.Plan? Plan) RunOnExamStep(Sweep sweep,
+        bool onS1503Step, IProgress<SweepProgress>? progress = null)
+    {
+        if (!onS1503Step || sweep.Profile.Down.FootprintSource != "mask")
+            return (RunSweep(sweep, sweep.Profile.AlphaExclDeg, progress), null);
+        var prof = sweep.Profile with { AlphaByLat = null };
+        var plan = D4PlanFor(sweep, prof);
+        return (RunD4ExamSweep(sweep, prof, plan, progress).Select(r => r.Dual).ToList(), plan);
     }
 
     /// <summary>

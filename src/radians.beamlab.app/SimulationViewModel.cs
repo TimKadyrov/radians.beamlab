@@ -63,7 +63,9 @@ public sealed class SimulationViewModel : ObservableObject
     private string _durationDaysText = "2";
     public string DurationDaysText { get => _durationDaysText; set => SetField(ref _durationDaysText, value); }
 
-    private string _stepSecText = "30";
+    // Preset 1 s, the truth's step in the compliance loop as well
+    // (ComplianceViewModel.StepSecText).
+    private string _stepSecText = "1";
     public string StepSecText { get => _stepSecText; set => SetField(ref _stepSecText, value); }
 
     private string _statusText = "";

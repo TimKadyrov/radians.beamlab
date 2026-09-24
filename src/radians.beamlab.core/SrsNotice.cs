@@ -110,11 +110,25 @@ public sealed class SrsNotice
     public char ActCode { get; init; } = 'M';
     public DateTime DRcv { get; init; } = new(2026, 1, 1);
 
-    // non_geo constellation flags, mirroring the worked notices.
+    // non_geo constellation flags, mirroring the worked notices (examset_type derived, below).
     public char RefBody { get; init; } = 'T';
     public char FConstell { get; init; } = 'Y';
     public char MultiConfigType { get; init; } = 'S';
-    public char ExamSetType { get; init; } = 'L';
+    /// <summary>
+    /// Explicit AP4 A.4.b.6bis flag; null derives it (<see cref="ExamSetType"/>).
+    /// </summary>
+    public char? ExamSetTypeDeclared { get; init; }
+
+    /// <summary>
+    /// AP4 A.4.b.6bis (non_geo.examset_type): whether the station is examined with
+    /// its A.14.d operating-parameter sets -- the S.1503-4 XML linked through
+    /// mask_lnk3 -- flagged E (extended set), or with the single network-level set
+    /// of A.4.b.6.a and A.4.b.7 in the SRS tables, flagged L (limited set). The
+    /// definition is the Bureau's, WP 4A Doc 4A/663 (2018) Annex 1. Derived from
+    /// <see cref="OperatingParamIds"/> unless declared. The worked NEXT101 and
+    /// NEXT102 notices this writer once mirrored carry L beside three sets.
+    /// </summary>
+    public char ExamSetType => ExamSetTypeDeclared ?? (OperatingParamIds.Count > 0 ? 'E' : 'L');
 
     public List<SrsOrbitRow> Orbits { get; } = new();
     public List<SrsPhaseRow> Phases { get; } = new();

@@ -666,6 +666,14 @@ examination's own down algorithm against the declared mask and R-set
 gates instead of the live composition — the direct check of what the
 examination will compute from the filing; the advisor's α walk then
 tightens the declared exclusion zone while the mask file stays fixed.
+The duration and step fields set the run; the step is preset to 1 s, the
+truth's step, because sampled every second the examination of STEAM-2
+reads within 0.1 dB of the S.1503-4 time step at every latitude. The
+**Examination step** choice sets how a declared-mask sweep is sampled: on
+that predefined step, or on the fine and coarse steps of S.1503-4 §D4 with
+the dual time step of §D5.1.4.1 (the fine-step region of §D4.7.1) over the
+same duration, the status line then naming the plan. A live-composition
+sweep, the truth, and the two advisors always run on the predefined step.
 The **How is compliance judged?** button opens the accompanying page
 (`docs/compliance-loop.html`): the sweep and its verdicts, the limits,
 the advisor's walk and write-back, and how deep a screening run reads.
@@ -701,7 +709,8 @@ under the declared discipline. The remaining fields describe the victim
 and the run: GSO longitude; ES latitude/longitude, which also serve as
 the up/is victim's boresight; the S.1428 dish diameter (victim dish;
 also the transmitting ES when the profile's uplink side declares no
-dish); duration and time step. **Write CDFs…** executes on a
+dish); duration and time step, the step preset to 1 s, the truth's step
+in the compliance loop as well. **Write CDFs…** executes on a
 worker thread, using every processor for the satellites of each step
 (set the `BEAMLAB_THREADS` environment variable to a smaller count to
 leave the machine responsive; the result does not depend on it), and

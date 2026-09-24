@@ -52,7 +52,7 @@
                             <ColumnDefinition Width="150"/><ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
-                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="ES lat from / to / step"/>
                         <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
@@ -71,8 +71,13 @@
                         <TextBlock Grid.Row="3" Text="Duration (days) / step (s)"/>
                         <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal">
                             <TextBox Width="70" Text="{Binding DurationDaysText, UpdateSourceTrigger=LostFocus}"/>
-                            <TextBox Width="70" Margin="6,1,0,1" Text="{Binding StepSecText, UpdateSourceTrigger=LostFocus}"/>
+                            <TextBox Width="70" Margin="6,1,0,1" Text="{Binding StepSecText, UpdateSourceTrigger=LostFocus}"
+                                     ToolTip="The predefined step: the truth always runs on it (1 s preset), and so do the advisors."/>
                         </StackPanel>
+                        <TextBlock Grid.Row="4" Text="Examination step"/>
+                        <ComboBox  Grid.Row="4" Grid.Column="1" Margin="0,1,0,1"
+                                   ItemsSource="{Binding ExamStepChoices}" SelectedIndex="{Binding ExamStepIndex}"
+                                   ToolTip="How Run sweep samples a declared-mask examination: on the predefined step, or on the fine and coarse steps of S.1503-4 Sec. D4 with the dual time step of Sec. D5.1.4.1, over the same duration. A live-composition profile (the truth) always runs on the predefined step."/>
                     </Grid>
                 </GroupBox>
 

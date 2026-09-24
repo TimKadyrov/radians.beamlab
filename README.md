@@ -38,7 +38,9 @@ Functions (each a tab or tool window, launched from the Home page):
   entered limit under the limit-curve rule (every tabulated point, and the
   log-linear curve between them), then examine that
   same truth against the declaration; walks the exclusion angle to the
-  smallest compliant value, written back into the operation profile.
+  smallest compliant value, written back into the operation profile. The
+  truth runs on a preset 1 s step; a declared-mask examination runs on
+  that step or on the fine and coarse steps of S.1503-4 §D4.
 
 See the **[user guide](docs/user-guide.md)** for a full walk-through of
 every function and control.
@@ -200,7 +202,8 @@ simulate a second opinion of the same system.
 Runs the epfd(down) / epfd(is) / epfd(up) simulation from an orbit
 design document and an operation profile — the space segment and the
 operated system, both required; an optional R-set file swaps the
-scheduler's gates for the declared constraints. **▶ play**
+scheduler's gates for the declared constraints. The time step is preset
+to 1 s, the truth's step. **▶ play**
 and **⏩ accelerated play** share one continuous timeline — ▶ animates
 the world map (satellites, candidate and active links, live counts),
 ⏩ advances the same clock without updating the map —

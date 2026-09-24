@@ -6044,6 +6044,95 @@ var looks = RandomLooks(300);
         + string.Create(inv59, $"samples dual {d4c59.DualSamples} / 30 dB {d4c59.DualMainBeamOnlySamples} / fine {d4c59.FineSteps}; max fine {d4c59.FineOnly.MaxEpfdDb:F1} vs loop {loop59.MaxEpfdDb:F1} dB"));
 }
 
+// ---- V60: the notice flags the parameter set it carries (AP4 A.4.b.6bis) ----
+{
+    // examset_type says which set the station is examined with: E for the
+    // A.14.d operating-parameter sets (the S.1503-4 XML through mask_lnk3), L for
+    // the single network-level set of A.4.b.6.a and A.4.b.7 in the SRS tables
+    // (Doc 4A/663, Annex 1). A notice with sets derives E, one without L, an
+    // explicit declaration wins; and the quick-generated BL notices, which all
+    // carry sets, are written with E.
+    var withSets60 = new SrsNotice { NtcId = 1, SatName = "V60" };
+    withSets60.OperatingParamIds.Add(7);
+    var noSets60 = new SrsNotice { NtcId = 2, SatName = "V60" };
+    var forced60 = new SrsNotice { NtcId = 3, SatName = "V60", ExamSetTypeDeclared = 'L' };
+    forced60.OperatingParamIds.Add(7);
+    bool derive60 = withSets60.ExamSetType == 'E' && noSets60.ExamSetType == 'L' && forced60.ExamSetType == 'L';
+    string srs60 = Path.Combine(AppContext.BaseDirectory, "exp", "ds", "BL-D1", "900123471 SRS.MDB");
+    string written60 = "quick dataset not generated, not read back";
+    bool written60Ok = true;
+    if (File.Exists(srs60))
+    {
+        using var conn60 = new System.Data.OleDb.OleDbConnection($"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={srs60};Mode=Read");
+        conn60.Open();
+        using var cmd60 = new System.Data.OleDb.OleDbCommand("SELECT examset_type FROM non_geo WHERE ntc_id=900123471", conn60);
+        string flag60 = Convert.ToString(cmd60.ExecuteScalar(), CultureInfo.InvariantCulture) ?? "";
+        using var cmd60b = new System.Data.OleDb.OleDbCommand("SELECT COUNT(*) FROM mask_lnk3 WHERE ntc_id=900123471", conn60);
+        int sets60 = Convert.ToInt32(cmd60b.ExecuteScalar(), CultureInfo.InvariantCulture);
+        written60Ok = flag60 == "E" && sets60 > 0;
+        written60 = $"BL-D1 written with examset_type={flag60} beside {sets60} mask_lnk3 row(s)";
+    }
+    Check("V60 AP4 A.4.b.6bis: a notice carrying operating-parameter sets is flagged E (examined with its A.14.d sets), one without is flagged L, an explicit flag wins; the generated BL-D1 notice is written with E",
+        derive60 && written60Ok,
+        $"derived with={withSets60.ExamSetType} without={noSets60.ExamSetType} forced={forced60.ExamSetType}; {written60}");
+}
+
+// ---- V61: the truth's preset step, and the compliance window's examination step ----
+{
+    // Both windows preset the step to 1 s, the truth's step. The compliance
+    // window's examination-step choice runs a declared-mask sweep on the
+    // S.1503-4 time step -- exactly the dual rows RunD4ExamSweep gives for
+    // the profile variant RunSweep examines -- keeps the sweep as before on
+    // the predefined choice, and leaves a live-composition sweep (the
+    // truth) on the predefined step whichever is chosen.
+    var inv61 = CultureInfo.InvariantCulture;
+    var cvm61 = new ComplianceViewModel();
+    var svm61 = new SimulationViewModel();
+    bool presetOk61 = cvm61.StepSecText == "1" && svm61.StepSecText == "1"
+        && cvm61.ExamStepIndex == 0 && cvm61.ExamStepChoices.Count == 2;
+    string exp61 = Path.Combine(AppContext.BaseDirectory, "exp");
+    var doc61 = new OrbitDesignDocumentViewModel();
+    doc61.Shells[0].PlaneCount = 1; doc61.Shells[0].SatsPerPlane = 2;
+    string design61 = Path.Combine(exp61, "v61.orbitdesign.json");
+    File.WriteAllText(design61, doc61.BuildDocumentJson());
+    string mask61 = Path.Combine(exp61, "v61mask.xml");
+    File.Copy(Path.Combine(exp61, "v59mask.xml"), mask61, overwrite: true);   // V59's 19.7 GHz az/el mask
+    string profMask61 = Path.Combine(exp61, "v61mask.opprofile.json");
+    File.WriteAllText(profMask61, OperationProfileCodec.Save(new OperationProfile(Name: "V61m", MinElevDeg: 10.0, CellKm: 900.0,
+        Downlink: new DownlinkProfile(FootprintSource: "mask", MaskXmlPath: mask61))));
+    string profComp61 = Path.Combine(exp61, "v61comp.opprofile.json");
+    File.WriteAllText(profComp61, OperationProfileCodec.Save(new OperationProfile(Name: "V61c", MinElevDeg: 10.0, CellKm: 900.0)));
+    ComplianceViewModel.Sweep Sweep61(string profPath) => new ComplianceViewModel
+    {
+        DesignPath = design61, ProfilePath = profPath,
+        LatFromText = "30", LatToText = "40", LatStepText = "10",
+        DurationDaysText = (60.0 / 1440.0).ToString(inv61), StepSecText = "60",
+    }.BuildSweep();
+    bool SameRows61(IReadOnlyList<ComplianceRow> x, IReadOnlyList<ComplianceRow> y) => x.Count == y.Count
+        && x.Zip(y).All(z => z.First.LatDeg == z.Second.LatDeg && z.First.MaxEpfdDb.Equals(z.Second.MaxEpfdDb)
+            && z.First.WorstMarginDb.Equals(z.Second.WorstMarginDb) && z.First.Pass == z.Second.Pass
+            && z.First.QuietSteps == z.Second.QuietSteps && z.First.CurveMarginDb.Equals(z.Second.CurveMarginDb));
+    // (a) a declared mask on the S.1503-4 step: the S.1503-4 examination's dual rows, with its plan
+    var sweepM61 = Sweep61(profMask61);
+    var (rowsD4n61, planD4n61) = ComplianceViewModel.RunOnExamStep(sweepM61, true);
+    var profM61 = sweepM61.Profile with { AlphaByLat = null };
+    var planRef61 = ComplianceViewModel.D4PlanFor(sweepM61, profM61);
+    var refD4n61 = ComplianceViewModel.RunD4ExamSweep(sweepM61, profM61, planRef61).Select(r => r.Dual).ToList();
+    bool d4Ok61 = planD4n61 is not null && planD4n61.FineStepSec == planRef61.FineStepSec
+        && planD4n61.NCoarse == planRef61.NCoarse && SameRows61(rowsD4n61, refD4n61);
+    // (b) a declared mask on the predefined step: the sweep as before
+    var (rowsP61, planP61) = ComplianceViewModel.RunOnExamStep(sweepM61, false);
+    bool predefOk61 = planP61 is null && SameRows61(rowsP61, ComplianceViewModel.RunSweep(sweepM61, sweepM61.Profile.AlphaExclDeg));
+    // (c) the truth with the S.1503-4 choice made: still the predefined step
+    var sweepC61 = Sweep61(profComp61);
+    var (rowsC61, planC61) = ComplianceViewModel.RunOnExamStep(sweepC61, true);
+    bool truthOk61 = planC61 is null && SameRows61(rowsC61, ComplianceViewModel.RunSweep(sweepC61, sweepC61.Profile.AlphaExclDeg));
+    Check("V61 the truth's preset step is 1 s in both windows; the compliance window's S.1503-4 examination step gives the S.1503-4 examination's dual rows for a declared-mask profile, the predefined choice gives the sweep as before, and a live-composition sweep (the truth) stays on the predefined step",
+        presetOk61 && d4Ok61 && predefOk61 && truthOk61,
+        string.Create(inv61, $"preset {cvm61.StepSecText} s / {svm61.StepSecText} s, choice {cvm61.ExamStepIndex}; d4={d4Ok61} plan {(planD4n61 is null ? "none" : planD4n61.FineStepSec.ToString("0.000", inv61) + " s x" + planD4n61.NCoarse)}; ")
+        + string.Create(inv61, $"predefined={predefOk61} truth={truthOk61}; rows {rowsD4n61.Count}/{rowsP61.Count}/{rowsC61.Count}"));
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
 

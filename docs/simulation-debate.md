@@ -5561,3 +5561,139 @@ V59, the README clause, the new record and this entry, beside the
 earlier uncommitted package default, V51 and entry e41. Harness 155
 passed, 0 failed. Open: the truth's step, the operator's decision among
 the three options put on 23 September.
+
+## Beamlab — the truth on a 6 s step, and the notices flagged for the set they carry, 23 September 2026
+
+**Why.** The previous entry put E1 on the S.1503-4 step and left the
+truth's step open among three options: the fine step on short windows,
+the scheduler on its own frame sampled at the fine step, or the truth
+at a coarser step validated against the Recommendation's. The operator
+chose to measure the third first. The same half day runs on a 6 s step,
+truth and E1 both, with E1 also on the S.1503-4 step. If E1 at 6 s sits
+within a few tenths of a dB of E1 on the Recommendation's step, 6 s
+samples the geometry the two share well enough, and the truth can run
+there.
+
+**The measurement.** `docs/compliance-steam-2-6s.md`: 7 200 steps per
+latitude, 41 minutes for the whole record. E1 at 6 s against E1 on the
+0.208 s step with the dual time step moves by -0.5, -0.5 and -0.2 dB at
+0, 10 and 20 N, and by 0.0, +0.1, 0.0 and +0.1 at 30 to 60 N. E1 on the
+Recommendation's step reproduces the previous entry's figures to the
+0.1 dB at every latitude, as it must, since it does not depend on the
+loop's step. The criterion is met, at its edge at the two lowest
+latitudes, where 6 s still leaves half a dB of the maximum unsampled.
+The E1 point margin by step, 60 s / 6 s / S.1503-4: 0 N -18.1 / -18.5 /
+-19.0; 10 N -17.7 / -19.2 / -19.7; 20 N -18.1 / -20.1 / -20.3; 30 N
+-18.6 / -18.7 / -18.7; 40 N -18.1 / -18.9 / -18.8; 50 N -23.5 / -20.5 /
+-20.5; 60 N -21.9 / -21.5 / -21.4.
+
+**The truth moved more than the examination.** From 60 s to 6 s the
+truth's maximum rose 2.0 to 3.3 dB at 0 to 50 N and 0.3 dB at 60 N. Its
+point margin fell 2.0 to 3.3 dB at 0 to 40 N, where the maximum
+decides: -9.3 / -10.2 / -9.5 / -10.9 / -7.5 at 60 s against -11.5 /
+-12.2 / -12.8 / -13.9 / -10.1 at 6 s. At 50 and 60 N the margin rose by
+2.7 and 1.1 dB, because the 1% point that decided at 60 s was a
+720-sample reading and the maximum now decides at 50 N. At 0 to 40 N
+E1 moved less, by 0.1 to 2.0 dB, probably because the declared mask is
+smooth in the satellite's
+direction, so the only narrow feature E1 has to catch is the earth
+station's beam, while the truth also carries the satellite beams'
+pointing and the random selection; that is a reading of the numbers,
+not a measurement. One part of it is certain from the code: STEAM-2's
+selection is Random with no minimum duration, and the scheduler redraws
+it at every step, so the 6 s run also drew ten times as often as the
+60 s run. The step changed the truth's traffic model as well as its
+sampling, and this pair cannot separate the two. The gap closed at every latitude from 0 to 40 N, by
+0.5 to 2.9 dB (30 N from 7.7 to 4.8 dB), and E1 >= T still holds at all
+seven, widest 12.0 dB. E1's convergence at 6 s is therefore necessary
+for the truth's but does not prove it: it measures the sampling of the
+geometry both share, not the truth's own residual. A 1 s truth run
+would measure that, about 4 hours at this run's rate.
+
+**What it says about the September records.** The long 60 s rungs had
+already paid the step down with depth. E1 at 60 s over 16 d sits within
+0.4 dB of E1 on the Recommendation's step over half a day at every
+latitude, over 2 d within 0.9 dB, over half a day within 3.0 dB. The
+truth at 60 s over 16 d sits within 0.8 dB of the truth at 6 s over
+half a day at every latitude but 30 N, where 6 s reads 1.6 dB worse.
+So the ladder's slow rise of the maxima (Annex A items 7 and 8) was in
+large part the 60 s step being compensated by more passes: the 16 d
+figures stand to about a dB, the half-day and one-day figures at 60 s
+do not. The geometry sensitivity of Annex A item 10 ran at 2.0 d on
+60 s, where E1 is within 0.9 dB of the fine sampling; its differences
+between offsets are matched-step and probably less affected than its
+absolute margins, which is not measured.
+
+**The truth's step.** With 6 s validated to half a dB on the shared
+geometry, the third option is open: the truth and E1 on 6 s, E1 also on
+the Recommendation's step. At 41 minutes per half day, a day costs
+about 80 minutes and 16 d about 22 hours. The choice stays the
+operator's, and the Annex A restatement waits on it.
+
+**The notices flagged for the set they carry.** AP4 item A.4.b.6bis
+says which parameter set a non-GSO station is examined with. The
+Bureau's Annex 1 to WP 4A Doc 4A/663 (14 February 2018) codes E for the
+operating-parameter sets of A.14.d and L for the single network-level
+set of A.4.b.6.a and A.4.b.7. Every notice we wrote declared L, the
+notice class's default, while carrying the extended set as XML through
+mask_lnk3; the project-built NEXT101 and NEXT102 declared L the same
+way, and our default had mirrored them. The flag is now derived: E when
+the notice carries operating-parameter sets, L when it does not, and an
+explicit declaration wins. V60 checks the derivation and reads the flag
+back from the generated BL-D1 notice. The family, the two-body trial
+and the STEAM-2B-FILED package are re-emitted with E. Radians confirmed
+the reading, corrected NEXT101, NEXT102 and their shared copy to E on
+their operator's word, and noted that their production code reads
+neither mask_lnk3 nor the flag, so no radians result changes; their
+consumer guide now selects the parameter source by the flag and treats
+a flag that contradicts the data as a declaration inconsistency.
+
+**State.** Uncommitted: `src/radians.beamlab.core/SrsNotice.cs`, V60 in
+the harness, the new record and this entry; the re-emitted dataset is
+on disk and untracked as before. Harness 156 passed, 0 failed. Open:
+the truth's step; the Annex A items 7, 8 and 10 and the Confluence
+dataset page after it; the pending items a to e of 23 September;
+whether the SHARC-Orbit builders hear of the flag.
+
+## Beamlab — the truth's step decided: 1 s, and the examination step a choice in the window, 24 September 2026
+
+**Why.** The previous entry left the truth's step to the operator. The
+first decision was that the truth should use the S.1503-4 time step. It
+met two complications in the code. The truth is one pass for all
+latitudes while the Recommendation's dual chain is drawn per latitude,
+and on STEAM-2 the union of the chains is every fine step, about 19 hours
+per half day at the measured 0.33 s a step. And the scheduler redraws
+the Random selection at every step, so at 0.208 s it would reselect five
+times a second. The operator then proposed a preset step of 1 s for the
+truth, provided the measurement supports it.
+
+**The measurement.** The examination alone on the committed STEAM-2
+declaration over half a day, at 6 s and at 1 s, with the S.1503-4 step
+beside the 1 s run (`dataset/margin/examine`, one minute). At 6 s it
+reproduces the loop's E1 at every latitude. At 1 s the E1 point margin
+is -18.9, -19.6, -20.2, -18.7, -18.8, -20.5 and -21.4 dB at 0 to 60 N,
+against -19.0, -19.7, -20.3, -18.7, -18.8, -20.5 and -21.4 on the
+S.1503-4 step: within 0.1 dB everywhere. A 1 s step places about three
+samples in the 3.34 s crossing of the earth station's 3 dB beam, and the
+worst loss of one pass sampled half a second off its peak is about
+0.3 dB; the satellite beams, about 180 km across on the ground, take
+tens of seconds to cross. So 1 s samples the geometry the truth and the
+examination share to the Recommendation's resolution, at a fifth of its
+steps.
+
+**The decisions.** The truth runs on a preset 1 s step. The Random
+selection keeps redrawing at every step, now every second: the traffic
+model is the memoryless rule at 1 s, and no separate selection period
+is introduced. The compliance and simulation windows preset their step
+to 1 s. The compliance window gains an examination-step choice: a
+declared-mask sweep runs on the predefined step or on the S.1503-4 fine
+and coarse steps with the dual time step, over the same duration, while
+a live-composition sweep, the truth, and the advisors always run on the
+predefined step (V61). The dataset tool keeps its steps; its truth
+curves stay at 30 s until the operator says otherwise. At about 4 hours
+per half day of STEAM-2, a 1 s truth fits an overnight run at the
+depths the fine sampling showed sufficient.
+
+**State.** Uncommitted beside the previous entry's files: the two view
+models, the compliance window, V61, the user guide, the README and this
+entry.
