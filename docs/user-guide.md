@@ -517,7 +517,9 @@ both omitted. Every field carries the parameter-card help text.
 
 **Derive & fill.** The intended path when the declarations are not known
 a priori: point at the operation profile and the panel fills every field
-from the compliance loop's own derivation for that profile. It does not
+from the compliance loop's own derivation for that profile, except the
+identity (sat_name, ntc_id, param_id) and the band, which belong to the
+filing and stay as entered. It does not
 simulate — the loop derives once, on a *saturated* probe (no victim,
 demand at the declared co-frequency cap, activity and duty and operating
 fraction at 1), because a declaration is an envelope of what the system
@@ -531,8 +533,10 @@ operations, and quantities never observed left undeclared. The result
 fills the designer for review, then saves or exports like any
 hand-entered set — declarations as envelopes of the simulated truth,
 exactly the way the pfd/e.i.r.p. masks are made. A run counts only when
-it is newer than the profile it describes; when there is none, run the
-compliance loop, which derives the declaration as its first step.
+it is newer than the profile it describes and was made from that profile:
+runs are found by profile name, and a run of the same name made from a
+different profile is refused. When there is none, press **Run loop** in the
+compliance loop window, which derives the declaration as its first step.
 `docs/where-declarations-come-from.html` sets out the whole relation. The **What goes in
 the R set?** button opens the accompanying page
 (`docs/r-set-designer.html`): what the set declares and deliberately
@@ -613,14 +617,21 @@ The parameter list is open and grows with the model.
 
 ## Compliance loop (window)
 
-*Tools → Compliance loop.* A run has three passes. First the **derivation
-probe** — saturated, no victim, no limit — measures the R set and the pfd
-mask together. Then the **truth sweep** measures T, and T does not move
-again. Then an **examination sweep** reads that mask and that R set and
-gives E1, reported beside T with the per-latitude gap and the acceptance
-statement: E1 must sit at or above T everywhere, or the derivation did not
-envelope the system it describes. Profile, R set and mask are written into
-one directory, so the designer reads the set the projection actually used.
+*Tools → Compliance loop.* **Run loop** makes three passes. First the
+**derivation probe** — saturated, no victim, no limit — measures the R set
+and the pfd mask together. Then the **truth sweep** measures T, and T does
+not move again. Then an **examination sweep** reads that mask and that R set
+and gives E1, shown beside T in a second table with the per-latitude gap and
+the acceptance statement: E1 must sit at or above T everywhere, or the
+derivation did not envelope the system it describes. The mask is the
+profile's declared one when it names one, else the reachable envelope
+exported into the run directory. A set named in the optional **Declared R
+set** field replaces the derivation. The run's profile and R set are written
+into one directory, an exported mask beside them, so the designer's
+Derive & fill reads the set the projection actually used; the dated record of
+a run comes from the console loop mode. **Run sweep** makes one pass: the
+truth, or, for a declared-mask profile, the examination against the named R
+set or, without one, the profile's own gates.
 
 Steps 4–7 of the producer workflow
 (`docs/compliance-loop-plan.md`): epfd(down) victims are swept across a

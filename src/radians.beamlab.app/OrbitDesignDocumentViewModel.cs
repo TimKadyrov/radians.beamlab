@@ -252,6 +252,27 @@ public sealed class OrbitDesignDocumentViewModel : ObservableObject
 
     // ---- the document file (schema 4) -----------------------------------
 
+    /// <summary>
+    /// Why the document cannot be saved, or null. A saved design is what the
+    /// SNS builder files, so a Case 2 shell is refused here instead of being
+    /// shown red and filed anyway: it needs a selected repeating candidate
+    /// (without one the preview and the builder read the shell differently)
+    /// and a keep range inside the candidate's bounds.
+    /// </summary>
+    public string? SaveBlocker()
+    {
+        for (int i = 0; i < Shells.Count; i++)
+        {
+            var s = Shells[i];
+            if (s.CaseChoice != 1) continue;
+            if (s.SelectedSolution is null)
+                return $"shell {i + 1} is Case 2 with no repeating candidate selected -- pick one on the Repeat solver";
+            if (!s.KeepRangeValid)
+                return $"shell {i + 1}: {s.Case2Text}";
+        }
+        return null;
+    }
+
     public string BuildDocumentJson()
         => OrbitDesignFileCodec.SaveDocument(new OrbitDesignDocument(4,
             Shells.Select(s => s.BuildDesignData()).ToList()));

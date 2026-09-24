@@ -6133,6 +6133,240 @@ var looks = RandomLooks(300);
         + string.Create(inv61, $"predefined={predefOk61} truth={truthOk61}; rows {rowsD4n61.Count}/{rowsP61.Count}/{rowsC61.Count}"));
 }
 
+// ---- V62: the compliance sweep as the profile stands; margins under the rule; min_duration named ----
+{
+    // (a) Run sweep (and the console loop) sweep the profile as it stands,
+    // its per-latitude exclusion rows included; RunSweep drops them for the
+    // exclusion advisor's global walk. A 179 deg row at every service
+    // latitude shuts every link out, so the two readings must differ.
+    // (b) The advisors quote the margin under the limit-curve rule: the
+    // walk's end margin is the rule margin of its final rows, and a lever
+    // that moves only the curve margin still counts as moving.
+    // (c) A declared min_duration is named, not examined silently.
+    var inv62 = CultureInfo.InvariantCulture;
+    string exp62 = Path.Combine(AppContext.BaseDirectory, "exp");
+    var doc62 = new OrbitDesignDocumentViewModel();
+    doc62.Shells[0].PlaneCount = 4; doc62.Shells[0].SatsPerPlane = 6;
+    string design62 = Path.Combine(exp62, "v62.orbitdesign.json");
+    File.WriteAllText(design62, doc62.BuildDocumentJson());
+    var rows62 = new[] { 30.0, 40.0, 50.0, 60.0 }.Select(l => new ProfileLatRow(l, 179.0)).ToList();
+    string prof62 = Path.Combine(exp62, "v62.opprofile.json");
+    File.WriteAllText(prof62, OperationProfileCodec.Save(new OperationProfile(Name: "V62", MinElevDeg: 10.0,
+        CellKm: 900.0, AlphaByLat: rows62)));
+    var sweep62 = new ComplianceViewModel
+    {
+        DesignPath = design62, ProfilePath = prof62,
+        LatFromText = "40", LatToText = "50", LatStepText = "10",
+        DurationDaysText = "0.05", StepSecText = "60",
+    }.BuildSweep();
+    var (kept62, _) = ComplianceViewModel.RunOnExamStep(sweep62, false);
+    var asStands62 = ComplianceViewModel.RunSweepProfile(sweep62, sweep62.Profile);
+    var dropped62 = ComplianceViewModel.RunSweep(sweep62, sweep62.Profile.AlphaExclDeg);
+    bool sameKept62 = kept62.Count == asStands62.Count && kept62.Zip(asStands62).All(z =>
+        z.First.MaxEpfdDb.Equals(z.Second.MaxEpfdDb) && z.First.QuietSteps == z.Second.QuietSteps);
+    bool rowsGate62 = kept62.All(r => r.QuietSteps == sweep62.Steps)
+        && dropped62.Any(r => r.QuietSteps < sweep62.Steps);
+    // (b) the walk's end margin, and a curve-only lever
+    var cvmF62 = new ComplianceViewModel
+    {
+        DesignPath = design62, ProfilePath = Path.Combine(exp62, "v62plain.opprofile.json"),
+        LatFromText = "40", LatToText = "50", LatStepText = "10",
+        DurationDaysText = "0.05", StepSecText = "60", LimitsText = "-300 0.001\n-250 0.002",
+    };
+    File.WriteAllText(cvmF62.ProfilePath, OperationProfileCodec.Save(new OperationProfile(Name: "V62p", MinElevDeg: 10.0, CellKm: 900.0)));
+    var adv62 = ComplianceViewModel.Advise(cvmF62.BuildSweep(), 5.0, 5.0);
+    bool endRule62 = adv62.WorstMarginEndDb.Equals(adv62.FinalRows.Min(r => r.RuleMarginDb));
+    var lats62 = new List<double> { 40.0, 50.0 };
+    var curveLever62 = ComplianceViewModel.NcoAdviseCore(lats62, new[] { 3, 3 }, 1,
+        caps => lats62.Select((l, i) => new ComplianceRow(l, -140.0, 1.0, caps[i] <= 1, 0) { CurveMarginDb = -caps[i] }).ToList());
+    // (c) the track-duration note
+    var withDur62 = new OperatingParamsSet { MinDurationSecHeader = 30 };
+    bool noteOk62 = ComplianceViewModel.TrackDurationNote(withDur62).Contains("track-duration")
+        && ComplianceViewModel.TrackDurationNote(new OperatingParamsSet()) == "";
+    Check("V62 the compliance sweep runs the profile as it stands (its per-latitude exclusion rows gate the truth, the advisor's global walk drops them); the advisors quote the rule margin, a curve-only lever counts as moving; a declared min_duration is named",
+        sameKept62 && rowsGate62 && endRule62 && curveLever62.LeverMoves && noteOk62,
+        string.Create(inv62, $"kept=asStands {sameKept62}, rows gate {rowsGate62} (quiet kept {string.Join("/", kept62.Select(r => r.QuietSteps))} vs dropped {string.Join("/", dropped62.Select(r => r.QuietSteps))} of {sweep62.Steps}); ")
+        + string.Create(inv62, $"walk end {adv62.WorstMarginEndDb:F1} = rule {endRule62}; curve-only lever moves {curveLever62.LeverMoves}; note {noteOk62}"));
+}
+
+// ---- V63: the R-set designer -- form conflicts shown, runs matched to their profile, identity kept ----
+{
+    var inv63 = CultureInfo.InvariantCulture;
+    string exp63 = Path.Combine(AppContext.BaseDirectory, "exp");
+    // (a) a quantity in both forms: the designer says so live, the runner refuses to fly it
+    var vm63 = new OpParamsViewModel();
+    vm63.MaxCoFreqHeaderText = "4";
+    vm63.MaxCoFreqText = "25 4";
+    bool liveOk63 = vm63.StatusText.Contains("INVALID filing") && vm63.FormConflictNote().Length > 0;
+    var both63 = new OperatingParamsSet { SatName = "V63", MaxCoFreqHeader = 4 };
+    both63.MaxCoFreqByLat.Add((25.0, 4));
+    string both63Path = Path.Combine(exp63, "v63both.opparams.json");
+    File.WriteAllText(both63Path, OpParamsFileCodec.Save(OpParamsFileCodec.FromSet(both63)));
+    var doc63 = new OrbitDesignDocumentViewModel();
+    doc63.Shells[0].PlaneCount = 1; doc63.Shells[0].SatsPerPlane = 2;
+    string design63 = Path.Combine(exp63, "v63.orbitdesign.json");
+    File.WriteAllText(design63, doc63.BuildDocumentJson());
+    string prof63 = Path.Combine(exp63, "v63.opprofile.json");
+    File.WriteAllText(prof63, OperationProfileCodec.Save(new OperationProfile(Name: "V63", CellKm: 900.0)));
+    var sim63 = new SimulationViewModel { DesignPath = design63, ProfilePath = prof63, OpParamsPath = both63Path };
+    bool runnerOk63;
+    try { sim63.BuildSetup(); runnerOk63 = false; }
+    catch (InvalidOperationException ex) { runnerOk63 = ex.Message.Contains("invalid filing"); }
+    // (b) a run found by name counts only when its profile copy is this profile
+    string root63 = Path.Combine(exp63, "v63repo");
+    var p63 = new OperationProfile(Name: "shared name", CellKm: 900.0);
+    string setPath63 = ComplianceViewModel.RunSetJsonPath(root63, p63);
+    Directory.CreateDirectory(Path.GetDirectoryName(setPath63)!);
+    string profPath63 = Path.Combine(root63, "mine.opprofile.json");
+    File.WriteAllText(profPath63, OperationProfileCodec.Save(p63));
+    File.WriteAllText(ComplianceViewModel.RunProfilePath(root63, p63),
+        OperationProfileCodec.Save(p63 with { CellKm = 450.0 }));   // another system of the same name
+    var runSet63 = new OperatingParamsSet { SatName = "DERIVED", NtcId = 0, ParamId = 1, LowFreqMhz = 18150, HighFreqMhz = 18150, MaxCoFreqSat = 45 };
+    string runJson63 = OpParamsFileCodec.Save(OpParamsFileCodec.FromSet(runSet63));
+    File.WriteAllText(setPath63, runJson63);
+    File.SetLastWriteTimeUtc(profPath63, DateTime.UtcNow.AddMinutes(-10));
+    File.SetLastWriteTimeUtc(setPath63, DateTime.UtcNow);
+    bool otherOk63 = OpParamsViewModel.RunIsOfOtherProfile(root63, p63, profPath63)
+        && OpParamsViewModel.LoopRunSetFor(root63, p63, profPath63) is null;
+    File.WriteAllText(ComplianceViewModel.RunProfilePath(root63, p63), OperationProfileCodec.Save(p63));
+    bool sameOk63 = !OpParamsViewModel.RunIsOfOtherProfile(root63, p63, profPath63)
+        && OpParamsViewModel.LoopRunSetFor(root63, p63, profPath63) == setPath63;
+    // (c) filling from a run keeps the filing's identity and band
+    var fill63 = new OpParamsViewModel
+    {
+        SatName = "MINE", NtcIdText = "123", ParamIdText = "7", LowFreqText = "17800", HighFreqText = "18600",
+    };
+    fill63.FillFromRun(runJson63);
+    bool keptOk63 = fill63.SatName == "MINE" && fill63.NtcIdText == "123" && fill63.ParamIdText == "7"
+        && fill63.LowFreqText == "17800" && fill63.HighFreqText == "18600" && fill63.MaxCoFreqSatText == "45";
+    Check("V63 R-set designer: a quantity in both forms is flagged live and refused by the runner; a loop run found by name counts only when its profile copy is this profile; filling from a run keeps the filing's identity and band",
+        liveOk63 && runnerOk63 && otherOk63 && sameOk63 && keptOk63,
+        $"live={liveOk63} runner={runnerOk63} other-profile={otherOk63} same-profile={sameOk63} identity kept={keptOk63}");
+}
+
+// ---- V64: an array-steered beam keeps its shape through a new peak gain ----
+{
+    // The scene builds array-steered UV beams as radially broadened
+    // ellipticals; the pattern kind alone rebuilds the circular Taylor. Each
+    // array beam carries its own factory: at its original gain it gives the
+    // original pattern exactly, at a reduced gain the same shape.
+    var sc64 = new SceneModel
+    {
+        PatternKind = BeamPatternKind.Taylor_1p4, AutoMode = true, UvArrayBeams = true,
+        FrequencyGHz = 12.0, GmDbi = 35.0, ThetaBDeg = 4.0,
+        MinElevDeg = 10.0, AltitudeKm = 1200.0, SubSatLatDeg = 0.0, SubSatLonDeg = 0.0,
+    };
+    sc64.RebuildBeams();
+    var b64 = sc64.Beams.Where(b => b.Pattern is Rec1528_1p4_Ell).OrderByDescending(b => b.OffNadirDeg).First();
+    var orig64 = (Rec1528_1p4_Ell)b64.Pattern;
+    var restored64 = b64.PatternForGm?.Invoke(b64.OriginalGmDbi) as Rec1528_1p4_Ell;
+    var reduced64 = b64.PatternForGm?.Invoke(b64.OriginalGmDbi - 3.0) as Rec1528_1p4_Ell;
+    var probes64 = new[] { (0.5, 0.0), (1.5, 0.0), (1.5, 90.0), (3.0, 45.0), (8.0, 0.0) };
+    bool restoredOk64 = restored64 is not null
+        && probes64.All(p => restored64.GainAt(p.Item1, p.Item2).Equals(orig64.GainAt(p.Item1, p.Item2)));
+    bool shapeOk64 = reduced64 is not null && Math.Abs(reduced64.Gm - (orig64.Gm - 3.0)) < 1e-12
+        && reduced64.ThetaB.Equals(orig64.ThetaB) && reduced64.ThetaBTransverseDeg.Equals(orig64.ThetaBTransverseDeg);
+    bool oldPathCircular64 = sc64.BuildPatternFor(b64.OriginalGmDbi - 3.0, b64.OffNadirDeg) is not Rec1528_1p4_Ell;
+    bool othersNull64 = sc64.Beams.Where(b => b.Pattern is not Rec1528_1p4_Ell).All(b => b.PatternForGm is null);
+    Check("V64 array-steered beams keep their radial broadening through a new peak gain: the beam's own factory restores the original pattern exactly and keeps the shape at a reduced gain, where the pattern kind alone would rebuild a circular Taylor",
+        restoredOk64 && shapeOk64 && oldPathCircular64 && othersNull64,
+        string.Create(CultureInfo.InvariantCulture, $"beam {b64.Name} off-nadir {b64.OffNadirDeg:F1} deg; restored={restoredOk64} shape={shapeOk64} (radial {orig64.ThetaB:F3} / transverse {orig64.ThetaBTransverseDeg:F3} deg); kind-only rebuild circular={oldPathCircular64}; other beams no factory={othersNull64}"));
+}
+
+// ---- V65: the orbit tab refuses to save an unfileable Case 2 shell; the builder refuses dropped mask links ----
+{
+    var doc65 = new OrbitDesignDocumentViewModel();
+    var sh65 = doc65.Shells[0];
+    bool case1Ok65 = doc65.SaveBlocker() is null;
+    sh65.CaseChoice = 1;                       // Case 2 with the default candidate selected
+    bool validOk65 = sh65.SelectedSolution is not null && doc65.SaveBlocker() is null;
+    double keep65 = sh65.KeepRangeDeg;
+    sh65.KeepRangeDeg = 1000.0;                // outside (0, max)
+    string? badKeep65 = doc65.SaveBlocker();
+    sh65.KeepRangeDeg = keep65;
+    sh65.SelectedSolution = null;              // no candidate
+    string? noCand65 = doc65.SaveBlocker();
+    bool blockOk65 = badKeep65 is not null && badKeep65.Contains("keep_rnge")
+        && noCand65 is not null && noCand65.Contains("no repeating candidate");
+    // The builder: pfd/e.i.r.p. masks need a scenario frequency; an R set alone does not.
+    string design65 = Path.Combine(AppContext.BaseDirectory, "exp", "v65.orbitdesign.json");
+    File.WriteAllText(design65, new OrbitDesignDocumentViewModel().BuildDocumentJson());
+    var b65 = new SnsBuilderViewModel { NtcId = 900555065, SatName = "V65SAT" };
+    b65.AddShellFile(design65);
+    b65.Masks.Add(new MaskEntry { MaskId = 1, FilePath = "a.xml", FMask = "P", FMaskType = "A", FreqMinMhz = 19700, FreqMaxMhz = 20200 });
+    bool refused65;
+    try { b65.BuildNotice(); refused65 = false; }
+    catch (InvalidOperationException ex) { refused65 = ex.Message.Contains("no scenario frequency"); }
+    var r65 = new SnsBuilderViewModel { NtcId = 900555066, SatName = "V65R" };
+    r65.AddShellFile(design65);
+    r65.Masks.Add(new MaskEntry { MaskId = 21, FilePath = "c.xml", FMask = "R", FreqMinMhz = 19700, FreqMaxMhz = 20200 });
+    bool rOnlyOk65;
+    try { rOnlyOk65 = r65.BuildNotice().OperatingParamIds.Count == 1; }
+    catch { rOnlyOk65 = false; }
+    Check("V65 the orbit tab refuses to save a Case 2 shell with no candidate or a keep range outside its bounds; the SNS builder refuses pfd masks with no scenario frequency, and an R set alone needs none",
+        case1Ok65 && validOk65 && blockOk65 && refused65 && rOnlyOk65,
+        $"case1={case1Ok65} valid case2={validOk65} blocked={blockOk65} ({badKeep65?.Split(" -- ")[0]} | {noCand65?.Split(" -- ")[0]}); builder refused={refused65} R only={rOnlyOk65}");
+}
+
+// ---- V66: the compliance loop in the window ----
+{
+    // RunLoop, which the window's Run loop button calls, runs the console
+    // loop's steps through the shared ComplianceLoopSteps: it derives the
+    // declaration on a saturated probe (or takes a given R set), sweeps the
+    // truth of the profile as it stands, exports the reachable-envelope mask
+    // into the run directory (reused on the next run from its cache name),
+    // examines E1 against that declaration, adds E1 on the S.1503-4 step when
+    // asked, and writes the run's profile and R set where the designer's
+    // Derive & fill finds them. The console's helpers forward to the same code.
+    var inv66 = CultureInfo.InvariantCulture;
+    string exp66 = Path.Combine(AppContext.BaseDirectory, "exp");
+    string root66 = Path.Combine(exp66, "v66repo");
+    if (Directory.Exists(root66)) Directory.Delete(root66, true);
+    Directory.CreateDirectory(root66);
+    var doc66 = new OrbitDesignDocumentViewModel();
+    doc66.Shells[0].PlaneCount = 4; doc66.Shells[0].SatsPerPlane = 6;
+    string design66 = Path.Combine(root66, "v66.orbitdesign.json");
+    File.WriteAllText(design66, doc66.BuildDocumentJson());
+    var prof66 = new OperationProfile(Name: "V66 (window loop)", MinElevDeg: 10.0, CellKm: 900.0);
+    string profPath66 = Path.Combine(root66, "v66.opprofile.json");
+    File.WriteAllText(profPath66, OperationProfileCodec.Save(prof66));
+    File.SetLastWriteTimeUtc(profPath66, DateTime.UtcNow.AddMinutes(-10));
+    var sweep66 = new ComplianceViewModel
+    {
+        DesignPath = design66, ProfilePath = profPath66,
+        LatFromText = "40", LatToText = "50", LatStepText = "10",
+        DurationDaysText = "0.05", StepSecText = "60",
+    }.BuildSweep();
+    bool Same66(IReadOnlyList<ComplianceRow> x, IReadOnlyList<ComplianceRow> y) => x.Count == y.Count
+        && x.Zip(y).All(z => z.First.MaxEpfdDb.Equals(z.Second.MaxEpfdDb) && z.First.WorstMarginDb.Equals(z.Second.WorstMarginDb)
+            && z.First.QuietSteps == z.Second.QuietSteps);
+    // (a) derived, first run: the mask is exported
+    var r66 = ComplianceViewModel.RunLoop(sweep66, profPath66, null, root66, false);
+    bool shapeOk66 = r66.Derived && r66.Truth.Count == 2 && r66.E1.Count == 2 && r66.E1OnS1503Step is null
+        && r66.MaskNote.Contains("exported") && File.Exists(r66.MaskPath)
+        && Path.GetDirectoryName(r66.MaskPath) == ComplianceViewModel.RunDir(root66, sweep66.Profile);
+    bool stepsOk66 = Same66(r66.Truth, ComplianceViewModel.RunSweepProfile(sweep66, sweep66.Profile))
+        && Same66(r66.E1, ComplianceLoopSteps.ExamineE1(sweep66, sweep66.Profile, r66.Declared, r66.MaskPath));
+    string setPath66 = ComplianceViewModel.RunSetJsonPath(root66, sweep66.Profile);
+    bool filesOk66 = File.Exists(setPath66) && File.Exists(ComplianceViewModel.RunProfilePath(root66, sweep66.Profile))
+        && OpParamsViewModel.LoopRunSetFor(root66, sweep66.Profile, profPath66) == setPath66;
+    // (b) a second run reuses the exported mask; a given R set is examined, not re-derived
+    var given66 = OpParamsFileCodec.ToSet(OpParamsFileCodec.Load(File.ReadAllText(setPath66)));
+    var g66 = ComplianceViewModel.RunLoop(sweep66, profPath66, given66, root66, false);
+    bool givenOk66 = !g66.Derived && ReferenceEquals(g66.Declared, given66) && g66.MaskNote.Contains("reused")
+        && g66.MaskPath == r66.MaskPath && Same66(g66.E1, r66.E1);
+    // (c) E1 on the S.1503-4 step beside it
+    var d66 = ComplianceViewModel.RunLoop(sweep66, profPath66, given66, root66, true);
+    bool d4Ok66 = d66.Plan is not null && d66.E1OnS1503Step is { Count: 2 };
+    // (d) the console's helpers are the shared ones
+    bool fwdOk66 = ComplianceLoop.MaskCacheTag(10.0, 1.0, -50.0, 50.0) == ComplianceLoopSteps.MaskCacheTag(10.0, 1.0, -50.0, 50.0)
+        && ComplianceLoop.ProducerId() == ComplianceLoopSteps.ProducerId();
+    Check("V66 the compliance loop in the window: derives the declaration (or takes a given R set), sweeps the truth, exports and then reuses the reachable-envelope mask, examines E1 through the shared steps, adds E1 on the S.1503-4 step when asked, and writes the run's files where the designer finds them",
+        shapeOk66 && stepsOk66 && filesOk66 && givenOk66 && d4Ok66 && fwdOk66,
+        string.Create(inv66, $"shape={shapeOk66} steps={stepsOk66} files={filesOk66} given={givenOk66} d4={d4Ok66} forwarders={fwdOk66}; ")
+        + string.Create(inv66, $"{ComplianceLoopSteps.E1Summary(r66.Truth, r66.E1, inv66)}; mask {Path.GetFileName(r66.MaskPath)}"));
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
 

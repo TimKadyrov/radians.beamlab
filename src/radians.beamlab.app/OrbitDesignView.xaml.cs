@@ -101,6 +101,7 @@ public partial class OrbitDesignView : UserControl
 
     private void OnSaveDesignClick(object sender, RoutedEventArgs e)
     {
+        if (_doc.SaveBlocker() is string why) { _vm.SnsStatusText = "design not saved: " + why; return; }
         var dlg = new Microsoft.Win32.SaveFileDialog
         {
             Filter = "Orbit design (*.orbitdesign.json)|*.orbitdesign.json",

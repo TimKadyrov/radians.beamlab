@@ -57,6 +57,25 @@ public sealed record ComplianceRow(double LatDeg, double MaxEpfdDb, double Worst
 }
 
 /// <summary>
+/// One latitude of a loop run: the truth T, the examination of its
+/// declaration E1, and the gap between them. Margins are point-wise, as in
+/// the console loop's records; the acceptance test is E1 at or above T.
+/// </summary>
+public sealed record LoopRow(double LatDeg, double TMarginDb, double E1MarginDb, double E1OnS1503StepDb)
+{
+    public double GapDb => TMarginDb - E1MarginDb;
+    public bool Adequate => E1MarginDb <= TMarginDb + 1e-9;
+    public string LatText => LatDeg.ToString("F0", CultureInfo.InvariantCulture);
+    public string TText => Fmt(TMarginDb);
+    public string E1Text => Fmt(E1MarginDb);
+    public string GapText => double.IsFinite(GapDb) ? GapDb.ToString("F1", CultureInfo.InvariantCulture) : "";
+    public string AdequateText => Adequate ? "yes" : "NO";
+    public string E1OnS1503StepText => double.IsFinite(E1OnS1503StepDb) ? Fmt(E1OnS1503StepDb) : "-";
+    private static string Fmt(double db) => double.IsFinite(db)
+        ? db.ToString("+0.0;-0.0", CultureInfo.InvariantCulture) : "";
+}
+
+/// <summary>
 /// Stage B of the compliance loop (docs/compliance-loop-plan.md): sweep
 /// epfd(down) victims across a latitude grid, verdict each point with the
 /// examination's own limit comparison, and report the worst dB margin.
@@ -125,6 +144,20 @@ public sealed class ComplianceViewModel : ObservableObject
     public string LimitsText { get => _limitsText; set => SetField(ref _limitsText, value); }
 
     public ObservableCollection<ComplianceRow> Rows { get; } = new();
+
+    /// <summary>The last loop run's rows: T, E1 and the gap per latitude.</summary>
+    public ObservableCollection<LoopRow> LoopRows { get; } = new();
+
+    public bool HasLoopRows => LoopRows.Count > 0;
+
+    private string _rSetPathText = "";
+    /// <summary>
+    /// Optional declared R set (*.opparams.json, the designer's format). Run
+    /// sweep examines a declared-mask profile against it -- E1 of a filing
+    /// rather than the profile's own gates -- and Run loop takes it instead
+    /// of deriving one.
+    /// </summary>
+    public string RSetPathText { get => _rSetPathText; set => SetField(ref _rSetPathText, value); }
 
     private string _statusText = "";
     public string StatusText { get => _statusText; set => SetField(ref _statusText, value); }
@@ -212,8 +245,15 @@ public sealed class ComplianceViewModel : ObservableObject
     public async Task RunAsync()
     {
         Sweep sweep;
-        try { sweep = BuildSweep(); }
+        OperatingParamsSet? given;
+        try { sweep = BuildSweep(); given = LoadRSet(); }
         catch (Exception ex) { StatusText = "invalid: " + ex.Message; return; }
+        // A given R set is the declaration a declared-mask sweep examines
+        // (E1 of a filing); the truth's gates stay the profile's own.
+        if (given is not null) sweep = sweep with { Declared = given };
+        string rSetNote = given is not null && sweep.Profile.Down.FootprintSource != "mask"
+            ? "the R set applies to a declared-mask examination; this truth sweep ran on the profile's own gates -- "
+            : "";
 
         IsRunning = true;
         ProgressPercent = 0;
@@ -232,7 +272,7 @@ public sealed class ComplianceViewModel : ObservableObject
             // study's linear frontier), so the worst margin doubles as
             // the TxEirpDbw headroom -- for the live composition only
             // (a declared mask is fixed; power moves need a new mask).
-            double worstAll = rows.Min(r => r.WorstMarginDb);
+            double worstAll = rows.Min(r => r.RuleMarginDb);
             string headroom = sweep.Profile.Down.FootprintSource != "mask"
                 && double.IsFinite(worstAll)
                 ? string.Create(CultureInfo.InvariantCulture,
@@ -243,10 +283,173 @@ public sealed class ComplianceViewModel : ObservableObject
                 : onS1503Step
                     ? "the S.1503-4 time step applies to a declared-mask examination; the truth ran on the predefined step -- "
                     : "";
-            StatusText = gap + (sweep.Profile.Down.FootprintSource == "mask"
+            string trackNote = "";
+            if (sweep.Profile.Down.FootprintSource == "mask")
+            {
+                var sh0 = sweep.Shells[0];
+                trackNote = TrackDurationNote(sweep.Declared
+                    ?? OperationComposer.Compose(sweep.Profile, sh0.OperatingHeightKm ?? sh0.AltitudeKm).Enforced);
+            }
+            StatusText = DishMismatchNote(sweep) + rSetNote + trackNote + gap + (sweep.Profile.Down.FootprintSource == "mask"
                 ? "declared-mask footprint -- " : "") + stepNote + SummarizeRows(rows) + headroom;
         }
         catch (Exception ex) { StatusText = "sweep failed: " + ex.Message; }
+        finally { IsRunning = false; }
+    }
+
+    /// <summary>The optional R set, read and checked; null when none is named.</summary>
+    private OperatingParamsSet? LoadRSet()
+    {
+        if (_rSetPathText.Trim().Length == 0) return null;
+        var set = OpParamsFileCodec.ToSet(OpParamsFileCodec.Load(File.ReadAllText(_rSetPathText.Trim())));
+        // A quantity in both forms is an invalid filing: reported, never
+        // examined under a precedence of the reader's choosing.
+        if (DeclaredConstraints.FormConflicts(set) is { Count: > 0 } both)
+            throw new InvalidOperationException("the R set files a quantity in both header and array form ("
+                + string.Join("; ", both) + ") -- an invalid filing, not examined");
+        return set;
+    }
+
+    // ---- the loop, in the window ------------------------------------------
+
+    /// <summary>What one loop run produced, for the window and the check harness.</summary>
+    public sealed record LoopResult(List<ComplianceRow> Truth, List<ComplianceRow> E1,
+        List<ComplianceRow>? E1OnS1503Step, S1503TimeStep.Plan? Plan,
+        OperatingParamsSet Declared, bool Derived, string MaskPath, string MaskNote, string RunDir,
+        string ConsistencyText = "");
+
+    /// <summary>
+    /// The compliance loop, as the console loop mode runs it: the declaration
+    /// -- the given R set, or one derived on a saturated probe at this depth
+    /// and grid -- the truth sweep of the profile as it stands, the declared
+    /// pfd mask (the profile's own, else the reachable envelope exported into
+    /// the run directory, cached per grid and producer), the examination E1
+    /// against that declaration, E1 on the S.1503-4 time step when asked, and
+    /// the run's profile and R set written where the designer's "derive &amp;
+    /// fill" finds them. The steps are the shared ones of
+    /// <see cref="ComplianceLoopSteps"/>; the console mode alone writes the
+    /// markdown record.
+    /// </summary>
+    public static LoopResult RunLoop(Sweep sweep, string profilePath, OperatingParamsSet? given,
+        string repoDir, bool onS1503Step, IProgress<SweepProgress>? progress = null)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        var prof = sweep.Profile;
+        var shells = sweep.Shells;
+        double freqMhz = prof.Down.FrequencyGhz * 1000.0;
+        IProgress<SweepProgress>? Phase(string label, double from, double to) => progress is null ? null
+            : new Relay<SweepProgress>(p => progress.Report(new SweepProgress(label + p.Text, from + p.Fraction * (to - from))));
+
+        // 1. The declaration: a set governs one band, so a derived set carries the downlink's.
+        OperatingParamsSet declared;
+        if (given is not null) declared = given;
+        else
+        {
+            progress?.Report(new SweepProgress(string.Create(inv,
+                $"derivation probe: saturated, no victim; {sweep.Steps} steps of {sweep.StepSec:0.###} s, latitude band {sweep.LatStep:F0} deg..."), 0.0));
+            declared = DeriveDeclared(shells, prof, sweep.Steps * sweep.StepSec, sweep.StepSec,
+                latBandDeg: sweep.LatStep, lowFreqMhz: freqMhz, highFreqMhz: freqMhz).Set;
+        }
+
+        // 2. The truth: the profile as it stands.
+        var truth = RunSweepProfile(sweep, prof, Phase("truth: ", 0.3, 0.65));
+
+        // 3. The declared pfd mask.
+        string runDir = RunDir(repoDir, prof);
+        Directory.CreateDirectory(runDir);
+        string mask = prof.Down.MaskXmlPath;
+        string maskNote = "the profile's declared mask";
+        if (mask.Length == 0 || !File.Exists(mask))
+        {
+            string tag = ComplianceLoopSteps.MaskCacheTag(sweep.LatStep, 1.0, declared.EsLatMinDeg, declared.EsLatMaxDeg);
+            mask = Path.Combine(runDir, string.Create(inv, $"{RunName(prof)}.mask.{tag}.xml"));
+            if (File.Exists(mask) && File.GetLastWriteTimeUtc(mask) > File.GetLastWriteTimeUtc(profilePath))
+                maskNote = "the reachable-envelope mask, reused from this run directory";
+            else
+            {
+                IProgress<double>? mp = progress is null ? null : new Relay<double>(f => progress.Report(new SweepProgress(
+                    string.Create(inv, $"exporting the reachable-envelope mask: {f * 100:F0}%"), 0.65 + f * 0.1)));
+                ComplianceLoopSteps.ExportReachableMask(prof, shells, declared, mask, sweep.LatStep, 1.0, null, mp);
+                maskNote = "the reachable-envelope mask, exported";
+            }
+        }
+
+        // 4. The examination against the declaration, E1.
+        var e1 = ComplianceLoopSteps.ExamineE1(sweep, prof, declared, mask, Phase("E1: ", 0.75, onS1503Step ? 0.9 : 1.0));
+
+        // 5. E1 on the S.1503-4 time step, beside the E1 that shares the truth's step.
+        List<ComplianceRow>? onStep = null;
+        S1503TimeStep.Plan? plan = null;
+        if (onS1503Step)
+        {
+            var sweepD4 = sweep with { Declared = declared };
+            var profD4 = ComplianceLoopSteps.MaskExamined(prof, mask);
+            plan = D4PlanFor(sweepD4, profD4);
+            onStep = RunD4ExamSweep(sweepD4, profD4, plan, Phase("", 0.9, 1.0)).Select(r => r.Dual).ToList();
+        }
+
+        // 6. A mask the truth itself read cannot have gates applied after the
+        // fact: whether it already carries them is part of the result, as in
+        // the console loop.
+        string consistency = "";
+        if (prof.Down.FootprintSource == "mask" && File.Exists(mask))
+        {
+            var sh0 = shells[0];
+            var rep = MaskConsistency.Check(mask, sh0.OperatingHeightKm ?? sh0.AltitudeKm, declared);
+            consistency = "mask consistency (the declared mask against the declared gates): " + rep.Summary
+                + (rep.Note.Length > 0 ? " (" + rep.Note + ")" : "");
+        }
+
+        // 7. The run's profile and R set, where the designer looks for them.
+        ComplianceLoopSteps.WriteRunArtefacts(repoDir, prof, declared);
+        return new LoopResult(truth, e1, onStep, plan, declared, given is null, mask, maskNote, runDir, consistency);
+    }
+
+    /// <summary>The folder holding the app's docs/ (the repository), else the profile's own folder.</summary>
+    private string RunRoot()
+    {
+        string? docs = HomeViewModel.FindDocsDir(AppContext.BaseDirectory);
+        if (docs is not null && Path.GetDirectoryName(docs) is string repo) return repo;
+        return Path.GetDirectoryName(Path.GetFullPath(_profilePath.Trim())) ?? ".";
+    }
+
+    public async Task RunLoopAsync()
+    {
+        Sweep sweep;
+        OperatingParamsSet? given;
+        try { sweep = BuildSweep(); given = LoadRSet(); }
+        catch (Exception ex) { StatusText = "invalid: " + ex.Message; return; }
+        string root = RunRoot();
+        string profilePath = _profilePath.Trim();
+        bool onS1503Step = _examStepIndex == 1;
+
+        IsRunning = true;
+        ProgressPercent = 0;
+        LoopRows.Clear();
+        OnPropertyChanged(nameof(HasLoopRows));
+        StatusText = given is null ? "running the loop: deriving the declaration..." : "running the loop on the given R set...";
+        var progress = UiProgress();
+        try
+        {
+            var r = await Task.Run(() => RunLoop(sweep, profilePath, given, root, onS1503Step, progress));
+            ProgressPercent = 100;
+            Rows.Clear();
+            foreach (var t in r.Truth) Rows.Add(t);
+            for (int i = 0; i < r.Truth.Count && i < r.E1.Count; i++)
+                LoopRows.Add(new LoopRow(r.Truth[i].LatDeg, r.Truth[i].WorstMarginDb, r.E1[i].WorstMarginDb,
+                    r.E1OnS1503Step is { } d && i < d.Count ? d[i].WorstMarginDb : double.NaN));
+            OnPropertyChanged(nameof(HasLoopRows));
+            var inv = CultureInfo.InvariantCulture;
+            StatusText = DishMismatchNote(sweep) + TrackDurationNote(r.Declared)
+                + ComplianceLoopSteps.E1Summary(r.Truth, r.E1, inv)
+                + " -- truth: " + SummarizeRows(r.Truth)
+                + " -- declaration: " + (r.Derived ? "derived on a saturated probe at this depth and grid" : "the given R set")
+                + "; mask: " + r.MaskNote
+                + (r.Plan is not null ? "; E1 also on the S.1503-4 time step (" + r.Plan.Text + ")" : "")
+                + (r.ConsistencyText.Length > 0 ? " -- " + r.ConsistencyText : "")
+                + " -- run files in " + r.RunDir;
+        }
+        catch (Exception ex) { StatusText = "loop failed: " + ex.Message; }
         finally { IsRunning = false; }
     }
 
@@ -254,25 +457,39 @@ public sealed class ComplianceViewModel : ObservableObject
     /// The window's sweep on the chosen examination step. A declared-mask
     /// profile on the S.1503-4 step is examined by <see cref="RunD4ExamSweep"/>
     /// -- the dual time step with the Sec. D4.7.1 fine-step region -- over the
-    /// sweep's run length and the profile variant <see cref="RunSweep"/>
-    /// examines, so only the sampling differs; everything else, the truth
-    /// above all, runs on the predefined step. The plan is returned when the
-    /// S.1503-4 step was used, null otherwise.
+    /// sweep's run length and the same profile, so only the sampling differs;
+    /// everything else, the truth above all, runs on the predefined step. The
+    /// profile runs as it stands, its per-latitude exclusion rows included
+    /// (<see cref="RunSweep"/> drops them for the advisor's global walk). The
+    /// plan is returned when the S.1503-4 step was used, null otherwise.
     /// </summary>
     public static (List<ComplianceRow> Rows, S1503TimeStep.Plan? Plan) RunOnExamStep(Sweep sweep,
         bool onS1503Step, IProgress<SweepProgress>? progress = null)
     {
         if (!onS1503Step || sweep.Profile.Down.FootprintSource != "mask")
-            return (RunSweep(sweep, sweep.Profile.AlphaExclDeg, progress), null);
-        var prof = sweep.Profile with { AlphaByLat = null };
-        var plan = D4PlanFor(sweep, prof);
-        return (RunD4ExamSweep(sweep, prof, plan, progress).Select(r => r.Dual).ToList(), plan);
+            return (RunSweepProfile(sweep, sweep.Profile, progress), null);
+        var plan = D4PlanFor(sweep, sweep.Profile);
+        return (RunD4ExamSweep(sweep, sweep.Profile, plan, progress).Select(r => r.Dual).ToList(), plan);
     }
 
     /// <summary>
-    /// One full latitude sweep at the given exclusion angle (the profile's
-    /// other characteristics unchanged). Synchronous; the advisor and the
-    /// check harness call it directly.
+    /// A note when the examined set declares a minimum duration: S.1503-4 then
+    /// examines the downlink with the track-duration algorithm (Sec. D5.1.4.2),
+    /// which is not built here, so the sweep reads the set with the classic
+    /// algorithm. Empty otherwise.
+    /// </summary>
+    public static string TrackDurationNote(OperatingParamsSet set)
+        => set.MinDurationByLat.Any(v => v.Seconds > 0) || set.MinDurationSecHeader is > 0
+            ? "NOTE: the examined set declares min_duration, which calls for the track-duration examination (S.1503-4 Sec. D5.1.4.2); that is not built here, so this sweep uses the classic algorithm -- "
+            : "";
+
+    /// <summary>
+    /// One full latitude sweep at the given GLOBAL exclusion angle: the
+    /// profile's per-latitude alpha rows are dropped, its other
+    /// characteristics unchanged -- the exclusion advisor's walk. A sweep of
+    /// the profile as it stands is <see cref="RunSweepProfile"/> with the
+    /// profile itself. Synchronous; the advisor and the check harness call it
+    /// directly.
     /// </summary>
     public static List<ComplianceRow> RunSweep(Sweep sweep, double alphaExclDeg,
         IProgress<SweepProgress>? progress = null)
@@ -309,7 +526,7 @@ public sealed class ComplianceViewModel : ObservableObject
             var row = BuildRow(lat, res, sweep.Limits);
             rows.Add(row);
             progress?.Report(new SweepProgress(string.Create(inv,
-                $"lat {lat:F0} ({i + 1}/{nLat}): worst margin {row.WorstMarginDb:+0.0;-0.0} dB {(row.Pass ? "PASS" : "FAIL")}"),
+                $"lat {lat:F0} ({i + 1}/{nLat}): worst margin {row.RuleMarginDb:+0.0;-0.0} dB {(row.Pass ? "PASS" : "FAIL")}"),
                 fraction));
         }
 
@@ -449,7 +666,7 @@ public sealed class ComplianceViewModel : ObservableObject
                 BuildRow(lat, r.FineOnly, sweep.Limits), r.DualSamples, r.DualMainBeamOnlySamples, r.FineSteps);
             rows.Add(row);
             progress?.Report(new SweepProgress(string.Create(inv,
-                $"S.1503-4 step: lat {lat:F0} ({iNow + 1}/{nLat}): worst margin {row.Dual.WorstMarginDb:+0.0;-0.0} dB {(row.Dual.Pass ? "PASS" : "FAIL")}"),
+                $"S.1503-4 step: lat {lat:F0} ({iNow + 1}/{nLat}): worst margin {row.Dual.RuleMarginDb:+0.0;-0.0} dB {(row.Dual.Pass ? "PASS" : "FAIL")}"),
                 (double)(iNow + 1) / nLat));
         }
         return rows;
@@ -487,6 +704,10 @@ public sealed class ComplianceViewModel : ObservableObject
     /// <summary>The derived R set of a loop run, in the designer's own format.</summary>
     public static string RunSetJsonPath(string repoDir, OperationProfile prof)
         => Path.Combine(RunDir(repoDir, prof), RunName(prof) + ".operparams.json");
+
+    /// <summary>The copy of the profile a loop run was made from, beside its R set.</summary>
+    public static string RunProfilePath(string repoDir, OperationProfile prof)
+        => Path.Combine(RunDir(repoDir, prof), RunName(prof) + ".opprofile.json");
 
     public static OperationProfile Saturate(OperationProfile prof, OperatingParamsSet enforced)
     {
@@ -681,9 +902,34 @@ public sealed class ComplianceViewModel : ObservableObject
             return;
         }
         LimitsText = LimitPointsText(l);
+        // An Article 22 row applies to a stated reference dish, so the victim
+        // takes the row's diameter -- as the console loop does.
+        string dishNote;
+        if (l.Rf_diam is double d)
+        {
+            DishMText = d.ToString("0.###", CultureInfo.InvariantCulture);
+            dishNote = string.Create(CultureInfo.InvariantCulture, $"; the ES dish is set to {d:0.###} m, the row's reference diameter");
+        }
+        else dishNote = " -- the row names no reference dish, so check the ES dish";
+        _usedLimit = (LimitsText, l.Rf_diam);
         StatusText = string.Create(CultureInfo.InvariantCulture,
-            $"limit points filled from {l.RrRef} ({l.Points.Count} point(s)) -- the sweep verdicts against exactly this text");
+            $"limit points filled from {l.RrRef} ({l.Points.Count} point(s)) -- the sweep verdicts against exactly this text")
+            + dishNote;
     }
+
+    // The limit text a loaded row filled in, and that row's reference dish.
+    private (string Text, double? DishM)? _usedLimit;
+
+    /// <summary>
+    /// A warning when the limit text is still a loaded row's and the ES dish
+    /// no longer matches that row's reference diameter; empty otherwise.
+    /// </summary>
+    private string DishMismatchNote(Sweep sweep)
+        => _usedLimit is { DishM: double rowDish } used && used.Text == _limitsText
+           && Math.Abs(sweep.DishM - rowDish) > 1e-9
+            ? string.Create(CultureInfo.InvariantCulture,
+                $"NOTE: the ES dish ({sweep.DishM:0.###} m) differs from the limit row's reference dish ({rowDish:0.###} m) -- ")
+            : "";
 
     /// <summary>The limit text a loaded row fills in -- one "epfd perc" line per point.</summary>
     public static string LimitPointsText(radlimits.Limit l)
@@ -824,20 +1070,20 @@ public sealed class ComplianceViewModel : ObservableObject
                     ((aNow - a0) + p.Fraction * alphaStep) / span)));
             last = RunSweep(sweep, a, inner);
             progress?.Report(new SweepProgress(string.Create(inv,
-                $"walk {iterNow}: alpha {aNow:F1} -> worst {last.Min(r => r.WorstMarginDb):+0.0;-0.0} dB at lat {last.OrderBy(r => r.WorstMarginDb).First().LatDeg:F0}, {last.Count(r => !r.Pass)} latitude(s) failing"),
+                $"walk {iterNow}: alpha {aNow:F1} -> worst {last.Min(r => r.RuleMarginDb):+0.0;-0.0} dB at lat {last.OrderBy(r => r.RuleMarginDb).First().LatDeg:F0}, {last.Count(r => !r.Pass)} latitude(s) failing"),
                 ((aNow - a0) + alphaStep) / span));
             if (iter == 1)
             {
                 failingAtStart = last.Where(r => !r.Pass).Select(r => r.LatDeg).ToList();
-                worstStart = last.Min(r => r.WorstMarginDb);
+                worstStart = last.Min(r => r.RuleMarginDb);
             }
             if (last.All(r => r.Pass)) return new Advice(a, last, iter, failingAtStart,
-                worstStart, last.Min(r => r.WorstMarginDb),
-                last.OrderBy(r => r.WorstMarginDb).First().LatDeg);
+                worstStart, last.Min(r => r.RuleMarginDb),
+                last.OrderBy(r => r.RuleMarginDb).First().LatDeg);
         }
-        var worstEnd = last.Count > 0 ? last.OrderBy(r => r.WorstMarginDb).First() : null;
+        var worstEnd = last.Count > 0 ? last.OrderBy(r => r.RuleMarginDb).First() : null;
         return new Advice(null, last, iter, failingAtStart,
-            worstStart, worstEnd?.WorstMarginDb ?? double.NaN, worstEnd?.LatDeg ?? double.NaN);
+            worstStart, worstEnd?.RuleMarginDb ?? double.NaN, worstEnd?.LatDeg ?? double.NaN);
     }
 
     /// <summary>Writes the found global exclusion back into the profile file (step 8's hand-off).</summary>
@@ -924,13 +1170,13 @@ public sealed class ComplianceViewModel : ObservableObject
             var rows = sweepAt(capsD); sweeps++;
             outcomes.Add((d, rows));
             progress?.Report(new SweepProgress(string.Create(inv,
-                $"v2 walk: delta {d} -> worst {rows.Min(r => r.WorstMarginDb):+0.0;-0.0} dB, {rows.Count(r => !r.Pass)} latitude(s) failing"),
+                $"v2 walk: delta {d} -> worst {rows.Min(r => r.RuleMarginDb):+0.0;-0.0} dB, {rows.Count(r => !r.Pass)} latitude(s) failing"),
                 (double)sweeps / budget));
             if (rows.All(r => r.Pass)) break;
         }
 
         bool moves = outcomes.Count > 1 && outcomes.Zip(outcomes.Skip(1), (a, b) =>
-                a.Rows.Zip(b.Rows, (x, y) => Math.Abs(x.WorstMarginDb - y.WorstMarginDb) > 1e-9).Any(x => x))
+                a.Rows.Zip(b.Rows, (x, y) => Math.Abs(x.RuleMarginDb - y.RuleMarginDb) > 1e-9).Any(x => x))
             .Any(x => x);
 
         var delta = new int[lats.Count];
@@ -954,7 +1200,7 @@ public sealed class ComplianceViewModel : ObservableObject
                 $"v2 verify {it + 1}: caps {string.Join("/", caps)} -- joint sweep..."), (double)sweeps / budget));
             final = sweepAt(caps); sweeps++;
             progress?.Report(new SweepProgress(string.Create(inv,
-                $"v2 verify {it + 1}: worst {final.Min(r => r.WorstMarginDb):+0.0;-0.0} dB, {final.Count(r => !r.Pass)} latitude(s) failing"),
+                $"v2 verify {it + 1}: worst {final.Min(r => r.RuleMarginDb):+0.0;-0.0} dB, {final.Count(r => !r.Pass)} latitude(s) failing"),
                 (double)sweeps / budget));
             if (final.All(r => r.Pass)) { converged = true; break; }
             var tightenable = Enumerable.Range(0, lats.Count)

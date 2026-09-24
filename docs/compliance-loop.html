@@ -214,7 +214,9 @@ enforcement. Beware the elevation case: derived min_elev rows above the enforced
 the envelope of one finite run, not a promise, until the floor itself is promoted. And a
 declared min_duration bites at admission &mdash; a link is only made toward a satellite
 that stays feasible for the whole promised dwell &mdash; while flipping the examination to
-the track-duration algorithm. Today only the alpha promotion is automated.</p></div>
+the track-duration algorithm of S.1503-4 &sect;D5.1.4.2. That algorithm is not built here:
+a set that declares a minimum duration is examined with the classic algorithm, and the run
+says so. Today only the alpha promotion is automated.</p></div>
 <div class="tech"><div class="t">Tech &middot; the power headroom line</div>
 <p>epfd moves exactly dB-for-dB with the per-beam transmit power density &mdash; the payload
 envelope study's linear frontier &mdash; so every sweep's worst margin doubles as the
@@ -231,8 +233,8 @@ each cell. It reports instead whether the mask already carries the shaping the R
 declares: per latitude block, how far inside the declared exclusion zone and how far below the
 declared elevation floor power within 3&nbsp;dB of the block&rsquo;s peak reaches &mdash;
 CONSISTENT at the gate, MASK TIGHTER beyond it, LIT INSIDE when the reach stops short of the
-arc, SATURATED when it does not. The examination-only mode runs the same check on every mask it
-is given. A derived mask read this way shows the main-lobe edge of gated beams reaching inside
+arc, SATURATED when it does not. The window&rsquo;s Run loop reports it too, and the
+examination-only mode runs the same check on every mask it is given. A derived mask read this way shows the main-lobe edge of gated beams reaching inside
 the zone at its cell size; a filed two-level mask shows its rule.</p></div>
 
 <h2>Where the declaration comes from</h2>
@@ -241,7 +243,10 @@ loop&rsquo;s first step. Before the truth sweep runs, a saturated probe (no vict
 demand at the declared co-frequency cap, activity and duty and operating fraction at 1)
 measures the R&nbsp;set and the pfd mask. The truth sweep then measures T. A third sweep
 examines that same truth against the declaration and gives E1. One run, three passes, and
-the profile, R&nbsp;set and mask are written into one directory so they describe one system.</p>
+the profile, R&nbsp;set and mask are written into one directory so they describe one system.
+In the app, <strong>Run loop</strong> in the compliance loop window makes this run and shows
+T beside E1 with the gap; the console loop mode makes the same run and also writes its dated
+record, with the walks and the truth-only rerun described below.</p>
 
 <p>The R-set designer&rsquo;s <a href="r-set-designer.html">Derive &amp; fill</a> reads that
 directory rather than simulating again.
@@ -289,8 +294,10 @@ absolute: a figure stands only with a <em>convergence pair</em> &mdash; the same
 twice the depth, moving no more than a stated tolerance (0.5&nbsp;dB by default), both depths
 named where it is quoted. Differences at matched depth are quotable as differences. The pair is bought at half
 price: the derivation measured exactly depth-stable, so a <em>truth-only</em> rerun
-(<code>reuse=&lt;run dir&gt;</code>) skips the probe, reads the earlier run&rsquo;s R&nbsp;set and
-mask back, and runs only the truth sweep and the examination at the new depth.</p>
+(<code>reuse=&lt;run dir&gt;</code> in the console mode) skips the probe, reads the earlier run&rsquo;s
+R&nbsp;set and mask back, and runs only the truth sweep and the examination at the new depth.
+In the window, naming the earlier run&rsquo;s R&nbsp;set in the optional R-set field skips the
+probe the same way.</p>
 
 <div class="foot">
 Companion pages: <a href="simulation-runner.html">Inside the Simulation Runner</a> &middot;

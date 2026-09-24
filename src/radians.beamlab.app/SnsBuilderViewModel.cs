@@ -151,6 +151,14 @@ public sealed class SnsBuilderViewModel : ObservableObject
                 AntDiamM = OptNum(es.AntDiamText, $"earth station {es.EAsId} dish"),
             });
 
+        // Every pfd and e.i.r.p. mask links into scenario 1, and a scenario
+        // needs a frequency range: without one the links would be dropped
+        // silently. R sets link through mask_lnk3 and need no scenario.
+        if (Frequencies.Count == 0
+            && Masks.Any(m => (m.FMask.Trim().ToUpperInvariant() + "P")[0] is 'P' or 'S' or 'E'))
+            throw new InvalidOperationException(
+                "masks are registered but no scenario frequency range is entered -- every pfd and e.i.r.p. mask links into scenario 1, which needs at least one");
+
         if (Frequencies.Count > 0)
         {
             var sc = new SrsScenario { ScenId = 1, ScenName = _scenarioName };

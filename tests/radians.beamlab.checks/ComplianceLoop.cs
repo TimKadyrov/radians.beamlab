@@ -157,9 +157,11 @@ internal static class ComplianceLoop
             declarationDepth = "- Depth of the derivation: that of the reused run; see its record.";
         }
 
-        // ---- The sweep at the profile's own alpha ---------------------------
+        // ---- The sweep of the profile as it stands ---------------------------
+        // Its own alpha and its per-latitude alpha rows alike: RunSweep drops
+        // the rows for the advisor's global walk, the truth must not.
         var col = new ProgressCollector(echo: true);
-        var rows = ComplianceViewModel.RunSweep(sweep, prof.AlphaExclDeg, col);
+        var rows = ComplianceViewModel.RunSweepProfile(sweep, prof, col);
         Console.WriteLine();
         Console.WriteLine("lat | max epfd | point margin | curve margin | verdict | quiet steps");
         foreach (var r in rows)
@@ -183,53 +185,22 @@ internal static class ComplianceLoop
                 Console.WriteLine("  reusing the exported reachable-envelope mask: " + Path.GetFileName(path));
                 return path;
             }
-            var compMask = OperationComposer.Compose(prof, altKm);
-            double maxLat = MaskXmlExport.MaxLatitudeForInclination(shells[0].InclinationDeg);
-            double latMax = Math.Floor(maxLat / maskLatStepDeg) * maskLatStepDeg;
-            var opts = new MaskXmlExportOptions
-            {
-                SatName = stem, NtcId = 0, MaskId = 1,
-                LowFreqMhz = freqMhz, HighFreqMhz = freqMhz, RefBwKHz = prof.Down.RefBwKHz,
-                LatMinDeg = -latMax, LatMaxDeg = latMax, LatStepDeg = maskLatStepDeg,
-                BStepDeg = azElStepDeg, CStepDeg = azElStepDeg,
-                Kind = MaskPlotKind.AzEl, Format = MaskExportFormat.Xml,
-                OutputPath = path,
-            };
-            Console.WriteLine(string.Create(inv,
-                $"  exporting the reachable-envelope mask: lat {-latMax:F0}..{latMax:F0} step {maskLatStepDeg:F1}, az/el {azElStepDeg:F1} deg..."));
             int lastPct = -25;
             var maskProgress = new Progress<double>(p =>
             {
                 int pct = (int)(p * 100);
                 if (pct >= lastPct + 25) { lastPct = pct; Console.WriteLine($"    export {pct}%"); }
             });
-            // The service-span certificate: rows from which no declared cell is
-            // reachable are written dark (Sec. C1 -1000). Closed-form, from
-            // declared commitments only -- never from what a finite probe
-            // happened to visit, which is the unsafe direction.
-            var span = new ServiceSpanSampler(
-                new ReachableEnvelopeSampler(compMask.Scene, opts, maxLat), declaredSet,
-                altKm, maskLatStepDeg);
-            Console.WriteLine(string.Create(inv,
-                $"  service-span certificate: es_lat {declaredSet.EsLatMinDeg:F0}..{declaredSet.EsLatMaxDeg:F0}, "
-                + $"coverage half-angle {span.HalfAngleDeg:F2} deg"));
-            MaskXmlExport.GenerateAsync(span, opts, maskProgress, CancellationToken.None)
-                .GetAwaiter().GetResult();
-            Console.WriteLine(string.Create(inv,
-                $"  latitude rows: {span.LitLatitudes} lit, {span.DarkLatitudes} dark"));
+            // The export itself is the app's, shared with the window's Run loop.
+            ComplianceLoopSteps.ExportReachableMask(prof, shells, declaredSet, path,
+                maskLatStepDeg, azElStepDeg, Console.WriteLine, maskProgress);
             return path;
         }
 
         // One examination sweep: the declared mask read against a declared R set.
         List<ComplianceRow> Examine(OperatingParamsSet declared, string maskPath,
             IProgress<ComplianceViewModel.SweepProgress>? p)
-            => ComplianceViewModel.RunSweepProfile(
-                sweep with { Declared = declared },
-                prof with
-                {
-                    AlphaByLat = null,
-                    Downlink = prof.Down with { FootprintSource = "mask", MaskXmlPath = maskPath },
-                }, p);
+            => ComplianceLoopSteps.ExamineE1(sweep, prof, declared, maskPath, p);
 
         // ---- Position 3: the examination against the DERIVED declaration ----
         // E1 reads the declared pfd mask and the derived R set. The truth run
@@ -279,11 +250,7 @@ internal static class ComplianceLoop
         if (d4Exam && rowsE1 is not null)
         {
             var sweepD4 = sweep with { Declared = declaredSet };
-            var profD4 = prof with
-            {
-                AlphaByLat = null,
-                Downlink = prof.Down with { FootprintSource = "mask", MaskXmlPath = declaredMask },
-            };
+            var profD4 = ComplianceLoopSteps.MaskExamined(prof, declaredMask);
             planD4 = ComplianceViewModel.D4PlanFor(sweepD4, profD4);
             (rowsD4, _) = RunD4Console(sweepD4, profD4, planD4, rowsE1, inv);
         }
@@ -471,14 +438,9 @@ internal static class ComplianceLoop
         }
 
         // ---- The artefacts, emitted together from this run ------------------
-        string profOut = Path.Combine(runDir, safe + ".opprofile.json");
-        string setOut = Path.Combine(runDir, safe + ".operparams.xml");
-        File.WriteAllText(profOut, OperationProfileCodec.Save(prof));
-        OperParamsXmlWriter.Write(setOut, declaredSet);
-        // ...and in the designer's own format, so its "derive & fill" can LOAD
-        // this run rather than simulate a second opinion of the same system.
-        string setJson = ComplianceViewModel.RunSetJsonPath(repo, prof);
-        File.WriteAllText(setJson, OpParamsFileCodec.Save(OpParamsFileCodec.FromSet(declaredSet)));
+        // Profile and R set, the set also in the designer's own format, so its
+        // "derive & fill" can LOAD this run (shared with the window's Run loop).
+        var (profOut, setOut, setJson) = ComplianceLoopSteps.WriteRunArtefacts(repo, prof, declaredSet);
         if (reusedMask is not null && File.Exists(reusedMask))
         {
             // A reused mask is copied in, so this run's directory stays self-contained.
@@ -549,29 +511,10 @@ internal static class ComplianceLoop
     /// </summary>
     internal static string MaskCacheTag(double maskLatStepDeg, double azElStepDeg,
         double esLatMinDeg, double esLatMaxDeg)
-    {
-        var inv = CultureInfo.InvariantCulture;
-        return string.Create(inv,
-            $"lat{maskLatStepDeg:F1}-ae{azElStepDeg:F1}-svc{esLatMinDeg:F0}to{esLatMaxDeg:F0}-v{ProducerId()}")
-            .Replace(".", "p");
-    }
+        => ComplianceLoopSteps.MaskCacheTag(maskLatStepDeg, azElStepDeg, esLatMinDeg, esLatMaxDeg);
 
     /// <summary>Short id of the code that produces mask values.</summary>
-    internal static string ProducerId()
-    {
-        // Both the sampler that builds the field and the generator that bins
-        // and writes it decide the values, so both assemblies are keyed.
-        var a = typeof(ReachableEnvelopeSampler).Assembly.ManifestModule.ModuleVersionId;
-        var b = typeof(IPfdMaskSampler).Assembly.ManifestModule.ModuleVersionId;
-        Span<byte> bytes = stackalloc byte[32];
-        a.TryWriteBytes(bytes[..16]);
-        b.TryWriteBytes(bytes[16..]);
-        // FNV-1a over the two ids: short, stable within a build, different
-        // across builds. Not a security hash and does not need to be.
-        ulong h = 1469598103934665603UL;
-        foreach (byte x in bytes) { h ^= x; h *= 1099511628211UL; }
-        return h.ToString("x16", CultureInfo.InvariantCulture)[..8];
-    }
+    internal static string ProducerId() => ComplianceLoopSteps.ProducerId();
 
     /// <summary>
     /// The Article 22 row a sweep verdicts against, read from the BR database
@@ -683,6 +626,10 @@ internal static class ComplianceLoop
         var consistency = MaskConsistency.Check(maskXmlPath, altKm, declared);
         Console.WriteLine("  mask consistency: " + consistency.Summary
             + (consistency.Note.Length > 0 ? " (" + consistency.Note + ")" : ""));
+        // A declared min_duration calls for the track-duration examination,
+        // which is not built: say so rather than examine it silently.
+        string trackNote = ComplianceViewModel.TrackDurationNote(declared).TrimEnd(' ', '-');
+        if (trackNote.Length > 0) Console.WriteLine("  " + trackNote);
         var col = new ProgressCollector(echo: true);
         var rows = ComplianceViewModel.RunSweepProfile(sweep with { Declared = declared }, profE1, col);
 
@@ -711,6 +658,7 @@ internal static class ComplianceLoop
         sb.AppendLine();
         sb.AppendLine("- R set: `" + Path.GetRelativePath(repo, rsetJsonPath) + "` -- " + DescribeSet(declared, inv));
         sb.AppendLine("- mask: `" + Path.GetRelativePath(repo, maskXmlPath) + "`");
+        if (trackNote.Length > 0) sb.AppendLine("- " + trackNote + ".");
         sb.AppendLine("- " + ComplianceViewModel.DescribeLimit(lim));
         sb.AppendLine(string.Create(inv, $"- sweep: lat {latFrom:F0}..{latTo:F0} step {latStep:F0}; {steps} steps of {stepSec:F0} s; floor {100.0 / steps:F3}%; wall clock {t0.Elapsed.TotalMinutes:F1} min"));
         sb.AppendLine();
@@ -799,24 +747,7 @@ internal static class ComplianceLoop
 
     /// <summary>One-line rendering of a derived R set, for the console and the record.</summary>
     internal static string DescribeSet(OperatingParamsSet p, CultureInfo inv)
-    {
-        var bits = new List<string>();
-        var ex = p.MinExclude.FirstOrDefault(m => m.ByLat.Count > 0);
-        bits.Add(ex is null ? "min_exclude none"
-            : "min_exclude " + string.Join("/", ex.ByLat.Select(r =>
-                string.Create(inv, $"{r.LatDeg:F0}:{r.AlphaDeg:F1}"))));
-        bits.Add(p.MinElev.Count == 0 ? "min_elev none"
-            : "min_elev " + string.Join("/", p.MinElev.Where(m => m.ByAz.Count > 0).Select(m =>
-                string.Create(inv, $"{m.LatDeg:F0}:{m.ByAz[0].ElevDeg:F1}"))));
-        bits.Add(p.MaxCoFreqByLat.Count == 0 ? "max_co_freq none"
-            : "max_co_freq " + string.Join("/", p.MaxCoFreqByLat.Select(r =>
-                string.Create(inv, $"{r.LatDeg:F0}:{r.Value}"))));
-        bits.Add(string.Create(inv, $"max_co_freq_sat {p.MaxCoFreqSat?.ToString(inv) ?? "-"}"));
-        bits.Add(string.Create(inv,
-            $"min_angle es {p.MinAngleAtEsDeg?.ToString("F1", inv) ?? "-"} / sat {p.MinAngleAtSatDeg?.ToString("F1", inv) ?? "-"}"));
-        bits.Add(string.Create(inv, $"es_lat {p.EsLatMinDeg:F0}..{p.EsLatMaxDeg:F0}"));
-        return string.Join("; ", bits);
-    }
+        => ComplianceLoopSteps.DescribeSet(p, inv);
 
     /// <summary>
     /// The acceptance statement: E1 must sit at or above T everywhere, or the
@@ -825,18 +756,5 @@ internal static class ComplianceLoop
     /// </summary>
     private static string E1Summary(IReadOnlyList<ComplianceRow> t,
         IReadOnlyList<ComplianceRow> e1, CultureInfo inv)
-    {
-        var below = new List<double>();
-        for (int i = 0; i < e1.Count && i < t.Count; i++)
-            if (e1[i].WorstMarginDb > t[i].WorstMarginDb + 1e-9) below.Add(t[i].LatDeg);
-        double worstGap = double.NegativeInfinity;
-        for (int i = 0; i < e1.Count && i < t.Count; i++)
-            worstGap = Math.Max(worstGap, t[i].WorstMarginDb - e1[i].WorstMarginDb);
-        string gap = string.Create(inv, $"widest gap {worstGap:F1} dB");
-        string lats = string.Join(", ", below.Select(l => l.ToString("F0", inv)));
-        return below.Count == 0
-            ? "ADEQUATE: E1 >= T at every latitude; " + gap
-            : "ADEQUACY FAILURE: E1 sits BELOW T at latitude(s) " + lats
-                + " -- the probe did not envelope the system, so the declaration is not conservative; " + gap;
-    }
+        => ComplianceLoopSteps.E1Summary(t, e1, inv);
 }

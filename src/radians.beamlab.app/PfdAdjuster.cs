@@ -154,7 +154,7 @@ public static class PfdAdjuster
                 continue;
             }
 
-            beam.Pattern = scene.BuildPatternFor(newGm, beam.OffNadirDeg);
+            beam.Pattern = beam.PatternForGm?.Invoke(newGm) ?? scene.BuildPatternFor(newGm, beam.OffNadirDeg);
             adjusted++;
         }
 

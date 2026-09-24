@@ -145,7 +145,10 @@ public enum SelectionPolicy
     /// key per candidate per step; the argmax of iid uniforms is uniform).
     /// With no hold it re-draws every step -- the memoryless rule of WP 4A
     /// Doc 4A/653, which operators described as close to their real
-    /// selection; a hold time turns it into random-at-setup.
+    /// selection -- so the time step is also its reselection period. A hold
+    /// keeps a link at least that long; after it the fresh keys can hand the
+    /// link over at any step, so the reselection period is about the larger
+    /// of the step and the hold.
     /// </summary>
     Random,
 }

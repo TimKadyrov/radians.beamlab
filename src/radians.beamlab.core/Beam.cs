@@ -60,6 +60,15 @@ public sealed class Beam
     /// </summary>
     public Vec3? RadialAxisEcef { get; init; }
 
+    /// <summary>
+    /// This beam's own pattern at another peak gain, for a beam whose shape
+    /// the scene cannot rebuild from its pattern kind alone -- the
+    /// array-steered UV beams, whose radial broadening depends on where the
+    /// beam points. Null for every other beam: the scene's pattern builder
+    /// then rebuilds it. Used by the PFD adjuster and by "all beams on".
+    /// </summary>
+    public Func<double, ISinglePattern>? PatternForGm { get; init; }
+
     public Beam(string name, Vec3 boresight, ISinglePattern pattern, double weight = 1.0)
     {
         Name = name;

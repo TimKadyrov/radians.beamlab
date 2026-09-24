@@ -37,7 +37,8 @@ Functions (each a tab or tool window, launched from the Home page):
   sweep epfd(down) victims across a latitude grid, verdict against the
   entered limit under the limit-curve rule (every tabulated point, and the
   log-linear curve between them), then examine that
-  same truth against the declaration; walks the exclusion angle to the
+  same truth against the declaration (**Run loop**; **Run sweep** makes a
+  single pass, and an optional R set examines a filing); walks the exclusion angle to the
   smallest compliant value, written back into the operation profile. The
   truth runs on a preset 1 s step; a declared-mask examination runs on
   that step or on the fine and coarse steps of S.1503-4 §D4.

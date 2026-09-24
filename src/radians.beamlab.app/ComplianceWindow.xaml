@@ -20,7 +20,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="12">
         <TextBlock TextWrapping="Wrap" Foreground="#698089"
-                   Text="Steps 4-7 of the workflow (docs/compliance-loop-plan.md): sweep epfd(down) victims across a latitude grid, verdict each point against the entered limit with the examination's own comparison, and — when exceeded — walk the exclusion angle to the smallest compliant value and write it back into the operation profile."/>
+                   Text="Run sweep verdicts epfd(down) victims across a latitude grid against the entered limit, with the examination's own comparison. Run loop also derives the declaration on a saturated probe (or takes the given R set), examines it as S.1503-4 does (E1) and checks that E1 sits at or above the truth at every latitude. The advisors walk the exclusion angle or the co-frequency cap and write the result back into the operation profile."/>
 
         <Grid>
             <Grid.ColumnDefinitions>
@@ -35,7 +35,7 @@
                             <ColumnDefinition Width="150"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
-                            <RowDefinition/><RowDefinition/>
+                            <RowDefinition/><RowDefinition/><RowDefinition/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="Orbit design document"/>
                         <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding DesignPath, UpdateSourceTrigger=LostFocus}"/>
@@ -43,6 +43,10 @@
                         <TextBlock Grid.Row="1" Text="Operation profile"/>
                         <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding ProfilePath, UpdateSourceTrigger=LostFocus}"/>
                         <Button    Grid.Row="1" Grid.Column="2" Content="…" Margin="4,1,0,1" Click="OnBrowseProfileClick"/>
+                        <TextBlock Grid.Row="2" Text="Declared R set (optional)"/>
+                        <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding RSetPathText, UpdateSourceTrigger=LostFocus}"
+                                   ToolTip="An operating-parameter set in the designer's format (*.opparams.json). Run sweep examines a declared-mask profile against it, the examination of a filing; Run loop takes it instead of deriving one. Empty: Run sweep uses the profile's own gates and Run loop derives the set."/>
+                        <Button    Grid.Row="2" Grid.Column="2" Content="…" Margin="4,1,0,1" Click="OnBrowseRSetClick"/>
                     </Grid>
                 </GroupBox>
 
@@ -149,6 +153,8 @@
             <StackPanel Grid.Column="1">
                 <StackPanel Orientation="Horizontal">
                     <Button Content="Run sweep" IsEnabled="{Binding RunEnabled}" Click="OnRunClick"/>
+                    <Button Content="Run loop" IsEnabled="{Binding RunEnabled}" Click="OnRunLoopClick"
+                            ToolTip="The compliance loop: derive the declaration on a saturated probe (or take the given R set), sweep the truth, examine the declaration (E1) against the declared or the exported reachable-envelope mask, and check E1 &gt;= T at every latitude. The run's profile and R set are written where the R-set designer's Derive &amp; fill finds them, and an exported mask lands beside them."/>
                     <Button Content="Export table…" Click="OnExportClick"/>
                     <Button x:Name="GuideBtn" Content="How is compliance judged?" IsEnabled="False" Click="OnGuideClick"
                             ToolTip="Opens the accompanying page: the sweep and its verdicts, the limits, the advisor's walk and write-back, the power headroom line, and how deep a screening run really reads."/>
@@ -166,6 +172,27 @@
                         <Style TargetType="DataGridRow">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding Pass}" Value="False">
+                                    <Setter Property="Foreground" Value="#CC3F4D"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                </DataGrid>
+                <DataGrid ItemsSource="{Binding LoopRows}" AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="300" Margin="0,8,0,0"
+                          Visibility="{Binding HasLoopRows, Converter={StaticResource BoolToVis}}"
+                          ToolTip="The last loop run: the truth's and the examination's point margins per latitude, the gap between them (the price of the declaration), and the acceptance test E1 &gt;= T.">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="ES lat" Binding="{Binding LatText}" Width="60"/>
+                        <DataGridTextColumn Header="T margin (dB)" Binding="{Binding TText}" Width="95"/>
+                        <DataGridTextColumn Header="E1 margin (dB)" Binding="{Binding E1Text}" Width="100"/>
+                        <DataGridTextColumn Header="gap (dB)" Binding="{Binding GapText}" Width="70"/>
+                        <DataGridTextColumn Header="E1 ≥ T" Binding="{Binding AdequateText}" Width="60"/>
+                        <DataGridTextColumn Header="E1, S.1503-4 step (dB)" Binding="{Binding E1OnS1503StepText}" Width="140"/>
+                    </DataGrid.Columns>
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Adequate}" Value="False">
                                     <Setter Property="Foreground" Value="#CC3F4D"/>
                                 </DataTrigger>
                             </Style.Triggers>

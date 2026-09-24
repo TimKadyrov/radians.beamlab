@@ -257,7 +257,7 @@
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="Tracking strategy"/>
                         <ComboBox  x:Name="PolicyCombo" Grid.Row="0" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding TrackingPolicy}"
-                                   ToolTip="Parameters each strategy uses: all four obey the feasibility gates (min elevation, exclusion, Nco, per-direction min angles). Highest elevation and max GSO separation rank candidates by elevation or by alpha and hand over voluntarily after the hold time below; random draws uniformly among the feasible satellites (re-drawn every step with no hold, at link setup otherwise); hold-until-forced never hands over voluntarily and uses no extra parameter. No strategy has a field in the R set — it reaches the filing only through the gates.">
+                                   ToolTip="Parameters each strategy uses: all four obey the feasibility gates (min elevation, exclusion, Nco, per-direction min angles). Highest elevation, max GSO separation and random rank candidates by elevation, by alpha or by a fresh random key each step, and hand over voluntarily once the hold time below has passed; with no hold, random redraws at every time step, so the step is also its reselection period; hold-until-forced never hands over voluntarily and uses no extra parameter. No strategy has a field in the R set — it reaches the filing only through the gates.">
                             <ComboBoxItem Content="highest elevation" Tag="HighestElevation"/>
                             <ComboBoxItem Content="max GSO separation" Tag="MaxGsoSeparation"/>
                             <ComboBoxItem Content="random among feasible" Tag="Random"/>
@@ -270,7 +270,7 @@
                         </StackPanel>
                         <TextBlock Grid.Row="2" Text="Hold before handover (s)"/>
                         <TextBox   x:Name="HoldBox" Grid.Row="2" Grid.Column="1" Text="{Binding MinHoldText, UpdateSourceTrigger=LostFocus}"
-                                   ToolTip="Two roles when set: the strategies' dwell (highest-elevation and max-GSO-separation only hand over voluntarily after this many seconds on the current satellite; hold-until-forced ignores it) and the admission rule — a new link is only made toward a satellite that stays feasible for at least this long."/>
+                                   ToolTip="Two roles when set: the strategies' dwell (highest-elevation, max-GSO-separation and random hand over voluntarily only after this many seconds on the current satellite; hold-until-forced ignores it) and the admission rule — a new link is only made toward a satellite that stays feasible for at least this long."/>
                         <TextBlock Grid.Row="3" Text="Demand links per cell"/>
                         <TextBox   x:Name="DemandBox" Grid.Row="3" Grid.Column="1" Text="{Binding DemandLinksText, UpdateSourceTrigger=LostFocus}"/>
                         <TextBlock Grid.Row="4" Text="Activity factor / period (s)"/>

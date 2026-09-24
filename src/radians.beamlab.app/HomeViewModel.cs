@@ -42,8 +42,8 @@ public sealed class HomeViewModel
             "against the entered Article 22 limit with the examination's own " +
             "comparison, and walk the exclusion angle to the smallest compliant value.", Key: "compliance"),
         new HomeCard("Operating parameters (R set)",
-            "Author the declared operating constraints directly, or derive them " +
-            "by simulating the system and enveloping what it actually does; " +
+            "Author the declared operating constraints directly, or fill them " +
+            "from the compliance loop's derived set, measured on a saturated probe; " +
             "round-trip the set and export the R-set XML the builder registers.", Key: "opparams"),
         new HomeCard("SNS v10 builder",
             "Assemble complete SNS v10 datasets (SRS + Masks databases) from " +

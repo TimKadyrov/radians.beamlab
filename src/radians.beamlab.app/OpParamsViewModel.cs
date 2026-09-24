@@ -100,13 +100,30 @@ public sealed class OpParamsViewModel : ObservableObject
             var p = BuildSet();
             SummaryText = string.Create(CultureInfo.InvariantCulture,
                 $"param_id {p.ParamId}: min_exclude {p.MinExclude.Sum(e => e.ByLat.Count)} node(s) in {p.MinExclude.Count} orbit group(s), max_co_freq {p.MaxCoFreqByLat.Count}, min_duration {p.MinDurationByLat.Count}, min_elev {p.MinElev.Sum(e => e.ByAz.Count)} node(s) at {p.MinElev.Count} latitude(s)");
-            StatusText = "";
+            StatusText = FormConflictNote(p);
         }
         catch (Exception ex)
         {
             SummaryText = "";
             StatusText = ex.Message;
         }
+    }
+
+    /// <summary>
+    /// The warning for a set that files a quantity in both header and array
+    /// form -- an invalid filing, which Export refuses -- or empty.
+    /// </summary>
+    public static string FormConflictNote(OperatingParamsSet p)
+        => DeclaredConstraints.FormConflicts(p) is { Count: > 0 } both
+            ? "INVALID filing: filed in both header and array form -- " + string.Join("; ", both)
+              + "; declare each quantity in one form only (Export refuses this set)"
+            : "";
+
+    /// <summary>The conflict warning for the set the texts describe now; empty when valid or unparseable.</summary>
+    public string FormConflictNote()
+    {
+        try { return FormConflictNote(BuildSet()); }
+        catch { return ""; }
     }
 
     /// <summary>The set the texts describe; throws with a line-precise message on bad input.</summary>
@@ -223,42 +240,62 @@ public sealed class OpParamsViewModel : ObservableObject
     public bool DeriveEnabled => !_isDeriving;
 
     /// <summary>
-    /// Simulates the real system and fills the whole designer from the
-    /// measured envelope; identity and the frequency range come from the
-    /// current header fields.
-    /// </summary>
-    /// <summary>
     /// The compliance loop's own derived set for the selected profile, when one
-    /// is on disk and newer than the profile it describes; otherwise null.
+    /// is on disk, newer than the profile it describes and made from that
+    /// profile; otherwise null.
     ///
     /// The loop derives once, saturated, for the whole projection. Re-simulating
     /// here would spend minutes to produce a SECOND OPINION of the same system --
-    /// and at a different depth, possibly a different one. So the button prefers
-    /// the run and only falls back to measuring when there is no run to read.
+    /// and at a different depth, possibly a different one. So the button reads
+    /// the run, and without one it says so.
     /// </summary>
     public string? FindLoopRunSet()
+        => ResolveRunContext() is { } c ? LoopRunSetFor(c.Repo, c.Prof, _deriveProfilePath) : null;
+
+    // The repository and the selected profile, or null when either is missing.
+    private (string Repo, OperationProfile Prof)? ResolveRunContext()
     {
         if (_deriveProfilePath.Trim().Length == 0) return null;
         string? docs = HomeViewModel.FindDocsDir(AppContext.BaseDirectory);
         if (docs is null) return null;
         string? repo = Path.GetDirectoryName(docs);
         if (repo is null || !File.Exists(_deriveProfilePath)) return null;
-        OperationProfile prof;
-        try { prof = OperationProfileCodec.Load(File.ReadAllText(_deriveProfilePath)); }
+        try { return (repo, OperationProfileCodec.Load(File.ReadAllText(_deriveProfilePath))); }
         catch { return null; }
-        return LoopRunSetFor(repo, prof, _deriveProfilePath);
     }
 
     /// <summary>
     /// The decision on its own, with every path given: a loop run counts only
     /// when it exists AND is newer than the profile it claims to describe -- an
-    /// older run describes a system that has since been edited.
+    /// older run describes a system that has since been edited -- AND, when the
+    /// run keeps a copy of the profile it flew, that copy is this profile. Runs
+    /// are found by profile name, so two profiles of one name would otherwise
+    /// share a run.
     /// </summary>
     public static string? LoopRunSetFor(string repoDir, OperationProfile prof, string profilePath)
     {
         string path = ComplianceViewModel.RunSetJsonPath(repoDir, prof);
         if (!File.Exists(path) || !File.Exists(profilePath)) return null;
-        return File.GetLastWriteTimeUtc(path) > File.GetLastWriteTimeUtc(profilePath) ? path : null;
+        if (File.GetLastWriteTimeUtc(path) <= File.GetLastWriteTimeUtc(profilePath)) return null;
+        return RunIsOfOtherProfile(repoDir, prof, profilePath) ? null : path;
+    }
+
+    /// <summary>
+    /// True when the run under this profile's name keeps a copy of a DIFFERENT
+    /// profile (or one that cannot be read). A run without a copy is not
+    /// judged here.
+    /// </summary>
+    public static bool RunIsOfOtherProfile(string repoDir, OperationProfile prof, string profilePath)
+    {
+        string copy = ComplianceViewModel.RunProfilePath(repoDir, prof);
+        if (!File.Exists(copy) || !File.Exists(profilePath)) return false;
+        try
+        {
+            string mine = OperationProfileCodec.Save(OperationProfileCodec.Load(File.ReadAllText(profilePath)));
+            string flown = OperationProfileCodec.Save(OperationProfileCodec.Load(File.ReadAllText(copy)));
+            return mine != flown;
+        }
+        catch { return true; }
     }
 
     /// <summary>
@@ -267,6 +304,9 @@ public sealed class OpParamsViewModel : ObservableObject
     /// for the whole projection, and a second derivation here -- at whatever
     /// depth a text box happened to hold -- would be a second opinion about the
     /// same system, free to disagree with the one the projection actually used.
+    /// The identity (sat_name, ntc_id, param_id) and the band stay the
+    /// designer's own: they belong to the filing, and the run carries only
+    /// placeholders for them.
     /// </summary>
     public System.Threading.Tasks.Task DeriveAsync()
     {
@@ -275,13 +315,16 @@ public sealed class OpParamsViewModel : ObservableObject
         {
             StatusText = _deriveProfilePath.Trim().Length == 0
                 ? "pick the operation profile whose compliance-loop run you want to fill from"
-                : "no compliance-loop run for this profile (or it is older than the profile) -- "
-                  + "run the compliance loop, which derives the declaration as its first step";
+                : ResolveRunContext() is { } c && RunIsOfOtherProfile(c.Repo, c.Prof, _deriveProfilePath)
+                    ? $"the compliance-loop run under the name '{ComplianceViewModel.RunName(c.Prof)}' was made from a different profile -- "
+                      + "give this profile its own name, or run the loop for it"
+                    : "no compliance-loop run for this profile (or it is older than the profile) -- "
+                      + "run the compliance loop, which derives the declaration as its first step";
             return System.Threading.Tasks.Task.CompletedTask;
         }
         try
         {
-            LoadJson(File.ReadAllText(runSet));
+            FillFromRun(File.ReadAllText(runSet));
         }
         catch (Exception ex)
         {
@@ -290,10 +333,22 @@ public sealed class OpParamsViewModel : ObservableObject
         }
         StatusText = string.Create(CultureInfo.InvariantCulture,
             $"filled from the compliance-loop run of {File.GetLastWriteTime(runSet):yyyy-MM-dd HH:mm} "
-            + $"({Path.GetFileName(runSet)}) -- no simulation; this is the set the projection used. "
-            + $"Review, save or export");
+            + $"({Path.GetFileName(runSet)}) -- no simulation; this is the set the projection used, "
+            + $"with the identity and band fields above kept as they were. Review, save or export");
         return System.Threading.Tasks.Task.CompletedTask;
     }
+    /// <summary>
+    /// Fills every field from a loop run's set, keeping the identity
+    /// (sat_name, ntc_id, param_id) and the band: those belong to the filing,
+    /// and the run carries only placeholders for them.
+    /// </summary>
+    public void FillFromRun(string runSetJson)
+    {
+        var identity = (_satName, _ntcIdText, _paramIdText, _lowFreqText, _highFreqText);
+        LoadJson(runSetJson);
+        (SatName, NtcIdText, ParamIdText, LowFreqText, HighFreqText) = identity;
+    }
+
     /// <summary>Synchronous derivation (the check harness calls this directly).</summary>
     /// <param name="simDurSec">Probe duration. The caller owns it because it
     /// decides how much of the system the envelope actually saw.</param>

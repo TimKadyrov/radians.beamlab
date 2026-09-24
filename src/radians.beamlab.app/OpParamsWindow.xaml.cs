@@ -62,7 +62,8 @@ public partial class OpParamsWindow : Window
             };
             if (dlg.ShowDialog() != true) return;
             System.IO.File.WriteAllText(dlg.FileName, json);
-            _vm.StatusText = "saved: " + dlg.FileName;
+            string conflict = _vm.FormConflictNote();
+            _vm.StatusText = "saved: " + dlg.FileName + (conflict.Length > 0 ? " -- " + conflict : "");
         }
         catch (Exception ex) { _vm.StatusText = "save failed: " + ex.Message; }
     }
@@ -82,15 +83,6 @@ public partial class OpParamsWindow : Window
         catch (Exception ex) { _vm.StatusText = "load failed: " + ex.Message; }
     }
 
-    private void OnDeriveBrowseClick(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.OpenFileDialog
-        {
-            Filter = "Orbit design (*.orbitdesign.json)|*.orbitdesign.json|JSON|*.json",
-        };
-        if (dlg.ShowDialog() != true) return;
-        _vm.DeriveDesignPath = dlg.FileName;
-    }
 
     private void OnDeriveProfileBrowseClick(object sender, RoutedEventArgs e)
     {

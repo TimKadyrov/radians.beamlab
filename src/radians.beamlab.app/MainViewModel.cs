@@ -409,7 +409,7 @@ public sealed class MainViewModel : ObservableObject
         {
             b.Weight = 1.0;
             if (b.IsGmAdjusted)
-                b.Pattern = Scene.BuildPatternFor(b.OriginalGmDbi, b.OffNadirDeg);
+                b.Pattern = b.PatternForGm?.Invoke(b.OriginalGmDbi) ?? Scene.BuildPatternFor(b.OriginalGmDbi, b.OffNadirDeg);
         }
         StatusText = $"all {Scene.Beams.Count} beams ON, G_m restored";
         SceneChanged?.Invoke();

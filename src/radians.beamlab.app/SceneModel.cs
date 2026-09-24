@@ -225,6 +225,14 @@ public sealed class SceneModel
         };
     }
 
+    /// <summary>
+    /// An array-steered beam's pattern at any peak gain: the apertures and
+    /// Taylor parameters it was built with, fixed at build time.
+    /// </summary>
+    private static Func<double, ISinglePattern> ArrayPatternFor(double wavelengthM, double lrM, double ltM,
+        double slrDb, int nbar, double lfDbi)
+        => gm => new Rec1528_1p4_Ell(gm, wavelengthM, lrM, ltM, slrDb, nbar, lfDbi);
+
     private Rec1528_1p4_Ell BuildEllipticalPatternFor(double gmDbi, double offNadirDeg)
     {
         var (alpha, beta) = CellHalfAxesForBeam(offNadirDeg);
@@ -362,9 +370,10 @@ public sealed class SceneModel
                         double azFromNorth = Math.Atan2(v, u) * 180.0 / Math.PI;
                         var ned = BeamDirNed(off, azFromNorth);
                         var ecef = NedToEcef(ned, north, east, down).Normalized();
+                        double lrArrayM = ltArrayM * Math.Sqrt(Math.Max(0.0, 1.0 - r2));
                         ISinglePattern pattern = uvArray
                             ? new Rec1528_1p4_Ell(GmDbi, WavelengthM,
-                                ltArrayM * Math.Sqrt(Math.Max(0.0, 1.0 - r2)), ltArrayM,
+                                lrArrayM, ltArrayM,
                                 TaylorSlrDb, TaylorNbar, LfDbi)
                             : BuildPatternFor(GmDbi, off);
                         _beams.Add(new Beam($"uv{i}_{j}", ecef, pattern)
@@ -373,6 +382,11 @@ public sealed class SceneModel
                             RadialAxisEcef = RadialAxisFor(ecef),
                             LatticeI = i,
                             LatticeJ = j,
+                            // The pattern kind alone rebuilds the circular Taylor, so an
+                            // array beam carries its own apertures for a new peak gain.
+                            PatternForGm = uvArray
+                                ? ArrayPatternFor(WavelengthM, lrArrayM, ltArrayM, TaylorSlrDb, TaylorNbar, LfDbi)
+                                : null,
                         });
                     }
                 }

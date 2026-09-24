@@ -279,6 +279,12 @@ public sealed class SimulationViewModel : ObservableObject
         var declaredOverride = _opParamsPath.Trim().Length > 0
             ? OpParamsFileCodec.ToSet(OpParamsFileCodec.Load(File.ReadAllText(_opParamsPath)))
             : null;
+        // A set filing a quantity in both forms is an invalid filing: it is
+        // reported, never run under a precedence of the reader's choosing.
+        if (declaredOverride is not null && DeclaredConstraints.FormConflicts(declaredOverride) is { Count: > 0 } both)
+            throw new InvalidOperationException(
+                "the R set files a quantity in both header and array form (" + string.Join("; ", both)
+                + ") -- an invalid filing, not run");
 
         double days = Num(_durationDaysText, "duration");
         double step = Num(_stepSecText, "time step");

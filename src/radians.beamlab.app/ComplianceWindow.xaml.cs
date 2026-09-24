@@ -64,6 +64,17 @@ public partial class ComplianceWindow : Window
 
     private async void OnRunClick(object sender, RoutedEventArgs e) => await _vm.RunAsync();
 
+    private async void OnRunLoopClick(object sender, RoutedEventArgs e) => await _vm.RunLoopAsync();
+
+    private void OnBrowseRSetClick(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = "Operating parameters (*.opparams.json;*.operparams.json)|*.opparams.json;*.operparams.json|JSON|*.json",
+        };
+        if (dlg.ShowDialog() == true) _vm.RSetPathText = dlg.FileName;
+    }
+
     private async void OnAdviseClick(object sender, RoutedEventArgs e) => await _vm.AdviseAsync();
 
     private void OnApplyClick(object sender, RoutedEventArgs e)

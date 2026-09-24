@@ -5697,3 +5697,56 @@ depths the fine sampling showed sufficient.
 **State.** Uncommitted beside the previous entry's files: the two view
 models, the compliance window, V61, the user guide, the README and this
 entry.
+
+## Beamlab — the tool reviewed against the September lessons, and the first two packages fixed, 24 September 2026
+
+**Why.** The September work went into runs; the operator asked whether the
+tool itself reflects what the runs taught. A read-only review of every
+window, the console modes and the explanatory pages found 62 items in seven
+packages, nine of them giving a wrong or misleading result. The operator
+chose the first two packages: the wrong results, and the loop in the app.
+
+**Wrong results, fixed.**
+- The compliance sweep dropped a profile's per-latitude exclusion rows
+  while the status line said they gated the scheduler; Run sweep and the
+  console loop now sweep the profile as it stands, and only the exclusion
+  advisor's global walk drops them. No record changes: no profile on disk
+  carries such rows.
+- The window's power headroom and both advisors quoted the point margin;
+  they now quote the margin under the limit-curve rule, as the console
+  loop already did. A run passing the tabulated points but crossing the
+  curve no longer shows positive headroom beside a FAIL.
+- Loading a limit row now sets the victim dish to the row's reference
+  diameter, and the sweep warns when the dish is changed away from it.
+- The R-set designer hid param_id and low_freq_mhz under high_freq_mhz;
+  a set filed in both header and array form is now flagged as the fields
+  are typed and refused by the simulation runner, as the examine mode
+  refuses it; Derive & fill no longer takes a run of the same name made
+  from another profile, and keeps the filing's identity and band.
+- Array-steered beams lost their radial broadening when the PFD adjuster
+  or "all beams on" rebuilt them; each such beam now carries its own
+  pattern for a new peak gain.
+- The orbit tab refuses to save a Case 2 shell with no candidate or with
+  a keep range outside its bounds; the SNS builder refuses pfd masks
+  without a scenario frequency instead of dropping their links.
+- The text saying a hold turns Random selection into random-at-setup is
+  corrected: after the hold the fresh keys can hand a link over at any
+  step. A declared min_duration is now named in the run, since the
+  track-duration examination is not built.
+
+**The loop in the app.** The window could not run the loop the records
+come from, and could not examine a filing. The loop's shared steps -- the
+reachable-envelope mask export and its cache name, the examination E1, the
+acceptance statement, the set description and the run's files -- moved
+into the app, and the console loop calls them. The BL-D2 loop run before
+and after the move gives the same record but for the mask's build-id file
+name, the same console output, and a byte-identical 23 MB mask. The window
+gains Run loop, which runs the same steps, shows T beside E1 with the gap
+and the acceptance test, and writes the run's profile and R set where the
+designer finds them, and an optional R-set field that both buttons read.
+Driven through the window on BL-D2 with the same limit and dish, Run loop
+reproduces the console run's T and E1 margins at all seven latitudes and
+its acceptance line. The dated record stays the console mode's.
+
+**State.** Checks V62 to V66 added; harness 162 passed, 0 failed.
+Uncommitted. Open: packages 3 to 7 of the review.
