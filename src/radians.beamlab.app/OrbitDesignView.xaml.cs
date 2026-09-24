@@ -10,7 +10,9 @@ namespace radians.beamlab.app;
 /// UserControl hosting the Orbit Design tab: repeat-solution grid, the
 /// three SNS case previews, and the propagated one-cycle ground track over
 /// the coastline map. Drawing only -- all computation lives in
-/// <see cref="OrbitDesignViewModel"/>.
+/// <see cref="OrbitDesignViewModel"/>, and the buttons are commands of
+/// <see cref="OrbitDesignDocumentViewModel"/>; the view supplies the
+/// dialogs, the clipboard and the builder window.
 /// </summary>
 public partial class OrbitDesignView : UserControl
 {
@@ -18,21 +20,16 @@ public partial class OrbitDesignView : UserControl
     private OrbitDesignViewModel _vm;   // the selected shell, rewired on switch
     private CoastlineDataProvider? _coastlines;
 
-    private readonly string? _casesGuidePath;
-    private readonly string? _solverGuidePath;
-
     public OrbitDesignView()
     {
         InitializeComponent();
         _vm = _doc.SelectedShell;
+        _doc.PickOpenFile = ViewServices.PickOpenFile;
+        _doc.PickSaveFile = ViewServices.PickSaveFile;
+        _doc.OpenDocument = ViewServices.OpenDocument;
+        _doc.SetClipboardText = Clipboard.SetText;
+        _doc.OpenSnsBuilderRequested += () => new SnsBuilderWindow { Owner = Window.GetWindow(this) }.Show();
         DataContext = _doc;
-        string? docs = HomeViewModel.FindDocsDir(System.AppContext.BaseDirectory);
-        string? guide = docs is null ? null : System.IO.Path.Combine(docs, "orbit-design-cases.html");
-        _casesGuidePath = guide is not null && System.IO.File.Exists(guide) ? guide : null;
-        CasesGuideButton.IsEnabled = _casesGuidePath is not null;
-        string? solver = docs is null ? null : System.IO.Path.Combine(docs, "repeat-solver.html");
-        _solverGuidePath = solver is not null && System.IO.File.Exists(solver) ? solver : null;
-        SolverGuideButton.IsEnabled = _solverGuidePath is not null;
         WireToolTips();
         Loaded += (_, _) =>
         {
@@ -58,19 +55,6 @@ public partial class OrbitDesignView : UserControl
 
     private void OnTrackChanged() => Dispatcher.Invoke(Redraw);
 
-    private void OnCopyClick(object sender, RoutedEventArgs e)
-    {
-        string text = _vm.BuildCopyText();
-        if (text.Length > 0) { Clipboard.SetText(text); _vm.SnsStatusText = "case summary copied to the clipboard"; }
-    }
-
-    private void OnCasesGuideClick(object sender, RoutedEventArgs e)
-    {
-        if (_casesGuidePath is null) return;
-        System.Diagnostics.Process.Start(
-            new System.Diagnostics.ProcessStartInfo(_casesGuidePath) { UseShellExecute = true });
-    }
-
     /// <summary>
     /// Parameter help: filing parameters read the shared ParameterCatalog
     /// (the card deck's twin), tool inputs get authored explanations.
@@ -85,9 +69,9 @@ public partial class OrbitDesignView : UserControl
         BandBox.ToolTip = "How far above and below the target altitude the solver may move (km) to close a cycle exactly. Candidates outside the band are skipped.";
         CheckOrbitsBox.ToolTip = "Whole nodal orbits (k) of a repeat you already have in mind. With m: the track repeats after k orbits in m node-relative Earth turns; a non-coprime pair reduces to the true cycle.";
         CheckDaysBox.ToolTip = "Whole nodal days (m) of the repeat to validate. The exact closing altitude is solved anywhere in 100-30000 km and flagged when it falls outside the search band.";
-        PrecessBox.ToolTip = "Admin-supplied nodal precession rate (deg/s, signed -- negative is the normal prograde case). Empty declares the plain-J2 default for the target orbit. Filed as f_precess='Y', precession.";
-        FixedAltRadio.ToolTip = "The default: the Case-2 filing keeps your target altitude and declares rpt_prd as k laps of your own orbit; the free-flight drift (drift@target) is what station keeping corrects, and the EPFD calculation only ever flies the declared repeat with the deadband sweep.";
-        AdjustAltRadio.ToolTip = "The filing adopts the selected candidate's exact closing altitude, where the repeat holds itself and costs zero correction.";
+        PrecessBox.ToolTip = "Admin-supplied nodal precession rate (deg/s) for Case 3, station keeping with a supplied rate. Empty declares the rate that closes the selected repeat at the target altitude. Filed as f_precess='Y' and the rate's magnitude in degrees/day; the direction is the one the inclination implies (west for prograde, east for retrograde), so a rate turning the other way cannot be filed, nor a typed rate that misses the repeat by more than keep_rnge per cycle.";
+        FixedAltRadio.ToolTip = "The Case-2 filing keeps your target altitude and declares rpt_prd as k laps of your own orbit. The EPFD calculation flies the filed orbit on its J2 rates plus the keep_rnge sweep (Rec. S.1503-4 eq (49)), so its track drifts by drift@target every cycle of the run, although the real station keeping holds it.";
+        AdjustAltRadio.ToolTip = "The default: the filing adopts the selected candidate's exact closing altitude, where the filed orbit repeats by itself, so the track the EPFD calculation flies is the declared repeat plus the keep_rnge sweep.";
         BwBox.ToolTip = "Victim 3 dB beamwidth (deg). When set, NOrbits is derived from the run rules (eq (3), N_tracks = 16) at the target altitude; leave empty to set NOrbits by hand.";
         NOrbitsBox.ToolTip = Cat("NOrbits") ?? "Case-1 run length in equatorial passes.";
         KeepBox.ToolTip = Cat("StationKeeping · WDeltaDeg · RepeatPeriod")
@@ -97,58 +81,6 @@ public partial class OrbitDesignView : UserControl
         LanSpreadBox.ToolTip = "Longitude span the planes divide: 360 = Walker delta, 180 = Walker star.";
         OpHeightBox.ToolTip = Cat("Eccentricity · ArgumentOfPerigee · OperatingHeightKm")
             ?? "Minimum operating height (km); empty = the perigee altitude.";
-    }
-
-    private void OnSaveDesignClick(object sender, RoutedEventArgs e)
-    {
-        if (_doc.SaveBlocker() is string why) { _vm.SnsStatusText = "design not saved: " + why; return; }
-        var dlg = new Microsoft.Win32.SaveFileDialog
-        {
-            Filter = "Orbit design (*.orbitdesign.json)|*.orbitdesign.json",
-            FileName = "design.orbitdesign.json",
-        };
-        if (dlg.ShowDialog() != true) return;
-        System.IO.File.WriteAllText(dlg.FileName, _doc.BuildDocumentJson());
-        _vm.SnsStatusText = "design saved (" + _doc.Shells.Count + " shell(s)): " + dlg.FileName;
-    }
-
-    private void OnLoadDesignClick(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.OpenFileDialog
-        {
-            Filter = "Orbit design (*.orbitdesign.json)|*.orbitdesign.json|JSON|*.json",
-        };
-        if (dlg.ShowDialog() != true) return;
-        try
-        {
-            _doc.LoadDocumentJson(System.IO.File.ReadAllText(dlg.FileName));
-            _vm.SnsStatusText = "design loaded (" + _doc.Shells.Count + " shell(s)): " + dlg.FileName;
-        }
-        catch (System.Exception ex) { _vm.SnsStatusText = "load failed: " + ex.Message; }
-    }
-
-    private void OnSolverGuideClick(object sender, RoutedEventArgs e)
-    {
-        if (_solverGuidePath is null) return;
-        System.Diagnostics.Process.Start(
-            new System.Diagnostics.ProcessStartInfo(_solverGuidePath) { UseShellExecute = true });
-    }
-
-    private void OnGoSolverClick(object sender, RoutedEventArgs e) => InnerTabs.SelectedIndex = 1;
-    private void OnGoCasesClick(object sender, RoutedEventArgs e) => InnerTabs.SelectedIndex = 2;
-    private void OnGoConstellationClick(object sender, RoutedEventArgs e) => InnerTabs.SelectedIndex = 3;
-
-    private void OnAddShellClick(object sender, RoutedEventArgs e) => _doc.AddShell();
-    private void OnDuplicateShellClick(object sender, RoutedEventArgs e) => _doc.DuplicateSelected();
-    private void OnMoveShellUpClick(object sender, RoutedEventArgs e) => _doc.MoveSelectedUp();
-    private void OnMoveShellDownClick(object sender, RoutedEventArgs e) => _doc.MoveSelectedDown();
-    private void OnRemoveShellClick(object sender, RoutedEventArgs e) => _doc.RemoveSelected();
-    private void OnHarmonizeClick(object sender, RoutedEventArgs e) => _vm.SnsStatusText = _doc.HarmonizeRptPrd();
-
-    private void OnOpenSnsBuilderClick(object sender, RoutedEventArgs e)
-    {
-        var w = new SnsBuilderWindow { Owner = Window.GetWindow(this) };
-        w.Show();
     }
 
     private void Redraw()

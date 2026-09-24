@@ -40,6 +40,7 @@ h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; marg
 h2{font-size:21px; font-weight:600; letter-spacing:-.01em; margin:2.2em 0 .4em; text-wrap:balance; max-width:var(--measure)}
 p{max-width:var(--measure)}
 ul{max-width:var(--measure)}
+li{margin:.35em 0}
 code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--code-bg); padding:0 4px; border-radius:3px}
 .tech{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--g1); border-radius:5px; padding:12px 16px; margin:14px 0; font-size:13.5px; max-width:var(--measure)}
 .tech .t{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; font-weight:600}
@@ -52,259 +53,284 @@ figcaption{font-size:12px; color:var(--muted); text-align:center; margin-top:8px
 .foot{margin-top:44px; font-size:12.5px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; max-width:var(--measure)}
 a{color:var(--g1)} a:hover{color:#1983AA}
 </style>
-
 <div class="wrap">
 <div class="kicker">radians.beamlab &middot; compliance loop</div>
 <h1>Inside the Compliance Loop</h1>
-<p class="lede">The loop answers two questions about the operated system: does it meet the
-Article&nbsp;22 epfd(down) limits, latitude by latitude &mdash; and if not, what is the
-smallest GSO-exclusion discipline that does? Whatever it finds is written back into the
-operation profile, so the declaration and the simulated behaviour stay one thing.</p>
+<p class="lede">The Compliance loop window checks whether your system meets the Article&nbsp;22
+limits on downlink equivalent power flux-density (epfd) at a range of earth-station latitudes.
+It can also derive the declarations your filing carries and check that they cover what the
+system really does.</p>
 
-<h2>The loop, end to end</h2>
+<h2>Two ways to run</h2>
+<ul>
+<li><strong>Run sweep</strong> makes one pass. When the profile simulates its beams live, the
+pass measures the <em>truth</em>, T: the epfd the system produces as it operates. When the
+profile&rsquo;s footprint is a declared pfd mask, the pass examines that mask the way
+Rec. ITU-R S.1503-4 does, under the R&nbsp;set named in <strong>Declared R set</strong> or,
+without one, under the profile&rsquo;s own gates.</li>
+<li><strong>Run loop</strong> makes three passes. It derives the declaration from the system,
+or takes the R&nbsp;set you name. It measures the truth T. Then it examines the declaration at
+the same victims and gives E1. A second table shows T beside E1 for every latitude.</li>
+</ul>
 
 <figure>
-<svg viewBox="0 0 700 296" role="img" aria-label="The compliance loop: profile and orbit design feed a latitude sweep whose verdict table either loops back through the alpha advisor or, once compliant, writes the found exclusion back into the profile">
+<svg viewBox="0 0 700 318" role="img" aria-label="Run loop: the system feeds a derivation probe that measures the R set, a pfd mask that is declared or computed from the reachable envelope, and a truth sweep. The examination reads the R set and the mask and gives E1; the truth sweep gives T; the declaration passes only if E1 is at least T at every latitude. The advisors write what they find back into the profile.">
   <defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
   <g style="color:var(--ink)">
-    <rect x="14" y="116" width="158" height="66" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-    <text x="26" y="138" class="svgtxt">system under test</text>
-    <text x="26" y="156" class="svglbl">operation profile +</text>
-    <text x="26" y="171" class="svglbl">orbit design document</text>
+    <rect x="10" y="118" width="140" height="70" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="22" y="142" class="svgtxt">your system</text>
+    <text x="22" y="160" class="svglbl">orbit design +</text>
+    <text x="22" y="175" class="svglbl">operation profile</text>
 
-    <rect x="222" y="116" width="152" height="66" rx="5" fill="none" stroke="currentColor"/>
-    <text x="234" y="138" class="svgtxt">latitude sweep</text>
-    <text x="234" y="156" class="svglbl">one truth run per</text>
-    <text x="234" y="171" class="svglbl">victim latitude</text>
+    <line x1="150" y1="153" x2="175" y2="153" stroke="currentColor"/>
+    <line x1="175" y1="43" x2="175" y2="239" stroke="currentColor"/>
+    <line x1="175" y1="43" x2="198" y2="43" stroke="currentColor" marker-end="url(#ar)"/>
+    <line x1="175" y1="125" x2="198" y2="125" stroke="currentColor" marker-end="url(#ar)"/>
+    <line x1="175" y1="239" x2="198" y2="239" stroke="currentColor" marker-end="url(#ar)"/>
 
-    <rect x="424" y="116" width="130" height="66" rx="5" fill="none" stroke="currentColor"/>
-    <text x="436" y="138" class="svgtxt">verdict table</text>
-    <text x="436" y="156" class="svglbl">margin per latitude,</text>
-    <text x="436" y="171" class="svglbl">PASS / FAIL</text>
+    <rect x="200" y="14" width="170" height="58" rx="5" fill="none" stroke="currentColor"/>
+    <text x="212" y="37" class="svgtxt">derivation probe</text>
+    <text x="212" y="57" class="svglbl">measures the R set</text>
 
-    <line x1="172" y1="149" x2="218" y2="149" stroke="currentColor" marker-end="url(#ar)"/>
-    <line x1="374" y1="149" x2="420" y2="149" stroke="currentColor" marker-end="url(#ar)"/>
+    <rect x="200" y="92" width="170" height="66" rx="5" fill="none" stroke="currentColor"/>
+    <text x="212" y="114" class="svgtxt">pfd mask</text>
+    <text x="212" y="133" class="svglbl">the declared mask, or</text>
+    <text x="212" y="148" class="svglbl">the reachable envelope</text>
 
-    <!-- advisor loop (top, dashed) -->
-    <path d="M489 116 V56 H298 V112" fill="none" stroke="currentColor" stroke-dasharray="5 4" marker-end="url(#ar)"/>
-    <text x="300" y="48" class="svglbl">not compliant: alpha += step, sweep again (the walk is the trajectory)</text>
+    <rect x="200" y="210" width="170" height="58" rx="5" fill="none" stroke="currentColor"/>
+    <text x="212" y="233" class="svgtxt">truth sweep</text>
+    <text x="212" y="252" class="svglbl">the system as operated</text>
 
-    <!-- write-back (bottom, accent) -->
-    <path d="M489 182 V244 H93 V186" fill="none" stroke="var(--g1)" stroke-width="1.5" marker-end="url(#ar)" style="color:var(--g1)"/>
-    <text x="120" y="264" class="svglbl">compliant: Apply writes the found alpha into the profile — enforced, never advisory</text>
+    <path d="M370 43 H490 V50" fill="none" stroke="currentColor" marker-end="url(#ar)"/>
+    <text x="380" y="37" class="svglbl">R set</text>
+    <path d="M370 125 H490 V120" fill="none" stroke="currentColor" marker-end="url(#ar)"/>
+    <text x="378" y="119" class="svglbl">mask</text>
 
-    <!-- outputs -->
-    <line x1="554" y1="149" x2="596" y2="149" stroke="currentColor" marker-end="url(#ar)"/>
-    <text x="602" y="138" class="svglbl">worst margin +</text>
-    <text x="602" y="153" class="svglbl">power headroom,</text>
-    <text x="602" y="168" class="svglbl">CSV table</text>
+    <rect x="410" y="52" width="164" height="66" rx="5" fill="none" stroke="currentColor"/>
+    <text x="422" y="75" class="svgtxt">examination</text>
+    <text x="422" y="94" class="svglbl">reads the declaration</text>
+    <text x="422" y="109" class="svglbl">as S.1503-4 does</text>
+
+    <path d="M574 85 H647 V116" fill="none" stroke="currentColor" marker-end="url(#ar)"/>
+    <text x="584" y="79" class="svglbl">E1</text>
+    <path d="M370 239 H647 V194" fill="none" stroke="currentColor" marker-end="url(#ar)"/>
+    <text x="590" y="233" class="svglbl">T</text>
+
+    <rect x="604" y="118" width="86" height="74" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
+    <text x="616" y="143" class="svgtxt">E1 &#8805; T</text>
+    <text x="616" y="162" class="svglbl">at every</text>
+    <text x="616" y="177" class="svglbl">latitude</text>
+
+    <path d="M285 268 V292 H80 V190" fill="none" stroke="currentColor" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+    <text x="96" y="310" class="svglbl">advisors: Apply writes an exclusion angle or per-latitude caps into the profile</text>
   </g>
 </svg>
-<figcaption>The dashed top edge is the advisor's walk; the accented bottom edge is the
-write-back invariant. After Apply, the hand-off continues outside this window: derive the
-R&nbsp;set and export the masks from the updated profile.</figcaption>
+<figcaption>Run loop. The probe measures the R&nbsp;set; the mask is the declared one or is
+computed. The truth sweep gives T and the examination of the declaration gives E1; the
+declaration covers the system only if E1&nbsp;&ge;&nbsp;T everywhere. Run sweep is one of these
+sweeps on its own.</figcaption>
 </figure>
 
-<h2>The sweep</h2>
-<p>A victim earth station is planted at each latitude of a grid (default 0&ndash;70&deg; in
-10&deg; steps) at your chosen ES longitude, with the wanted GSO satellite at a fixed
-longitude offset and an S.1428 dish. Each victim gets the same truth run the Simulation
-runner performs &mdash; the live scheduled beam composition, or, when the profile declares
-the mask footprint source, the examination's own read of the declared PFD mask
-(Recommendation ITU-R S.1503-4 &sect;D5.1.4.1). Each latitude becomes one row: the maximum
-epfd seen, the verdict, and the worst dB margin. <strong>Export table&hellip;</strong>
-writes the rows as CSV. While a sweep runs, the status line and a progress bar report each
-latitude as it starts and finishes (with its verdict and margin) and the fraction of time
-steps done within it; the advisors add one line per walk step, so a long run on a large
-constellation is never silent.</p>
-<div class="tech"><div class="t">Tech &middot; verdict and margin</div>
-<p>The verdict follows the rule of the dataset design brief, <em>compliance against the
-Article&nbsp;22 limit curve</em>. Two tests, both required. At every tabulated limit point the
-simulated level exceeded for the allowed percentage of time must not pass the limit level
-(S.1503-4 &sect;D7.1.3, over the &sect;D7.1.2 CDF bins). And between the lowest and highest
-tabulated epfd the distribution must nowhere cross the limit <em>curve</em>, the log-linear
-interpolation of percentage between adjacent points, read with a tolerance of half a bin
-(0.05&nbsp;dB) towards lower epfd. The gaps between tabulated points are wide &mdash; 5.4 to
-34&nbsp;dB in Table&nbsp;22-1C &mdash; and a distribution can clear both ends of a gap and bulge
-above the curve inside it; the Bureau&rsquo;s reference implementation fails such a case, so the
-point-wise test alone is the lenient reading. Two margins are reported. The <strong>point
-margin</strong> is the limit epfd minus the measured epfd at each point&rsquo;s percentage,
-minimum over the points; the <strong>curve margin</strong> is the dB shift of the whole
-distribution that just clears the curve. The verdict&rsquo;s margin is the smaller of the two;
-positive means room to spare, and the worst row is the binding latitude. Every record names
-the rule and the tolerance it verdicts under.</p></div>
-
-<h2>The limits</h2>
-<p>The sweep verdicts against the limit points in the text box &mdash; one
-<code>epfd_db percent</code> line per point. Type them from the applicable Article&nbsp;22
-table, or load them: point at the BR limits database and <strong>Load</strong> reads the
-rows applicable to the profile's downlink carrier and the shells' lowest operating height;
-pick a row and <strong>Use</strong> fills the text. Each row names its reference bandwidth
-and its own reference dish diameter &mdash; set the victim dish to the row's diameter, since
-that is the antenna the limit was written for. Latitude-dependent short-term rows cannot fit
-the flat text and are shown for hand transcription of your latitude band.</p>
-
-<h2>Which failure is it?</h2>
-<p>A failed verdict means different things depending on <em>which projection</em> failed,
-and the remedy differs accordingly. The truth run T and the examination runs E1/E2 sit in
-a guaranteed order &mdash; a faithful declaration envelopes the truth, so
-E1&nbsp;&ge;&nbsp;T at every percentile &mdash; which leaves exactly three cases. The basis
-for the rule: the examination's level is never its own number &mdash; it is the truth plus
-the projection margin the declaration adds &mdash; so a crossed limit line is crossed
-either by the truth itself or inside that added margin, and the fix belongs to the
-component that crossed it:</p>
+<h2>The victims</h2>
+<p>Every run places a victim earth station at each latitude of a grid, by default 0 to 70&deg;
+in 10&deg; steps, at the ES longitude you set. Its wanted GSO satellite sits at a fixed
+longitude offset, 10&deg; east by default, and it has an S.1428 dish. Each latitude becomes one
+row of the table:</p>
 <ul>
-<li><strong>T fails.</strong> The operation itself violates the limits, and no declaration
-work is legitimate &mdash; tuning the filing would only paper over a real problem. Fix the
-system first: per-beam power density is the exact lever (epfd moves dB-for-dB, and the
-sweep already prints how much per-beam power must be shed), then the operating rules this
-window walks (exclusion angle, caps), and only then the constellation itself.</li>
-<li><strong>T passes, E1 fails.</strong> The operation is fine; the <em>filing</em> would
-be found non-compliant. This is the projection-margin regime, and the optimisation moves
-to the declaration side &mdash; in this order: refine the examination inputs (mask
-b/c and latitude grids, a time step fine enough to resolve the quoted percentiles &mdash; the
-measured decomposition put several dB in these), tighten the declarations to the simulated
-truth (the deriver's envelopes rather than hand-written generosity), and promote enforced
-rules so the reachable envelope itself shrinks. The goal is fidelity &mdash; declarations
-at the granularity that reflects the real operation. Passing is the consequence when the
-system deserves it, never a target the declarations are fitted to.</li>
-<li><strong>Both pass.</strong> File; the remaining E1&nbsp;&minus;&nbsp;T margin is
-conservatism the filing carries as robustness.</li>
+<li><strong>max epfd</strong>: the highest level seen, or <em>quiet</em> when no satellite
+contributed at all;</li>
+<li><strong>point margin</strong> and <strong>curve margin</strong>, in dB, positive when there
+is room to spare;</li>
+<li><strong>verdict</strong>: PASS or FAIL;</li>
+<li><strong>deciding point</strong>: the limit point that sets the point margin;</li>
+<li><strong>quiet</strong>: the time steps in which no satellite contributed;</li>
+<li><strong>curve crossing</strong>: where the distribution crosses the limit curve, if it
+does.</li>
 </ul>
-<p>There is no fourth case: E1&nbsp;&ge;&nbsp;T means the examination can never green-light
-a system whose truth is red. If a run ever shows E1&nbsp;below&nbsp;T at some percentile,
-that is not good news &mdash; it is a mis-declaration (the envelope does not envelope), and
-the direction check exists to catch exactly that.</p>
+<p>While a run goes, the status line shows its progress and the time left. Afterwards it gives
+the run&rsquo;s depth: the steps per latitude and the smallest percentage of time the run can
+resolve. <strong>Export table&hellip;</strong> writes the rows as CSV, headed by the run&rsquo;s
+inputs.</p>
+<p>Two things the table does not cover:</p>
+<ul>
+<li><strong>Latitudes between the grid points.</strong> The worst margin is the worst over the
+grid only. On one test system a 5&deg; grid found a latitude 10&nbsp;dB worse than anything on
+the 10&deg; grid, so a pass can turn into a fail on a finer grid.</li>
+<li><strong>Other victim geometries.</strong> The run does not search for a worst-case victim:
+the ES longitude and the GSO offset stay where you set them. On the STEAM-2 test system over
+two days, moving the GSO satellite was worth about 2&nbsp;dB at the equator and 1&nbsp;dB or
+less elsewhere.</li>
+</ul>
 
-<h2>The advisor</h2>
-<p><strong>Suggest exclusion</strong> walks the global exclusion angle from the profile's
-current value upward in your step, re-running the full sweep at each value, and stops at
-the first fully compliant angle. The walk is deliberately <em>linear</em>, not a bisection,
-because the walk itself is an output: every intermediate sweep is a point on the
-margin-versus-alpha trajectory, and the failure report uses it &mdash; the worst margin at
-the end, the latitude holding it, and whether it was improving, worsening or not moving
-with alpha. From the trend it says what to do next: raise the cap and keep walking, accept
-that a larger exclusion worsens this geometry, or recognise that the exclusion is not the
-binding lever and the system itself must change.</p>
-<p><strong>Apply to profile</strong> then writes the found angle into the profile file.
-That is the loop's invariant: the advisor's exclusion becomes scheduler-enforced operation,
-never an advisory note &mdash; otherwise the projection margin between mask and truth would
-measure a fiction. When only some latitudes failed at the start, the report also notes that
-per-latitude alpha rows would be the finer declaration (an open item, tracked with the
-scene-gating work it depends on).</p>
-<p><strong>The cap advisor (loop v2, first leg).</strong> Beside the exclusion walk, the
-window now carries the v2 advisor for the per-cell co-frequency cap: it walks the cap
-<em>down</em> from the profile's effective baseline (the declared cap, clamped by demand),
-synthesizes per latitude the largest cap that latitude's own outcome allows &mdash; with a
-stay-passing check, since tighter is not always better &mdash; then verifies the composed
-rows in one joint sweep before offering them. Apply writes the rows into the profile's
-per-latitude cap array, never touching operator rows outside the swept span. When no
-margin moves over the walk it says so plainly: the cap is not the lever (with one demanded
-link per cell it barely binds). The exclusion and elevation levers will reuse the same
-machinery once their payload-side gating clears.</p>
-<div class="tech"><div class="t">Tech &middot; promotion: from tendency to promise</div>
-<p>The alpha walk is one instance of a general recipe, because the filing carries no
-scheduling strategy &mdash; a behaviour reaches the declarations only as an enforced gate.
-<em>Observe</em> the tendency in the simulated truth; <em>harden</em> it into the profile field
-the scheduler enforces (<code>MinHoldSec</code>, <code>MinElevDeg</code>,
-<code>AlphaExclDeg</code>, the Nco caps); <em>verify</em> the truth cost &mdash; re-sweep,
-and run the truth payload under the declared R (the runner's override mode is the
-before/after instrument); <em>declare</em> it through the R&nbsp;set, now backed by
-enforcement. Beware the elevation case: derived min_elev rows above the enforced floor are
-the envelope of one finite run, not a promise, until the floor itself is promoted. And a
-declared min_duration bites at admission &mdash; a link is only made toward a satellite
-that stays feasible for the whole promised dwell &mdash; while flipping the examination to
-the track-duration algorithm of S.1503-4 &sect;D5.1.4.2. That algorithm is not built here:
-a set that declares a minimum duration is examined with the classic algorithm, and the run
-says so. Today only the alpha promotion is automated.</p></div>
-<div class="tech"><div class="t">Tech &middot; the power headroom line</div>
-<p>epfd moves exactly dB-for-dB with the per-beam transmit power density &mdash; the payload
-envelope study's linear frontier &mdash; so every sweep's worst margin doubles as the
-<code>TxEirpDbw</code> headroom: how much per-beam power the payload may add (or must shed)
-at the swept exclusion. The summary prints it after every sweep and at the advisor's
-endpoints. Live-composition footprint only: a declared mask is a fixed file, and a power
-change would need the mask regenerated.</p></div>
+<h2>The limit</h2>
+<p>The sweep judges against the limit points in the text box, one
+<code>epfd_db percent_time</code> line per point, typed from the applicable Article&nbsp;22
+table. Or load them: point at the BR limits database and press <strong>Load</strong>, which lists
+the rows that apply to the profile&rsquo;s downlink carrier and the shells&rsquo; lowest
+operating height. Pick a row and press <strong>Use</strong>. It fills the text and sets the
+victim dish to the row&rsquo;s reference diameter, the antenna the limit was written for; a run
+warns when the dish no longer matches. Rows whose limits depend on latitude cannot fit the flat
+text, so they are shown for you to copy the values for your latitude band. With no limit
+entered, the verdicts are against a permissive placeholder and the status line says so.</p>
 
-<div class="tech"><div class="t">Tech &middot; a mask that is given</div>
-<p>When the footprint source is a mask &mdash; a filed mask examined as it is, or any mask taken
-as input rather than derived &mdash; the loop cannot re-derive it and does not try: gates act on
-boresights, and the mask&rsquo;s per-direction maximum has already collapsed which beam produced
-each cell. It reports instead whether the mask already carries the shaping the R&nbsp;set
-declares: per latitude block, how far inside the declared exclusion zone and how far below the
-declared elevation floor power within 3&nbsp;dB of the block&rsquo;s peak reaches &mdash;
-CONSISTENT at the gate, MASK TIGHTER beyond it, LIT INSIDE when the reach stops short of the
-arc, SATURATED when it does not. The window&rsquo;s Run loop reports it too, and the
-examination-only mode runs the same check on every mask it is given. A derived mask read this way shows the main-lobe edge of gated beams reaching inside
-the zone at its cell size; a filed two-level mask shows its rule.</p></div>
+<h2>The verdict</h2>
+<p>A latitude passes only if its epfd distribution stays within the limit at every tabulated
+point <em>and</em> nowhere crosses the limit curve drawn between the points. Its margin is the
+smaller of its point margin and its curve margin, and the worst row is the binding
+latitude.</p>
+<div class="tech"><div class="t">Tech &middot; the rule and the two margins</div>
+<p>The rule is <em>compliance against the Article&nbsp;22 limit curve</em>, adopted for this
+dataset. At every tabulated point the level exceeded for the allowed percentage of time must
+not pass the limit level (S.1503-4 &sect;D7.1.3, over the &sect;D7.1.2 CDF bins). Between the
+lowest and highest tabulated epfd, the distribution must nowhere cross the limit curve, the
+log-linear interpolation of percentage between adjacent points, read with a tolerance of half
+a bin (0.05&nbsp;dB) towards lower epfd. The gaps between tabulated points are wide, 5.4 to
+34&nbsp;dB in Table&nbsp;22-1C, and a distribution can clear both ends of a gap yet bulge above
+the curve inside it; the examination under S.1503-4 fails such a case. The <strong>point margin</strong> is
+the limit epfd minus the measured epfd at each point&rsquo;s percentage, the minimum over the
+points. The <strong>curve margin</strong> is the dB shift of the whole distribution that just
+clears the curve.</p></div>
+
+<h2>Reading the result</h2>
+<p>A correct declaration covers the system, so E1 is never below T: the examination sees the
+truth plus the margin the declaration adds. The <strong>gap</strong> column is that added
+margin. Three outcomes are possible, and each has its own remedy:</p>
+<ul>
+<li><strong>T fails.</strong> The system itself breaks the limit. Change the system, not the
+filing: first the per-beam power density, which moves epfd dB for dB and whose required cut
+the summary prints; then the operating rules the advisors walk; then the constellation.</li>
+<li><strong>T passes, E1 fails.</strong> The system is fine, but its filing would be found
+non-compliant. Work on the declarations: finer mask grids and a time step fine enough for the
+limit&rsquo;s percentages, declarations measured from the simulation rather than generous
+hand-written values, and behaviour turned into enforced rules so the declarations can be
+tighter. The aim is declarations that describe the real operation. Passing follows when the
+system deserves it; the declarations are never fitted to the limit.</li>
+<li><strong>Both pass.</strong> File. The gap is conservatism the filing carries.</li>
+</ul>
+<p><strong>E1 below T</strong> at any latitude is not good news. It means the declaration does
+not cover the system it describes, because the derivation was too coarse. Run loop checks
+E1&nbsp;&ge;&nbsp;T at every latitude and names the latitudes that fail. The fix is to measure
+more finely, never to redesign the system.</p>
 
 <h2>Where the declaration comes from</h2>
-<p>The loop no longer <em>ends</em> where the deriver begins &mdash; the derivation is the
-loop&rsquo;s first step. Before the truth sweep runs, a saturated probe (no victim, no limit,
-demand at the declared co-frequency cap, activity and duty and operating fraction at 1)
-measures the R&nbsp;set and the pfd mask. The truth sweep then measures T. A third sweep
-examines that same truth against the declaration and gives E1. One run, three passes, and
-the profile, R&nbsp;set and mask are written into one directory so they describe one system.
-In the app, <strong>Run loop</strong> in the compliance loop window makes this run and shows
-T beside E1 with the gap; the console loop mode makes the same run and also writes its dated
-record, with the walks and the truth-only rerun described below.</p>
+<p>Run loop derives the declaration before it measures anything else.</p>
+<ul>
+<li><strong>The R&nbsp;set</strong> is measured on a saturated probe: no victim, no limit,
+demand raised to the declared co-frequency cap when one is declared, and activity, duty and
+operational fraction at 1. What the probe observes becomes the declared operating parameters.
+Name an R&nbsp;set in <strong>Declared R set</strong> to skip the probe and use that set
+instead.</li>
+<li><strong>The pfd mask</strong> is not measured. It is the profile&rsquo;s declared mask when
+the profile names one; a named file that is missing stops the run, which names it. Without one
+the run computes the mask from the payload&rsquo;s reachable envelope: the strongest level any
+permitted beam position could produce, whether the probe visited it or not, and over the
+profile&rsquo;s <strong>Yaw steering range</strong> when it gives one, so the mask is
+conservative by construction. Latitude rows from which no
+cell within the declared service latitudes can be reached are written as no transmission. A
+later run reuses the computed mask while it is newer than the profile.</li>
+</ul>
+<p>The profile, the R&nbsp;set and the computed mask are written into one run directory, so they
+describe one system. The R-set designer&rsquo;s <a href="r-set-designer.html">Derive &amp;
+fill</a> reads that directory instead of simulating again.
+<a href="where-declarations-come-from.html">Where Declarations Come From</a> explains the whole
+relation, and why the declaration must not be measured on the run that later checks it.</p>
+<div class="tech"><div class="t">Tech &middot; a mask that is given</div>
+<p>When the footprint source is a mask taken as input, such as a filed mask, the loop cannot
+re-derive it: the mask keeps only the strongest level in each direction and has lost which beam
+produced it. Instead Run loop checks whether the mask already carries the shaping the R&nbsp;set
+declares. For each latitude block it measures how far power within 3&nbsp;dB of the
+block&rsquo;s peak reaches inside the declared exclusion zone and below the declared elevation
+floor, and grades each: CONSISTENT at the gate, MASK TIGHTER beyond it, LIT INSIDE when the
+reach stops short of the arc, SATURATED when it does not. Beside the elevation grade it reports
+the lit reach, the lowest ground elevation still within 20&nbsp;dB of the block&rsquo;s peak,
+as a number and not a grade: on the one family of masks examined for it, masks built with and
+without an elevation floor lit the ground down to the same elevations, so it cannot tell a
+missing floor from a spilling one. A computed mask read this way shows the main-lobe edge of
+gated beams reaching inside the zone at its cell size; a filed two-level mask shows its
+rule.</p></div>
 
-<p>The R-set designer&rsquo;s <a href="r-set-designer.html">Derive &amp; fill</a> reads that
-directory rather than simulating again.
-<a href="where-declarations-come-from.html">Where Declarations Come From</a> sets out the
-whole relation &mdash; and why the declaration must not be measured on the run that later
-verifies it.</p>
+<h2>The advisors</h2>
+<p>Two advisors search for the operating rule that makes the truth pass, judging by the
+verdict&rsquo;s own margin. What they find goes into the profile as a rule the scheduler
+enforces. Nothing they find is filed directly: the filed values are then measured from the
+operation under that rule.</p>
+<ul>
+<li><strong>Suggest exclusion</strong> raises the global GSO exclusion angle from the
+profile&rsquo;s value in steps of <strong>alpha step</strong>, up to the <strong>cap</strong>,
+re-running the full sweep at each step. It stops at the first angle where every latitude
+passes. It walks rather than bisects because every step is a result: the report gives the worst
+margin, the latitude holding it, and whether the margin improved, worsened or stayed flat as
+the angle grew. From that trend it says what to do next: raise the cap, accept that a wider
+exclusion makes this geometry worse, or accept that the exclusion is not the lever. When only
+some latitudes failed, it notes that per-latitude exclusion rows would be the finer rule.
+<strong>Apply to profile</strong> writes the angle into the profile.</li>
+<li><strong>Advise Nco rows</strong> works on the per-cell co-frequency cap. It walks the cap
+down from the profile&rsquo;s baseline, the declared cap clamped by demand, no lower than the
+<strong>Range floor</strong>. For each latitude it keeps the largest cap that latitude&rsquo;s
+own result allows, checking that a tighter cap does not make a passing latitude fail, and it
+verifies the combined rows in one joint sweep. <strong>Apply Nco rows</strong> writes them into
+the profile&rsquo;s per-latitude cap rows and leaves rows outside the swept latitudes alone.
+When no margin moves, it says the cap is not the lever; with one link demanded per cell it
+barely binds.</li>
+</ul>
+<div class="tech"><div class="t">Tech &middot; the power headroom line</div>
+<p>epfd moves dB for dB with the per-beam transmit power density, so every sweep&rsquo;s worst
+margin is also the <code>TxEirpDbw</code> headroom: how much per-beam power the payload may add,
+or must shed. The summary prints it after every sweep and at the advisors&rsquo; end points. It
+applies to live beams only; a declared mask is a fixed file and would have to be
+regenerated.</p></div>
+<div class="tech"><div class="t">Tech &middot; from tendency to promise</div>
+<p>The filing carries no scheduling strategy, so a behaviour reaches the declarations only as
+a rule the scheduler enforces. The recipe: <em>observe</em> the tendency in the truth;
+<em>harden</em> it into the profile field the scheduler enforces (<code>AlphaExclDeg</code>,
+the Nco caps, <code>MinElevDeg</code>, <code>MinHoldSec</code>); <em>verify</em> what it costs
+by sweeping again, and by running the truth under the declared R&nbsp;set with the simulation
+runner&rsquo;s override; <em>declare</em> it through the R&nbsp;set. The two advisors automate
+the harden step for the exclusion angle and the caps; the other fields are promoted by hand.
+Two cautions. Derived min_elev rows above the enforced floor describe one finite run, not a
+promise, until the floor itself is raised. And a declared min_duration makes the scheduler
+admit a link only toward a satellite that stays feasible for the whole dwell, and asks the
+examination for the track-duration algorithm of S.1503-4 &sect;D5.1.4.2. That algorithm is not
+built here: such a set is examined with the classic algorithm, and the run says so.</p></div>
 
-<p>What has not changed is the loop&rsquo;s <em>prescriptive</em> half. Where it walks
-operating rules &mdash; an exclusion angle, per-latitude co-frequency caps &mdash; what it
-finds is written into the <em>profile</em>, as rules the scheduler enforces. Nothing it
-synthesises is filed directly: a synthesised cap becomes a profile rule, and the filed
-<code>MAX_CO_FREQ</code> row is then <em>measured</em> from operation under that rule.</p>
-
-<h2>The acceptance test</h2>
-<p>E1 must sit at or above T at every latitude. That is what proves the declaration actually
-envelopes the system it describes, and the run states it explicitly &mdash; naming the
-latitudes when it fails. An E1 below T is a granularity failure of the <em>derivation</em>,
-never a compliance failure of the <em>system</em>: one is fixed by measuring more finely, the
-other by redesigning. The gap between them, where the test passes, is the margin the
-declaration gives away &mdash; and at the same dB-for-dB rate as the power headroom above, it
-is operating power the system could have been licensed for.</p>
-
-<h2>What a run can resolve</h2>
-<p>The defaults &mdash; 0.1&nbsp;day at a 1&nbsp;s step, 8&nbsp;640 steps per latitude sweep &mdash;
-are <em>screening-grade</em>. The exclusion walk costs up to one sweep per walk step, so the
-status line estimates the time left while a run goes, measured on the run itself. Short-term limit
-points at very small percentages need far longer runs to even resolve: a point at 0.017%
-of the time is decided by a handful of extreme samples, on the order of six thousand steps
-or more. And the step size matters as much as the count: measured on the reference
-geometry (450&nbsp;km cells at 1200&nbsp;km), 60&nbsp;s steps miss the main-beam transients
-entirely &mdash; per-run maxima moved ~20&nbsp;dB between 60&nbsp;s and 6&nbsp;s time steps and
-only ~0.3&nbsp;dB between 6&nbsp;s and 1&nbsp;s. On STEAM-2 the truth's maxima rose 2.0 to
-3.3&nbsp;dB between 60&nbsp;s and 6&nbsp;s, and the examination at 1&nbsp;s reads within
-0.1&nbsp;dB of the time step S.1503-4 prescribes. So the truth runs on a preset 1&nbsp;s step,
-and the window warns when a step samples the fastest crossing of the earth station&rsquo;s
-3&nbsp;dB beam fewer than three times. That is our own measurement of a rule the simulation
-methodology states generally: tie the time step to the beamwidth of the <em>interfered</em>
-antenna, so that at least five samples fall while a satellite crosses its 3&nbsp;dB beam
-(Rec. ITU-R S.1325 revision draft &sect;2.7.2); three is where the measurement shows the
-maxima settled. With the Random strategy and no hold the selection is redrawn at every step,
-so the step is also the reselection period: changing the step changes the traffic model as
-well as the sampling. The examination&rsquo;s own stepping is S.1503-4&rsquo;s (&sect;D4): the
-<strong>Examination step</strong> choice runs a declared-mask sweep on its fine and coarse steps
-with the dual time step, over the same duration. The
-loop's job at screening depth is to locate the compliant region, the binding
-latitude and the trend; the final word belongs to a long, fine-stepped run at the found
-angle. The window
-also warns when the profile carries per-latitude exclusion rows the payload's single scene
-ring cannot express &mdash; a verdict computed in that state names its gap rather than
-hiding it. One more rule governs what a run may quote as an
-absolute: a figure stands only with a <em>convergence pair</em> &mdash; the same statistic at
-twice the depth, moving no more than a stated tolerance (0.5&nbsp;dB by default), both depths
-named where it is quoted. Differences at matched depth are quotable as differences. The pair is bought at half
-price: the derivation measured exactly depth-stable, so a <em>truth-only</em> rerun
-(<code>reuse=&lt;run dir&gt;</code> in the console mode) skips the probe, reads the earlier run&rsquo;s
-R&nbsp;set and mask back, and runs only the truth sweep and the examination at the new depth.
-In the window, naming the earlier run&rsquo;s R&nbsp;set in the optional R-set field skips the
-probe the same way.</p>
+<h2>How long, and how fine</h2>
+<p>The defaults, 0.1&nbsp;day at a 1&nbsp;s step, give 8&nbsp;640 steps per latitude. That is
+screening depth: enough to find the compliant region, the binding latitude and the trend. The
+final word belongs to a long run at the settings found. The exclusion walk costs up to one full
+sweep per step.</p>
+<ul>
+<li><strong>Short-term limit points need long runs.</strong> A point at 0.017% of the time
+rests on a handful of extreme samples; resolving it takes on the order of six thousand steps or
+more. The status line states the smallest percentage each run resolves.</li>
+<li><strong>The step must be fine.</strong> A satellite crosses the victim&rsquo;s 3&nbsp;dB
+beam in seconds, and a coarse step misses the peak. On one test geometry, 450&nbsp;km cells at
+1&nbsp;200&nbsp;km, the maxima moved about 20&nbsp;dB between 60&nbsp;s and 6&nbsp;s steps and
+about 0.3&nbsp;dB between 6&nbsp;s and 1&nbsp;s. On STEAM-2 the truth&rsquo;s maxima rose 2.0 to
+3.3&nbsp;dB between 60&nbsp;s and 6&nbsp;s. So the step is preset to 1&nbsp;s, and the window
+warns when a step samples the fastest crossing of the victim&rsquo;s 3&nbsp;dB beam fewer than
+three times.</li>
+<li><strong>The step can change the traffic.</strong> With the Random strategy and no hold, the
+selection is redrawn at every step, so the step is also the reselection period.</li>
+<li><strong>The examination has its own step.</strong> Set <strong>Examination step</strong> to
+<em>S.1503-4 fine/coarse</em> to examine a declared mask on the time step S.1503-4 prescribes,
+with its dual time step, over the same duration; in Run loop this fills the
+<em>E1, S.1503-4 step</em> column. On STEAM-2 the examination at 1&nbsp;s reads within
+0.1&nbsp;dB of that step. The truth and the advisors stay on the preset step.</li>
+<li><strong>Per-latitude exclusion rows</strong> in the profile gate the scheduler only; the
+beams carry a single exclusion ring. The window warns when a profile has such rows.</li>
+</ul>
+<div class="tech"><div class="t">Tech &middot; the time-step rule and convergence</div>
+<p>Three samples per crossing is our own threshold, where the measured maxima settled. The
+simulation methodology states the general rule: tie the step to the beamwidth of the interfered
+antenna, with at least five samples while a satellite crosses its 3&nbsp;dB beam (Rec. ITU-R
+S.1325 revision draft &sect;2.7.2). The fastest crossing is the pass time of S.1503-4
+&sect;D4.2; the examination&rsquo;s own stepping is that of &sect;D4. A figure quoted as an
+absolute needs a <em>convergence pair</em>: the same statistic at twice the depth, moving by no
+more than a stated tolerance, 0.5&nbsp;dB by default, with both depths named. Differences at
+matched depth can be quoted as differences. The pair is cheap: the derivation is depth-stable,
+so a rerun that names the earlier run&rsquo;s R&nbsp;set in <strong>Declared R set</strong>
+skips the probe, reuses the mask, and runs only the truth and the examination at the new
+depth.</p></div>
 
 <div class="foot">
 Companion pages: <a href="simulation-runner.html">Inside the Simulation Runner</a> &middot;

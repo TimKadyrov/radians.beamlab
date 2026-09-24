@@ -282,7 +282,81 @@ public static class OrbitDesign
             atTargetAltitude ? solution.RptPrdAtTarget : solution.RptPrd);
     }
 
-    /// <summary>Case 3 (administration-supplied precession).</summary>
+    /// <summary>
+    /// Case 3 station keeping with an administration-supplied precession
+    /// (Rec. S.1503-4 Sec. D6.3.5 a) and eqs (51)-(53)): the argument of
+    /// perigee is held and the satellite moves at the point-mass mean
+    /// motion n0, so the track repeats after k orbits in m nodal days only
+    /// when the node turns at D = omega_e - m n0 / k. Returned in deg/s,
+    /// rounded to the 0.01 deg/day the SRS precession field carries
+    /// (format 999.99), so the rate flown and the rate filed agree.
+    /// </summary>
+    public static double Case3ClosingRateDegPerSec(double semiMajorAxisKm, int orbits, int nodalDays)
+        => Math.Round(Case3ExactClosingRateDegPerSec(semiMajorAxisKm, orbits, nodalDays) * 86400.0, 2) / 86400.0;
+
+    /// <summary>The Case-3 closing rate before the 0.01 deg/day rounding (deg/s, signed).</summary>
+    public static double Case3ExactClosingRateDegPerSec(double semiMajorAxisKm, int orbits, int nodalDays)
+    {
+        if (orbits < 1 || nodalDays < 1) throw new ArgumentOutOfRangeException(nameof(orbits));
+        double n0 = Math.Sqrt(OrbitalConstants.MuEarth / Math.Pow(semiMajorAxisKm, 3.0));
+        double rateRad = OrbitalConstants.EarthRotationRate - nodalDays * n0 / orbits;
+        return rateRad * 180.0 / Math.PI;
+    }
+
+    /// <summary>
+    /// Case 3 repeat period (s): k point-mass orbits, 2 pi k / n0 -- with the
+    /// argument of perigee held, the node-to-node period is the orbital one.
+    /// </summary>
+    public static double Case3RepeatSeconds(double semiMajorAxisKm, int orbits)
+        => orbits * 2.0 * Math.PI / Math.Sqrt(OrbitalConstants.MuEarth / Math.Pow(semiMajorAxisKm, 3.0));
+
+    /// <summary>
+    /// The SRS orbit.precession value for a signed rate in deg/s: its
+    /// magnitude in degrees/day, format 999.99, >= 0 (S.1503-4 SRS orbit
+    /// table). The direction is not on file: it is the one the inclination
+    /// implies, -sign(cos i) as in eq (21) (operator decision 2026-09-24).
+    /// </summary>
+    public static double PrecessionFieldDegPerDay(double rateDegPerSec)
+        => Math.Round(Math.Abs(rateDegPerSec) * 86400.0, 2);
+
+    /// <summary>
+    /// The direction a filed precession magnitude turns the node: -1 west
+    /// for a prograde orbit, +1 east for a retrograde one, 0 for a polar
+    /// orbit, which implies none (-sign(cos i), eq (21)).
+    /// </summary>
+    public static int PrecessionDirection(double inclinationDeg)
+    {
+        double c = Math.Cos(inclinationDeg * Math.PI / 180.0);
+        return Math.Abs(c) < 1e-12 ? 0 : c > 0.0 ? -1 : 1;
+    }
+
+    /// <summary>True when a signed rate can be filed: zero, or turning the way the inclination implies.</summary>
+    public static bool PrecessionMatchesInclination(double rateDegPerSec, double inclinationDeg)
+        => rateDegPerSec == 0.0 || Math.Sign(rateDegPerSec) == PrecessionDirection(inclinationDeg);
+
+    /// <summary>
+    /// The signed rate (deg/s) a reader recovers from the filed magnitude:
+    /// the step the examination software must apply when it reads the field.
+    /// </summary>
+    public static double PrecessionFromField(double fieldDegPerDay, double inclinationDeg)
+        => PrecessionDirection(inclinationDeg) * fieldDegPerDay / 86400.0;
+
+    /// <summary>
+    /// The J2 apsidal rate (deg/s), eq (22): 1.5 J2 (Re/p)^2 n_bar (2 - 2.5
+    /// sin^2 i), zero at the critical inclinations 63.43 and 116.57 deg.
+    /// Case 3 holds the perigee fixed (eq (51)) whatever this rate is.
+    /// </summary>
+    public static double ApsidalRateDegPerSec(double semiMajorAxisKm, double eccentricity, double inclinationDeg)
+    {
+        double n0 = Math.Sqrt(OrbitalConstants.MuEarth / Math.Pow(semiMajorAxisKm, 3.0));
+        double p = semiMajorAxisKm * (1.0 - eccentricity * eccentricity);
+        double k = 1.5 * OrbitalConstants.J2 * Math.Pow(OrbitalConstants.EarthRadiusKm / p, 2.0);
+        double s2 = Math.Pow(Math.Sin(inclinationDeg * Math.PI / 180.0), 2.0);
+        double nBar = n0 * (1.0 + k * (1.0 - 1.5 * s2) * Math.Sqrt(1.0 - eccentricity * eccentricity));
+        return k * nBar * (2.0 - 2.5 * s2) * 180.0 / Math.PI;
+    }
+
+    /// <summary>Case 3 field preview from the precession rate alone (legacy form; the tab files Case 3 station-kept).</summary>
     public static SnsOrbitFieldsPreview Case3Fields(double precessionDegPerSec)
         => new('N', null, 'Y', precessionDegPerSec, null);
 

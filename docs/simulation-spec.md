@@ -119,6 +119,13 @@ what makes the envelope meaningful**, and it is the main reason a derived mask
 is tighter than a naive worst case. It must be a first-class input, not a
 per-beam afterthought.
 
+*Note, 24 September 2026:* no payload power budget is modelled, here or in
+§4.2 and §5. Each beam radiates the per-beam density TxEirpDbw (PowerMode
+constant e.i.r.p. or constant boresight pfd), with no total bound and no
+redistribution across beams; the reachable envelope takes every beam at
+that power. A declared co-frequency beam capacity limits how many
+same-colour beams the envelope sums, not their power.
+
 ## 5. What the mask envelopes over
 
 A decision to take before WP4, because it changes what the derivation computes:
@@ -291,6 +298,8 @@ the spec reads as history rather than as pending work.
 1. **Reachable** is the envelope basis (§5), bounded by the payload power
    budget; the *occurring* set remains available through the scheduler-gated
    pointing and is what the expectation CDFs use for the selection-rule side.
+   *Corrected 24 September 2026:* no payload power budget was built; the
+   reachable envelope is taken at the per-beam power (§4.3 note).
 2. The propagator is **vendored byte-identical** into `core/orbits/`
    (namespaces preserved, provenance in its README); a drift-guard check
    compares every vendored file against the source tree, so "shared

@@ -4,32 +4,23 @@ using System.Windows;
 namespace radians.beamlab.app;
 
 /// <summary>
-/// The operating-parameters designer window: dialogs over
-/// <see cref="OpParamsViewModel"/>. Filing-parameter help comes from the
+/// The operating-parameters designer window over <see cref="OpParamsViewModel"/>:
+/// every button is a command of the view model, the window supplies the
+/// dialogs. Filing-parameter help comes from the
 /// shared ParameterCatalog (the card deck's twin).
 /// </summary>
 public partial class OpParamsWindow : Window
 {
     private readonly OpParamsViewModel _vm = new();
 
-    private readonly string? _guidePath;
-
     public OpParamsWindow()
     {
         InitializeComponent();
+        _vm.PickOpenFile = ViewServices.PickOpenFile;
+        _vm.PickSaveFile = ViewServices.PickSaveFile;
+        _vm.OpenDocument = ViewServices.OpenDocument;
         DataContext = _vm;
-        string? docs = HomeViewModel.FindDocsDir(AppContext.BaseDirectory);
-        string? guide = docs is null ? null : System.IO.Path.Combine(docs, "r-set-designer.html");
-        _guidePath = guide is not null && System.IO.File.Exists(guide) ? guide : null;
-        GuideBtn.IsEnabled = _guidePath is not null;
         WireToolTips();
-    }
-
-    private void OnGuideClick(object sender, RoutedEventArgs e)
-    {
-        if (_guidePath is null) return;
-        System.Diagnostics.Process.Start(
-            new System.Diagnostics.ProcessStartInfo(_guidePath) { UseShellExecute = true });
     }
 
     private void WireToolTips()
@@ -48,68 +39,5 @@ public partial class OpParamsWindow : Window
         MinElevBox.ToolTip = Cat("MIN_ELEV");
         MaxCoFreqArrBox.ToolTip = Cat("MAX_CO_FREQ");
         MinDurationArrBox.ToolTip = Cat("MIN_DURATION");
-    }
-
-    private void OnSaveClick(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            string json = _vm.BuildJson();
-            var dlg = new Microsoft.Win32.SaveFileDialog
-            {
-                Filter = "Operating parameters (*.opparams.json)|*.opparams.json",
-                FileName = "set.opparams.json",
-            };
-            if (dlg.ShowDialog() != true) return;
-            System.IO.File.WriteAllText(dlg.FileName, json);
-            string conflict = _vm.FormConflictNote();
-            _vm.StatusText = "saved: " + dlg.FileName + (conflict.Length > 0 ? " -- " + conflict : "");
-        }
-        catch (Exception ex) { _vm.StatusText = "save failed: " + ex.Message; }
-    }
-
-    private void OnLoadClick(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.OpenFileDialog
-        {
-            Filter = "Operating parameters (*.opparams.json)|*.opparams.json|JSON|*.json",
-        };
-        if (dlg.ShowDialog() != true) return;
-        try
-        {
-            _vm.LoadJson(System.IO.File.ReadAllText(dlg.FileName));
-            _vm.StatusText = "loaded: " + dlg.FileName;
-        }
-        catch (Exception ex) { _vm.StatusText = "load failed: " + ex.Message; }
-    }
-
-
-    private void OnDeriveProfileBrowseClick(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.OpenFileDialog
-        {
-            Filter = "Operation profile (*.opprofile.json)|*.opprofile.json|JSON|*.json",
-        };
-        if (dlg.ShowDialog() != true) return;
-        _vm.DeriveProfilePath = dlg.FileName;
-    }
-
-    private async void OnDeriveClick(object sender, RoutedEventArgs e) => await _vm.DeriveAsync();
-
-    private void OnExportClick(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.SaveFileDialog
-        {
-            Filter = "R-set XML (*.xml)|*.xml",
-            FileName = "opparams.xml",
-        };
-        if (dlg.ShowDialog() != true) return;
-        try
-        {
-            _vm.ExportXml(dlg.FileName);
-            _vm.StatusText = "R XML written: " + dlg.FileName
-                + " — register it in the SNS builder as an f_mask R row";
-        }
-        catch (Exception ex) { _vm.StatusText = "export failed: " + ex.Message; }
     }
 }

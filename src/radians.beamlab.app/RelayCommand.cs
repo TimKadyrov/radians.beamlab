@@ -27,6 +27,26 @@ public sealed class RelayCommand : ICommand
 }
 
 /// <summary>
+/// Synchronous <see cref="ICommand"/> with a typed parameter -- a card or a
+/// row bound as CommandParameter; executable only when the parameter is one.
+/// </summary>
+public sealed class RelayCommand<T> : ICommand
+{
+    private readonly Action<T> _execute;
+
+    public RelayCommand(Action<T> execute) => _execute = execute;
+
+    public bool CanExecute(object? parameter) => parameter is T;
+    public void Execute(object? parameter) { if (parameter is T t) _execute(t); }
+
+    public event EventHandler? CanExecuteChanged
+    {
+        add    => CommandManager.RequerySuggested += value;
+        remove => CommandManager.RequerySuggested -= value;
+    }
+}
+
+/// <summary>
 /// Async <see cref="ICommand"/>: while a previous invocation is still running,
 /// <see cref="CanExecute"/> returns false so the button greys out automatically.
 /// </summary>

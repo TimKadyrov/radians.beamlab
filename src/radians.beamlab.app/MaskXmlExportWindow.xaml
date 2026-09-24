@@ -106,7 +106,7 @@
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBox Grid.Column="0" Text="{Binding OutputPath, UpdateSourceTrigger=PropertyChanged}"/>
-                            <Button Grid.Column="1" Content="Browse…" Click="OnBrowse" Padding="8,2" Margin="6,1,0,4"/>
+                            <Button Grid.Column="1" Content="Browse…" Command="{Binding BrowseOutputCommand}" Padding="8,2" Margin="6,1,0,4"/>
                         </Grid>
                         <TextBlock Foreground="#698089" TextWrapping="Wrap"
                                    Text="The extension is set from the format (.xml / .csv); 'XML + CSV' writes both with the same base name. CSV = one row per (latitude, b), one column per c value."/>
@@ -121,7 +121,7 @@
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
             <Button Content="Generate" Command="{Binding GenerateCommand}" Padding="14,4" Margin="0,0,6,0" IsDefault="True"/>
             <Button Content="Cancel" Command="{Binding CancelCommand}" IsEnabled="{Binding IsGenerating}" Padding="10,4" Margin="0,0,6,0"/>
-            <Button Content="Close" Click="OnClose" Padding="14,4" IsCancel="True"/>
+            <Button Content="Close" Padding="14,4" IsCancel="True"/>
         </StackPanel>
     </Grid>
 </Window>

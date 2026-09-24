@@ -33,11 +33,13 @@ public static class ComplianceLoopSteps
     /// keeps its own cache instead of thrashing one.
     /// </summary>
     public static string MaskCacheTag(double maskLatStepDeg, double azElStepDeg,
-        double esLatMinDeg, double esLatMaxDeg)
+        double esLatMinDeg, double esLatMaxDeg, double yawRangeDeg = 0.0)
     {
         var inv = CultureInfo.InvariantCulture;
+        // A yaw-swept mask is a different mask; without yaw the tag is unchanged.
+        string yaw = yawRangeDeg > 0.0 ? string.Create(inv, $"-yaw{yawRangeDeg:F1}") : "";
         return string.Create(inv,
-            $"lat{maskLatStepDeg:F1}-ae{azElStepDeg:F1}-svc{esLatMinDeg:F0}to{esLatMaxDeg:F0}-v{ProducerId()}")
+            $"lat{maskLatStepDeg:F1}-ae{azElStepDeg:F1}-svc{esLatMinDeg:F0}to{esLatMaxDeg:F0}{yaw}-v{ProducerId()}")
             .Replace(".", "p");
     }
 
@@ -93,6 +95,28 @@ public static class ComplianceLoopSteps
     /// R set's saturated probe, written under the service-span certificate.
     /// <paramref name="log"/> receives the run's status lines.
     /// </summary>
+    /// <summary>
+    /// The body-yaw offsets the computed mask sweeps for the profile's yaw
+    /// steering range: -R..+R in equal steps no coarser than the mask's
+    /// az/el grid, so no peak slips between cells; {0} without yaw steering.
+    /// </summary>
+    public static double[] YawSweep(double? rangeDeg, double azElStepDeg)
+    {
+        if (rangeDeg is not double r || r <= 0.0) return new[] { 0.0 };
+        int n = (int)Math.Ceiling(r / azElStepDeg);
+        return Enumerable.Range(-n, 2 * n + 1).Select(j => r * j / n).ToArray();
+    }
+
+    /// <summary>
+    /// Why a loop cannot use the profile's named pfd mask, or null: a named
+    /// file that is missing stops the run rather than being replaced by a
+    /// computed mask the operator did not ask for.
+    /// </summary>
+    public static string? MissingMaskNote(OperationProfile prof)
+        => prof.Down.MaskXmlPath.Trim() is { Length: > 0 } named && !File.Exists(named)
+            ? $"the profile names the pfd mask {named}, which is missing -- restore the file, or clear the PFD mask XML field of the profile to have the run compute the mask"
+            : null;
+
     public static void ExportReachableMask(OperationProfile prof, ConstellationShell[] shells,
         OperatingParamsSet declaredSet, string path, double maskLatStepDeg, double azElStepDeg,
         Action<string>? log = null, IProgress<double>? progress = null)
@@ -112,6 +136,7 @@ public static class ComplianceLoopSteps
             BStepDeg = azElStepDeg, CStepDeg = azElStepDeg,
             Kind = MaskPlotKind.AzEl, Format = MaskExportFormat.Xml,
             OutputPath = path,
+            YawSweepDeg = YawSweep(prof.Down.YawSteeringRangeDeg, azElStepDeg),
         };
         log?.Invoke(string.Create(inv,
             $"  exporting the reachable-envelope mask: lat {-latMax:F0}..{latMax:F0} step {maskLatStepDeg:F1}, az/el {azElStepDeg:F1} deg..."));

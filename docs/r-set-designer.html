@@ -40,6 +40,7 @@ h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; marg
 h2{font-size:21px; font-weight:600; letter-spacing:-.01em; margin:2.2em 0 .4em; text-wrap:balance; max-width:var(--measure)}
 p{max-width:var(--measure)}
 ul{max-width:var(--measure)}
+li{margin:.35em 0}
 code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--code-bg); padding:0 4px; border-radius:3px}
 .tech{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--g1); border-radius:5px; padding:12px 16px; margin:14px 0; font-size:13.5px; max-width:var(--measure)}
 .tech .t{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; font-weight:600}
@@ -60,165 +61,295 @@ a{color:var(--g1)} a:hover{color:#1983AA}
 <div class="wrap">
 <div class="kicker">radians.beamlab &middot; operating parameters designer</div>
 <h1>Inside the R Set</h1>
-<p class="lede">The R&nbsp;set is the filing's promise about how the system points and
-schedules &mdash; the operating constraints the EPFD examination enforces alongside the
-pfd and e.i.r.p. masks. This page explains what it declares (and deliberately does not),
-how the examination reads it, and the two ways the designer authors it.</p>
+<p class="lede">The Operating parameters (R&nbsp;set) window writes one R&nbsp;set: the operating
+constraints a non-geostationary (non-GSO) filing declares beside its power flux-density (pfd) and
+e.i.r.p. masks. You type the values or fill them from a compliance-loop run, review them, then
+save the set as JSON or export it as XML.</p>
 
-<h2>What the R&nbsp;set declares</h2>
-<p>Not a watt of it is about transmission. Powers, e.i.r.p. and the shape of the emissions
-are enveloped by the pfd and e.i.r.p. <em>masks</em>; the R&nbsp;set declares the
-<strong>pointing and scheduling discipline</strong> the operation keeps &mdash; the promises
-that decide when a non-GSO satellite may serve at all, and how many may do so together.</p>
-<table class="ex">
-  <tr><th>quantity</th><th>the promise</th></tr>
-  <tr><td>min_elev</td><td>no link below this elevation (per latitude and azimuth; header elsewhere)</td></tr>
-  <tr><td>min_exclude</td><td>no transmission inside this GSO-arc angle (per latitude, per orbit)</td></tr>
-  <tr><td>max_co_freq</td><td>at most this many co-frequency satellites toward one cell (per latitude)</td></tr>
-  <tr><td>max_co_freq_sat</td><td>at most this many co-frequency beams from one satellite</td></tr>
-  <tr><td>min_duration</td><td>a link, once made, is held at least this long (per latitude; header elsewhere)</td></tr>
-  <tr><td>min_angle_at_sat / _es</td><td>co-frequency links stay at least this far apart in angle</td></tr>
-  <tr><td>es_density &middot; es_distance</td><td>how densely the system's earth stations deploy, and how far apart</td></tr>
-  <tr><td>es_lat_min / _max</td><td>the latitude span the earth stations occupy</td></tr>
-</table>
-<p>The header quantities are single numbers; four of them can also be declared as
-<strong>per-latitude arrays</strong> that refine the promise where the geometry differs
-&mdash; a polar system's elevation floor at the equator is not its floor at 70&deg;.</p>
-
-<h2>How the examination reads it</h2>
-<div class="tech"><div class="t">Tech &middot; header vs arrays</div>
-<p>Where an array covers the earth station's latitude, the array row governs; elsewhere
-the header value fills in, and an <em>absent</em> header is permissive &mdash; no
-constraint is assumed on the operator's behalf. Per Part&nbsp;B of Recommendation ITU-R
-S.1503-4's R&nbsp;table, <code>min_elev</code>, <code>max_co_freq</code> and
-<code>min_duration</code> are read at the <strong>nearest latitude row</strong>, while
-<code>min_exclude</code> is read by <strong>linear interpolation</strong> between rows;
-the minimum angles are taken as zero when not provided.</p></div>
-<p>Two consequences are worth carrying around. A quantity you leave undeclared costs you
-nothing at examination time but promises nothing either; and an array only reaches as far
-as its rows &mdash; outside the declared latitude span the header (or permissiveness)
-takes over. Declare what the operation actually does, where it actually does it.</p>
-
-<h2>Two ways to author it</h2>
+<h2>Two ways to fill it</h2>
+<ul>
+<li><strong>Type the values</strong> when you know them in advance: to copy an existing filing, or
+to write a deliberately conservative set.</li>
+<li><strong>Derive &amp; fill</strong> when you do not. It fills the fields from the set the
+compliance loop wrote for your operation profile. It runs no simulation.</li>
+</ul>
+<p>Either way you end with the same editable fields. A derived set is a starting point to review,
+not a verdict.</p>
 
 <figure>
-<svg viewBox="0 0 700 330" role="img" aria-label="Manual entry and the compliance loop&apos;s derived set both fill the designer's fields; the reviewed set exports as R-set XML for the SNS builder and round-trips as JSON usable by the simulation runner as declared gates">
+<svg viewBox="0 0 700 276" role="img" aria-label="Manual entry and Derive &amp; fill, which reads the R set the compliance loop wrote for the profile, both fill the designer's fields. After review, Export R XML writes the R-set XML for the SNS v10 builder, and Save set writes the .opparams.json that Load set, the Simulation runner and the Compliance loop read.">
   <defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
   <g style="color:var(--ink)">
     <!-- manual path -->
-    <rect x="14" y="36" width="212" height="56" rx="5" fill="none" stroke="currentColor"/>
-    <text x="26" y="58" class="svgtxt">Manual entry</text>
-    <text x="26" y="75" class="svglbl">values known a priori</text>
+    <rect x="14" y="24" width="196" height="64" rx="5" fill="none" stroke="currentColor"/>
+    <text x="26" y="48" class="svgtxt">Manual entry</text>
+    <text x="26" y="68" class="svglbl">values known in advance</text>
 
     <!-- derived path -->
-    <rect x="14" y="150" width="212" height="112" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
-    <text x="26" y="172" class="svgtxt">Derive &amp; fill</text>
-    <text x="26" y="190" class="svglbl">reads the compliance loop&rsquo;s</text>
-    <text x="26" y="205" class="svglbl">own derivation for this</text>
-    <text x="26" y="226" class="svglbl">operation profile &mdash;</text>
-    <text x="26" y="241" class="svglbl">no simulation here</text>
+    <rect x="14" y="130" width="196" height="126" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
+    <text x="26" y="154" class="svgtxt">Derive &amp; fill</text>
+    <text x="26" y="174" class="svglbl">reads the R set the</text>
+    <text x="26" y="190" class="svglbl">compliance loop wrote</text>
+    <text x="26" y="206" class="svglbl">for this profile;</text>
+    <text x="26" y="222" class="svglbl">keeps identity and band;</text>
+    <text x="26" y="238" class="svglbl">no simulation here</text>
 
     <!-- designer -->
-    <rect x="298" y="106" width="152" height="96" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-    <text x="312" y="130" class="svgtxt">designer fields</text>
-    <text x="312" y="150" class="svglbl">review &amp; hand-tighten;</text>
-    <text x="312" y="165" class="svglbl">every field editable</text>
-    <text x="312" y="180" class="svglbl">before export</text>
+    <rect x="270" y="96" width="160" height="92" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="284" y="120" class="svgtxt">designer fields</text>
+    <text x="284" y="140" class="svglbl">review and edit,</text>
+    <text x="284" y="156" class="svglbl">then save or export</text>
 
-    <line x1="226" y1="64" x2="294" y2="130" stroke="currentColor" marker-end="url(#ar)"/>
-    <text x="240" y="76" class="svglbl">type the values</text>
-    <line x1="226" y1="206" x2="294" y2="172" stroke="var(--g1)" stroke-width="1.5" marker-end="url(#ar)" style="color:var(--g1)"/>
-    <text x="240" y="222" class="svglbl">measured envelope</text>
+    <line x1="210" y1="56" x2="266" y2="122" stroke="currentColor" marker-end="url(#ar)"/>
+    <line x1="210" y1="194" x2="266" y2="162" stroke="var(--g1)" stroke-width="1.5" marker-end="url(#ar)" style="color:var(--g1)"/>
 
     <!-- outputs -->
-    <line x1="450" y1="134" x2="538" y2="94" stroke="currentColor" marker-end="url(#ar)"/>
-    <rect x="524" y="48" width="162" height="56" rx="5" fill="none" stroke="currentColor"/>
-    <text x="536" y="70" class="svgtxt">R-set XML</text>
-    <text x="536" y="88" class="svglbl">SNS builder: f_mask R row</text>
+    <line x1="430" y1="124" x2="486" y2="72" stroke="currentColor" marker-end="url(#ar)"/>
+    <rect x="490" y="14" width="196" height="92" rx="5" fill="none" stroke="currentColor"/>
+    <text x="502" y="38" class="svgtxt">R-set XML</text>
+    <text x="502" y="58" class="svglbl">Export R XML&hellip;</text>
+    <text x="502" y="74" class="svglbl">SNS v10 builder:</text>
+    <text x="502" y="90" class="svglbl">register as an R row</text>
 
-    <line x1="450" y1="174" x2="538" y2="214" stroke="currentColor" marker-end="url(#ar)"/>
-    <rect x="524" y="204" width="162" height="86" rx="5" fill="none" stroke="currentColor"/>
-    <text x="536" y="226" class="svgtxt">.opparams.json</text>
-    <text x="536" y="244" class="svglbl">round-trips the designer;</text>
-    <text x="536" y="259" class="svglbl">simulation runner:</text>
-    <text x="536" y="274" class="svglbl">declared-gates override</text>
+    <line x1="430" y1="160" x2="486" y2="200" stroke="currentColor" marker-end="url(#ar)"/>
+    <rect x="490" y="150" width="196" height="110" rx="5" fill="none" stroke="currentColor"/>
+    <text x="502" y="174" class="svgtxt">.opparams.json</text>
+    <text x="502" y="194" class="svglbl">Save set (JSON)&hellip;</text>
+    <text x="502" y="212" class="svglbl">read by Load set&hellip;,</text>
+    <text x="502" y="228" class="svglbl">the Simulation runner</text>
+    <text x="502" y="244" class="svglbl">and the Compliance loop</text>
   </g>
 </svg>
-<figcaption>Both paths end in the same editable fields &mdash; a derived set is a proposal,
-not a verdict. The reviewed set exports as byte-convention R-set XML and round-trips as
-JSON.</figcaption>
+<figcaption>Both paths end in the same editable fields. Export writes the XML for the dataset;
+Save writes the JSON the other windows read.</figcaption>
 </figure>
 
-<p><strong>Manual entry</strong> is for values known a priori &mdash; copying an existing
-filing, or writing a deliberately conservative envelope. Every header quantity is a box,
-every array a few lines of text, and each field's tooltip is its parameter card.</p>
-<p><strong>Derive &amp; fill</strong> is the intended path when the declarations are not
-known: point at the operation profile and the panel fills every field from the compliance
-loop&rsquo;s own derivation for that profile. It does not simulate. The loop derives once,
-on a saturated probe, for the whole projection &mdash; a second derivation here would be a
-second opinion about the same system, free to disagree with the one the projection actually
-used. A run counts only when it is newer than the profile it describes; when there is none,
-run the compliance loop, which derives the declaration as its first step.</p>
+<h2>What the R&nbsp;set declares</h2>
+<p>The masks declare power: how strongly the satellites radiate in each direction. The R&nbsp;set
+declares the rest: where and when a satellite may serve, and how many may serve together. The
+examination under Rec. ITU-R S.1503-4 enforces these constraints alongside the masks.</p>
+<table class="ex">
+  <tr><th>field</th><th>declares</th><th>left empty</th></tr>
+  <tr><td>es_density &middot; es_distance</td><td>the typical earth-station deployment: stations per
+  km&sup2; and the distance between them in km; declare both or neither</td><td>omitted, as for a
+  filing that names specific earth stations</td></tr>
+  <tr><td>es_lat_min / es_lat_max</td><td>the latitude range the earth stations occupy; no location
+  outside it is served</td><td>&minus;90&deg; and +90&deg;</td></tr>
+  <tr><td>min_angle_at_sat</td><td>the smallest angle, seen from a satellite, between two earth
+  stations it serves on the same frequency</td><td>0&deg;</td></tr>
+  <tr><td>min_angle_at_es</td><td>the smallest angle, seen from an earth station, between two
+  satellites serving it on the same frequency</td><td>0&deg;</td></tr>
+  <tr><td>max_co_freq</td><td>the most satellites that may serve one location on the same frequency
+  at once; header or per-latitude array</td><td>no cap</td></tr>
+  <tr><td>max_co_freq_sat</td><td>the most earth stations one satellite may serve on the same
+  frequency at once</td><td>no cap</td></tr>
+  <tr><td>min_duration</td><td>the least time, in seconds, a link is held once made; header or
+  per-latitude array</td><td>no minimum (the classic algorithm)</td></tr>
+  <tr><td>elev_angle / min_elev</td><td>the lowest elevation at which a satellite may serve: the
+  header elev_angle, or the min_elev array by latitude and azimuth</td><td>0&deg;</td></tr>
+  <tr><td>min_exclude</td><td>the GSO exclusion angle: no satellite may serve from within this angle
+  of the GSO arc, as seen from the earth station; array only, by latitude and orbit</td><td>no
+  exclusion</td></tr>
+</table>
+<p>The profile&rsquo;s selection strategy, demand and traffic activity have no field here. They reach
+the filing only through the constraints they obey.</p>
+
+<h2>Filling in the fields</h2>
+<p>The left column holds the single values:</p>
+<ul>
+<li><strong>Identity and frequency</strong>: sat_name, ntc_id and param_id identify the set;
+low_freq_mhz and high_freq_mhz give the band it governs.</li>
+<li><strong>Earth-station population</strong>: es_density, es_distance, es_lat_min and
+es_lat_max.</li>
+<li><strong>Header constraints (empty = omitted)</strong>: min_angle_at_sat, min_angle_at_es,
+max_co_freq, max_co_freq_sat, min_duration and elev_angle. An empty box is left out of the
+XML.</li>
+</ul>
+<p>The four boxes on the right are the arrays. Each takes one node per line, in the format its
+header shows:</p>
+<ul>
+<li><strong>min_exclude</strong>: <code>orb lat alpha</code>, where orb&nbsp;0 means all
+orbits;</li>
+<li><strong>min_elev</strong>: <code>lat az elev</code>. Lines with the same lat form one
+latitude, read across azimuth, so write a floor that does not change with azimuth at az&nbsp;0 and
+az&nbsp;360;</li>
+<li><strong>max_co_freq</strong>: <code>lat value</code>;</li>
+<li><strong>min_duration</strong>: <code>lat seconds</code>.</li>
+</ul>
+<p>Numbers take a decimal point. Counts, seconds, orb, ntc_id and param_id are whole numbers. Most
+fields show their parameter card as a tooltip; sat_name, ntc_id, param_id, high_freq_mhz,
+es_distance and es_lat_max have none.</p>
+<p>Under the buttons, a grey line counts the nodes in each array. A red line reports a typing error
+with its field and line number, a set filed in both forms, and the result of each button.</p>
+
+<h2>Header or array: one form each</h2>
+<p>Three quantities come in two forms: one header value, or a per-latitude array. The header
+elev_angle is the single-value form of min_elev; max_co_freq and min_duration use one name for
+both. File each quantity in one form only.</p>
+<p>A set that files one quantity in both forms is an invalid filing. The red line names the
+quantity. <strong>Export R XML&hellip;</strong> refuses the set, and the Simulation runner and the
+Compliance loop refuse to use it. <strong>Save set (JSON)&hellip;</strong> still saves it, with the
+warning.</p>
+<p>min_exclude exists only as an array. The other header fields exist only as single values.</p>
+<p>A quantity you leave empty in both forms constrains nothing. It costs nothing in the
+examination, and it promises nothing. An array reaches every latitude: beyond its outermost row,
+that row applies. So one row declares one value everywhere, and the outermost rows must hold for
+every latitude beyond them. Declare what the operation does, where it does it.</p>
+<div class="tech"><div class="t">Tech &middot; how the set is read</div>
+<p>S.1503-4 reads the <code>min_elev</code>, <code>max_co_freq</code> and <code>min_duration</code>
+arrays at the <strong>nearest latitude row</strong> (&sect;D5.1.5, step&nbsp;1), and
+<code>min_exclude</code> by <strong>linear interpolation</strong> between latitude rows
+(Part&nbsp;B). The app reads them the same way wherever it runs a set. Within one min_elev latitude,
+elevation is interpolated linearly in azimuth, the end rows applying beyond them. Every read is
+total: beyond the outermost row, that row applies. An orbit&rsquo;s own min_exclude rows replace the
+orb&nbsp;0 rows for that orbit. S.1503-4 does not say what a set filed in both forms means, so the
+app refuses such a set rather than choose a precedence. Undeclared quantities impose nothing: an
+elevation floor of 0&deg;, no exclusion, no co-frequency caps, no minimum duration (the classic
+algorithm) and minimum angles of 0&deg;.</p></div>
+
+<h2>Derive &amp; fill</h2>
+<p>The <strong>Derive from the compliance loop</strong> group fills the fields from a
+compliance-loop run. Enter the profile&rsquo;s <code>*.opprofile.json</code> in
+<strong>Operation profile</strong>, or pick it with <strong>Browse&hellip;</strong>, and press
+<strong>Derive &amp; fill</strong>.</p>
+<p>The window reads the R&nbsp;set of the compliance-loop run made from that profile. It fills
+every field from it except sat_name, ntc_id, param_id, low_freq_mhz and high_freq_mhz: the identity
+and the band belong to your filing and stay as you entered them.</p>
+<p>It runs no simulation. The loop has already derived the set, and the loop&rsquo;s own checks used
+it; a second derivation here could disagree with it. The run&rsquo;s duration, time step and
+latitude step decide how much of the system the derivation saw, and they are set in the Compliance
+loop window.</p>
+<p>If that run was given a set in <strong>Declared R set (optional)</strong> instead of deriving one,
+the set it wrote, and so the set read here, is the given one.</p>
+<p>The red line names the run it read, by date and file, or says why none qualifies:</p>
+<ul>
+<li><strong>No profile.</strong> Pick one first.</li>
+<li><strong>No run, or the run is older than the profile file.</strong> Press <strong>Run
+loop</strong> in the Compliance loop window. It derives the set as its first step.</li>
+<li><strong>A run of the same name was made from a different profile.</strong> Give this profile its
+own name, or run the loop for it.</li>
+</ul>
+<p><strong>Load set&hellip;</strong> can also open a run&rsquo;s <code>*.operparams.json</code>
+directly. It then also takes the run&rsquo;s identity and band, which in a derived set are
+placeholders.</p>
+<div class="tech"><div class="t">Tech &middot; how the run is found</div>
+<p>Runs are filed under the profile&rsquo;s <strong>Profile name</strong>: the name up to any
+bracket, lower-cased, with every character other than a letter or digit turned into a hyphen and
+hyphens at the ends dropped. The run directory is <code>dataset\margin\&lt;name&gt;</code> in the
+folder that holds this page&rsquo;s docs folder, and the set is
+<code>&lt;name&gt;.operparams.json</code>. A run counts only when that file is newer than your
+profile file and, when the run keeps a copy of the profile it ran, that copy matches your profile.
+Two profiles whose names differ only in brackets share one run name.</p></div>
 
 <h2>What the derivation writes</h2>
+<p><strong>Run loop</strong> derives the set before it measures anything else. A
+<strong>saturated probe</strong> runs the system with no victim earth station, demand raised to the
+profile&rsquo;s co-frequency cap when it declares one, and activity factor, operational fraction and
+illumination duty cycle at 1. The probe runs for the loop&rsquo;s duration and time step. Every link
+it grants is measured, and the set envelopes the measurements:</p>
+<table class="ex">
+  <tr><th>field</th><th>derived value</th></tr>
+  <tr><td>min_elev</td><td>per latitude band, the lowest elevation of any link, rounded down to
+  0.1&deg;, the same at every azimuth</td></tr>
+  <tr><td>min_exclude</td><td>per latitude band, the smallest angle between a serving satellite and
+  the GSO arc, rounded down to 0.1&deg;; 0&deg; where no exclusion shaped the links (see
+  below)</td></tr>
+  <tr><td>max_co_freq</td><td>per latitude band, the most satellites serving one cell of the
+  profile&rsquo;s service grid at once</td></tr>
+  <tr><td>max_co_freq_sat</td><td>the most links one satellite carried at once</td></tr>
+  <tr><td>min_angle_at_es</td><td>the smallest angle, seen from a cell, between two satellites
+  serving it, rounded down to 0.1&deg;</td></tr>
+  <tr><td>min_angle_at_sat</td><td>the smallest angle, seen from a satellite, between two cells it
+  serves, rounded down to 0.1&deg;</td></tr>
+  <tr><td>es_lat_min / es_lat_max</td><td>the lowest and highest served latitude, rounded outward to
+  whole degrees</td></tr>
+  <tr><td>es_distance</td><td>the cell pitch of the profile&rsquo;s service grid</td></tr>
+  <tr><td>es_density</td><td>one station per cell-pitch square: 1/pitch&sup2;</td></tr>
+</table>
+<p>Each array row stands for a latitude band as wide as the loop&rsquo;s latitude step, placed at the
+band&rsquo;s centre. A quantity the probe never observed stays empty; nothing is guessed. The header
+forms elev_angle and max_co_freq are not written: those quantities come as arrays. min_duration is
+never written: declaring it would switch the examination to the track-duration algorithm of
+S.1503-4 &sect;D5.1.4.2.</p>
+<div class="tech"><div class="t">Tech &middot; the exclusion rows</div>
+<p><code>min_exclude</code> is read by interpolation between rows, so each row also governs part of
+its neighbouring bands. Each band&rsquo;s smallest angle is therefore first lowered to the smallest of
+its own and its two neighbours&rsquo; values. Rows of 0.05&deg; or less are then written as 0&deg;,
+since a near-zero angle means no exclusion shaped the links there: interpolation then passes
+through 0&deg; instead of spanning the band, and the outermost row cannot carry an angle into
+latitudes where none was seen. The rest are rounded down to 0.1&deg;. When no band exceeds
+0.05&deg;, no min_exclude is declared. The
+set carries one all-orbits array (orb&nbsp;0).</p></div>
+<p>The pfd mask is not measured on the probe. The loop uses the profile&rsquo;s declared mask, or
+computes one from every beam position the payload may take, visited or not, so a computed mask is
+conservative by construction. <a href="where-declarations-come-from.html">Where Declarations Come
+From</a> explains why the probe is saturated, and why the declaration must not be measured on the
+run that later checks it.</p>
+
+<h2>A derived set describes one run</h2>
+<p>The derived values are what the system did, not what its rules allow. They are usually tighter
+than the profile&rsquo;s rules, because an operation rarely sits on its limits. For example, a
+10&deg; elevation rule may give no link below 10.3&deg;, and 10.3&deg; is what the set
+declares.</p>
+<p>A value well above the rule the profile enforces is a tendency of one finite run, not yet a
+promise. Before you file it:</p>
 <ul>
-<li><strong>Measured minima become floors</strong> &mdash; the smallest link elevation per
-latitude band, floored to 0.1&deg;; the smallest GSO offset per band, declared as an
-exclusion row <em>only where an exclusion actually shaped operations</em>. A near-zero
-floor that no rule enforced is geometry, not a promise, and is not declared.</li>
-<li><strong>Measured maxima are carried</strong> &mdash; the most co-frequency links any
-cell received per band, the most one satellite carried, the smallest angular separations
-observed between simultaneous links.</li>
-<li><strong>The deployment comes from the geography</strong> &mdash; the served-latitude
-span, the cell pitch as <code>es_distance</code>, and <code>es_density</code> as one
-station per cell-pitch square.</li>
-<li><strong>Quantities never observed stay undeclared</strong> &mdash; the deriver writes
-arrays, not guesses; a header it did not measure is left empty rather than invented.</li>
+<li>raise the profile&rsquo;s own rule to match, so that the scheduler (the part of the simulation
+that assigns satellites to locations) enforces what the set declares. The tech box <em>From
+tendency to promise</em> in <a href="compliance-loop.html">Inside the Compliance Loop</a> gives the
+steps;</li>
+<li>check the result: run the system in the Simulation runner with the set in <strong>Operating
+params (optional)</strong>.</li>
 </ul>
-<p>The derived set is usually <em>tighter</em> than the profile's own rules, because a real
-operation rarely rides its limits: a 10&deg; elevation gate produces links at 10.3&deg;,
-and 10.3&deg; is what gets declared. That is the same doctrine the pfd and e.i.r.p. masks
-follow &mdash; declarations as envelopes of the simulated truth. But a derived row far
-above its enforced gate is a <em>tendency</em>, not yet a promise &mdash; one finite run's
-envelope. Before filing it, promote the enforced gate to match (the promotion recipe on
-the <a href="compliance-loop.html">compliance page</a>), and use the simulation runner's
-declared-gates override to run the truth under the declaration as the check.</p>
+<p>The Compliance loop&rsquo;s advisors work on the profile, not on the set. <strong>Apply to
+profile</strong> and <strong>Apply Nco rows</strong> (the per-latitude co-frequency caps) write rules
+the scheduler enforces; nothing they find is filed directly. So a cap an advisor writes and a
+derived max_co_freq row at the same latitude are different numbers: the first is a rule the
+operation obeys, the second is what the operation did under it.</p>
 
-<h2>Where it comes from</h2>
-<p>The derivation is not a second tool that happens to produce R-shaped tables. It is the
-<a href="compliance-loop.html">compliance loop</a>&rsquo;s <em>first step</em>: before the
-loop measures the truth, a saturated probe &mdash; no victim, no limit, demand at the
-declared cap &mdash; measures the R&nbsp;set and the pfd mask together. This panel reads
-what that run wrote.</p>
-<p>The loop still has a prescriptive half, and it is worth keeping separate in your head:
-where it walks operating rules, what it finds is written into the <em>profile</em>, as rules
-the scheduler enforces &mdash; never filed directly. A loop-synthesised cap and a derived
-<code>MAX_CO_FREQ</code> row at the same latitude are different numbers with different
-meanings: the first is an input the operation obeys, the second the measured envelope of
-what happened under it.</p>
-<p><a href="where-declarations-come-from.html">Where Declarations Come From</a> sets out the
-whole relation &mdash; why the probe is saturated, and why the declaration must not be
-measured on the run that later verifies it.</p>
-
-<div class="tech"><div class="t">Tech &middot; the writer's encoding rules</div>
-<p>Export enforces the R-set XML conventions: <code>min_duration</code> is never written
-as 0 (omit it to select the classic algorithm), <code>min_angle_at_es</code> is rejected
-when <code>min_duration</code> is declared, and <code>es_density</code> /
-<code>es_distance</code> must be declared together or both omitted.</p></div>
+<h2>Saving and exporting</h2>
+<ul>
+<li><strong>Save set (JSON)&hellip;</strong> writes the set as <code>*.opparams.json</code>. This
+window, the Simulation runner and the Compliance loop read it.</li>
+<li><strong>Load set&hellip;</strong> opens a <code>*.opparams.json</code>, or a compliance-loop
+run&rsquo;s <code>*.operparams.json</code>, and replaces every field.</li>
+<li><strong>Export R XML&hellip;</strong> writes the R-set XML for the SNS v10 builder. It refuses a
+set that breaks an encoding rule, and the red line says which.</li>
+</ul>
+<div class="tech"><div class="t">Tech &middot; the export rules</div>
+<p>The set is written as the <code>non_gso_operating_parameters</code> element of S.1503-4
+Part&nbsp;B. Export refuses a set that files a quantity in both forms, and enforces the encoding
+rules: <code>min_duration</code> is never written as 0 (leave it empty for the classic algorithm);
+<code>min_angle_at_es</code> is refused when <code>min_duration</code> is declared;
+<code>es_density</code> and <code>es_distance</code> are declared together, for a typical
+earth-station deployment, or both omitted, for specific earth stations; min_elev azimuths lie
+within 0 to 360&deg;; a min_exclude orb is 0 or more. A declared <code>min_duration</code> asks the
+examination for the track-duration algorithm of S.1503-4 &sect;D5.1.4.2. The Compliance loop does
+not build that algorithm: it examines such a set with the classic algorithm and says so.</p></div>
 
 <h2>Where the set goes</h2>
-<p>The exported XML registers in the <strong>SNS builder</strong> as an <code>f_mask R</code>
-row of the dataset. The JSON round-trips the designer &mdash; and the
-<strong>Simulation runner</strong> accepts it as the optional alternative gate source:
-the scheduler obeys the declared constraints instead of the profile's enforced gates,
-so the same truth payload can be run under its own discipline and under the declared
-one, and the two CDFs show what the declaration costs or allows.</p>
+<ul>
+<li><strong>SNS v10 builder.</strong> In <strong>Masks and operating-parameter sets (f_mask
+R)</strong>, add the XML with <strong>Add mask XML&hellip;</strong> and set the row&rsquo;s
+<strong>f_mask</strong> to R. With at least one R row, the builder flags the notice for examination
+with its operating-parameter sets. The builder&rsquo;s <strong>Design operating
+parameters&hellip;</strong> button opens this window.</li>
+<li><strong>Simulation runner.</strong> Put the JSON in <strong>Operating params
+(optional)</strong>. The scheduler then obeys the set&rsquo;s constraints instead of the
+profile&rsquo;s own rules, in both directions; the payload and power still come from the profile.
+Run the same system with and without the set: the two equivalent power flux-density (epfd)
+distributions show what the declaration costs or allows.</li>
+<li><strong>Compliance loop.</strong> Put the JSON in <strong>Declared R set (optional)</strong>.
+<strong>Run sweep</strong> examines a declared-mask profile against it; <strong>Run loop</strong>
+uses it instead of deriving a set.</li>
+</ul>
+<p>The Simulation runner and the Compliance loop refuse a set filed in both forms.</p>
 
 <div class="foot">
 Companion pages: <a href="simulation-runner.html">Inside the Simulation Runner</a> &middot;
 <a href="compliance-loop.html">Inside the Compliance Loop</a> &middot;
 <a href="orbit-design-cases.html">The Three Orbit Cases</a> &middot;
 <a href="repeat-solver.html">Inside the Repeat Solver</a>. This page opens from the
-<em>What goes in the R set?</em> button in the Operating parameters designer.
+<em>What goes in the R set?</em> button in the Operating parameters (R&nbsp;set) window.
 </div>
 </div>

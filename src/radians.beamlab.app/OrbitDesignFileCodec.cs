@@ -88,10 +88,10 @@ public static class OrbitDesignFileCodec
     /// </summary>
     public static ConstellationShell ToShell(OrbitDesignData d)
     {
-        // Cases 1 and 3 fly the target orbit as-is; a Case-2 design also
-        // declares at the target altitude by default, adopting the solved
-        // candidate's exact altitude only when opted out (the stored rpt_*
-        // fields already hold the matching declared decomposition).
+        // Cases 1 and 3 fly the target orbit as-is; a Case-2 design files the
+        // solved candidate's exact altitude unless it declares at the target
+        // (fixed altitude); the stored rpt_* fields already hold the matching
+        // declared decomposition.
         double alt = d.CaseChoice == 1 && !d.DeclareAtTargetAltitude
             ? d.SelectedAltitudeKm ?? d.TargetAltitudeKm
             : d.TargetAltitudeKm;
@@ -114,12 +114,23 @@ public static class OrbitDesignFileCodec
                     ? (dd, d.RptHours ?? 0, d.RptMinutes ?? 0, d.RptSeconds ?? 0)
                     : null,
             },
+            // Case 3 is station-kept with the supplied rate (Rec. S.1503-4
+            // Fig. 52): the stored repeat and keep_rnge ride with it, and an
+            // empty rate is the one that closes the stored repeat. A file
+            // with no stored repeat keeps its old reading (no station
+            // keeping, the plain-J2 rate), which the examination runs as Case 1.
             2 => shell with
             {
+                StationKeeping = d.RptDays is int, WDeltaDeg = d.RptDays is int ? d.KeepRangeDeg : 0.0,
+                RepeatPeriod = d.RptDays is int d3
+                    ? (d3, d.RptHours ?? 0, d.RptMinutes ?? 0, d.RptSeconds ?? 0)
+                    : null,
                 PrecessionSupplied = true,
                 PrecessionRateDegPerSec = d.PrecessionDegPerSec
-                    ?? OrbitDesign.J2NodalRateDegPerSec(
-                        OrbitalConstants.EarthRadiusKm + alt, d.Eccentricity, d.InclinationDeg),
+                    ?? (d.SelectedOrbits is int k3 && d.SelectedNodalDays is int m3
+                        ? OrbitDesign.Case3ClosingRateDegPerSec(OrbitalConstants.EarthRadiusKm + alt, k3, m3)
+                        : OrbitDesign.J2NodalRateDegPerSec(
+                            OrbitalConstants.EarthRadiusKm + alt, d.Eccentricity, d.InclinationDeg)),
             },
             _ => shell with { NOrbits = Math.Max(1, d.NOrbits) },
         };

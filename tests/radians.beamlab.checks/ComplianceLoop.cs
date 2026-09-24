@@ -189,8 +189,8 @@ internal static class ComplianceLoop
         // so the same grid never needs exporting twice in a session.
         string EnsureMask(double maskLatStepDeg, double azElStepDeg)
         {
-            string tag = MaskCacheTag(maskLatStepDeg, azElStepDeg,
-                declaredSet.EsLatMinDeg, declaredSet.EsLatMaxDeg);
+            string tag = ComplianceLoopSteps.MaskCacheTag(maskLatStepDeg, azElStepDeg,
+                declaredSet.EsLatMinDeg, declaredSet.EsLatMaxDeg, prof.Down.YawSteeringRangeDeg ?? 0.0);
             string path = Path.Combine(runDir, string.Create(inv, $"{safe}.mask.{tag}.xml"));
             if (File.Exists(path) && File.GetLastWriteTimeUtc(path) > File.GetLastWriteTimeUtc(profilePath))
             {
@@ -220,8 +220,10 @@ internal static class ComplianceLoop
         // objective is to bring E1 down onto a truth that stays put.
         List<ComplianceRow>? rowsE1 = null;
         string e1Note = "";
+        if (reusedMask is null && ComplianceLoopSteps.MissingMaskNote(prof) is string missing)
+            throw new InvalidOperationException(missing);
         string declaredMask = reusedMask ?? prof.Down.MaskXmlPath;
-        if (declaredMask.Length == 0 || !File.Exists(declaredMask))
+        if (declaredMask.Length == 0)
         {
             // No declared mask: export beamlab's own from the REACHABLE
             // envelope -- the ungated configuration space, which is the mask's

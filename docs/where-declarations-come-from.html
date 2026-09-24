@@ -40,6 +40,7 @@ h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; marg
 h2{font-size:21px; font-weight:600; letter-spacing:-.01em; margin:2.2em 0 .4em; text-wrap:balance; max-width:var(--measure)}
 p{max-width:var(--measure)}
 ul{max-width:var(--measure)}
+li{margin:.35em 0}
 code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--code-bg); padding:0 4px; border-radius:3px}
 .tech{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--g1); border-radius:5px; padding:12px 16px; margin:14px 0; font-size:13.5px; max-width:var(--measure)}
 .tech .t{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; font-weight:600}
@@ -56,134 +57,196 @@ a{color:var(--g1)} a:hover{color:#1983AA}
 <div class="wrap">
 <div class="kicker">radians.beamlab &middot; the loop and the designer</div>
 <h1>Where Declarations Come From</h1>
-<p class="lede">Two places in this tool hand you an operating-parameter set: the compliance
-loop, and the R-set designer&rsquo;s <em>Derive &amp; fill</em>. They are not two
-measurements. There is one derivation, the loop owns it, and the designer reads what it
-produced.</p>
+<p class="lede">Two of the declarations a filing carries describe how the system transmits:
+the pfd (power flux-density) mask and the R&nbsp;set of operating parameters. In this app
+both come from <strong>Run loop</strong> in the Compliance loop window, unless you supply
+them. The R-set designer&rsquo;s <strong>Derive &amp; fill</strong> measures nothing: it
+reads the R&nbsp;set the last loop run wrote. This page explains how the declarations are
+made, and why a declaration must not be measured on the run that later checks it.</p>
 
-<h2>The mechanism</h2>
+<h2>How Run loop makes them</h2>
+<p>Run loop works in this order:</p>
+<ul>
+<li><strong>The R&nbsp;set</strong> is measured first, on a <em>derivation probe</em>: a
+separate simulation of the system with no victim and no limit, run at full load. What the
+probe observes becomes the declared operating parameters. Name a set in <strong>Declared R
+set</strong> to skip the probe and use that set instead.</li>
+<li><strong>The truth</strong>, T, is measured next: the equivalent power flux-density (epfd)
+the system produces as it operates, at a victim earth station at each latitude.</li>
+<li><strong>The pfd mask</strong> is not measured. It is the mask the profile names; a named
+file that is missing stops the run. Without one the run computes it from the payload&rsquo;s
+<em>reachable envelope</em>: the strongest level any permitted beam position could produce,
+whether the probe visited it or not, and over every body yaw within the profile&rsquo;s
+<strong>Yaw steering range</strong> when it gives one, so the mask is conservative by construction. Latitude rows from
+which no cell within the declared service latitudes can be reached are written as no
+transmission. The status line says which mask the run used.</li>
+<li><strong>The examination</strong> reads the R&nbsp;set and the mask the way
+Rec. ITU-R S.1503-4 does, at the same victims, and gives E1. The run then checks that
+E1&nbsp;&ge;&nbsp;T at every latitude.</li>
+</ul>
+<p>The run writes the profile, the R&nbsp;set and the mask, when it computed one, into one run
+directory, so they describe one system. The status line names the directory.</p>
 
 <figure>
-<svg viewBox="0 0 700 400" role="img" aria-label="One compliance-loop run derives the declaration first, then measures the truth, then examines the truth against that declaration; the run writes profile, R set and mask into one directory, which both the examination sweep and the designer read">
+<svg viewBox="0 0 700 404" role="img" aria-label="Run loop in four steps, in order: the derivation probe, saturated with no victim and no limit, measures the R set; the truth sweep gives T; the pfd mask is the profile's declared mask or is computed from the reachable envelope; the examination reads the R set and the mask, gives E1 and checks E1 at least T at every latitude. The run writes the profile, the R set and a computed mask into one run directory, from which the R-set designer's Derive and fill reads the R set.">
   <defs><marker id="ar2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
   <g style="color:var(--ink)">
-    <text x="20" y="34" class="svglbl">ONE COMPLIANCE-LOOP RUN</text>
+    <text x="20" y="28" class="svglbl">RUN LOOP, IN ORDER</text>
 
-    <rect x="20" y="46" width="300" height="72" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
-    <text x="34" y="70" class="svgtxt">1 &middot; derivation probe</text>
-    <text x="34" y="89" class="svglbl">saturated &middot; no victim &middot; no limit</text>
-    <text x="34" y="105" class="svglbl">produces the R set and the pfd mask</text>
+    <rect x="20" y="40" width="320" height="70" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
+    <text x="34" y="64" class="svgtxt">1 &middot; derivation probe</text>
+    <text x="34" y="84" class="svglbl">saturated &middot; no victim &middot; no limit</text>
+    <text x="34" y="100" class="svglbl">measures the R set</text>
 
-    <rect x="20" y="150" width="300" height="72" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-    <text x="34" y="174" class="svgtxt">2 &middot; truth sweep</text>
-    <text x="34" y="193" class="svglbl">real traffic &middot; a victim per latitude</text>
-    <text x="34" y="209" class="svglbl">produces T &mdash; and T never moves</text>
+    <rect x="20" y="134" width="320" height="70" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="34" y="158" class="svgtxt">2 &middot; truth sweep</text>
+    <text x="34" y="178" class="svglbl">the profile as it stands</text>
+    <text x="34" y="194" class="svglbl">a victim per latitude &middot; gives T</text>
 
-    <rect x="20" y="254" width="300" height="72" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-    <text x="34" y="278" class="svgtxt">3 &middot; examination sweep</text>
-    <text x="34" y="297" class="svglbl">reads the mask and the derived R set</text>
-    <text x="34" y="313" class="svglbl">produces E1 &mdash; the number to minimise</text>
+    <rect x="20" y="228" width="320" height="70" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="34" y="252" class="svgtxt">3 &middot; pfd mask</text>
+    <text x="34" y="272" class="svglbl">the profile&rsquo;s declared mask, or one</text>
+    <text x="34" y="288" class="svglbl">computed from the reachable envelope</text>
 
-    <line x1="170" y1="118" x2="170" y2="146" stroke="currentColor" marker-end="url(#ar2)"/>
-    <line x1="170" y1="222" x2="170" y2="250" stroke="currentColor" marker-end="url(#ar2)"/>
+    <rect x="20" y="322" width="320" height="70" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="34" y="346" class="svgtxt">4 &middot; examination</text>
+    <text x="34" y="366" class="svglbl">reads the R set and the mask &middot; gives E1</text>
+    <text x="34" y="382" class="svglbl">checks E1 &#8805; T at every latitude</text>
 
-    <rect x="392" y="104" width="290" height="112" rx="5" fill="var(--g2-tint)" stroke="var(--g2)" stroke-width="1.5"/>
-    <text x="406" y="128" class="svgtxt">the run&rsquo;s artefacts</text>
-    <text x="406" y="148" class="svglbl">&middot; the operation profile, as run</text>
-    <text x="406" y="164" class="svglbl">&middot; the derived R set (XML + JSON)</text>
-    <text x="406" y="180" class="svglbl">&middot; the reachable-envelope pfd mask</text>
-    <text x="406" y="202" class="svglbl">one directory, one system</text>
+    <line x1="180" y1="110" x2="180" y2="130" stroke="currentColor" marker-end="url(#ar2)"/>
+    <line x1="180" y1="204" x2="180" y2="224" stroke="currentColor" marker-end="url(#ar2)"/>
+    <line x1="180" y1="298" x2="180" y2="318" stroke="currentColor" marker-end="url(#ar2)"/>
 
-    <line x1="320" y1="82" x2="388" y2="130" stroke="var(--g1)" stroke-width="1.5" marker-end="url(#ar2)" style="color:var(--g1)"/>
-    <text x="326" y="74" class="svglbl">written once</text>
+    <path d="M340 75 H380 V120 H396" fill="none" stroke="currentColor" marker-end="url(#ar2)"/>
+    <text x="348" y="68" class="svglbl">R set</text>
+    <path d="M340 263 H380 V176 H396" fill="none" stroke="currentColor" stroke-dasharray="5 4" marker-end="url(#ar2)"/>
+    <text x="348" y="280" class="svglbl">mask</text>
 
-    <line x1="424" y1="216" x2="330" y2="272" stroke="currentColor" marker-end="url(#ar2)"/>
+    <rect x="400" y="86" width="280" height="128" rx="5" fill="var(--g2-tint)" stroke="var(--g2)" stroke-width="1.5"/>
+    <text x="414" y="110" class="svgtxt">run directory</text>
+    <text x="414" y="132" class="svglbl">&middot; the profile, as run</text>
+    <text x="414" y="150" class="svglbl">&middot; the R set (XML + JSON)</text>
+    <text x="414" y="168" class="svglbl">&middot; the mask, if the run computed it</text>
+    <text x="414" y="198" class="svglbl">one directory, one system</text>
 
-    <rect x="392" y="272" width="290" height="86" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-    <text x="406" y="296" class="svgtxt">R-set designer &middot; Derive &amp; fill</text>
-    <text x="406" y="315" class="svglbl">reads the run &mdash; no simulation here</text>
-    <text x="406" y="331" class="svglbl">then review, hand-tighten, export</text>
+    <line x1="540" y1="214" x2="540" y2="262" stroke="currentColor" marker-end="url(#ar2)"/>
+    <text x="548" y="243" class="svglbl">read by Derive &amp; fill</text>
 
-    <line x1="560" y1="216" x2="560" y2="268" stroke="currentColor" marker-end="url(#ar2)"/>
-    <text x="568" y="246" class="svglbl">read by the designer</text>
+    <rect x="400" y="266" width="280" height="86" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="414" y="290" class="svgtxt">R-set designer &middot; Derive &amp; fill</text>
+    <text x="414" y="310" class="svglbl">reads the R set, no simulation</text>
+    <text x="414" y="327" class="svglbl">then review, edit, save or export</text>
   </g>
 </svg>
-<figcaption>The derivation runs once, first, and everything downstream reads it. Nothing
-in this picture measures the same system twice.</figcaption>
+<figcaption>Run loop measures the R&nbsp;set first, on a probe separate from the truth sweep;
+the mask is the profile&rsquo;s declared one or is computed. The run writes the profile, the
+R&nbsp;set and a computed mask (dashed: only when it computes one) into one directory, and
+Derive &amp; fill reads the R&nbsp;set from there. The designer does not derive
+again.</figcaption>
 </figure>
 
-<h2>Why the derivation comes first</h2>
+<div class="tech"><div class="t">Tech &middot; the computed mask</div>
+<p>The mask is computed on the latitude step of the victim grid and a 1&deg;
+azimuth/elevation grid. For each latitude row it takes the ascending and the descending
+ground-track headings, and it samples the band of sub-satellite latitudes the row governs at
+its centre and both edges, since S.1503-4 &sect;D5.1.5 step&nbsp;1 reads a row at the nearest
+latitude. A row is written as no transmission, the null value of S.1503-4 &sect;C1, only under
+the <em>service-span certificate</em>: the band the row governs lies farther from the declared
+service latitudes (<code>es_lat_min</code> to <code>es_lat_max</code>) than the edge of a
+satellite&rsquo;s coverage at the first shell&rsquo;s operating height and the smallest
+declared minimum elevation, or 0&deg; when none is declared. The certificate is closed-form
+and uses declarations only, never what the probe happened not to visit. A later run reuses the
+computed mask while it is newer than the profile and was made with the same latitude step, the
+same service latitudes and the same build of the app.</p></div>
 
-<p>A declaration is an envelope of what the system <em>may</em> do. Measure it while the
-system happens to be carrying light traffic and you measure what it <em>did</em> &mdash;
-then you have declared something the system will break the moment it gets busy. So the
-probe is <strong>saturated</strong>: demand rises to the declared co-frequency cap, and
-activity, illumination duty and operating fraction all go to 1. What is left shaping the
-result is only what the operator has actually committed to &mdash; the exclusion angle, the
-elevation floor, the caps, the minimum angles &mdash; plus what the geometry physically
-allows.</p>
+<div class="tech"><div class="t">Tech &middot; a mask you supply</div>
+<p>A mask the profile names is examined as it is. It cannot be re-derived: a mask keeps only
+the strongest level in each direction and has lost which beam produced it. When the
+profile&rsquo;s footprint source is that mask, Run loop checks whether it already carries the
+shaping the R&nbsp;set declares; <a href="compliance-loop.html">Inside the Compliance Loop</a>
+describes the check and its grades.</p></div>
 
-<div class="tech">
-<div class="t">Worth a number</div>
-<p>On the STEAM-2 case the profile asks for one link per cell but declares a cap of four.
-Derived from the traffic sample, <code>MAX_CO_FREQ</code> comes out as <strong>1</strong>
-&mdash; a promise the system breaks at peak. Derived from the saturated probe it comes out
-as <strong>4</strong>, which is what the system is permitted to do and therefore what it
-must declare.</p>
-</div>
+<h2>Why the probe runs at full load</h2>
+<p>A declaration is a bound on what the system <em>may</em> do. Measured while traffic is
+light, it records only what the system <em>did</em>, and the system breaks it the first time
+it gets busy.</p>
+<p>So the probe is <em>saturated</em>: demand is raised to the declared co-frequency cap when
+one is declared, and activity, duty and operational fraction are set to 1. That takes the
+traffic out. What still shapes the result is the rules the scheduler enforces (the exclusion
+angle, the elevation floor, the caps, the minimum angles), the way it selects satellites, and
+the geometry.</p>
+<p>A derived value tighter than the rule behind it describes one finite run, not a promise.
+Before filing it, tighten the enforced rule in the profile to match;
+<a href="compliance-loop.html">Inside the Compliance Loop</a> gives the steps.</p>
 
-<h2>Why it cannot come from the truth sweep</h2>
+<div class="tech"><div class="t">Tech &middot; the saturated probe</div>
+<p>The probe is the operation profile with <code>DemandLinksPerCell</code> raised to the
+largest declared co-frequency cap (the largest <code>max_co_freq</code> row or header), and
+<code>ActivityFactor</code>, <code>OperationalFraction</code> and
+<code>IlluminationDutyCycle</code> set to 1. With no cap declared, the profile&rsquo;s own
+demand stands. On the STEAM-2 test system the profile asks for one link per cell and declares
+a cap of four. Measured on the traffic as it runs, <code>max_co_freq</code> would come out as
+<strong>1</strong>, a promise the system breaks at peak. The saturated probe measures
+<strong>4</strong> at every latitude band, which is what the system is permitted to do and
+therefore what it must declare.</p></div>
 
-<p>The obvious shortcut &mdash; derive from the run that measures T &mdash; destroys the one
-test that matters. The examination must sit at or above the truth at every latitude:
-<strong>E1&nbsp;&ge;&nbsp;T</strong> is what proves the declaration actually envelopes the
-system. A declaration measured on a particular run envelopes that run trivially, so
-deriving from the truth sweep would turn the test into a tautology. The probe is a
-different run by construction, which is what keeps the test honest.</p>
+<h2>Why not measure it on the truth sweep</h2>
+<p>Deriving the declaration from the run that measures T looks like a shortcut. It would turn
+the one test that matters into a formality.</p>
+<p>E1&nbsp;&ge;&nbsp;T asks whether the declaration covers the system. A declaration measured
+on a run covers that run automatically, so one taken from the truth sweep would always pass
+and prove nothing. The probe is a separate run, so the check can fail, and that is what makes
+it a test.</p>
+<p>The two runs also answer different questions. The probe is saturated and has no victim. The
+truth sweep carries the profile&rsquo;s own traffic and a victim at every latitude.</p>
+<p><strong>E1 below T</strong> at any latitude means the declaration does not cover the
+system, and Run loop names those latitudes. For a derived set, the derivation was too coarse:
+measure more finely, and never redesign the system to fix it. That is a different result from
+T itself failing the limit, which is fixed in the system.</p>
 
-<p>The two runs also disagree on purpose. The probe is saturated and has no victim; the
-truth sweep carries the profile&rsquo;s real traffic and a victim at every latitude. They
-are answering different questions, so they cannot be the same pass.</p>
-
-<div class="tech">
-<div class="t">When adequacy fails</div>
-<p>If E1 drops <em>below</em> T anywhere, the run says so and names the latitudes. That is a
-granularity failure of the derivation &mdash; the probe did not see enough of the system
-&mdash; and never a compliance failure of the system. The two must not be confused: one is
-fixed by measuring better, the other by redesigning.</p>
-</div>
-
-<h2>What <em>Derive &amp; fill</em> does now</h2>
-
-<p>It reads the loop&rsquo;s run for the selected operation profile and fills every field
-from it. It does not simulate. The set you review is <em>the set the projection actually
-used</em> &mdash; not a second opinion about the same system that is free to disagree with
-it.</p>
-
-<p>A run counts only when it is newer than the profile it claims to describe; an older run
-describes a system that has since been edited, so the designer treats it as absent and says
-so. When there is no run, the answer is to run the compliance loop &mdash; which derives the
-declaration as its first step.</p>
-
-<p>The duration, time step and latitude-band inputs that used to sit on this panel are gone,
-and their absence is the point. Depth decides how conservative a declaration is: a shallower
-probe sees less of the system, so it produces a <em>tighter</em> and less conservative set,
-and no text box would have told the reader that. Depth belongs to the run that verifies the
-result, not to the panel that displays it.</p>
-
-<h2>What the designer still owns</h2>
-
+<h2>What Derive &amp; fill does</h2>
+<p>Pick the <strong>Operation profile</strong> and press <strong>Derive &amp; fill</strong>.
+The designer finds the R&nbsp;set the loop last wrote for that profile and fills every field
+from it, except the identity (<code>sat_name</code>, <code>ntc_id</code>,
+<code>param_id</code>) and the band (<code>low_freq_mhz</code>, <code>high_freq_mhz</code>):
+those belong to your filing and stay as you entered them. It does not simulate. The set you
+review is the set the run examined, not a second opinion about the same system.</p>
+<p>A run counts only when both hold:</p>
 <ul>
-<li><strong>Manual entry</strong> &mdash; copying an existing filing, or writing a
-deliberately conservative envelope by hand.</li>
-<li><strong>Review and hand-tightening</strong> &mdash; every field stays editable. A derived
-set is a proposal, not a verdict.</li>
-<li><strong>Export</strong> &mdash; the R-set XML the SNS builder consumes, and the JSON that
-round-trips.</li>
+<li>it is newer than the profile file, since an older run describes a system that has since
+been edited;</li>
+<li>it was made from this profile. Runs are filed under the profile&rsquo;s name, so a run of
+the same name made from a different profile is refused: give the profile its own name, or
+run the loop for it.</li>
+</ul>
+<p>When no run counts, the status line says so. Press <strong>Run loop</strong> in the
+Compliance loop window; it derives the declaration as its first step.</p>
+
+<h2>How deep the probe looks</h2>
+<p>Derive &amp; fill has no duration, step or latitude-band inputs. The probe runs over the
+Compliance loop window&rsquo;s <strong>Duration (days) / step (s)</strong>, in latitude bands
+as wide as the step of <strong>ES lat from / to / step</strong>. Depth decides how much of the
+system the probe sees, so it belongs to the run that also checks the result.</p>
+<p>On the 1&nbsp;600-satellite STEAM-2 test system, the R&nbsp;set derived at 0.1 and at
+1.0&nbsp;day on a 60&nbsp;s step was identical row for row, and the mask agreed to
+0.01&nbsp;dB in every lit cell. That is a measurement on one system, not a guarantee for
+every system.</p>
+
+<h2>What the designer is for</h2>
+<ul>
+<li><strong>Manual entry</strong>: copying an existing filing, or writing a deliberately
+conservative set by hand.</li>
+<li><strong>Review</strong>: every field stays editable, and a derived set is a proposal, not
+a verdict. To check an edited set, save it with <strong>Save set (JSON)&hellip;</strong> and
+name it in <strong>Declared R set</strong>: Run loop then examines that set in place of
+deriving one, and still checks E1&nbsp;&ge;&nbsp;T.</li>
+<li><strong>Export</strong>: <strong>Export R XML&hellip;</strong> writes the R-set XML to
+register in the SNS v10 builder; <strong>Save set (JSON)&hellip;</strong> writes the
+designer&rsquo;s own format, which <strong>Load set&hellip;</strong> reads back.</li>
 </ul>
 
 <p class="foot">See also: <a href="compliance-loop.html">Inside the Compliance Loop</a> for
-what a run does with the declaration once it has one, and
-<a href="r-set-designer.html">The R-set Designer</a> for the fields themselves, and
+what a run does with the declaration, <a href="r-set-designer.html">Inside the R Set</a> for
+the fields and what the derivation writes into each, and
 <a href="construction.html">How the Projection Is Built</a> for the whole construction.</p>
 </div>

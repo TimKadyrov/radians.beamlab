@@ -38,6 +38,7 @@ body{
 header.top{border-bottom:2px solid var(--ink); padding-bottom:20px; margin-bottom:8px}
 .kicker{font-size:13px; font-weight:600; color:var(--muted)}
 .grid h3.intent{grid-column:1/-1; margin:20px 0 0; font-size:15px; font-weight:600; color:var(--g2); border-bottom:1px solid var(--line); padding-bottom:6px}
+.grid h3.intent.g1{color:var(--g1)}
 h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; margin:.25em 0 .3em; text-wrap:balance}
 .lede{max-width:68ch; color:var(--muted); margin:0; font-size:15px}
 .legend{display:flex; flex-wrap:wrap; gap:18px; margin-top:18px; font-size:12.5px}
@@ -144,7 +145,7 @@ a{color:var(--g1)} a:hover{color:#1983AA}
       <line x1="535" y1="164" x2="535" y2="152" stroke="currentColor" marker-end="url(#ar)"/>
       <text x="543" y="161" class="svglbl">gates demand</text>
       <line x1="293" y1="212" x2="293" y2="192" stroke="currentColor" marker-end="url(#ar)"/>
-      <text x="301" y="207" class="svglbl">array prevails</text>
+      <text x="301" y="207" class="svglbl">one form only</text>
     </g>
   </svg>
   <figcaption>The load-bearing couplings. Everything in the left cluster is declared to the EPFD
@@ -225,20 +226,48 @@ a{color:var(--g1)} a:hover{color:#1983AA}
 <!-- ============ DECLARED ============ -->
 <section>
   <h2>Declared bounds <span class="tag" style="background:var(--g1-tint); color:var(--g1)">S.1503-4 &sect;B3.3 &middot; R set</span></h2>
-  <p class="sec-note">The twelve operating-parameter identifiers of the examination format. BeamLab writes them
-  (<code>OperParamsXmlWriter</code>), the scheduler enforces every one during assignment &mdash; so declared value
-  and simulated behaviour agree by construction &mdash; and the expectation CDFs inherit them.</p>
+  <p class="sec-note">The operating parameters the S.1503-4 format defines, grouped by what they constrain. The
+  tool writes them into the R-set XML. The scheduler enforces every gate, cap and dwell while it assigns links, so
+  the declared value and the simulated behaviour agree by construction. The frequency band scopes the set, and the
+  earth-station density and distance are read by the examination only.</p>
   <div class="grid">
+
+  <h3 class="intent g1">Band and service latitudes</h3>
 
   <div class="cardp declared">
     <div class="name-row"><span class="pname">FREQ_MIN / FREQ_MAX</span><span class="unit">MHz</span></div>
     <div class="where"><b>OperatingParamsSet.LowFreqMhz/HighFreqMhz</b> &middot; epfd_freq, mask_info</div>
     <div class="chips"><span class="chip on">Writer</span><span class="chip on">Scenario scoping</span></div>
     <p class="desc">The band identity of the set. A band may not carry two sets, and every examined band must
-    have one &mdash; the rule that decides how sets 21&ndash;25 partition the BL family.</p>
+    have one.</p>
     <ul class="rel">
       <li><span class="op">&rarr;</span><span>scopes which masks and which scenario frequencies the set governs</span></li>
-      <li><span class="op">&rarr;</span><span>one-set-per-band forces BL-ALL to drop the standalone I1 set for its D2 overlap</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp declared">
+    <div class="name-row"><span class="pname">ES_LAT_MIN / ES_LAT_MAX</span><span class="unit">deg</span></div>
+    <div class="where"><b>EsLatMinDeg / EsLatMaxDeg</b> &middot; es_lat_min, es_lat_max</div>
+    <div class="chips"><span class="chip on">Scheduler filter</span></div>
+    <p class="desc">The declared service latitude range. Cells outside it are never served in the band &mdash;
+    their demand counts as unserved rather than being silently trusted to the caller&rsquo;s geography.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>bounded below the shell inclination, it trims the geometry the masks must cover</span></li>
+    </ul>
+  </div>
+
+  <h3 class="intent g1">Where a link may be made</h3>
+
+  <div class="cardp declared">
+    <div class="name-row"><span class="pname">MIN_ELEV</span><span class="unit">deg &middot; [lat][az]</span></div>
+    <div class="where"><b>MinElevByLat</b> &middot; min_elev/elev_angle &middot; header <b>elev_angle</b></div>
+    <div class="chips"><span class="chip on">Scheduler gate</span><span class="chip on">Mask envelope</span></div>
+    <p class="desc">Minimum serving elevation, azimuth-dependent (e.g. raised toward the arc). Candidates below it
+    are infeasible; azimuth rows interpolate linearly, latitude picks the nearest block.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>reference elevation for <code>PowerControlRefElevDeg</code> &mdash; the ceiling&rsquo;s slant range</span></li>
+      <li><span class="op">&rarr;</span><span>sets the FOV edge the mask latitude cap and beam lattice must reach</span></li>
+      <li><span class="op">&rarr;</span><span>one form per quantity: a set filing both the header and the array is an invalid filing</span></li>
     </ul>
   </div>
 
@@ -275,31 +304,56 @@ a{color:var(--g1)} a:hover{color:#1983AA}
   </div>
 
   <div class="cardp declared">
-    <div class="name-row"><span class="pname">MIN_ELEV</span><span class="unit">deg &middot; [lat][az]</span></div>
-    <div class="where"><b>MinElevByLat</b> &middot; min_elev/elev_angle &middot; header <b>elev_angle</b></div>
-    <div class="chips"><span class="chip on">Scheduler gate</span><span class="chip on">Mask envelope</span></div>
-    <p class="desc">Minimum serving elevation, azimuth-dependent (e.g. raised toward the arc). Candidates below it
-    are infeasible; azimuth rows interpolate linearly, latitude picks the nearest block.</p>
+    <div class="name-row"><span class="pname">MIN_ANGLE_AT_SAT</span><span class="unit">deg &middot; header</span></div>
+    <div class="where"><b>MinAngleAtSatDeg</b> &middot; min_angle_at_sat</div>
+    <div class="chips"><span class="chip on">Scheduler gate</span></div>
+    <p class="desc">The mirror gate at the satellite: its co-frequency cells must be separated by at least this
+    angle as seen from it. A violating candidate falls to the cell&rsquo;s next satellite.</p>
+    <figure><svg viewBox="0 0 300 96" role="img" aria-label="Angle at the satellite between two served cells must exceed the declared minimum">
+      <g style="color:var(--ink)" stroke="currentColor" fill="none">
+        <line x1="150" y1="16" x2="86" y2="80"/>
+        <line x1="150" y1="16" x2="218" y2="78"/>
+        <path d="M129 37 A30 30 0 0 0 172 36" stroke="var(--g1)"/>
+        <path d="M40 88 Q150 66 260 88" opacity=".5"/>
+      </g>
+      <circle cx="150" cy="16" r="3.5" fill="currentColor" style="color:var(--ink)"/>
+      <circle cx="86" cy="80" r="3" fill="currentColor" style="color:var(--ink)"/>
+      <circle cx="218" cy="78" r="3" fill="currentColor" style="color:var(--ink)"/>
+      <text x="160" y="14" class="svgtxt">satellite</text>
+      <text x="66" y="94" class="svgtxt">cell 1</text><text x="206" y="94" class="svgtxt">cell 2</text>
+      <text x="150" y="55" text-anchor="middle" class="svgtxt" style="fill:var(--g1)">&ge; &theta;</text>
+    </svg><figcaption>Kept per satellite as its served-cell list grows through the step.</figcaption></figure>
     <ul class="rel">
-      <li><span class="op">&rarr;</span><span>reference elevation for <code>PowerControlRefElevDeg</code> &mdash; the ceiling&rsquo;s slant range</span></li>
-      <li><span class="op">&rarr;</span><span>sets the FOV edge the mask latitude cap and beam lattice must reach</span></li>
-      <li><span class="op">&rarr;</span><span>array prevails over the header inside its latitude span</span></li>
+      <li><span class="op">&rarr;</span><span>with <code>MAX_CO_FREQ_SAT</code>, the pair of uplink gates the scheduler enforces by reassignment</span></li>
     </ul>
   </div>
 
   <div class="cardp declared">
-    <div class="name-row"><span class="pname">MIN_DURATION</span><span class="unit">s &middot; [lat]</span></div>
-    <div class="where"><b>MinDurationByLat</b> / header &middot; min_duration</div>
-    <div class="chips"><span class="chip on">Scheduler dwell</span></div>
-    <p class="desc">Minimum tracking dwell once a link is made: voluntary handover to a better satellite waits out
-    the dwell; only infeasibility forces one. Non-zero also gates admission &mdash; a new link is only made toward
-    a satellite that stays above the elevation floor and outside the exclusion for the whole duration &mdash; and
-    selects the track-duration examination algorithm (BL-D1).</p>
+    <div class="name-row"><span class="pname">MIN_ANGLE_AT_ES</span><span class="unit">deg &middot; header</span></div>
+    <div class="where"><b>MinAngleAtEsDeg</b> &middot; min_angle_at_es</div>
+    <div class="chips"><span class="chip on">Scheduler gate</span></div>
+    <p class="desc">Minimum separation, seen from one cell, between the satellites co-serving it: slot k only takes
+    a satellite at least this far from every satellite already serving the cell.</p>
+    <figure><svg viewBox="0 0 300 96" role="img" aria-label="Angle at the earth station between two serving satellites must exceed the declared minimum">
+      <g style="color:var(--ink)" stroke="currentColor" fill="none">
+        <line x1="150" y1="84" x2="92" y2="22"/>
+        <line x1="150" y1="84" x2="212" y2="26"/>
+        <path d="M130 62 A30 30 0 0 1 172 64" stroke="var(--g1)"/>
+      </g>
+      <circle cx="150" cy="84" r="3.5" fill="currentColor" style="color:var(--ink)"/>
+      <circle cx="92" cy="20" r="3" fill="currentColor" style="color:var(--ink)"/>
+      <circle cx="212" cy="24" r="3" fill="currentColor" style="color:var(--ink)"/>
+      <text x="150" y="95" text-anchor="middle" class="svgtxt">one cell, two slots</text>
+      <text x="70" y="14" class="svgtxt">sat A</text><text x="200" y="14" class="svgtxt">sat B</text>
+      <text x="142" y="53" text-anchor="middle" class="svgtxt" style="fill:var(--g1)">&ge; &theta;</text>
+    </svg><figcaption>Checked against the cell&rsquo;s <code>taken</code> set during slot assignment.</figcaption></figure>
     <ul class="rel">
-      <li><span class="op">&perp;</span><span>mutually exclusive with <code>MIN_ANGLE_AT_ES</code> &mdash; a band declares one regime</span></li>
-      <li><span class="op">&rarr;</span><span>an inactive <code>ActivityFactor</code> window releases the link <em>without</em> a handover; dwell restarts on return</span></li>
+      <li><span class="op">&perp;</span><span><code>MIN_DURATION</code> &mdash; the classic-algorithm half of the pair</span></li>
+      <li><span class="op">&rarr;</span><span>inert until <code>MAX_CO_FREQ</code> and <code>DemandLinks</code> allow a second slot</span></li>
     </ul>
   </div>
+
+  <h3 class="intent g1">How many links, and for how long</h3>
 
   <div class="cardp declared">
     <div class="name-row"><span class="pname">MAX_CO_FREQ</span><span class="unit">count &middot; [lat]</span></div>
@@ -327,54 +381,20 @@ a{color:var(--g1)} a:hover{color:#1983AA}
   </div>
 
   <div class="cardp declared">
-    <div class="name-row"><span class="pname">MIN_ANGLE_AT_ES</span><span class="unit">deg &middot; header</span></div>
-    <div class="where"><b>MinAngleAtEsDeg</b> &middot; min_angle_at_es</div>
-    <div class="chips"><span class="chip on">Scheduler gate</span></div>
-    <p class="desc">Minimum separation, seen from one cell, between the satellites co-serving it: slot k only takes
-    a satellite at least this far from every satellite already serving the cell.</p>
-    <figure><svg viewBox="0 0 300 96" role="img" aria-label="Angle at the earth station between two serving satellites must exceed the declared minimum">
-      <g style="color:var(--ink)" stroke="currentColor" fill="none">
-        <line x1="150" y1="84" x2="92" y2="22"/>
-        <line x1="150" y1="84" x2="212" y2="26"/>
-        <path d="M130 62 A30 30 0 0 1 172 64" stroke="var(--g1)"/>
-      </g>
-      <circle cx="150" cy="84" r="3.5" fill="currentColor" style="color:var(--ink)"/>
-      <circle cx="92" cy="20" r="3" fill="currentColor" style="color:var(--ink)"/>
-      <circle cx="212" cy="24" r="3" fill="currentColor" style="color:var(--ink)"/>
-      <text x="150" y="95" text-anchor="middle" class="svgtxt">one cell, two slots</text>
-      <text x="70" y="14" class="svgtxt">sat A</text><text x="200" y="14" class="svgtxt">sat B</text>
-      <text x="142" y="53" text-anchor="middle" class="svgtxt" style="fill:var(--g1)">&ge; &theta;</text>
-    </svg><figcaption>Checked against the cell&rsquo;s <code>taken</code> set during slot assignment.</figcaption></figure>
+    <div class="name-row"><span class="pname">MIN_DURATION</span><span class="unit">s &middot; [lat]</span></div>
+    <div class="where"><b>MinDurationByLat</b> / header &middot; min_duration</div>
+    <div class="chips"><span class="chip on">Scheduler dwell</span></div>
+    <p class="desc">Minimum tracking dwell once a link is made: voluntary handover to a better satellite waits out
+    the dwell; only infeasibility forces one. Non-zero also gates admission &mdash; a new link is only made toward
+    a satellite that stays above the elevation floor and outside the exclusion for the whole duration &mdash; and
+    selects the track-duration examination algorithm.</p>
     <ul class="rel">
-      <li><span class="op">&perp;</span><span><code>MIN_DURATION</code> &mdash; the classic-algorithm half of the pair (BL-D2)</span></li>
-      <li><span class="op">&rarr;</span><span>inert until <code>MAX_CO_FREQ</code> and <code>DemandLinks</code> allow a second slot</span></li>
+      <li><span class="op">&perp;</span><span>mutually exclusive with <code>MIN_ANGLE_AT_ES</code> &mdash; a band declares one regime</span></li>
+      <li><span class="op">&rarr;</span><span>an inactive <code>ActivityFactor</code> window releases the link <em>without</em> a handover; dwell restarts on return</span></li>
     </ul>
   </div>
 
-  <div class="cardp declared">
-    <div class="name-row"><span class="pname">MIN_ANGLE_AT_SAT</span><span class="unit">deg &middot; header</span></div>
-    <div class="where"><b>MinAngleAtSatDeg</b> &middot; min_angle_at_sat</div>
-    <div class="chips"><span class="chip on">Scheduler gate</span></div>
-    <p class="desc">The mirror gate at the satellite: its co-frequency cells must be separated by at least this
-    angle as seen from it. A violating candidate falls to the cell&rsquo;s next satellite.</p>
-    <figure><svg viewBox="0 0 300 96" role="img" aria-label="Angle at the satellite between two served cells must exceed the declared minimum">
-      <g style="color:var(--ink)" stroke="currentColor" fill="none">
-        <line x1="150" y1="16" x2="86" y2="80"/>
-        <line x1="150" y1="16" x2="218" y2="78"/>
-        <path d="M129 37 A30 30 0 0 0 172 36" stroke="var(--g1)"/>
-        <path d="M40 88 Q150 66 260 88" opacity=".5"/>
-      </g>
-      <circle cx="150" cy="16" r="3.5" fill="currentColor" style="color:var(--ink)"/>
-      <circle cx="86" cy="80" r="3" fill="currentColor" style="color:var(--ink)"/>
-      <circle cx="218" cy="78" r="3" fill="currentColor" style="color:var(--ink)"/>
-      <text x="160" y="14" class="svgtxt">satellite</text>
-      <text x="66" y="94" class="svgtxt">cell 1</text><text x="206" y="94" class="svgtxt">cell 2</text>
-      <text x="150" y="55" text-anchor="middle" class="svgtxt" style="fill:var(--g1)">&ge; &theta;</text>
-    </svg><figcaption>Kept per satellite as its served-cell list grows through the step.</figcaption></figure>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>with <code>MAX_CO_FREQ_SAT</code>, the pair of uplink gates the scheduler enforces by reassignment</span></li>
-    </ul>
-  </div>
+  <h3 class="intent g1">Earth stations for the uplink examination</h3>
 
   <div class="cardp declared">
     <div class="name-row"><span class="pname">ES_DENSITY &middot; ES_DISTANCE</span><span class="unit">/km&sup2; &middot; km</span></div>
@@ -384,21 +404,12 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     ES_DISTANCE inside the victim beam with <code>NUM_ES = dist&sup2;&middot;density</code> aggregation (&sect;D5.2.5).
     The truth side transmits from actually scheduled cells instead &mdash; that asymmetry is measured margin.</p>
     <ul class="rel">
-      <li><span class="op">&perp;</span><span>switched off entirely by specific earth stations (<code>e_as_stn</code>, mask <code>ES_ID</code>) &mdash; BL-U2</span></li>
-      <li><span class="op">&rarr;</span><span>BL-U1 declares both active; its up-CDF is the scheduled-cells truth</span></li>
+      <li><span class="op">&perp;</span><span>switched off entirely by specific earth stations (<code>e_as_stn</code>, mask <code>ES_ID</code>)</span></li>
+      <li><span class="op">&rarr;</span><span>with both declared, the truth's up-CDF still comes from the scheduled cells</span></li>
     </ul>
   </div>
 
-  <div class="cardp declared">
-    <div class="name-row"><span class="pname">ES_LAT_MIN / ES_LAT_MAX</span><span class="unit">deg</span></div>
-    <div class="where"><b>EsLatMinDeg / EsLatMaxDeg</b> &middot; es_lat_min, es_lat_max</div>
-    <div class="chips"><span class="chip on">Scheduler filter</span></div>
-    <p class="desc">The declared service latitude range. Cells outside it are never served in the band &mdash;
-    their demand counts as unserved rather than being silently trusted to the caller&rsquo;s geography.</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>bounded below the shell inclination, it trims the geometry the masks must cover</span></li>
-    </ul>
-  </div>
+  <h3 class="intent g1">One form per quantity</h3>
 
   <div class="cardp declared">
     <div class="name-row"><span class="pname">header &harr; arrays</span><span class="unit">one form per quantity</span></div>
@@ -406,7 +417,7 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     <div class="chips"><span class="chip on">DeclaredConstraints</span></div>
     <p class="desc">Three declared quantities come in two forms: min_elev (header name elev_angle), max_co_freq and
     min_duration each exist as an XML header scalar and as a per-latitude array. The two forms are mutually
-    exclusive per quantity (EPS V43 6.7.2.2, design brief 3.8): a valid set files each quantity in exactly one
+    exclusive per quantity: a valid set files each quantity in exactly one
     form, and a set carrying both is an invalid filing &mdash; reported by name, never resolved by a precedence. An
     array is read at the nearest row everywhere, and the read is total: beyond the outermost rows the nearest row
     is the outermost row, so edge rows govern out to the poles and a single row declares a globally constant
@@ -446,12 +457,311 @@ a{color:var(--g1)} a:hover{color:#1983AA}
 <!-- ============ TRUTH ============ -->
 <section>
   <h2>Real-system operation <span class="tag" style="background:var(--g2-tint); color:var(--g2)">richer than the format</span></h2>
-  <p class="sec-note">The system description the declaration projects down from. Each of these changes the simulated
-  statistics while staying at or below the declared envelopes &mdash; the gap they open is the measurable
-  conservatism the examination cannot see.</p>
+  <p class="sec-note">How the real system operates, grouped as in the Operation profile window. These fields shape
+  the simulated truth. The examination never sees them, only the declarations, which must stay at or above what
+  these fields produce; the difference is conservatism the filing carries. The last card is the mask
+  export's yaw sweep, which the profile's Yaw steering range sets for the compliance loop.</p>
   <div class="grid">
 
-  <h3 class="intent">Service, traffic &amp; scheduling</h3>
+  <h3 class="intent">The projection switch</h3>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">FootprintSource</span><span class="unit">enum</span></div>
+    <div class="where"><b>DownlinkProfile.FootprintSource</b> &middot; composition | mask (+ MaskXmlPath)</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span><span class="chip on">Examination read</span></div>
+    <p class="desc">Where the downlink footprint toward a victim comes from in simulations: beam composition
+    computes it live from the shaped beams (the truth); PFD mask reads a declared mask XML the examination's way
+    &mdash; &sect;D5.1.4.1 selection over &sect;D5.1.5 reads. Run both on one profile and the CDF difference is the
+    projection margin.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>the beam fields still shape the scheduler's coverage geometry in both modes</span></li>
+      <li><span class="op">&perp;</span><span>no epfd(is) byproduct under the mask source &mdash; that needs the e.i.r.p. masks</span></li>
+    </ul>
+  </div>
+
+  <h3 class="intent">Radiated power &amp; spectrum</h3>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">TxEirpDbw</span><span class="unit">dBW / ref. BW &middot; per beam</span></div>
+    <div class="where"><b>PfdMaskViewModel.TxEirpDbw</b> &middot; profile TxEirpDbw</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Per-beam transmit power density into the pattern (dBW in the reference bandwidth):
+    constant-e.i.r.p. mode feeds exactly this to every beam and the composite adds the pattern gain on top. Every
+    epfd statistic moves dB for dB with it.</p>
+    <ul class="rel">
+      <li><span class="op">&equiv;</span><span>per-beam boresight e.i.r.p. density = TxEirpDbw + <code>GainPeakDbi</code></span></li>
+      <li><span class="op">&rarr;</span><span><code>PowerMode</code> adds per-beam slant compensation in constant-boresight-PFD mode</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">PowerMode</span><span class="unit">enum</span></div>
+    <div class="where"><b>PfdMaskViewModel.PowerMode</b> &middot; constant e.i.r.p. | constant boresight PFD</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Downlink power control: constant e.i.r.p. (the default) drives every beam at TxEirpDbw; constant boresight
+    PFD adds 20 log₁₀(slant/altitude) per beam so every boresight lands the same flux on the ground despite
+    spreading — the compensation a real payload applies. These are the two formulations of power control on
+    range (S.1325 rev §2.3.3): a target power density at the receiver, and a target flux at the surface. A filed
+    mask whose plateau is flat in pfd across range was built the second way.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>the compensation holds the boresight PFD flat across the layout</span></li>
+      <li><span class="op">&rarr;</span><span>the derived masks bake whichever mode the profile declares</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">Aggregation &middot; ReuseClusterIndex</span><span class="unit">enum &middot; index</span></div>
+    <div class="where"><b>PfdMaskViewModel.Aggregation / ReuseClusterIndex</b> &middot; power sum | co-channel worst colour</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">How beams combine in the victim's reference bandwidth. The run models one frequency, and the
+    aggregation says which beams share that slot: the power sum of all beams is the FRF-1 payload, every beam
+    radiating the full band; under N-colour reuse the band is partitioned and only one colour's beams illuminate
+    the victim's slot &mdash; &sect;C2.3.1 sums the illuminating beams "in the co-frequency band". The victim's
+    sub-band is not declared, so the worst colour is taken: the envelope over where the carrier lands, matching
+    the masks. The index selects the cluster size N from {3, 4, 7}. The ordering is invariant: max single &le;
+    co-channel &le; power sum.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>checks pin the K-colour adjacency and the ordering (C2, C3)</span></li>
+      <li><span class="op">&rarr;</span><span>modelled in the truth run too: with co-channel declared, the epfd composite takes the worst colour</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">RefBwKHz</span><span class="unit">kHz</span></div>
+    <div class="where"><b>PfdMaskViewModel.RefBwKHz</b> &middot; mask refbw_khz</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Reference bandwidth of every density in the chain &mdash; the masks, the limits and the CDFs
+    all quote per-reference-bandwidth quantities, and Article 22 epfd(down) uses 40 kHz. Declared once, carried
+    everywhere.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>the BR limits rows carry their own refbw &mdash; the compliance window shows both</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">IlluminationDutyCycle</span><span class="unit">(0,1] </span></div>
+    <div class="where"><b>ScenePointing(&hellip;, illuminationDutyCycle)</b></div>
+    <div class="chips"><span class="chip on">Emission composite</span></div>
+    <p class="desc">Beam-hopping time average for frames much shorter than the time step: every resolved beam
+    power carries <code>10&#8201;log&#8321;&#8320;(duty)</code>. The declared masks stay peak-PSD envelopes &mdash;
+    only the simulated statistics average (see the duty row in the Activity timeline).</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>emission side only &mdash; the scheduler&rsquo;s footprint layout is duty-independent</span></li>
+      <li><span class="op">&perp;</span><span>never enters the mask samplers: peak vs average is the point</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">CoFrequencyBeamCapacity</span><span class="unit">count per colour</span></div>
+    <div class="where"><b>DownlinkProfile.CoFrequencyBeamCapacity</b> -> PfdMaskViewModel, ResolvedBeamSet; scheduler gate and mask top-K</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">The most same-colour (co-frequency) beams one satellite radiates at once. Payload hardware, not traffic: the study Recommendation lists the maximum number of co-frequency, co-polarisation beams as a required antenna input. Declared here it does two things at once. The scheduler refuses a satellite a further link in a colour that already has this many lit, so the truth honours it; and the reachable-envelope mask sums only the largest K same-colour contributions at each cell instead of the whole colour. That second step needs this field as its warrant: without an enforced capacity the observed count is a sample maximum and the only ceiling the envelope may use is the colour size itself. Left empty, nothing is limited and the mask sums every beam of the colour.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>distinct from MAX_CO_FREQ_SAT, which counts earth stations across all colours and is an R-set item</span></li>
+      <li><span class="op">&rarr;</span><span>measured before it is declared: the beamcount readout gives the per-satellite distribution (20 against 42 in the colour on STEAM-2)</span></li>
+      <li><span class="op">&rarr;</span><span>moves T when declared, exactly as a real capacity does -- an outer-loop parameter, not a description</span></li>
+    </ul>
+  </div>
+
+  <h3 class="intent">Beam shape &amp; layout</h3>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">PatternKind</span><span class="unit">enum</span></div>
+    <div class="where"><b>SceneModel.PatternKind</b> &middot; profile PatternKind</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">The per-beam pattern model: S.1528-1 §1.4 Taylor, circular or elliptical (the scene default), or the
+    S.1528-0 §1.2 envelope and §1.3 LEO/MEO/HEO references. It changes each beam's shape and side lobes — the
+    composite everywhere off boresight — while the lattice population stays with the layout parameters. Empty
+    keeps the scene default. A simulation may model the space-station antenna by a measured pattern, a reference
+    pattern, or an analytical side-lobe function (S.1325 rev §2.4.2); these are the reference patterns.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>the Taylor parameters (SLR, nbar, floor) apply to the &sect;1.4 kinds</span></li>
+      <li><span class="op">&perp;</span><span>the &sect;1.2/&sect;1.3 kinds are S.1528-0 reference patterns, not shaped illuminations</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">GainPeakDbi</span><span class="unit">dBi &middot; per beam</span></div>
+    <div class="where"><b>PfdMaskViewModel.GmDbi</b> &middot; profile GainPeakDbi</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Per-beam peak gain Gm of the S.1528-1 &sect;1.4 pattern &mdash; the top of every beam's gain
+    curve and the bridge from transmit power to e.i.r.p.: per beam at its own boresight, e.i.r.p. density =
+    TxEirpDbw + Gm (the composite adds neighbouring side lobes on top). Empty in the profile keeps the scene
+    default.</p>
+    <ul class="rel">
+      <li><span class="op">&and;</span><span>with <code>TxEirpDbw</code> it sets the boresight density</span></li>
+      <li><span class="op">&perp;</span><span>beam width comes from the layout, not Gm &mdash; cell sizing lives in <code>BeamCellRadiusKm</code></span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">ThetaBDeg</span><span class="unit">deg</span></div>
+    <div class="where"><b>SceneModel.ThetaBDeg</b> &middot; profile ThetaBDeg</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Half 3-dB beamwidth of the circular patterns &mdash; the direct width parameter where the layout
+    does not derive width from a cell (&sect;1.4 circular, &sect;1.2/&sect;1.3 references). The elliptical auto
+    layout derives its widths from the ground cell instead.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>the composite tab's Fill-&theta;b-from-Gm estimates it from the peak gain</span></li>
+      <li><span class="op">&perp;</span><span>inert for the elliptical auto layout &mdash; <code>BeamCellRadiusKm</code> and <code>EllRollOffDb</code> rule there</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">PatternFloorDbi</span><span class="unit">dBi</span></div>
+    <div class="where"><b>PfdMaskViewModel.LfDbi</b> &middot; profile PatternFloorDbi</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">The far-out side-lobe / null floor LF: the pattern never falls below it, so far off boresight a
+    victim sees the floor, not the Taylor shape. It dominates the mask's far bins and the quiet end of the epfd
+    CDF; the scene default is 0 dBi.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>raising it lifts every far-off-axis epfd sample dB for dB</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">TaylorSlrDb &middot; TaylorNbar</span><span class="unit">dB &middot; count</span></div>
+    <div class="where"><b>PfdMaskViewModel.TaylorSlrDb / TaylorNbar</b> &middot; profile TaylorSlrDb / TaylorNbar</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">The S.1528-1 &sect;1.4 Taylor illumination parameters: side-lobe ratio and the number of shaped
+    secondary lobes; Annex 2's reference values, 20 dB and 4, are the scene defaults. Off-axis epfd toward a victim
+    rides on exactly these side lobes.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span><code>PatternFloorDbi</code> caps the far-out lobes the Taylor shape decays into</span></li>
+      <li><span class="op">&rarr;</span><span>the kernel is pinned by checks at the Bessel-zero abscissae (|F| &le; 1)</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">AutoHex &middot; UvArrayBeams</span><span class="unit">flags</span></div>
+    <div class="where"><b>SceneModel.AutoMode / UvArrayBeams</b></div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">The layout switches: auto hex tessellation on or off (off = the concentric-rings layout), and
+    array-steered UV beams for the circular &sect;1.4 pattern &mdash; radial width &times;1/cos&nbsp;&theta;, the
+    phased-array broadening. Indeterminate in the profile keeps the scene defaults.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>the array broadening buys a uniform crossover across the UV lattice</span></li>
+      <li><span class="op">&rarr;</span><span>rings mode is where <code>CrossoverDb</code> bites</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">BeamCellRadiusKm</span><span class="unit">km &middot; per beam</span></div>
+    <div class="where"><b>PfdMaskViewModel.CellRadiusKm</b> &middot; profile BeamCellRadiusKm</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Ground-cell radius one beam serves &mdash; sets the beam lattice density and each beam's width
+    in the auto layout: smaller cells mean more, narrower beams over the same service area.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>the composite the masks envelope is the power sum of exactly this lattice</span></li>
+      <li><span class="op">&perp;</span><span>coverage feasibility is separate &mdash; <code>CellPitchKm / coverageRadiusKm</code> decide which cells a footprint reaches</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">EllAlphaDeg &middot; EllBetaDeg</span><span class="unit">deg at sat</span></div>
+    <div class="where"><b>SceneModel.EllAlphaDeg / EllBetaDeg</b></div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">The Annex-2 elliptical cell half-axes subtended at the satellite (radial &alpha;, transverse
+    &beta;) &mdash; the manual parameterisation used when the elliptical pattern runs without the auto layout;
+    auto mode derives them from the ground-cell radius per position.</p>
+    <ul class="rel">
+      <li><span class="op">&and;</span><span>with <code>EllRollOffDb</code> they fix the aperture (Lr, Lt)</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">EllRollOffDb</span><span class="unit">dB &middot; cell edge</span></div>
+    <div class="where"><b>PfdMaskViewModel.EllRollOffDb</b> &middot; profile EllRollOffDb</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Adjacent-beam crossover depth of the auto layout: each beam's width is derived so its pattern
+    sits this many dB below peak at the cell edge &mdash; the cell radius fixes the lattice pitch, the crossover
+    fixes how the beam fills its cell. Deeper crossover means narrower beams and colder cell edges; the scene
+    default is 3&nbsp;dB.</p>
+    <ul class="rel">
+      <li><span class="op">&perp;</span><span>beam count stays with <code>BeamCellRadiusKm</code> and <code>MIN_ELEV</code> &mdash; this parameter shapes edge illumination, not population</span></li>
+      <li><span class="op">&rarr;</span><span>check H2 pins the crossover uniform across the lattice with array-steered beams</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">LnDb</span><span class="unit">dB rel. peak</span></div>
+    <div class="where"><b>SceneModel.LnDb</b> &middot; profile LnDb</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Near-in side-lobe level of the S.1528-0 &sect;1.2 envelope pattern (default &minus;15&nbsp;dB)
+    &mdash; that model's one shape parameter; inert for the &sect;1.4 and &sect;1.3 kinds.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>&sect;1.2 is the envelope reference the APL APSREC409V01 family encodes</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">CrossoverDb</span><span class="unit">dB &middot; rings layout</span></div>
+    <div class="where"><b>SceneModel.CrossoverDb</b> &middot; profile CrossoverDb</div>
+    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
+    <p class="desc">Adjacent-beam crossover level of the concentric-rings layout (negative dB; default &minus;3):
+    with auto hex off, successive rings are placed so neighbouring beams cross at this level &mdash; there it sets
+    the pitch. The auto hex lattice ignores it; its pitch comes from the cell radius.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>active only when <code>AutoHex</code> is off &mdash; the rings layout's counterpart of <code>BeamCellRadiusKm</code></span></li>
+      <li><span class="op">&perp;</span><span>the hex lattice's edge behaviour is <code>EllRollOffDb</code> instead</span></li>
+    </ul>
+  </div>
+
+  <h3 class="intent">Uplink fleet</h3>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">PowerDbw</span><span class="unit">dBW / ref. BW</span></div>
+    <div class="where"><b>EpfdUpEsModel.PowerDbw</b></div>
+    <div class="chips"><span class="chip on">EpfdUp</span></div>
+    <p class="desc">The ES transmit ceiling into its antenna &mdash; the same base the declared E mask envelopes
+    (<code>mask = PowerDbw + G(&theta;)</code> monotone hull), so simulated eirp &le; mask by construction.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>the E mask&rsquo;s base level; gateway and typical classes differ (15 / 12 dBW)</span></li>
+      <li><span class="op">&rarr;</span><span>reduced per link by <code>PowerControlRefElevDeg</code></span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">PowerControlRefElevDeg</span><span class="unit">deg &middot; nullable</span></div>
+    <div class="where"><b>EpfdUpEsModel.PowerControlRefElevDeg</b></div>
+    <div class="chips"><span class="chip on">EpfdUp</span></div>
+    <p class="desc">Range-based closed-loop power control (power control on range, S.1325 rev §2.3.3, the receiver-power-density
+    formulation): the ceiling corresponds to the slant range at this elevation, and each link transmits 20
+    log₁₀(d ref / d link) below it — constant flux at the serving satellite. Worth ≈2 dB in the uplink truth CDF of the validation dataset.</p>
+    <figure><svg viewBox="0 0 300 100" role="img" aria-label="Slant range at the reference minimum elevation is the longest allowed path; a higher satellite needs less power">
+      <g style="color:var(--ink)" stroke="currentColor" fill="none">
+        <path d="M10 88 Q150 70 290 88" opacity=".5"/>
+        <line x1="80" y1="86" x2="238" y2="26" stroke-dasharray="4 3"/>
+        <line x1="80" y1="86" x2="118" y2="20" stroke="var(--g2)"/>
+      </g>
+      <circle cx="80" cy="86" r="3.5" fill="currentColor" style="color:var(--ink)"/>
+      <circle cx="238" cy="24" r="3" fill="currentColor" style="color:var(--ink)"/>
+      <circle cx="118" cy="18" r="3" fill="currentColor" style="color:var(--ink)"/>
+      <text x="66" y="98" class="svgtxt">ES</text>
+      <text x="296" y="20" text-anchor="end" class="svgtxt">at min elev</text>
+      <text x="96" y="12" class="svgtxt">overhead</text>
+      <text x="168" y="66" class="svglbl">d ref &mdash; full ceiling</text>
+      <text x="88" y="60" class="svglbl" style="fill:var(--g2)">&minus;20log(d ref/d)</text>
+    </svg><figcaption>The declared minimum elevation fixes the reference range, hence the ceiling.</figcaption></figure>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>referenced to the band&rsquo;s declared <code>MIN_ELEV</code> in the dataset</span></li>
+      <li><span class="op">&rarr;</span><span>null keeps the ceiling &mdash; the pre-control behaviour, bit for bit</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">EsDishM</span><span class="unit">m</span></div>
+    <div class="where"><b>UplinkProfile.EsDishM</b> &middot; S.1428 diameter</div>
+    <div class="chips"><span class="chip on">EpfdUp</span></div>
+    <p class="desc">S.1428 antenna diameter of the transmitting earth stations on the uplink. The downlink victim's
+    dish is not declared here &mdash; the examination pairs each Article 22 limit row with its own reference
+    diameter, so the victim antenna comes from the limit table.</p>
+    <ul class="rel">
+      <li><span class="op">&and;</span><span>with <code>PowerDbw</code> and <code>PowerControlRefElevDeg</code> it is the whole uplink transmit chain</span></li>
+    </ul>
+  </div>
+
+  <h3 class="intent">Service &amp; coverage</h3>
 
   <div class="cardp truth">
     <div class="name-row"><span class="pname">Service area</span><span class="unit">deg lat &times; lon</span></div>
@@ -479,8 +789,31 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     es_distance. The default hex layout has no central beam — nearest boresights sit 433 km from the
     sub-satellite point at 1200 km — a lattice fact that decides feasibility.</p>
     <ul class="rel">
-      <li><span class="op">&rarr;</span><span>too tight a radius silently unserves covered-looking cells (three harness checks learned this)</span></li>
+      <li><span class="op">&rarr;</span><span>too tight a radius silently unserves covered-looking cells</span></li>
       <li><span class="op">&rarr;</span><span>interacts with <code>MIN_ELEV</code>: both must admit the geometry before a candidate exists</span></li>
+    </ul>
+  </div>
+
+  <h3 class="intent">Traffic &amp; scheduling</h3>
+
+  <div class="cardp truth">
+    <div class="name-row"><span class="pname">SelectionPolicy</span><span class="unit">enum</span></div>
+    <div class="where"><b>Scheduler(&hellip;, policy)</b> &middot; HighestElevation | MaxGsoSeparation | Random | HoldUntilForced</div>
+    <div class="chips"><span class="chip on">Scheduler metric</span></div>
+    <p class="desc">Which feasible satellite serves. Selection runs in two stages, as the simulation methodology sets it out
+    (S.1325 rev §2.3.2.2): the declared gates filter the candidates first — minimum elevation, which may vary by
+    latitude and azimuth, and the GSO avoidance angle — then the strategy chooses among what survives. The four
+    here are that catalogue’s own: highest elevation, largest separation from the GSO arc, a uniform random draw
+    among the feasible set, and hold-until-forced. Highest elevation has two handover variants and both are
+    present — always take the highest, or keep the active satellite until it drops below the floor, which is
+    hold-until-forced here. The random draw is the software-defined-networking case, where the real selection is
+    proprietary or too complex to model and operators report a random choice as an adequate approximation. With no hold the random draw is repeated at every time step, so the step is also the reselection period and a finer step is a faster traffic model; with a hold a link is kept at least that long, and after it a fresh draw can hand it over at any step. Where
+    a cell serves more than one slot, the next slot takes the next candidate down: second best, then third. All
+    obey every declared bound; the differences between their CDFs price the strategies.</p>
+    <ul class="rel">
+      <li><span class="op">&equiv;</span><span>MaxGsoSeparation maximises the same &alpha; that <code>MIN_EXCLUDE</code> bounds</span></li>
+      <li><span class="op">&rarr;</span><span>drives the candidate sort <em>and</em> the voluntary-handover comparison</span></li>
+      <li><span class="op">&perp;</span><span>no strategy has an R-set field &mdash; selection reaches the filing only through the gates it obeys (the 4A/653 alpha table proposed to carry it and was rejected)</span></li>
     </ul>
   </div>
 
@@ -524,7 +857,7 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     </svg><figcaption>Activity gates whether the link exists; duty scales its time-averaged power.</figcaption></figure>
     <ul class="rel">
       <li><span class="op">&rarr;</span><span>releases restart <code>MIN_DURATION</code> dwell without counting handovers</span></li>
-      <li><span class="op">&rarr;</span><span>hash-deterministic: same inputs, same CDFs &mdash; no RNG state anywhere</span></li>
+      <li><span class="op">&rarr;</span><span>hash-deterministic: same inputs, same CDFs &mdash; the activity model holds no random state (the Random selection policy draws from its own seeded stream)</span></li>
     </ul>
   </div>
 
@@ -540,340 +873,20 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     </ul>
   </div>
 
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">SelectionPolicy</span><span class="unit">enum</span></div>
-    <div class="where"><b>Scheduler(&hellip;, policy)</b> &middot; HighestElevation | MaxGsoSeparation | Random | HoldUntilForced</div>
-    <div class="chips"><span class="chip on">Scheduler metric</span></div>
-    <p class="desc">Which feasible satellite serves. Selection runs in two stages, as the simulation methodology sets it out
-    (S.1325 rev §2.3.2.2): the declared gates filter the candidates first — minimum elevation, which may vary by
-    latitude and azimuth, and the GSO avoidance angle — then the strategy chooses among what survives. The four
-    here are that catalogue’s own: highest elevation, largest separation from the GSO arc, a uniform random draw
-    among the feasible set, and hold-until-forced. Highest elevation has two handover variants and both are
-    present — always take the highest, or keep the active satellite until it drops below the floor, which is
-    hold-until-forced here. The random draw is the software-defined-networking case, where the real selection is
-    proprietary or too complex to model and operators report a random choice as an adequate approximation. With no hold the random draw is repeated at every time step, so the step is also the reselection period and a finer step is a faster traffic model; with a hold a link is kept at least that long, and after it a fresh draw can hand it over at any step. Where
-    a cell serves more than one slot, the next slot takes the next candidate down: second best, then third. All
-    obey every declared bound; the differences between their CDFs price the strategies.</p>
-    <ul class="rel">
-      <li><span class="op">&equiv;</span><span>MaxGsoSeparation maximises the same &alpha; that <code>MIN_EXCLUDE</code> bounds</span></li>
-      <li><span class="op">&rarr;</span><span>drives the candidate sort <em>and</em> the voluntary-handover comparison</span></li>
-      <li><span class="op">&perp;</span><span>no strategy has an R-set field &mdash; selection reaches the filing only through the gates it obeys (the 4A/653 alpha table proposed to carry it and was rejected)</span></li>
-    </ul>
-  </div>
-
-
-  <h3 class="intent">Radiated power &amp; spectrum</h3>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">TxEirpDbw</span><span class="unit">dBW / ref. BW &middot; per beam</span></div>
-    <div class="where"><b>PfdMaskViewModel.TxEirpDbw</b> &middot; profile TxEirpDbw</div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">Per-beam transmit power density into the pattern (dBW in the reference bandwidth):
-    constant-e.i.r.p. mode feeds exactly this to every beam and the composite adds the pattern gain on top. Every
-    epfd statistic moves dB for dB with it &mdash; the payload envelope study's compliance frontier is linear in
-    this one parameter.</p>
-    <ul class="rel">
-      <li><span class="op">&equiv;</span><span>per-beam boresight e.i.r.p. density = TxEirpDbw + <code>GainPeakDbi</code></span></li>
-      <li><span class="op">&rarr;</span><span><code>PowerMode</code> adds per-beam slant compensation in constant-boresight-PFD mode</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">PowerMode</span><span class="unit">enum</span></div>
-    <div class="where"><b>PfdMaskViewModel.PowerMode</b> &middot; constant e.i.r.p. | constant boresight PFD</div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">Downlink power control: constant e.i.r.p. (the default) drives every beam at TxEirpDbw; constant boresight
-    PFD adds 20 log₁₀(slant/altitude) per beam so every boresight lands the same flux on the ground despite
-    spreading — the compensation a real payload applies. These are the two formulations of power control on
-    range (S.1325 rev §2.3.3): a target power density at the receiver, and a target flux at the surface. A filed
-    mask whose plateau is flat in pfd across range was built the second way.</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>check C4 pins the compensation: boresight PFD flat across the layout</span></li>
-      <li><span class="op">&rarr;</span><span>the derived masks bake whichever mode the profile declares</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">GainPeakDbi</span><span class="unit">dBi &middot; per beam</span></div>
-    <div class="where"><b>PfdMaskViewModel.GmDbi</b> &middot; profile GainPeakDbi</div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">Per-beam peak gain Gm of the S.1528-1 &sect;1.4 pattern &mdash; the top of every beam's gain
-    curve and the bridge from transmit power to e.i.r.p.: per beam at its own boresight, e.i.r.p. density =
-    TxEirpDbw + Gm (the composite adds neighbouring side lobes on top). Empty in the profile keeps the scene
-    default.</p>
-    <ul class="rel">
-      <li><span class="op">&and;</span><span>with <code>TxEirpDbw</code> it sets the boresight density the payload envelope study sweeps</span></li>
-      <li><span class="op">&perp;</span><span>beam width comes from the layout, not Gm &mdash; cell sizing lives in <code>BeamCellRadiusKm</code></span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">RefBwKHz</span><span class="unit">kHz</span></div>
-    <div class="where"><b>PfdMaskViewModel.RefBwKHz</b> &middot; mask refbw_khz</div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">Reference bandwidth of every density in the chain &mdash; the masks, the limits and the CDFs
-    all quote per-reference-bandwidth quantities, and Article 22 epfd(down) uses 40 kHz. Declared once, carried
-    everywhere.</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>the BR limits rows carry their own refbw &mdash; the compliance window shows both</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">IlluminationDutyCycle</span><span class="unit">(0,1] </span></div>
-    <div class="where"><b>ScenePointing(&hellip;, illuminationDutyCycle)</b></div>
-    <div class="chips"><span class="chip on">Emission composite</span></div>
-    <p class="desc">Beam-hopping time average for frames much shorter than the time step: every resolved beam
-    power carries <code>10&#8201;log&#8321;&#8320;(duty)</code>. The declared masks stay peak-PSD envelopes &mdash;
-    only the simulated statistics average (see the duty row in the Activity timeline).</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>emission side only &mdash; the scheduler&rsquo;s footprint layout is duty-independent</span></li>
-      <li><span class="op">&perp;</span><span>never enters the mask samplers: peak vs average is the point</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">Aggregation &middot; ReuseClusterIndex</span><span class="unit">enum &middot; index</span></div>
-    <div class="where"><b>PfdMaskViewModel.Aggregation / ReuseClusterIndex</b> &middot; power sum | co-channel worst colour</div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">How beams combine in the victim's reference bandwidth. The run models one frequency, and the
-    aggregation says which beams share that slot: the power sum of all beams is the FRF-1 payload, every beam
-    radiating the full band; under N-colour reuse the band is partitioned and only one colour's beams illuminate
-    the victim's slot &mdash; &sect;C2.3.1 sums the illuminating beams "in the co-frequency band". The victim's
-    sub-band is not declared, so the worst colour is taken: the envelope over where the carrier lands, matching
-    the masks. The index selects the cluster size N from {3, 4, 7}. The ordering is invariant: max single &le;
-    co-channel &le; power sum.</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>checks pin the K-colour adjacency and the ordering (C2, C3)</span></li>
-      <li><span class="op">&rarr;</span><span>modelled in the truth run too: with co-channel declared, the epfd composite takes the worst colour (V32)</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">CoFrequencyBeamCapacity</span><span class="unit">count per colour</span></div>
-    <div class="where"><b>DownlinkProfile.CoFrequencyBeamCapacity</b> -> PfdMaskViewModel, ResolvedBeamSet; scheduler gate and mask top-K</div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">The most same-colour (co-frequency) beams one satellite radiates at once. Payload hardware, not traffic: the study Recommendation lists the maximum number of co-frequency, co-polarisation beams as a required antenna input. Declared here it does two things at once. The scheduler refuses a satellite a further link in a colour that already has this many lit, so the truth honours it; and the reachable-envelope mask sums only the largest K same-colour contributions at each cell instead of the whole colour. That second step is E1-1, and this field is its warrant: without an enforced capacity the observed count is a sample maximum and the only ceiling the envelope may use is the colour size itself. Left empty, nothing is limited and the mask sums every beam of the colour.</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>distinct from MAX_CO_FREQ_SAT, which counts earth stations across all colours and is an R-set item</span></li>
-      <li><span class="op">&rarr;</span><span>measured before it is declared: the beamcount readout gives the per-satellite distribution (20 against 42 in the colour on STEAM-2)</span></li>
-      <li><span class="op">&rarr;</span><span>moves T when declared, exactly as a real capacity does -- an outer-loop parameter, not a description</span></li>
-    </ul>
-  </div>
-
-
-  <h3 class="intent">Beam shape &amp; layout</h3>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">PatternKind</span><span class="unit">enum</span></div>
-    <div class="where"><b>SceneModel.PatternKind</b> &middot; profile PatternKind</div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">The per-beam pattern model: S.1528-1 §1.4 Taylor, circular or elliptical (the scene default), or the
-    S.1528-0 §1.2 envelope and §1.3 LEO/MEO/HEO references. It changes each beam's shape and side lobes — the
-    composite everywhere off boresight — while the lattice population stays with the layout parameters. Empty
-    keeps the scene default. A simulation may model the space-station antenna by a measured pattern, a reference
-    pattern, or an analytical side-lobe function (S.1325 rev §2.4.2); these are the reference patterns.</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>the Taylor parameters (SLR, nbar, floor) apply to the &sect;1.4 kinds</span></li>
-      <li><span class="op">&perp;</span><span>the &sect;1.2/&sect;1.3 kinds are S.1528-0 reference patterns, not shaped illuminations</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">TaylorSlrDb &middot; TaylorNbar</span><span class="unit">dB &middot; count</span></div>
-    <div class="where"><b>PfdMaskViewModel.TaylorSlrDb / TaylorNbar</b> &middot; profile TaylorSlrDb / TaylorNbar</div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">The S.1528-1 &sect;1.4 Taylor illumination parameters: side-lobe ratio and the number of shaped
-    secondary lobes; Annex 2's reference values, 20 dB and 4, are the scene defaults. Off-axis epfd toward a victim
-    rides on exactly these side lobes.</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span><code>PatternFloorDbi</code> caps the far-out lobes the Taylor shape decays into</span></li>
-      <li><span class="op">&rarr;</span><span>the kernel is pinned by checks at the Bessel-zero abscissae (|F| &le; 1)</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">PatternFloorDbi</span><span class="unit">dBi</span></div>
-    <div class="where"><b>PfdMaskViewModel.LfDbi</b> &middot; profile PatternFloorDbi</div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">The far-out side-lobe / null floor LF: the pattern never falls below it, so far off boresight a
-    victim sees the floor, not the Taylor shape. It dominates the mask's far bins and the quiet end of the epfd
-    CDF; the scene default is 0 dBi.</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>raising it lifts every far-off-axis epfd sample dB for dB</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">LnDb</span><span class="unit">dB rel. peak</span></div>
-    <div class="where"><b>SceneModel.LnDb</b> &middot; profile LnDb</div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">Near-in side-lobe level of the S.1528-0 &sect;1.2 envelope pattern (default &minus;15&nbsp;dB)
-    &mdash; that model's one shape parameter; inert for the &sect;1.4 and &sect;1.3 kinds.</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>&sect;1.2 is the envelope reference the APL APSREC409V01 family encodes</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">ThetaBDeg</span><span class="unit">deg</span></div>
-    <div class="where"><b>SceneModel.ThetaBDeg</b> &middot; profile ThetaBDeg</div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">Half 3-dB beamwidth of the circular patterns &mdash; the direct width parameter where the layout
-    does not derive width from a cell (&sect;1.4 circular, &sect;1.2/&sect;1.3 references). The elliptical auto
-    layout derives its widths from the ground cell instead.</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>the composite tab's Fill-&theta;b-from-Gm estimates it from the peak gain</span></li>
-      <li><span class="op">&perp;</span><span>inert for the elliptical auto layout &mdash; <code>BeamCellRadiusKm</code> and <code>EllRollOffDb</code> rule there</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">EllAlphaDeg &middot; EllBetaDeg</span><span class="unit">deg at sat</span></div>
-    <div class="where"><b>SceneModel.EllAlphaDeg / EllBetaDeg</b></div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">The Annex-2 elliptical cell half-axes subtended at the satellite (radial &alpha;, transverse
-    &beta;) &mdash; the manual parameterisation used when the elliptical pattern runs without the auto layout;
-    auto mode derives them from the ground-cell radius per position.</p>
-    <ul class="rel">
-      <li><span class="op">&and;</span><span>with <code>EllRollOffDb</code> they fix the aperture (Lr, Lt)</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">EllRollOffDb</span><span class="unit">dB &middot; cell edge</span></div>
-    <div class="where"><b>PfdMaskViewModel.EllRollOffDb</b> &middot; profile EllRollOffDb</div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">Adjacent-beam crossover depth of the auto layout: each beam's width is derived so its pattern
-    sits this many dB below peak at the cell edge &mdash; the cell radius fixes the lattice pitch, the crossover
-    fixes how the beam fills its cell. Deeper crossover means narrower beams and colder cell edges; the scene
-    default is 3&nbsp;dB.</p>
-    <ul class="rel">
-      <li><span class="op">&perp;</span><span>beam count stays with <code>BeamCellRadiusKm</code> and <code>MIN_ELEV</code> &mdash; this parameter shapes edge illumination, not population</span></li>
-      <li><span class="op">&rarr;</span><span>check H2 pins the crossover uniform across the lattice with array-steered beams</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">CrossoverDb</span><span class="unit">dB &middot; rings layout</span></div>
-    <div class="where"><b>SceneModel.CrossoverDb</b> &middot; profile CrossoverDb</div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">Adjacent-beam crossover level of the concentric-rings layout (negative dB; default &minus;3):
-    with auto hex off, successive rings are placed so neighbouring beams cross at this level &mdash; there it sets
-    the pitch. The auto hex lattice ignores it; its pitch comes from the cell radius.</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>active only when <code>AutoHex</code> is off &mdash; the rings layout's counterpart of <code>BeamCellRadiusKm</code></span></li>
-      <li><span class="op">&perp;</span><span>the hex lattice's edge behaviour is <code>EllRollOffDb</code> instead</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">AutoHex &middot; UvArrayBeams</span><span class="unit">flags</span></div>
-    <div class="where"><b>SceneModel.AutoMode / UvArrayBeams</b></div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">The layout switches: auto hex tessellation on or off (off = the concentric-rings layout), and
-    array-steered UV beams for the circular &sect;1.4 pattern &mdash; radial width &times;1/cos&nbsp;&theta;, the
-    phased-array broadening. Indeterminate in the profile keeps the scene defaults.</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>checks H1/H2 pin the UV-beam geometry and the crossover uniformity it buys</span></li>
-      <li><span class="op">&rarr;</span><span>rings mode is where <code>CrossoverDb</code> bites</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">BeamCellRadiusKm</span><span class="unit">km &middot; per beam</span></div>
-    <div class="where"><b>PfdMaskViewModel.CellRadiusKm</b> &middot; profile BeamCellRadiusKm</div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span></div>
-    <p class="desc">Ground-cell radius one beam serves &mdash; sets the beam lattice density and each beam's width
-    in the auto layout: smaller cells mean more, narrower beams over the same service area.</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>the composite the masks envelope is the power sum of exactly this lattice</span></li>
-      <li><span class="op">&perp;</span><span>coverage feasibility is separate &mdash; <code>CellPitchKm / coverageRadiusKm</code> decide which cells a footprint reaches</span></li>
-    </ul>
-  </div>
+  <h3 class="intent">Mask export</h3>
 
   <div class="cardp truth">
     <div class="name-row"><span class="pname">YawSweepDeg</span><span class="unit">deg[] &middot; default {0}</span></div>
-    <div class="where"><b>MaskXmlExportOptions.YawSweepDeg</b> &rarr; ReachableEnvelopeSampler</div>
+    <div class="where">profile <b>YawSteeringRangeDeg</b> &rarr; <b>MaskXmlExportOptions.YawSweepDeg</b> &rarr; ReachableEnvelopeSampler</div>
     <div class="chips"><span class="chip on">Mask envelope</span></div>
     <p class="desc">Body-yaw offsets swept on top of each pass heading when the pfd envelope is sampled. A
     yaw-steering payload <em>must</em> sweep its reachable yaw range here or the derived mask is not an envelope
-    &mdash; the one parameter that guards mask correctness rather than tightness.</p>
+    &mdash; the one parameter that guards mask correctness rather than tightness. The Operation profile's Yaw steering
+    range sets it for the compliance loop's computed mask, swept from minus to plus the range in steps no coarser than
+    the mask's grid.</p>
     <ul class="rel">
       <li><span class="op">&perp;</span><span>the S mask needs no sweep: body yaw is a rigid rotation about nadir and its azimuth envelope is invariant</span></li>
       <li><span class="op">&rarr;</span><span>sweep step no coarser than the output bin, or peaks slip between cells</span></li>
-    </ul>
-  </div>
-
-
-  <h3 class="intent">Uplink fleet</h3>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">EsDishM</span><span class="unit">m</span></div>
-    <div class="where"><b>UplinkProfile.EsDishM</b> &middot; S.1428 diameter</div>
-    <div class="chips"><span class="chip on">EpfdUp</span></div>
-    <p class="desc">S.1428 antenna diameter of the transmitting earth stations on the uplink. The downlink victim's
-    dish is not declared here &mdash; the examination pairs each Article 22 limit row with its own reference
-    diameter, so the victim antenna comes from the limit table.</p>
-    <ul class="rel">
-      <li><span class="op">&and;</span><span>with <code>PowerDbw</code> and <code>PowerControlRefElevDeg</code> it is the whole uplink transmit chain</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">PowerDbw</span><span class="unit">dBW / ref. BW</span></div>
-    <div class="where"><b>EpfdUpEsModel.PowerDbw</b></div>
-    <div class="chips"><span class="chip on">EpfdUp</span></div>
-    <p class="desc">The ES transmit ceiling into its antenna &mdash; the same base the declared E mask envelopes
-    (<code>mask = PowerDbw + G(&theta;)</code> monotone hull), so simulated eirp &le; mask by construction.</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>the E mask&rsquo;s base level; gateway and typical classes differ (15 / 12 dBW)</span></li>
-      <li><span class="op">&rarr;</span><span>reduced per link by <code>PowerControlRefElevDeg</code></span></li>
-    </ul>
-  </div>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">PowerControlRefElevDeg</span><span class="unit">deg &middot; nullable</span></div>
-    <div class="where"><b>EpfdUpEsModel.PowerControlRefElevDeg</b></div>
-    <div class="chips"><span class="chip on">EpfdUp</span></div>
-    <p class="desc">Range-based closed-loop power control (power control on range, S.1325 rev §2.3.3, the receiver-power-density
-    formulation): the ceiling corresponds to the slant range at this elevation, and each link transmits 20
-    log₁₀(d ref / d link) below it — constant flux at the serving satellite. Worth ≈2 dB in the BL-U1 truth CDF.</p>
-    <figure><svg viewBox="0 0 300 100" role="img" aria-label="Slant range at the reference minimum elevation is the longest allowed path; a higher satellite needs less power">
-      <g style="color:var(--ink)" stroke="currentColor" fill="none">
-        <path d="M10 88 Q150 70 290 88" opacity=".5"/>
-        <line x1="80" y1="86" x2="238" y2="26" stroke-dasharray="4 3"/>
-        <line x1="80" y1="86" x2="118" y2="20" stroke="var(--g2)"/>
-      </g>
-      <circle cx="80" cy="86" r="3.5" fill="currentColor" style="color:var(--ink)"/>
-      <circle cx="238" cy="24" r="3" fill="currentColor" style="color:var(--ink)"/>
-      <circle cx="118" cy="18" r="3" fill="currentColor" style="color:var(--ink)"/>
-      <text x="66" y="98" class="svgtxt">ES</text>
-      <text x="296" y="20" text-anchor="end" class="svgtxt">at min elev</text>
-      <text x="96" y="12" class="svgtxt">overhead</text>
-      <text x="168" y="66" class="svglbl">d ref &mdash; full ceiling</text>
-      <text x="88" y="60" class="svglbl" style="fill:var(--g2)">&minus;20log(d ref/d)</text>
-    </svg><figcaption>The declared minimum elevation fixes the reference range, hence the ceiling.</figcaption></figure>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>referenced to the band&rsquo;s declared <code>MIN_ELEV</code> in the dataset</span></li>
-      <li><span class="op">&rarr;</span><span>null keeps the ceiling &mdash; the pre-control behaviour, bit for bit</span></li>
-    </ul>
-  </div>
-
-
-  <h3 class="intent">The projection switch</h3>
-
-  <div class="cardp truth">
-    <div class="name-row"><span class="pname">FootprintSource</span><span class="unit">enum</span></div>
-    <div class="where"><b>DownlinkProfile.FootprintSource</b> &middot; composition | mask (+ MaskXmlPath)</div>
-    <div class="chips"><span class="chip on">Scene &amp; masks</span><span class="chip on">Examination read</span></div>
-    <p class="desc">Where the downlink footprint toward a victim comes from in simulations: beam composition
-    computes it live from the shaped beams (the truth); PFD mask reads a declared mask XML the examination's way
-    &mdash; &sect;D5.1.4.1 selection over &sect;D5.1.5 reads. Run both on one profile and the CDF difference is the
-    projection margin.</p>
-    <ul class="rel">
-      <li><span class="op">&rarr;</span><span>the beam fields still shape the scheduler's coverage geometry in both modes</span></li>
-      <li><span class="op">&perp;</span><span>no epfd(is) byproduct under the mask source &mdash; that needs the e.i.r.p. masks</span></li>
     </ul>
   </div>
 
@@ -883,27 +896,14 @@ a{color:var(--g1)} a:hover{color:#1983AA}
 <!-- ============ ORBIT ============ -->
 <section>
   <h2>Orbit model <span class="tag" style="background:var(--g3-tint); color:var(--g3)">declared per shell</span></h2>
-  <p class="sec-note">Declared per orbital plane &mdash; which is why one notice may mix the three station-keeping
-  cases (the deliberate &sect;B5.1 tension the BL-ALL README documents). Each maps one-to-one from
-  <code>ConstellationShell</code> into SRS orbit-row fields, so the declared and the propagated system are the same
-  by construction.</p>
+  <p class="sec-note">Declared per orbital plane, so one notice may mix the three station-keeping cases, shown here in
+  case order. Each maps one-to-one from <code>ConstellationShell</code> into SRS orbit-row fields, so the declared
+  and the propagated system are the same by construction.</p>
   <div class="grid">
 
   <div class="cardp orbit">
-    <div class="name-row"><span class="pname">StationKeeping &middot; WDeltaDeg &middot; RepeatPeriod</span><span class="unit">Case 2</span></div>
-    <div class="where"><b>f_stn_keep='Y', keep_rnge, rpt_prd_*</b> &middot; shell A</div>
-    <div class="chips"><span class="chip on">Propagator</span><span class="chip on">SRS writer</span></div>
-    <p class="desc">Station-kept repeating ground track: the longitude tolerance W_delta sweeps the track across its
-    deadband, and the declared repeat period tells the examination the time grid it may fold over.</p>
-    <ul class="rel">
-      <li><span class="op">&perp;</span><span>excludes artificial precession &mdash; <code>NOrbits</code> is ignored when kept</span></li>
-      <li><span class="op">&rarr;</span><span><code>keep_rnge</code> is a float column: compare at 1e-4, not 1e-6</span></li>
-    </ul>
-  </div>
-
-  <div class="cardp orbit">
     <div class="name-row"><span class="pname">NOrbits</span><span class="unit">count &middot; Case 1</span></div>
-    <div class="where"><b>ConstellationShell.NOrbits</b> &rarr; ArtificialPrecession &middot; shell B</div>
+    <div class="where"><b>ConstellationShell.NOrbits</b> &rarr; ArtificialPrecession</div>
     <div class="chips"><span class="chip on">Propagator</span></div>
     <p class="desc">Free drift: the examination adds artificial precession so NOrbits nodal passes tile the equator
     (&sect;D6.3.2 Steps 8&ndash;11). Transcribed formula-identically &mdash; including the documented sign quirk
@@ -915,20 +915,35 @@ a{color:var(--g1)} a:hover{color:#1983AA}
   </div>
 
   <div class="cardp orbit">
-    <div class="name-row"><span class="pname">PrecessionSupplied &middot; PrecessionRateDegPerSec</span><span class="unit">Case 3</span></div>
-    <div class="where"><b>f_precess='Y', precession</b> &middot; shell C (J2 rate)</div>
+    <div class="name-row"><span class="pname">StationKeeping &middot; WDeltaDeg &middot; RepeatPeriod</span><span class="unit">Case 2</span></div>
+    <div class="where"><b>f_stn_keep='Y', keep_rnge, rpt_prd_*</b></div>
     <div class="chips"><span class="chip on">Propagator</span><span class="chip on">SRS writer</span></div>
-    <p class="desc">Administration-supplied nodal precession: the declared rate is used directly instead of the
-    derived artificial one. The BL value is the standard J2 regression for the elliptical shell
-    (&minus;1.81&times;10&#8315;&#8309;&nbsp;deg/s).</p>
+    <p class="desc">Station-kept repeating ground track: the longitude tolerance W_delta sweeps the track across its
+    deadband, and the declared repeat period tells the examination the time grid it may fold over.</p>
     <ul class="rel">
-      <li><span class="op">&perp;</span><span>supersedes <code>NOrbits</code>-derived precession on that shell</span></li>
+      <li><span class="op">&perp;</span><span>excludes artificial precession &mdash; <code>NOrbits</code> is ignored when kept</span></li>
+      <li><span class="op">&rarr;</span><span><code>keep_rnge</code> is a float column: compare at 1e-4, not 1e-6</span></li>
+    </ul>
+  </div>
+
+  <div class="cardp orbit">
+    <div class="name-row"><span class="pname">PrecessionSupplied &middot; PrecessionRateDegPerSec</span><span class="unit">Case 3</span></div>
+    <div class="where"><b>f_stn_keep='Y', keep_rnge, rpt_prd_*, f_precess='Y', precession</b> (deg/day)</div>
+    <div class="chips"><span class="chip on">Propagator</span><span class="chip on">SRS writer</span></div>
+    <p class="desc">Station keeping with an administration-supplied nodal precession (S.1503-4 Fig. 52, eq (52)):
+    the rate replaces the J2 term, the argument of perigee is held and the satellite moves at the point-mass mean
+    motion, so the rate is the one that closes the repeat. Empty declares the rate that closes the selected repeat at
+    the target altitude. Filed as its magnitude in degrees/day; the direction is the one the inclination implies,
+    west for a prograde orbit and east for a retrograde one.</p>
+    <ul class="rel">
+      <li><span class="op">&rarr;</span><span>needs station keeping: without it the examination runs the shell as Case 1 and ignores the rate</span></li>
+      <li><span class="op">&perp;</span><span>a rate turning against the inclination, or a typed rate off the repeat by more than keep_rnge per cycle, cannot be filed</span></li>
     </ul>
   </div>
 
   <div class="cardp orbit">
     <div class="name-row"><span class="pname">Eccentricity &middot; ArgumentOfPerigee &middot; OperatingHeightKm</span><span class="unit">elliptical</span></div>
-    <div class="where"><b>apog/perig_km, perig_arg, op_ht_km</b> &middot; shell C</div>
+    <div class="where"><b>apog/perig_km, perig_arg, op_ht_km</b></div>
     <div class="chips"><span class="chip on">Propagator</span><span class="chip on">Emission gate</span></div>
     <p class="desc">The elliptical declarations. The minimum operating height (H_MIN) is an emission gate: below it
     the satellite flies dark &mdash; and it sets the worst-case range the pfd envelope is sampled at

@@ -88,19 +88,19 @@
             </StackPanel>
 
             <StackPanel Grid.Column="1">
-                <GroupBox Header="min_exclude — one node per line: orb lat alpha (orb 0 = all orbits)">
+                <GroupBox Header="min__exclude — one node per line: orb lat alpha (orb 0 = all orbits)">
                     <TextBox x:Name="MinExcludeBox" AcceptsReturn="True" Height="80" VerticalScrollBarVisibility="Auto"
                              FontFamily="Consolas" Text="{Binding MinExcludeText, UpdateSourceTrigger=LostFocus}"/>
                 </GroupBox>
-                <GroupBox Header="min_elev — one node per line: lat az elev">
+                <GroupBox Header="min__elev — one node per line: lat az elev">
                     <TextBox x:Name="MinElevBox" AcceptsReturn="True" Height="80" VerticalScrollBarVisibility="Auto"
                              FontFamily="Consolas" Text="{Binding MinElevText, UpdateSourceTrigger=LostFocus}"/>
                 </GroupBox>
-                <GroupBox Header="max_co_freq — one node per line: lat value">
+                <GroupBox Header="max__co__freq — one node per line: lat value">
                     <TextBox x:Name="MaxCoFreqArrBox" AcceptsReturn="True" Height="60" VerticalScrollBarVisibility="Auto"
                              FontFamily="Consolas" Text="{Binding MaxCoFreqText, UpdateSourceTrigger=LostFocus}"/>
                 </GroupBox>
-                <GroupBox Header="min_duration — one node per line: lat seconds">
+                <GroupBox Header="min__duration — one node per line: lat seconds">
                     <TextBox x:Name="MinDurationArrBox" AcceptsReturn="True" Height="60" VerticalScrollBarVisibility="Auto"
                              FontFamily="Consolas" Text="{Binding MinDurationText, UpdateSourceTrigger=LostFocus}"/>
                 </GroupBox>
@@ -110,7 +110,7 @@
         <GroupBox Header="Derive from the compliance loop">
             <StackPanel>
                 <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
-                           Text="The intended path: the compliance loop flies the real system — the orbit design places the satellites, the operation profile says everything they do — and derives the declaration from a saturated probe as its first step (Run loop in the compliance loop window). This fills every field above from that run, except the identity and the band, which stay yours. It does not simulate: depth and latitude band decide how conservative the set is, so they belong to the loop that verifies it, not to a text box here."/>
+                           Text="The intended path: the compliance loop simulates the real system — the orbit design places the satellites, the operation profile says everything they do — and derives the declaration from a saturated probe as its first step (Run loop in the compliance loop window). This fills every field above from that run, except the identity and the band, which stay yours. It does not simulate: the loop's duration, step and latitude band decide how much of the system the derivation sees, so they belong to the loop that verifies it, not to a text box here."/>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="190"/><ColumnDefinition Width="220"/>
@@ -119,21 +119,21 @@
                     <TextBlock Text="Operation profile"/>
                     <TextBox   Grid.Column="1" Text="{Binding DeriveProfilePath, UpdateSourceTrigger=LostFocus}"
                                ToolTip="An *.opprofile.json — required. The loop run made from this profile is the one read; a run of the same name made from another profile is refused."/>
-                    <Button    Grid.Column="2" Content="Browse…" Margin="4,1,0,1" Click="OnDeriveProfileBrowseClick"/>
+                    <Button    Grid.Column="2" Content="Browse…" Margin="4,1,0,1" Command="{Binding BrowseDeriveProfileCommand}"/>
                 </Grid>
                 <Button Content="Derive &amp; fill" HorizontalAlignment="Left" IsEnabled="{Binding DeriveEnabled}"
-                        Click="OnDeriveClick"
-                        ToolTip="Fills every header field and array above from the compliance loop&apos;s derived set for this profile. No simulation happens here — the loop derives once, and this reads that set."/>
+                        Command="{Binding DeriveCommand}"
+                        ToolTip="Fills the header fields and arrays above from the compliance loop&apos;s derived set for this profile, keeping the identity and the band. No simulation happens here — the loop derives once, and this reads that set."/>
             </StackPanel>
         </GroupBox>
 
         <GroupBox Header="File">
             <StackPanel>
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="Save set (JSON)…" Click="OnSaveClick"/>
-                    <Button Content="Load set…" Click="OnLoadClick"/>
-                    <Button Content="Export R XML…" Click="OnExportClick"/>
-                    <Button x:Name="GuideBtn" Content="What goes in the R set?" IsEnabled="False" Click="OnGuideClick"
+                    <Button Content="Save set (JSON)…" Command="{Binding SaveCommand}"/>
+                    <Button Content="Load set…" Command="{Binding LoadCommand}"/>
+                    <Button Content="Export R XML…" Command="{Binding ExportCommand}"/>
+                    <Button x:Name="GuideBtn" Content="What goes in the R set?" Command="{Binding OpenGuideCommand}"
                             ToolTip="Opens the accompanying page: what the R set declares (and deliberately does not), how the examination reads header vs arrays, and the two authoring paths."/>
                 </StackPanel>
                 <TextBlock Text="{Binding SummaryText}" Foreground="#698089" TextWrapping="Wrap"/>

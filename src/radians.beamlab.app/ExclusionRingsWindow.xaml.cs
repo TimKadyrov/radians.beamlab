@@ -14,7 +14,6 @@ public partial class ExclusionRingsWindow : Window
     {
         InitializeComponent();
         DataContext = vm;
+        // Close is the dialog's cancel button (IsCancel), so it needs no handler.
     }
-
-    private void OnClose(object sender, RoutedEventArgs e) => Close();
 }

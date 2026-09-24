@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
+using System.Windows.Input;
 using radians.beamlab;
 
 namespace radians.beamlab.app;
@@ -13,8 +14,9 @@ namespace radians.beamlab.app;
 /// <see cref="OrbitDesignViewModel"/> (one target orbit, one case, one
 /// Walker shell), plus the selection every working sub-tab edits. Save and
 /// Load move the whole document through one *.orbitdesign.json (schema 4);
-/// older single-shell files load as a one-shell document. Pure state --
-/// the view owns dialogs and drawing.
+/// older single-shell files load as a one-shell document. The tab's
+/// buttons are commands here; the view supplies the dialogs, the clipboard
+/// and the builder window, and owns the drawing.
 /// </summary>
 public sealed class OrbitDesignDocumentViewModel : ObservableObject
 {
@@ -44,6 +46,84 @@ public sealed class OrbitDesignDocumentViewModel : ObservableObject
             if (_showConstellationTrack) RecomputeOverlay();
         };
         RecomputePreview();
+    }
+
+    // ---- the tab's buttons ----
+
+    /// <summary>Supplied by the view: an open-file dialog (filter -> path, null when cancelled).</summary>
+    public Func<string, string?>? PickOpenFile { get; set; }
+    /// <summary>Supplied by the view: a save-file dialog (filter, file name -> path, null when cancelled).</summary>
+    public Func<string, string, string?>? PickSaveFile { get; set; }
+    /// <summary>Supplied by the view: opens a document with the shell's default application.</summary>
+    public Action<string>? OpenDocument { get; set; }
+    /// <summary>Supplied by the view: puts text on the clipboard.</summary>
+    public Action<string>? SetClipboardText { get; set; }
+    /// <summary>Raised by Open SNS v10 builder; the view opens the window.</summary>
+    public event Action? OpenSnsBuilderRequested;
+
+    /// <summary>The two guide pages, null when the docs folder is not found (their buttons disable).</summary>
+    public string? CasesGuidePath { get; } = GuideFile("orbit-design-cases.html");
+    public string? SolverGuidePath { get; } = GuideFile("repeat-solver.html");
+
+    private static string? GuideFile(string name)
+    {
+        string? docs = HomeViewModel.FindDocsDir(AppContext.BaseDirectory);
+        string? path = docs is null ? null : System.IO.Path.Combine(docs, name);
+        return path is not null && System.IO.File.Exists(path) ? path : null;
+    }
+
+    private int _innerTabIndex;
+    /// <summary>The selected sub-tab (0 Start here, 1 Repeat solver, 2 Station-keeping cases, 3 Constellation).</summary>
+    public int InnerTabIndex { get => _innerTabIndex; set => SetField(ref _innerTabIndex, value); }
+
+    private ICommand? _casesGuide, _solverGuide, _goSolver, _goCases, _goConstellation, _addShell, _duplicateShell,
+        _moveShellUp, _moveShellDown, _removeShell, _harmonize, _copyCaseSummary, _saveDesign, _loadDesign, _openSnsBuilder;
+    public ICommand CasesGuideCommand => _casesGuide ??= new RelayCommand(
+        () => { if (CasesGuidePath is string g) OpenDocument?.Invoke(g); }, () => CasesGuidePath is not null);
+    public ICommand SolverGuideCommand => _solverGuide ??= new RelayCommand(
+        () => { if (SolverGuidePath is string g) OpenDocument?.Invoke(g); }, () => SolverGuidePath is not null);
+    public ICommand GoSolverCommand => _goSolver ??= new RelayCommand(() => InnerTabIndex = 1);
+    public ICommand GoCasesCommand => _goCases ??= new RelayCommand(() => InnerTabIndex = 2);
+    public ICommand GoConstellationCommand => _goConstellation ??= new RelayCommand(() => InnerTabIndex = 3);
+    public ICommand AddShellCommand => _addShell ??= new RelayCommand(AddShell);
+    public ICommand DuplicateShellCommand => _duplicateShell ??= new RelayCommand(DuplicateSelected);
+    public ICommand MoveShellUpCommand => _moveShellUp ??= new RelayCommand(MoveSelectedUp);
+    public ICommand MoveShellDownCommand => _moveShellDown ??= new RelayCommand(MoveSelectedDown);
+    public ICommand RemoveShellCommand => _removeShell ??= new RelayCommand(RemoveSelected);
+    public ICommand HarmonizeCommand => _harmonize ??= new RelayCommand(
+        () => SelectedShell.SnsStatusText = HarmonizeRptPrd());
+    public ICommand CopyCaseSummaryCommand => _copyCaseSummary ??= new RelayCommand(CopyCaseSummary);
+    public ICommand SaveDesignCommand => _saveDesign ??= new RelayCommand(SaveDesign);
+    public ICommand LoadDesignCommand => _loadDesign ??= new RelayCommand(LoadDesign);
+    public ICommand OpenSnsBuilderCommand => _openSnsBuilder ??= new RelayCommand(() => OpenSnsBuilderRequested?.Invoke());
+
+    private void CopyCaseSummary()
+    {
+        string text = SelectedShell.BuildCopyText();
+        if (text.Length == 0 || SetClipboardText is null) return;
+        SetClipboardText(text);
+        SelectedShell.SnsStatusText = "case summary copied to the clipboard";
+    }
+
+    private void SaveDesign()
+    {
+        if (SaveBlocker() is string why) { SelectedShell.SnsStatusText = "design not saved: " + why; return; }
+        if (PickSaveFile?.Invoke("Orbit design (*.orbitdesign.json)|*.orbitdesign.json",
+                "design.orbitdesign.json") is not string path) return;
+        System.IO.File.WriteAllText(path, BuildDocumentJson());
+        SelectedShell.SnsStatusText = "design saved (" + Shells.Count + " shell(s)): " + path;
+    }
+
+    private void LoadDesign()
+    {
+        if (PickOpenFile?.Invoke("Orbit design (*.orbitdesign.json)|*.orbitdesign.json|JSON|*.json")
+                is not string path) return;
+        try
+        {
+            LoadDocumentJson(System.IO.File.ReadAllText(path));
+            SelectedShell.SnsStatusText = "design loaded (" + Shells.Count + " shell(s)): " + path;
+        }
+        catch (Exception ex) { SelectedShell.SnsStatusText = "load failed: " + ex.Message; }
     }
 
     private OrbitDesignViewModel NewShell()
@@ -231,7 +311,7 @@ public sealed class OrbitDesignDocumentViewModel : ObservableObject
     /// Declares the common constellation period -- the LCM of every
     /// shell's own cycle -- as rpt_prd on every shell (A2.4: one repeat
     /// period appropriate for all satellites, including all
-    /// sub-constellations). No-op unless every shell is Case 2 with a
+    /// sub-constellations). No-op unless every shell is Case 2 or 3 with a
     /// candidate; the returned line says what happened, or why nothing did.
     /// </summary>
     public string HarmonizeRptPrd()
@@ -240,7 +320,7 @@ public sealed class OrbitDesignDocumentViewModel : ObservableObject
         int missing = own.FindIndex(v => v is null);
         if (own.Count == 0 || missing >= 0)
             return own.Count == 0 ? "nothing to harmonize: no shells"
-                : $"rpt_prd not harmonized: shell {missing + 1} is not Case 2 with a repeating candidate, and one repeat period must hold for every shell";
+                : $"rpt_prd not harmonized: shell {missing + 1} is not Case 2 or 3 with a repeating candidate, and one repeat period must hold for every shell";
         long p = 1;
         foreach (var v in own) p = Lcm(p, v!.Value);
         foreach (var s in Shells) s.HarmonizedRptSeconds = p;
@@ -270,11 +350,21 @@ public sealed class OrbitDesignDocumentViewModel : ObservableObject
         for (int i = 0; i < Shells.Count; i++)
         {
             var s = Shells[i];
-            if (s.CaseChoice != 1) continue;
+            if (s.CaseChoice is not (1 or 2)) continue;
             if (s.SelectedSolution is null)
-                return $"shell {i + 1} is Case 2 with no repeating candidate selected -- pick one on the Repeat solver";
+                return $"shell {i + 1} is Case {s.CaseChoice + 1} with no repeating candidate selected -- pick one on the Repeat solver";
             if (!s.KeepRangeValid)
-                return $"shell {i + 1}: {s.Case2Text}";
+                return $"shell {i + 1}: {s.KeepRangeHintText}";
+            if (s.CaseChoice != 2) continue;
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            // The filing carries the rate's magnitude; the inclination sets its direction.
+            if (s.Case3RateDegPerSec is double r && !OrbitDesign.PrecessionMatchesInclination(r, s.InclinationDeg))
+                return string.Create(inv,
+                    $"shell {i + 1} is Case 3 with a rate turning {(r > 0 ? "east" : "west")} at i = {s.InclinationDeg:F1} deg, where the filed magnitude turns the other way (or, at 90 deg, no way): it cannot be filed -- use Case 2");
+            // A typed rate must close the declared repeat within keep_rnge per cycle.
+            if (s.Case3MismatchDegPerCycle is double mm && Math.Abs(mm) > s.KeepRangeDeg)
+                return string.Create(inv,
+                    $"shell {i + 1}: the typed Case 3 rate leaves the track {Math.Abs(mm):F3} deg from closing its repeat every cycle, more than keep_rnge {s.KeepRangeDeg:F3} deg -- clear it to use the closing rate, or correct it");
         }
         return null;
     }

@@ -40,6 +40,7 @@ h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; marg
 h2{font-size:21px; font-weight:600; letter-spacing:-.01em; margin:2.2em 0 .4em; text-wrap:balance; max-width:var(--measure)}
 p{max-width:var(--measure)}
 ul{max-width:var(--measure)}
+li{margin:.35em 0}
 code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--code-bg); padding:0 4px; border-radius:3px}
 .tech{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--g1); border-radius:5px; padding:12px 16px; margin:14px 0; font-size:13.5px; max-width:var(--measure)}
 .tech .t{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; font-weight:600}
@@ -60,238 +61,289 @@ table.ex td:first-child{font-family:"IBM Plex Mono",monospace; font-size:12.5px;
 <div class="wrap">
 <div class="kicker">radians.beamlab &middot; the construction</div>
 <h1>How the Projection Is Built</h1>
-<p class="lede">What this tool does, in the order it does it: the inputs it takes, the three
-runs it makes of them, the two artefacts it derives, and the one number the whole
-construction exists to measure. The <a href="simulation-debate.md">debate</a> records why
-each decision was taken; this page records what was built.</p>
+<p class="lede">How the tool builds the declarations a filing carries, and how it measures what
+they cost. The measure is one number per latitude: the gap between the examination of the
+declarations and the epfd the simulated system really produces.</p>
 
-<h2>Purpose</h2>
+<h2>What the projection is</h2>
+<p>A non-GSO filing carries two declarations. The <em>pfd mask</em> gives, for each
+sub-satellite latitude, the strongest power flux-density a satellite may produce in each
+direction. The <em>R&nbsp;set</em> is the operating-parameter set of Rec. ITU-R S.1503-4
+Part&nbsp;B; its fields include the exclusion angle, the elevation floor, the co-frequency caps,
+the minimum angles and the served latitudes.</p>
+<p>The Bureau&rsquo;s examination under S.1503-4 judges the system against the Article&nbsp;22
+limits on equivalent power flux-density (epfd) by reading those declarations, not the system. So
+the declarations decide the verdict.</p>
+<p>A declaration looser than the system costs transmit power. epfd moves dB for dB with the
+per-beam power, so every dB the declaration adds is a dB of power the system could have been
+licensed for.</p>
+<p>The tool measures that cost. It simulates the system, derives the declarations from the
+simulation instead of writing them by hand, and computes epfd twice at the same victim earth
+stations: once from the simulated system, once as the examination reads the declarations.</p>
 
-<p>An operator files a pfd mask and a set of operating parameters. An administration then
-examines the system against the Article&nbsp;22 epfd limits by reading those declarations
-&mdash; not the system. So the declarations decide the verdict, and a declaration looser than
-the system it describes costs the operator real transmit power for nothing.</p>
+<div class="tech"><div class="t">Tech &middot; the three quantities</div>
+<p><strong>T</strong>, the truth: the epfd of the simulated system. Every satellite visible from
+the victim counts, at the level its live beams put there, power-summed; the examination&rsquo;s
+selection rules are not applied.</p>
+<p><strong>E1</strong>: the epfd the examination computes from the declared pfd mask and the
+declared R&nbsp;set, under the selection rules of S.1503-4 &sect;D5.1.4.1.</p>
+<p><strong>E1&nbsp;&minus;&nbsp;T</strong>, the gap or projection margin: what the declaration
+gives away, and at the same dB-for-dB rate the operating power the system could have been
+licensed for. It is read as the T point margin minus the E1 point margin, in dB. A correct
+declaration covers the system, so E1 is never below T.</p></div>
 
-<p>This tool measures that cost. It simulates the operated system, derives the declarations
-from the simulation rather than asserting them, and runs the examination twice: once against
-the system as it behaves, once against the system as it is declared. The distance between
-those two answers is the price of the declaration.</p>
-
-<div class="tech">
-<div class="t">What the numbers are about</div>
-<p>Every STEAM-2 figure in this repository is a figure about the payload this project
-<em>assumed</em> for it &mdash; scene-default pattern and layout, an assumed peak gain, power set
-to meet the filed cap at boresight. The operator&rsquo;s filed STEAM-2B mask, examined the
-administration&rsquo;s way, sits 7&ndash;16&nbsp;dB below that assumed system&rsquo;s truth at every
-latitude (<a href="compliance-steam-2b-filed-mask.md">record</a>). The construction is
-indifferent to which system is in the profile; the conclusions about STEAM-2 are not.</p>
-</div>
-
-<div class="tech">
-<div class="t">The three quantities, once</div>
-<p><strong>T</strong> &mdash; the truth: epfd from the live beam composition of the operated
-system. <strong>E1</strong> &mdash; the examination reading the derived mask and the derived
-R&nbsp;set. <strong>E1&nbsp;&minus;&nbsp;T</strong> &mdash; the projection margin: what the
-declaration gives away, and at the same dB-for-dB rate, the operating power the system could
-have been licensed for.</p>
-</div>
-
-<h2>Inputs</h2>
-
+<h2>The inputs</h2>
 <table class="ex">
 <tr><th>input</th><th>what it fixes</th><th>form</th></tr>
 <tr><td>orbit design</td><td>shells, planes, phasing, station-keeping regime</td><td><code>*.orbitdesign.json</code></td></tr>
 <tr><td>operation profile</td><td>the system: payload, power, beam layout, gates, service geography, traffic</td><td><code>*.opprofile.json</code></td></tr>
 <tr><td>limits</td><td>the Article&nbsp;22 rows the verdict is taken against</td><td>BR database, or entered</td></tr>
-<tr><td>victim scenario</td><td>earth-station latitudes, GSO offset, dish diameter</td><td>sweep settings</td></tr>
+<tr><td>victim scenario</td><td>earth-station latitudes, ES longitude, GSO offset, dish diameter</td><td>sweep settings</td></tr>
 </table>
+<p>The profile is the system. There are no stand-in fields: a quantity that shapes what the
+satellites do is declared in the profile and nowhere else.</p>
 
-<p>The profile is the system. There are no stand-in fields: if a quantity shapes what the
-satellites do, it is declared there and nowhere else.</p>
-
-<h2>Means: three runs, in this order</h2>
+<h2>The three runs</h2>
+<p>The Compliance loop window&rsquo;s <strong>Run loop</strong> and the console loop mode make
+three runs of the same system, in this order.</p>
 
 <figure>
-<svg viewBox="0 0 700 366" role="img" aria-label="Orbit design and operation profile feed a saturated derivation probe that produces the R set and the pfd mask; a truth sweep produces T; an examination sweep reads the derived artefacts and produces E1; the gap between E1 and T is the projection margin">
+<svg viewBox="0 0 700 334" role="img" aria-label="Orbit design and operation profile feed three runs. The saturated derivation probe measures the R set. The pfd mask is the profile's declared mask or is computed from the reachable envelope, its dark rows set by the service latitudes the R set declares. The truth sweep runs the system with real traffic and gives T. The examination reads the R set and the mask and gives E1. E1 must sit at or above T at every latitude; the gap between them is the projection margin.">
   <defs><marker id="ac" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
   <g style="color:var(--ink)">
-    <rect x="14" y="20" width="150" height="64" rx="5" fill="none" stroke="currentColor"/>
-    <text x="26" y="44" class="svgtxt">orbit design</text>
-    <text x="26" y="63" class="svgtxt">+ profile</text>
-    <text x="26" y="78" class="svglbl">the system</text>
+    <rect x="14" y="124" width="132" height="72" rx="5" fill="none" stroke="currentColor"/>
+    <text x="26" y="148" class="svgtxt">orbit design</text>
+    <text x="26" y="166" class="svgtxt">+ profile</text>
+    <text x="26" y="184" class="svglbl">the system</text>
 
-    <rect x="212" y="14" width="270" height="76" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
-    <text x="226" y="38" class="svgtxt">1 &middot; derivation probe</text>
-    <text x="226" y="57" class="svglbl">saturated &middot; no victim &middot; no limit</text>
-    <text x="226" y="73" class="svglbl">measures what the system MAY do</text>
+    <line x1="146" y1="160" x2="168" y2="160" stroke="currentColor"/>
+    <line x1="168" y1="46" x2="168" y2="268" stroke="currentColor"/>
+    <line x1="168" y1="46" x2="186" y2="46" stroke="currentColor" marker-end="url(#ac)"/>
+    <line x1="168" y1="150" x2="186" y2="150" stroke="currentColor" marker-end="url(#ac)"/>
+    <line x1="168" y1="268" x2="186" y2="268" stroke="currentColor" marker-end="url(#ac)"/>
 
-    <rect x="524" y="14" width="162" height="76" rx="5" fill="var(--g2-tint)" stroke="var(--g2)" stroke-width="1.5"/>
-    <text x="536" y="38" class="svgtxt">the R set</text>
-    <text x="536" y="57" class="svgtxt">the pfd mask</text>
-    <text x="536" y="76" class="svglbl">two products, one pass</text>
+    <rect x="190" y="14" width="250" height="64" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
+    <text x="204" y="36" class="svgtxt">1 &middot; derivation probe</text>
+    <text x="204" y="54" class="svglbl">saturated &middot; no victim &middot; no limit</text>
+    <text x="204" y="70" class="svglbl">measures what the system MAY do</text>
 
-    <line x1="164" y1="52" x2="208" y2="52" stroke="currentColor" marker-end="url(#ac)"/>
-    <line x1="482" y1="52" x2="520" y2="52" stroke="var(--g1)" stroke-width="1.5" marker-end="url(#ac)" style="color:var(--g1)"/>
+    <line x1="300" y1="78" x2="300" y2="104" stroke="currentColor" stroke-dasharray="3 3" marker-end="url(#ac)"/>
+    <text x="310" y="96" class="svglbl">service latitudes</text>
 
-    <rect x="212" y="128" width="270" height="76" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-    <text x="226" y="152" class="svgtxt">2 &middot; truth sweep</text>
-    <text x="226" y="171" class="svglbl">real traffic &middot; a victim per latitude</text>
-    <text x="226" y="187" class="svglbl">measures what the system DOES</text>
-    <line x1="89" y1="84" x2="89" y2="166" stroke="currentColor"/>
-    <line x1="89" y1="166" x2="208" y2="166" stroke="currentColor" marker-end="url(#ac)"/>
+    <rect x="190" y="108" width="250" height="84" rx="5" fill="var(--g2-tint)" stroke="var(--g2)" stroke-width="1.5"/>
+    <text x="204" y="130" class="svgtxt">pfd mask</text>
+    <text x="204" y="148" class="svglbl">the profile&rsquo;s declared mask, or</text>
+    <text x="204" y="164" class="svglbl">computed from the reachable envelope</text>
+    <text x="204" y="180" class="svglbl">under the service-span certificate</text>
 
-    <rect x="212" y="242" width="270" height="76" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-    <text x="226" y="266" class="svgtxt">3 &middot; examination sweep</text>
-    <text x="226" y="285" class="svglbl">reads the mask and the R set</text>
-    <text x="226" y="301" class="svglbl">the administration’s own algorithm</text>
-    <line x1="605" y1="90" x2="605" y2="280" stroke="var(--g2)" stroke-width="1.5" style="color:var(--g2)"/>
-    <line x1="605" y1="280" x2="486" y2="280" stroke="var(--g2)" stroke-width="1.5" marker-end="url(#ac)" style="color:var(--g2)"/>
+    <rect x="190" y="236" width="250" height="64" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="204" y="258" class="svgtxt">2 &middot; truth sweep</text>
+    <text x="204" y="276" class="svglbl">real traffic &middot; a victim per latitude</text>
+    <text x="204" y="292" class="svglbl">measures what the system DOES</text>
 
-    <text x="500" y="166" class="svgtxt">T</text>
-    <text x="500" y="298" class="svgtxt">E1</text>
-    <line x1="492" y1="176" x2="492" y2="268" stroke="currentColor" stroke-dasharray="3 3"/>
-    <text x="508" y="228" class="svglbl">E1 &minus; T</text>
-    <text x="508" y="244" class="svglbl">the margin</text>
+    <path d="M440 46 H593 V96" fill="none" stroke="currentColor" marker-end="url(#ac)"/>
+    <text x="452" y="40" class="svglbl">R set</text>
+    <line x1="440" y1="150" x2="496" y2="150" stroke="currentColor" marker-end="url(#ac)"/>
+    <text x="448" y="144" class="svglbl">mask</text>
 
-    <text x="14" y="344" class="svglbl">T never moves while the declaration is refined. E1 must sit at or above it, always.</text>
+    <rect x="500" y="100" width="186" height="72" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="514" y="122" class="svgtxt">3 &middot; examination</text>
+    <text x="514" y="140" class="svglbl">reads R set and mask</text>
+    <text x="514" y="156" class="svglbl">as S.1503-4 does</text>
+
+    <line x1="593" y1="172" x2="593" y2="224" stroke="currentColor" marker-end="url(#ac)"/>
+    <text x="602" y="203" class="svgtxt">E1</text>
+    <line x1="440" y1="268" x2="536" y2="268" stroke="currentColor" marker-end="url(#ac)"/>
+    <text x="484" y="262" class="svgtxt">T</text>
+
+    <rect x="540" y="228" width="146" height="74" rx="5" fill="var(--g3-tint)" stroke="var(--g3)" stroke-width="1.5"/>
+    <text x="554" y="252" class="svgtxt">E1 &#8805; T</text>
+    <text x="554" y="270" class="svglbl">at every latitude;</text>
+    <text x="554" y="286" class="svglbl">E1 &minus; T is the gap</text>
+
+    <text x="14" y="326" class="svglbl">T never moves while the declaration is refined. E1 must sit at or above it, always.</text>
   </g>
 </svg>
-<figcaption>The probe runs first and has no victim; the truth sweep and the examination
-sweep answer the same question about the same system, one from behaviour and one from the
-declaration.</figcaption>
+<figcaption>The probe runs first and has no victim. It measures the R&nbsp;set only: the pfd
+mask is the profile&rsquo;s declared one, or is computed from every beam position the payload is
+permitted to take, with its dark rows set by the service latitudes the R&nbsp;set declares. The
+truth sweep and the examination answer the same question about the same system, one from
+behaviour and one from the declaration.</figcaption>
 </figure>
 
-<p>The three runs are separate on purpose. The probe is <strong>saturated</strong> &mdash;
-demand at the declared cap, activity, illumination duty and operating fraction at 1 &mdash;
-because a declaration is an envelope of what the system MAY do, and a value measured under a
-traffic sample is a promise the operator never made. The truth sweep carries the real traffic.
-And the probe must not be the run that verifies it: a declaration measured on a run envelopes
-that run trivially, which would make the acceptance test vacuous.</p>
+<ul>
+<li><strong>1. The derivation probe</strong> measures the R&nbsp;set. It is
+<em>saturated</em>: no victim, no limit, demand raised to the declared co-frequency cap when one
+is declared, and activity, illumination duty and operating fraction at&nbsp;1. It runs at the
+loop&rsquo;s own depth, step and latitude band. Declared minima floor the observed minima, to
+0.1&deg;; declared maxima carry the observed maxima; a quantity never observed stays
+undeclared.</li>
+<li><strong>2. The truth sweep</strong> runs the profile as it stands, with its real traffic,
+and places a victim at each latitude of the grid. It gives T.</li>
+<li><strong>3. The examination sweep</strong> reads the pfd mask and the R&nbsp;set at the same
+victims, on the same step and duration, as S.1503-4 does. It gives E1.</li>
+</ul>
+<p>The pfd mask is not measured on the probe. It is the profile&rsquo;s declared mask when the
+profile names one. Otherwise the loop computes it from the payload&rsquo;s <em>reachable
+envelope</em>: in each direction, the strongest level any permitted beam position could produce,
+whether the orbit visits it or not, so the mask is conservative by construction. A later run
+reuses the computed mask while it is newer than the profile.</p>
+<p>Naming an R&nbsp;set in <strong>Declared R set</strong> skips the probe and uses that set. The
+console loop mode&rsquo;s <code>reuse=</code> argument reuses an earlier run&rsquo;s R&nbsp;set and
+mask.</p>
 
-<h2>Two life cycles of a pfd mask: derived, or given</h2>
+<div class="tech"><div class="t">Tech &middot; why the probe is separate and saturated</div>
+<p>A declaration is an envelope of what the system <em>may</em> do. A value measured under a
+traffic sample is a promise the operator never made: traffic can only thin what is lit, so it
+gives a declaration smaller than the commitment. The probe must also not be the run that is
+later checked. A declaration measured on a run envelopes that run trivially, which would make
+the acceptance test E1&nbsp;&ge;&nbsp;T empty.</p></div>
 
-<p>The same file format enters the construction in two ways, and the rules differ at every
-station. A <em>derived</em> mask is a product: the saturated probe measures it, alongside the
-R&nbsp;set, from the system the profile describes. A <em>given</em> mask is an input: a filed
-declaration taken verbatim, with nothing known about the payload behind it. The operator&rsquo;s
-rulings draw the line in one sentence &mdash; a declared mask cannot move; a derived mask moves
-inside the loop &mdash; and the figure shows where each may change.</p>
+<div class="tech"><div class="t">Tech &middot; the computed mask</div>
+<p>The mask is computed on the loop&rsquo;s latitude step and a 1&deg; az/el grid. For fixed
+body-stabilised beams the reachable set at a latitude is the beam layout at the ascending and
+the descending pass headings. Each row is sampled at its band&rsquo;s centre and both edges, and
+the mask takes the maximum over all of them. With a declared co-frequency beam capacity K, each
+cell sums only the K strongest same-colour contributions (the <em>top-K</em> envelope).</p>
+<p>The <em>service-span certificate</em> writes as no transmission (the &minus;1000 null of
+S.1503-4 &sect;C1) every row from which no cell within the declared service latitudes can be
+reached, at the smallest declared elevation floor. It is computed in closed form from the
+declared commitments. A row governs the half-step either side of it, so a row goes dark only
+when no latitude in its band can reach the span.</p></div>
+
+<h2>Derived or given: two kinds of pfd mask</h2>
+<p>The same mask format enters the construction in two ways, and the rules differ.</p>
+<ul>
+<li>A <strong>derived</strong> mask is a product: computed from the system the profile
+describes, beside the R&nbsp;set the probe measures.</li>
+<li>A <strong>given</strong> mask is an input: a filed declaration taken as it is, with nothing
+known about the payload behind it.</li>
+</ul>
+<p>A given mask cannot move. A derived mask moves inside the loop.</p>
 
 <figure>
-<svg viewBox="0 0 700 316" role="img" aria-label="Two lanes. Derived: orbit design and profile feed the saturated probe, which produces the R set and the pfd mask as versioned products; a truth sweep gives T; the examination gives E1 and must sit at or above T; a return path minimises E1 over a fixed truth, and the mask may move between revisions when commitments or granularity move. Given: a filed mask, fixed, is paired with an R set, graded by the consistency check against the declared gates, and examined; T is unknown for a real filing, so there is no adequacy test.">
+<svg viewBox="0 0 700 338" role="img" aria-label="Two lanes. Derived: orbit design and profile give the R set, measured on the saturated probe, and the pfd mask, computed; the examination reads them and gives E1; the truth sweep of the same system gives T; E1 at or above T is the acceptance test. The declaration moves between revisions, the system does not. Given: a filed pfd mask, verbatim and fixed, with an R set given or derived, is graded by the consistency check against the declared gates and examined; T is unknown for a real filing, so there is no acceptance test.">
   <defs><marker id="lc" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
   <g style="color:var(--ink)">
     <text x="14" y="20" class="svgtxt" style="fill:var(--g2)">DERIVED &mdash; the mask is a product</text>
-    <rect x="14" y="34" width="118" height="56" rx="5" fill="none" stroke="currentColor"/>
+    <rect x="14" y="32" width="128" height="64" rx="5" fill="none" stroke="currentColor"/>
     <text x="24" y="56" class="svgtxt">orbit design</text>
     <text x="24" y="74" class="svglbl">+ profile</text>
-    <rect x="150" y="34" width="120" height="56" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
-    <text x="156" y="56" class="svgtxt">1 &middot; probe</text>
-    <text x="156" y="74" class="svglbl">saturated, no victim</text>
-    <rect x="288" y="34" width="138" height="56" rx="5" fill="var(--g2-tint)" stroke="var(--g2)" stroke-width="1.5"/>
-    <text x="294" y="56" class="svgtxt">R set + pfd mask</text>
-    <text x="294" y="74" class="svglbl">products, versioned</text>
-    <rect x="438" y="34" width="110" height="56" rx="5" fill="none" stroke="currentColor"/>
-    <text x="448" y="56" class="svgtxt">2 &middot; truth T</text>
-    <text x="448" y="74" class="svglbl">live composition</text>
-    <rect x="566" y="34" width="128" height="56" rx="5" fill="var(--g3-tint)" stroke="var(--g3)" stroke-width="1.5"/>
-    <text x="572" y="56" class="svgtxt">3 &middot; examination</text>
-    <text x="572" y="74" class="svglbl">E1 &ge; T: adequacy</text>
-    <line x1="132" y1="62" x2="146" y2="62" stroke="currentColor" marker-end="url(#lc)"/>
-    <line x1="270" y1="62" x2="284" y2="62" stroke="currentColor" marker-end="url(#lc)"/>
-    <line x1="426" y1="62" x2="434" y2="62" stroke="currentColor" marker-end="url(#lc)"/>
-    <line x1="548" y1="62" x2="562" y2="62" stroke="currentColor" marker-end="url(#lc)"/>
-    <line x1="288" y1="100" x2="426" y2="100" stroke="var(--g2)"/>
-    <line x1="288" y1="94" x2="288" y2="100" stroke="var(--g2)"/>
-    <line x1="426" y1="94" x2="426" y2="100" stroke="var(--g2)"/>
-    <text x="354" y="116" text-anchor="middle" class="svglbl" style="fill:var(--g2)">moves between revisions: commitments, granularity</text>
-    <path d="M626 90 V150 H210 V94" fill="none" stroke="var(--g3)" stroke-dasharray="4 3" marker-end="url(#lc)" style="color:var(--g3)"/>
-    <text x="418" y="164" text-anchor="middle" class="svglbl" style="fill:var(--g3)">minimise E1 over a fixed T &mdash; the declaration moves, the system does not</text>
+    <rect x="168" y="32" width="164" height="64" rx="5" fill="var(--g2-tint)" stroke="var(--g2)" stroke-width="1.5"/>
+    <text x="178" y="54" class="svgtxt">R set + mask</text>
+    <text x="178" y="72" class="svglbl">R set: saturated probe</text>
+    <text x="178" y="87" class="svglbl">mask: computed</text>
+    <rect x="358" y="32" width="150" height="64" rx="5" fill="none" stroke="currentColor"/>
+    <text x="368" y="56" class="svgtxt">examination</text>
+    <text x="368" y="74" class="svglbl">gives E1</text>
+    <rect x="540" y="32" width="146" height="64" rx="5" fill="var(--g3-tint)" stroke="var(--g3)" stroke-width="1.5"/>
+    <text x="550" y="56" class="svgtxt">E1 &#8805; T</text>
+    <text x="550" y="74" class="svglbl">the acceptance test</text>
+    <line x1="142" y1="64" x2="164" y2="64" stroke="currentColor" marker-end="url(#lc)"/>
+    <line x1="332" y1="64" x2="354" y2="64" stroke="currentColor" marker-end="url(#lc)"/>
+    <line x1="508" y1="64" x2="536" y2="64" stroke="currentColor" marker-end="url(#lc)"/>
+    <rect x="358" y="112" width="150" height="44" rx="5" fill="none" stroke="currentColor"/>
+    <text x="368" y="132" class="svgtxt">truth sweep</text>
+    <text x="368" y="148" class="svglbl">gives T</text>
+    <path d="M78 96 V134 H354" fill="none" stroke="currentColor" marker-end="url(#lc)"/>
+    <path d="M508 134 H613 V100" fill="none" stroke="currentColor" marker-end="url(#lc)"/>
+    <text x="14" y="182" class="svglbl" style="fill:var(--g2)">The declaration moves between revisions, with the commitments or the granularity; the system does not.</text>
 
-    <text x="14" y="196" class="svgtxt" style="fill:var(--g1)">GIVEN &mdash; the mask is an input</text>
-    <rect x="14" y="210" width="150" height="56" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
-    <text x="24" y="232" class="svgtxt">filed pfd mask</text>
-    <text x="24" y="250" class="svglbl">verbatim &middot; fixed</text>
-    <rect x="182" y="210" width="120" height="56" rx="5" fill="none" stroke="currentColor"/>
-    <text x="192" y="232" class="svgtxt">R set</text>
-    <text x="192" y="250" class="svglbl">given, or derived</text>
-    <rect x="320" y="210" width="146" height="56" rx="5" fill="var(--g3-tint)" stroke="var(--g3)" stroke-width="1.5"/>
-    <text x="326" y="232" class="svgtxt">consistency check</text>
-    <text x="326" y="250" class="svglbl">its edges vs the gates</text>
-    <rect x="478" y="210" width="118" height="56" rx="5" fill="var(--g3-tint)" stroke="var(--g3)" stroke-width="1.5"/>
-    <text x="488" y="232" class="svgtxt">examination</text>
-    <text x="488" y="250" class="svglbl">E of the filing</text>
-    <rect x="614" y="210" width="72" height="56" rx="5" fill="none" stroke="currentColor" stroke-dasharray="4 3" opacity=".7"/>
-    <text x="624" y="232" class="svgtxt">T ?</text>
-    <text x="624" y="250" class="svglbl">unknown</text>
-    <line x1="164" y1="238" x2="178" y2="238" stroke="currentColor" marker-end="url(#lc)"/>
-    <line x1="302" y1="238" x2="316" y2="238" stroke="currentColor" marker-end="url(#lc)"/>
-    <line x1="466" y1="238" x2="474" y2="238" stroke="currentColor" marker-end="url(#lc)"/>
-    <text x="350" y="290" text-anchor="middle" class="svglbl">no adequacy test: the examination is the only verdict, conservative by construction</text>
-    <text x="350" y="308" text-anchor="middle" class="svglbl">only the dark-row certificate may touch a given mask; a both-forms R set is invalid in either lane</text>
+    <text x="14" y="216" class="svgtxt" style="fill:var(--g1)">GIVEN &mdash; the mask is an input</text>
+    <rect x="14" y="228" width="180" height="64" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
+    <text x="24" y="250" class="svgtxt">filed pfd mask</text>
+    <text x="24" y="268" class="svglbl">verbatim &middot; fixed</text>
+    <text x="24" y="283" class="svglbl">+ R set, given or derived</text>
+    <rect x="218" y="228" width="136" height="64" rx="5" fill="none" stroke="currentColor"/>
+    <text x="228" y="250" class="svgtxt">examination</text>
+    <text x="228" y="268" class="svglbl">E of the filing</text>
+    <rect x="378" y="228" width="160" height="64" rx="5" fill="var(--g3-tint)" stroke="var(--g3)" stroke-width="1.5"/>
+    <text x="388" y="250" class="svgtxt">consistency check</text>
+    <text x="388" y="268" class="svglbl">mask edges against</text>
+    <text x="388" y="283" class="svglbl">the declared gates</text>
+    <rect x="562" y="228" width="124" height="64" rx="5" fill="none" stroke="currentColor" stroke-dasharray="4 3" opacity=".7"/>
+    <text x="572" y="250" class="svgtxt">T ?</text>
+    <text x="572" y="268" class="svglbl">unknown</text>
+    <line x1="194" y1="260" x2="214" y2="260" stroke="currentColor" marker-end="url(#lc)"/>
+    <path d="M104 292 V300 H458 V296" fill="none" stroke="currentColor" marker-end="url(#lc)"/>
+    <text x="14" y="314" class="svglbl">No acceptance test: the examination is the only verdict, conservative by construction.</text>
+    <text x="14" y="330" class="svglbl">Only the dark-row certificate may change a given mask; an R set in both forms is invalid in either lane.</text>
   </g>
 </svg>
-<figcaption>Derived: the mask is one of the probe&rsquo;s products and moves when the commitments or the granularity move, between revisions. Given: the mask is fixed, T is unknown, and the consistency check stands where the adequacy test cannot.</figcaption>
+<figcaption>Derived: the R&nbsp;set is measured, the mask is computed, and E1 is tested against
+T. Given: the mask is fixed, T is unknown, and the consistency check stands where the acceptance
+test cannot.</figcaption>
 </figure>
 
 <table class="ex">
 <tr><th></th><th>derived</th><th>given</th></tr>
-<tr><td>origin</td><td>a product of the saturated probe, one of three artefacts from one measurement pass, stamped with the producer id</td><td>a filed declaration taken verbatim; only the notice identity in its root is rewritten</td></tr>
-<tr><td>what may move</td><td>the mask, whenever the commitments or the granularity move &mdash; between revisions only, never inside a frozen triple</td><td>nothing, except rows the service-span certificate proves dark: gates act on boresights, and the per-direction maximum has already collapsed which beam produced each cell</td></tr>
-<tr><td>what T is</td><td>measured from the live composition; E1&nbsp;&ge;&nbsp;T is the adequacy test of the derivation</td><td>unknown for a real filing; the examination is the only verdict, and it is conservative by construction</td></tr>
-<tr><td>what the loop runs</td><td>probe, truth, examination, then the granularity walk that minimises E1 over a fixed truth</td><td>the examination, preceded by the consistency check grading the mask&rsquo;s own edges against the declared gates</td></tr>
-<tr><td>what guards it</td><td>the certificate, the band rules, the read-rule law, the convergence pair</td><td>the consistency check, and the one-form rule on the R&nbsp;set it is paired with</td></tr>
-<tr><td>where STEAM-2 sits</td><td>every <code>compliance-steam-2</code> record</td><td>the filed STEAM-2B mask, examined and packaged for a second reader</td></tr>
+<tr><td>origin</td><td>computed from the reachable envelope under the service-span certificate, beside the R&nbsp;set the saturated probe measures; its file name carries the id of the code that produced it</td><td>a filed declaration taken verbatim, paired with an R&nbsp;set that is given or derived; packaged for delivery, only the notice identity in its root is rewritten</td></tr>
+<tr><td>what may move</td><td>the mask, whenever the commitments or the granularity move: between revisions only, never within one set of profile, R&nbsp;set and mask</td><td>nothing, except rows the service-span certificate proves dark: gates act on boresights, and the per-direction maximum has already lost which beam produced each cell</td></tr>
+<tr><td>what T is</td><td>measured from the live composition; E1&nbsp;&ge;&nbsp;T is the acceptance test of the derivation</td><td>unknown for a real filing; the examination is the only verdict, and it is conservative by construction</td></tr>
+<tr><td>what the loop runs</td><td>probe, truth, examination; the console loop mode can add the granularity walk, which minimises E1 over a fixed truth</td><td>the examination, with the consistency check grading the mask&rsquo;s own edges against the declared gates</td></tr>
+<tr><td>what guards it</td><td>the certificate, the band rule, the read-rule law, the convergence pair</td><td>the consistency check, and the one-form rule on the R&nbsp;set it is paired with</td></tr>
+<tr><td>where STEAM-2 sits</td><td>every STEAM-2 run on this page</td><td>the filed STEAM-2B mask, examined and packaged for a second reader</td></tr>
 </table>
 
-<div class="tech">
-<div class="t">The line the rulings draw</div>
-<p>A declared mask cannot move: it is a filed commitment, and the gates an R&nbsp;set declares act on
-boresights that the mask&rsquo;s per-direction maximum no longer remembers, so no gate can be carved
-into it after the fact. The one adaptation geometry alone warrants is the dark row &mdash; a
-sub-satellite latitude from which no servable cell exists radiates nothing, and the whole row goes
-to the null. A derived mask moves, because it is re-derived: adaptation done right is a new
-measurement of the payload under the commitments, never surgery on the artefact. In both lanes the
-mask is examined the same way; only in the derived lane can the result be tested against a truth.</p>
-</div>
+<div class="tech"><div class="t">Tech &middot; why a given mask cannot be reshaped</div>
+<p>A pfd mask keeps only the strongest level in each direction and has lost which beam produced
+it. The gates an R&nbsp;set declares act on beam boresights, so no gate can be carved into the
+mask after the fact. The one change geometry alone warrants is the dark row: a sub-satellite
+latitude from which no servable cell exists radiates nothing, and the whole row goes to the
+null. The loop does not apply even that to a given mask; it examines the mask as it is.</p>
+<p>A derived mask moves because it is computed again: adapting it means measuring the payload
+again under the commitments, never editing the file. Both kinds are examined the same way; only
+a derived mask can be tested against a truth. <a href="compliance-loop.html">Inside the
+Compliance Loop</a> describes the consistency check&rsquo;s grades.</p></div>
 
-<h2>Process: two loops, and what each may move</h2>
+<h2>What a run writes</h2>
+<ul>
+<li>The profile, the R&nbsp;set (S.1503-4 Part&nbsp;B XML and the designer&rsquo;s JSON) and,
+when the run computes it, the pfd mask go into one directory per run. The three describe one
+system and can be read back together; the R-set designer&rsquo;s Derive &amp; fill reads that
+directory.</li>
+<li>A computed mask&rsquo;s file name carries its latitude step, az/el step, service latitudes
+and the id of the code that produced it, so a rebuild of that code exports the mask again.</li>
+<li>The console loop mode also writes a dated report: the verdict table, the declaration, the
+per-latitude gap and the acceptance statement.</li>
+<li>The window shows T, E1 and the gap per latitude; <strong>Export table&hellip;</strong> writes
+the rows as CSV, headed by the run, its inputs, grid, depth, step and limit.</li>
+</ul>
 
-<figure>
-<svg viewBox="0 0 700 210" role="img" aria-label="The outer loop designs the system and may move any system parameter, moving T; the inner loop derives the declaration of a fixed system and may move only how it is described; the forbidden move is changing the description because of the verdict">
-  <defs><marker id="ad" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
-  <g style="color:var(--ink)">
-    <rect x="14" y="18" width="320" height="96" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-    <text x="28" y="42" class="svgtxt">OUTER &middot; design the system</text>
-    <text x="28" y="62" class="svglbl">may move alpha, Nco, power, beam capacity</text>
-    <text x="28" y="78" class="svglbl">T MOVES &mdash; that is engineering, not fitting</text>
-    <text x="28" y="100" class="svglbl">answers: is the system compliant at all?</text>
+<h2>How a run is judged</h2>
+<p>Each latitude of the grid is one victim: an earth station at that latitude and the ES
+longitude, its S.1428 dish pointed at a GSO satellite at the GSO offset. Each run builds the
+epfd distribution at every victim over its duration and judges it against the limit.</p>
+<ul>
+<li><strong>The verdict.</strong> A latitude passes only if its distribution meets the limit at
+every tabulated point <em>and</em> nowhere crosses the limit curve drawn between the
+points.</li>
+<li><strong>The margins,</strong> in dB, positive when there is room to spare. The <em>point
+margin</em> is the limit epfd minus the measured epfd at each point&rsquo;s percentage, the
+minimum over the points. The <em>curve margin</em> is the dB shift of the whole distribution
+that just clears the curve. The rule margin is the smaller of the two.</li>
+<li><strong>The deciding point</strong> is the limit point at the worst point margin.
+&ldquo;max&rdquo; is the maximum sample, read against the 0% row; it can only rise as the run
+lengthens. A percentage names a resolved percentile, which can move either way.</li>
+<li><strong>The depth</strong> is the number of steps per latitude. It sets the resolvable
+floor, 100% divided by the steps: a limit point below the floor is located, not decided.</li>
+<li><strong>The acceptance test.</strong> E1 must sit at or above T at every latitude: the E1
+point margin never above the T point margin. When it holds, the loop reports ADEQUATE with the
+widest gap. When it fails, it names the latitudes where E1 sits below T.</li>
+</ul>
 
-    <rect x="366" y="18" width="320" height="96" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
-    <text x="380" y="42" class="svgtxt">INNER &middot; describe that system</text>
-    <text x="380" y="62" class="svglbl">may move only how it is measured and stated</text>
-    <text x="380" y="78" class="svglbl">T IS FIXED &mdash; only E1 comes down</text>
-    <text x="380" y="100" class="svglbl">answers: what does the declaration cost?</text>
+<div class="tech"><div class="t">Tech &middot; the limit-curve rule</div>
+<p>The rule is compliance against the Article&nbsp;22 limit curve, adopted for this dataset. At
+every tabulated point the level exceeded for the allowed percentage of time must not pass the
+limit level (S.1503-4 &sect;D7.1.3, over the &sect;D7.1.2 CDF bins of 0.1&nbsp;dB). Between the
+lowest and highest tabulated epfd the distribution must nowhere cross the limit curve, the
+log-linear interpolation of percentage between adjacent points, read with a tolerance of half a
+bin (0.05&nbsp;dB) towards lower epfd. The gaps between tabulated points reach 5.4 to
+34&nbsp;dB in Table&nbsp;22-1C, so a point margin does not bound a crossing: a distribution can
+clear both ends of a gap yet bulge above the curve inside it, and the examination under S.1503-4
+fails such a case. The point-wise test alone is the lenient reading.</p></div>
 
-    <line x1="334" y1="52" x2="362" y2="52" stroke="currentColor" marker-end="url(#ad)"/>
-    <text x="300" y="150" class="svgtxt">the one forbidden move</text>
-    <text x="14" y="172" class="svglbl">changing the DESCRIPTION because of the VERDICT, without a commitment that enforces it.</text>
-    <text x="14" y="190" class="svglbl">A tightening is admissible only where a declared, binding commitment makes it true.</text>
-  </g>
-</svg>
-<figcaption>Both loops are legitimate. Confusing them is not: one engineers a compliant
-system, the other describes whatever system the first one fixed.</figcaption>
-</figure>
-
-<h2>The optimization loop</h2>
-
-<p>The two loops above say what may move. This is the iteration itself &mdash; what one pass
-does, what changes before the next one, and what stops it.</p>
-
-<p>The objective is stated once and does not change: <strong>minimise E1, subject to
-E1&nbsp;&ge;&nbsp;T, with T held fixed.</strong> T is the system; it is not the thing being
-optimised. Every dB taken off E1&nbsp;&minus;&nbsp;T is a dB of transmit power the operator may
-be licensed for and currently is not.</p>
+<p>One iteration then ends in one of three ways.</p>
 
 <figure>
 <svg viewBox="0 0 700 300" role="img" aria-label="One iteration: derive the declaration, measure the truth, examine against the declaration. If the truth exceeds the limit the system must be redesigned in the outer loop. If the truth passes but the examination fails, refine the declaration and iterate. If both pass, the declaration is filed.">
@@ -343,7 +395,57 @@ be licensed for and currently is not.</p>
 declaration alone.</figcaption>
 </figure>
 
-<h2>What the iteration should look like</h2>
+<p><strong>E1 below T</strong> at any latitude is not good news. The declaration does not cover
+the system it describes, because the derivation was too coarse. The fix is to measure more
+finely, never to redesign the system.</p>
+
+<h2>Two loops, and what each may move</h2>
+
+<figure>
+<svg viewBox="0 0 700 210" role="img" aria-label="The outer loop designs the system and may move any system parameter, moving T; the inner loop derives the declaration of a fixed system and may move only how it is described; the forbidden move is changing the description because of the verdict">
+  <defs><marker id="ad" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
+  <g style="color:var(--ink)">
+    <rect x="14" y="18" width="320" height="96" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="28" y="42" class="svgtxt">OUTER &middot; design the system</text>
+    <text x="28" y="62" class="svglbl">may move alpha, Nco, power, beam capacity</text>
+    <text x="28" y="78" class="svglbl">T MOVES &mdash; that is engineering, not fitting</text>
+    <text x="28" y="100" class="svglbl">answers: is the system compliant at all?</text>
+
+    <rect x="366" y="18" width="320" height="96" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
+    <text x="380" y="42" class="svgtxt">INNER &middot; describe that system</text>
+    <text x="380" y="62" class="svglbl">may move only how it is measured and stated</text>
+    <text x="380" y="78" class="svglbl">T IS FIXED &mdash; only E1 comes down</text>
+    <text x="380" y="100" class="svglbl">answers: what does the declaration cost?</text>
+
+    <line x1="334" y1="52" x2="362" y2="52" stroke="currentColor" marker-end="url(#ad)"/>
+    <text x="300" y="150" class="svgtxt">the one forbidden move</text>
+    <text x="14" y="172" class="svglbl">changing the DESCRIPTION because of the VERDICT, without a commitment that enforces it.</text>
+    <text x="14" y="190" class="svglbl">A tightening is admissible only where a declared, binding commitment makes it true.</text>
+  </g>
+</svg>
+<figcaption>Both loops are legitimate. Confusing them is not: one engineers a compliant
+system, the other describes whatever system the first one fixed.</figcaption>
+</figure>
+
+<ul>
+<li><strong>The outer loop designs the system.</strong> It may move the exclusion angle, the
+co-frequency cap (Nco, the most co-frequency links per cell), the power and the beam capacity,
+and T moves with them. It answers whether the system is compliant at all. The window&rsquo;s
+advisors work here.</li>
+<li><strong>The inner loop describes the system the outer loop fixed.</strong> It may move only
+how the system is measured and stated, so T is fixed and only E1 comes down. It answers what the
+declaration costs.</li>
+</ul>
+<p>The inner loop has one objective: <strong>minimise E1, subject to E1&nbsp;&ge;&nbsp;T, with T
+held fixed.</strong> T is the system; it is not the thing being optimised. Every dB taken off
+E1&nbsp;&minus;&nbsp;T is a dB of transmit power the system may be licensed for and currently is
+not.</p>
+<p>The console loop mode runs one pass of this search with its <code>minimise</code> argument,
+the <em>granularity walk</em>. It derives the declaration again at three granularities, coarse
+(mask az/el 2&deg;), baseline (az/el 1&deg;) and fine (half the latitude band and half the mask
+latitude step, az/el 1&deg;), and examines each against the same truth. It rejects any candidate
+whose E1 falls below T and reports the best of the rest. The walk runs only when the declaration
+is derived, not reused.</p>
 
 <figure>
 <svg viewBox="0 0 700 236" role="img" aria-label="Across iterations the truth stays flat and passing while the examination margin rises from failing toward the limit and finally passes; the shrinking distance between them is the projection margin being recovered">
@@ -385,186 +487,330 @@ declaration alone.</figcaption>
 The truth staying flat is the point: nothing about the system changed.</figcaption>
 </figure>
 
-<h2>The levers, and what each is currently worth</h2>
+<h2>What was measured</h2>
+<p>The findings below are on the STEAM-2 test system unless stated: 1&nbsp;600 satellites at
+1&nbsp;150&nbsp;km and 53&deg;, minimum elevation 40&deg;, exclusion angle 22&deg;, Nco&nbsp;4,
+Random selection. The victims sit at 0 to 60&deg;&nbsp;N every 10&deg;, at longitude 0, with the
+GSO satellite 10&deg; east and a 1.00&nbsp;m dish, judged against the Table&nbsp;22-1B row for
+17.8&ndash;18.6&nbsp;GHz. Every run ran on a 60&nbsp;s step unless a finding says otherwise, and
+examined the STEAM-2 declaration derived at 0.1&nbsp;d. Each finding names its depth. The
+time-step finding says how far a 60&nbsp;s figure can be trusted.</p>
 
-<p>Measured on the cases in this repository, not assumed. A lever is only admissible where a
-declared, binding commitment makes the tightening true.</p>
+<h2>The STEAM-2 figures describe an assumed payload</h2>
+<p><strong>Every STEAM-2 figure on this page is about the payload the tool assumed for STEAM-2,
+not the filed system.</strong> The pattern and beam layout are the scene defaults, the peak gain
+is assumed (35&nbsp;dBi), and the per-beam power is set so that the boresight pfd meets the filed
+cap.</p>
+<p>The operator&rsquo;s filed STEAM-2B mask, examined as S.1503-4 specifies, sits 7 to
+16&nbsp;dB below this assumed system&rsquo;s truth at every latitude (0.1&nbsp;d, examined under
+the tool&rsquo;s derived R&nbsp;set, not the filed one). The construction does not depend on
+which system is in the profile; the conclusions about STEAM-2 do.</p>
 
+<h2>The gap is the mask envelope&rsquo;s</h2>
+<p><strong>On STEAM-2 the whole gap comes from the mask envelope. The examination&rsquo;s
+selection rules add nothing at the point that decides the verdict.</strong></p>
+<p>The decomposition runs three curves on one victim grid and one 60&nbsp;s sample grid:</p>
+<ul>
+<li><strong>T</strong>: every visible satellite at its live value, no selection;</li>
+<li><strong>E<sub>sel</sub></strong>: the examination&rsquo;s selection rules (S.1503-4
+&sect;D5.1.4.1: the elevation gate, the exclusion zone, the MAX_CO_FREQ pick by highest
+contribution, MIN_ANGLE_AT_ES pruning, the main-beam always-include) applied to those same live
+values;</li>
+<li><strong>E1</strong>: the same selection over the declared mask.</li>
+</ul>
+<p>E<sub>sel</sub>&nbsp;&minus;&nbsp;T is what the selection rules do to the count;
+E1&nbsp;&minus;&nbsp;E<sub>sel</sub> is what the mask envelope adds. At the deciding point, by
+latitude from 0 to 60&deg;&nbsp;N, in dB:</p>
+<table class="ex">
+<tr><th>component</th><th>0.1&nbsp;d</th><th>0.5&nbsp;d</th><th>1.0&nbsp;d</th></tr>
+<tr><td>selection</td><td>0.0 to &minus;0.1</td><td><strong>0.0</strong></td><td><strong>0.0</strong></td></tr>
+<tr><td>envelope</td><td><strong>+6.5 to +12.1</strong></td><td><strong>+7.5 to +11.6</strong></td><td><strong>+7.5 to +11.0</strong></td></tr>
+</table>
+<ul>
+<li>In the body of the distribution the selection rules remove 0.2 to 0.7&nbsp;dB at the 10%
+point (0.2 to 0.7 at 0.1&nbsp;d, 0.2 to 0.5 at 0.5 and 1.0&nbsp;d).</li>
+<li>The zero is checked, not assumed: with no gate declared, E<sub>sel</sub> equals T bin for
+bin.</li>
+<li>The 1.0&nbsp;d run is the 0.5&nbsp;d run extended on the same sample grid. Between them T
+moved 2.8&nbsp;dB at 40&deg;&nbsp;N and 2.6 at 50&deg;&nbsp;N at the deciding point, and the
+selection component stayed 0.0 at every latitude. Differences at matched depth are the quotable
+quantity; the absolute levels carry their depth.</li>
+<li>The three curves share the victim, so the decomposition has no term for the victim&rsquo;s
+geometry. That component is measured separately, below.</li>
+</ul>
+<p>So the price of the format on this system is the mask envelope&rsquo;s, not the selection
+rules&rsquo;, and the granularity levers act on exactly that component.</p>
+
+<h2>The levers, and what each is worth</h2>
+<p><strong>Measured on the test cases, not assumed.</strong> A lever is admissible only where a
+declared, binding commitment makes the tightening true. Inner levers change only the
+declaration; outer levers change the system and move T.</p>
 <table class="ex">
 <tr><th>lever</th><th>loop</th><th>measured worth</th></tr>
 <tr><td>service span</td><td>inner</td><td>large on a regional system; <strong>0 dB</strong> on a globally-serving one, where nothing certifies as dark</td></tr>
-<tr><td>mask grid (az/el)</td><td>inner</td><td><strong>0.1 dB</strong> on STEAM-2 &mdash; converged; per-case, no figure travels without its case</td></tr>
+<tr><td>mask grid (az/el)</td><td>inner</td><td><strong>0.1 dB</strong> on STEAM-2: converged. The figure is per case; none travels without its case</td></tr>
 <tr><td>mask grid (latitude)</td><td>&mdash;</td><td>not a lever. Enveloping the band a row governs is a correctness requirement</td></tr>
-<tr><td>co-frequency beam capacity</td><td>outer</td><td>the commitment that gives top-K its warrant: declared and scheduler-enforced. On STEAM-2 it has three regimes, measured below; only a cap below what today&rsquo;s traffic reaches moves T, and it moves it in both directions</td></tr>
+<tr><td>co-frequency beam capacity</td><td>inner at or above K<sub>truth</sub>; outer below</td><td>the commitment that gives the top-K envelope its warrant: declared and enforced by the scheduler. On STEAM-2 it has three regimes, measured below; only a capacity below what today&rsquo;s traffic reaches moves T, and it moves it in both directions</td></tr>
 <tr><td>reuse plan</td><td>outer</td><td>a modelling correction, not margin: T and E1 both drop, the gap does not</td></tr>
-<tr><td>exclusion angle, co-frequency cap</td><td>outer</td><td>moves T. The advisors walk them one full sweep per step and report the smallest compliant value; applying it to the profile is a deliberate act</td></tr>
+<tr><td>exclusion angle, co-frequency cap</td><td>outer</td><td>moves T. The advisors walk them one full sweep per step: the exclusion advisor reports the smallest angle at which every latitude passes, the cap advisor the largest cap each latitude allows. Applying either to the profile is a deliberate act</td></tr>
 </table>
 
-<h2>The beam capacity, in three regimes</h2>
-
-<p>Whether declaring the capacity costs anything depends on which side of two numbers it
-sits: K<sub>sat</sub>, the most same-colour beams the <em>saturated</em> probe ever lights
-(20 on STEAM-2), and K<sub>truth</sub>, the most <em>today&rsquo;s traffic</em> ever lights
-(11). The readout measures both. STEAM-2, 0.1&nbsp;d on 60&nbsp;s steps, against the committed record:</p>
-
+<h2>The beam capacity has three regimes</h2>
+<p><strong>Declaring the co-frequency beam capacity costs nothing today as long as it is at least
+what today&rsquo;s traffic lights. Below that it changes the system, and T moves in both
+directions.</strong></p>
+<p>The capacity K is the most beams of one frequency colour a satellite can light. The scheduler
+refuses a further same-colour link beyond it, and the computed mask sums only the K strongest
+same-colour contributions at each cell. Two numbers decide what declaring it costs, and both are
+measured:</p>
+<ul>
+<li>K<sub>sat</sub>, the most same-colour beams the <em>saturated</em> probe ever lights: 20 on
+STEAM-2;</li>
+<li>K<sub>truth</sub>, the most <em>today&rsquo;s traffic</em> ever lights: 11.</li>
+</ul>
+<p>STEAM-2 at 0.1&nbsp;d. Each capacity is a separate loop run that derives its own declaration,
+read against the same profile with no capacity declared:</p>
 <table class="ex">
 <tr><th>capacity</th><th>binds today</th><th>binds at peak</th><th>T</th><th>widest gap</th><th>cost today</th><th>cost at peak</th></tr>
 <tr><td>20 = K<sub>sat</sub></td><td>no</td><td>no</td><td>unchanged</td><td>12.2 &rarr; 10.9 dB</td><td>none</td><td>none</td></tr>
 <tr><td>12</td><td>no (worst 11)</td><td>yes</td><td>unchanged</td><td>12.2 &rarr; 9.8 dB</td><td>none</td><td>2.67% unserved; <code>max_co_freq_sat</code> 59 &rarr; 48</td></tr>
-<tr><td>4</td><td>yes (45% pinned)</td><td>yes</td><td>&minus;1.3 to +1.1 dB (pair-firm)&thinsp;*</td><td>12.2 &rarr; 6.8 dB at 0.1&nbsp;d, 11.0 &rarr; 5.9 at 1.0&nbsp;d (E1 alone: 3.5 to 6.4 at every depth)</td><td>~0 unserved; interference redistributed</td><td>47% unserved; <code>max_co_freq_sat</code> 59 &rarr; 16; exclusion tightened</td></tr>
+<tr><td>4</td><td>yes (45% of satellite-steps at the cap)</td><td>yes</td><td>&minus;1.3 to +1.1 dB, firm at 0.5 and 1.0&nbsp;d&thinsp;*</td><td>12.2 &rarr; 6.8 dB at 0.1&nbsp;d, 11.0 &rarr; 5.9 at 1.0&nbsp;d (E1 alone: 3.5 to 6.4 at every depth)</td><td>~0 unserved; interference redistributed</td><td>47% unserved; <code>max_co_freq_sat</code> 59 &rarr; 16; exclusion tightened</td></tr>
+</table>
+<p>The line between the rows is not whether T moves but whether the capacity changes what the
+system <em>does</em>. A commitment is declaration-side if and only if today&rsquo;s granted links
+are unchanged under it.</p>
+<ul>
+<li><strong>20 and 12</strong> leave today&rsquo;s links identical, so they are declarations. The
+capacity of 12 is a promise about a peak the system may never sell.</li>
+<li><strong>4</strong> changes today&rsquo;s links, so it is a redesign, to be chosen or refused
+as engineering. Its T moves both ways, and that is the proof the line matters: a change that can
+worsen compliance cannot be a declaration-tightening move, because declarations never change
+behaviour.</li>
+</ul>
+<p><strong>The capacity of 12 is the one an operator would want:</strong> a commitment the system
+already honours at today&rsquo;s traffic, that buys 0.8 to 3.3&nbsp;dB on the examination by
+latitude, and whose only price falls on peak demand.</p>
+<p><strong>The capacity of 4 moves T in both directions.</strong> A refused link is not dropped:
+it is reassigned to the next-best satellite, and at some victims that satellite sits in worse
+geometry. From the same declaration T improved 1.1&nbsp;dB at 10&deg;&nbsp;N and worsened
+1.3&nbsp;dB at the equator, figures the depth pair finds firm. A tighter payload commitment is not
+monotone for compliance.</p>
+
+<div class="tech"><div class="t">Tech &middot; the capacity of 4 at depth</div>
+<p>* The table is a 0.1&nbsp;d run. The capacity of 4 has a convergence pair of its own: reruns
+at 0.5&nbsp;d and 1.0&nbsp;d that reuse its declaration, each read against the baseline at the
+same depth.</p>
+<p>At 0, 10, 20 and 30&deg;&nbsp;N, where no figure moved between the two depths, T reads
+&minus;1.3, +1.1, +0.6 and &minus;0.2&nbsp;dB against the baseline: both directions, firm. At 40
+and 50&deg;&nbsp;N the cap-4 truth moved 2.8 and 2.9&nbsp;dB between the depths, as the
+baseline&rsquo;s did at the same two latitudes; the two systems move together there, and their
+matched-depth difference stays within 0.5&nbsp;dB (0.0 and &minus;0.5 at 0.5&nbsp;d, 0.0 and
+&minus;0.2 at 1.0&nbsp;d). 60&deg;&nbsp;N reads &minus;0.6, then &minus;0.2.</p>
+<p>The 0.1&nbsp;d figures did not all survive: the equatorial +1.5 read at 0.1&nbsp;d is
+&minus;1.3 at both depths. On the examination side the widest gap is 11.0 &rarr; 5.9&nbsp;dB at
+1.0&nbsp;d, and E1 alone gains 3.6 to 6.4&nbsp;dB by latitude at 0.5 and 1.0&nbsp;d: the
+envelope gain of the 0.1&nbsp;d row is depth-stable. The mechanism, reassignment moving the
+interference, stands either way.</p></div>
+
+<h2>The declared exclusion does not move the examination</h2>
+<p><strong>On both mask shapes met so far, the MIN_EXCLUDE declaration has no effect on E1. The
+whole E1 gain of the capacity of 4 is the top-4 envelope&rsquo;s, not the tightened
+exclusion&rsquo;s.</strong> All three runs are at 0.1&nbsp;d.</p>
+<ul>
+<li><strong>The capacity of 4 changed the R&nbsp;set too.</strong> The saturated probe could not
+place 47% of peak demand, and MIN_EXCLUDE tightened to 26.5&deg; and 33.0&deg; at the 35&deg;
+and 45&deg; bands, against 22.0&deg; everywhere in the baseline. The examination reads that
+array, so the E1 gain could not at first be attributed to the envelope alone.</li>
+<li><strong>The control.</strong> An examination-only run held the baseline R&nbsp;set fixed and
+swapped in the cap-4 mask. It differs from the cap-4 run at one latitude by 0.1&nbsp;dB and at
+the other six not at all. The exclusion&rsquo;s share is nil, and the whole E1 gain,
+<strong>3.5 to 6.4&nbsp;dB</strong> by latitude, is the envelope&rsquo;s.</li>
+<li><strong>No zone at all.</strong> With MIN_EXCLUDE forced to 0&deg; against the baseline
+mask, E1 moved at none of the seven latitudes, and max epfd by +0.1&nbsp;dB at one.</li>
+</ul>
+<p>The reason is not a notch in the mask. In the derived mask, power within 3&nbsp;dB of the peak
+reaches &alpha; 12&ndash;16&deg; against the declared 22&deg;: the main-lobe edge of beams gated
+at their boresight reaches the neighbouring ground at this cell size. The mechanism is the
+examination&rsquo;s own:</p>
+<ul>
+<li>its Step&nbsp;22 counts main-beam satellites regardless of the zone;</li>
+<li>when the zone is lifted, the same satellites, being the strongest, are the first the capped
+pick takes;</li>
+<li>in-zone satellites near the victim&rsquo;s boresight are summed either way, and the rest are
+too weak to register.</li>
+</ul>
+<p>The filed two-level mask measures inert for the complementary reason: its in-zone values sit
+30&nbsp;dB down. So the consistency check reports each mask&rsquo;s own reach into the declared
+zone rather than assuming one.</p>
+
+<h2>What is left of the gap</h2>
+<p><strong>For a payload that declares nothing beyond its reuse plan, the declaration-side levers
+are spent on STEAM-2. What remains is the envelope&rsquo;s price: the cost of describing a whole
+operating space with a single conservative surface.</strong></p>
+<ul>
+<li>The service span certifies nothing on a global system.</li>
+<li>The mask grid is converged at 0.1&nbsp;dB.</li>
+<li>The beam count has no warrant until the payload declares its co-frequency beam capacity, a
+real property of the hardware. Declared at the probe&rsquo;s own K<sub>sat</sub>, it recovers
+<strong>0.0 to 1.8&nbsp;dB</strong> with T untouched (0.1&nbsp;d).</li>
+<li>What remains with the capacity declared at 20 is <strong>6.4 to 10.9&nbsp;dB</strong> in
+band (0 to 50&deg;&nbsp;N, the declared service latitudes) at 0.1&nbsp;d.</li>
+<li>Without a declared capacity the gap reads <strong>7.5 to 10.7&nbsp;dB</strong> in band at
+1.0&nbsp;d (11.0 at 60&deg;&nbsp;N), and <strong>6.4 to 8.4</strong> at 0 to 40&deg;&nbsp;N at
+16.0&nbsp;d; the depth finding below has every depth.</li>
+<li>A capacity below what today&rsquo;s traffic reaches recovers more, but it moves T, in both
+directions, since refused links are reassigned rather than dropped. That makes it a design
+decision about the system rather than a better description of it.</li>
+</ul>
+
+<h2>Depth: the body settles, the tail keeps moving</h2>
+<p><strong>The derivation does not move with depth; the truth does. The body of each
+distribution settles by 0.5&nbsp;d, but the short-term end, where the verdict is decided, keeps
+moving, because each doubling of the run can find a rarer, stronger geometry. The gap moves less
+than either curve.</strong></p>
+<p>The same sweep of truth and examination at seven run lengths, each an extension of the last on
+one 60&nbsp;s sample grid. The 0.1&nbsp;d and 1.0&nbsp;d runs derived their declarations; the
+other depths reuse the 0.1&nbsp;d one.</p>
+<ul>
+<li><strong>The derivation.</strong> The R&nbsp;set derived at 1.0&nbsp;d is identical to the
+0.1&nbsp;d one row for row, and its mask agrees at every one of 123&nbsp;431 lit cells to
+0.01&nbsp;dB. E1&rsquo;s movement with depth is the examination sampling a fixed
+declaration.</li>
+<li><strong>The truth</strong> moved by up to 5.4&nbsp;dB at single latitudes between 0.1 and
+1.0&nbsp;d, flattening to &minus;9.3 to &minus;10.9&nbsp;dB across all seven.</li>
+</ul>
+<p>Doubling by doubling, T point margins:</p>
+<ul>
+<li><strong>0.5 &rarr; 1.0&nbsp;d:</strong> no figure moved by more than 0.5&nbsp;dB at 0, 10,
+20, 30 and 60&deg;&nbsp;N; 40 and 50&deg;&nbsp;N moved 2.8 and 2.6&nbsp;dB.</li>
+<li><strong>1.0 &rarr; 2.0&nbsp;d</strong> (the run meant to pair those two): 40 and
+50&deg;&nbsp;N moved 0.1 and 0.6&nbsp;dB. It also moved 10, 20 and 30&deg;&nbsp;N, which the
+first pair had called firm, by 1.0, 2.7 and 1.2&nbsp;dB; the maximum at 20&deg;&nbsp;N rose
+2.7&nbsp;dB in the second day.</li>
+<li><strong>2.0 &rarr; 4.0&nbsp;d:</strong> the equator moved 1.1&nbsp;dB and 50 and
+60&deg;&nbsp;N 0.7 each; the other four stayed where they were.</li>
+<li><strong>4.0 &rarr; 8.0&nbsp;d:</strong> 20&deg;&nbsp;N alone moved, by 1.1&nbsp;dB as its
+maximum rose again; no other latitude by more than 0.2.</li>
+<li><strong>8.0 &rarr; 16.0&nbsp;d:</strong> the equator moved 1.4&nbsp;dB and 10&deg;&nbsp;N 1.8
+as their maxima rose; no other latitude by more than 0.3.</li>
+</ul>
+<p>So from 0.5&nbsp;d on, each doubling moves one to three latitudes by 1 to 3&nbsp;dB and the
+others by 0.7&nbsp;dB or less, and the set that moves changes from one doubling to the next. Two
+mechanisms drive it:</p>
+<ul>
+<li>a maximum can only rise as the run is extended (20&deg;&nbsp;N, +2.7&nbsp;dB in the second
+day);</li>
+<li>a resolved percentile can fall as rarer samples dilute a cluster (60&deg;&nbsp;N: its maximum
+unchanged since 0.5&nbsp;d, its worst margin improved by 1.0&nbsp;dB over three doublings).</li>
+</ul>
+<p>A convergence pair therefore firms the body of the distribution and only ever provisionally
+its tail.</p>
+
+<p>Point margins in dB, STEAM-2, 60&nbsp;s step:</p>
+<table class="ex">
+<tr><th>latitude</th><th colspan="7">T point margin, by run length</th></tr>
+<tr><th></th><th>0.1&nbsp;d</th><th>0.5</th><th>1.0</th><th>2.0</th><th>4.0</th><th>8.0</th><th>16.0</th></tr>
+<tr><td>0</td><td>&minus;9.1</td><td>&minus;9.3</td><td>&minus;9.3</td><td>&minus;9.7</td><td>&minus;10.8</td><td>&minus;10.8</td><td>&minus;12.2</td></tr>
+<tr><td>10</td><td>&minus;4.8</td><td>&minus;10.2</td><td>&minus;10.2</td><td>&minus;11.2</td><td>&minus;11.2</td><td>&minus;11.2</td><td>&minus;13.0</td></tr>
+<tr><td>20</td><td>&minus;7.4</td><td>&minus;9.5</td><td>&minus;9.5</td><td>&minus;12.2</td><td>&minus;12.2</td><td>&minus;13.3</td><td>&minus;13.3</td></tr>
+<tr><td>30</td><td>&minus;5.7</td><td>&minus;10.9</td><td>&minus;10.9</td><td>&minus;12.1</td><td>&minus;12.1</td><td>&minus;12.1</td><td>&minus;12.3</td></tr>
+<tr><td>40</td><td>&minus;6.9</td><td>&minus;7.5</td><td>&minus;10.3</td><td>&minus;10.2</td><td>&minus;10.2</td><td>&minus;10.4</td><td>&minus;10.4</td></tr>
+<tr><td>50</td><td>&minus;11.9</td><td>&minus;11.9</td><td>&minus;9.3</td><td>&minus;9.9</td><td>&minus;9.2</td><td>&minus;9.3</td><td>&minus;9.0</td></tr>
+<tr><td>60</td><td>&minus;11.7</td><td>&minus;10.6</td><td>&minus;10.4</td><td>&minus;10.3</td><td>&minus;9.6</td><td>&minus;9.8</td><td>&minus;9.9</td></tr>
+</table>
+<table class="ex">
+<tr><th>latitude</th><th colspan="7">E1 point margin, by run length</th></tr>
+<tr><th></th><th>0.1&nbsp;d</th><th>0.5</th><th>1.0</th><th>2.0</th><th>4.0</th><th>8.0</th><th>16.0</th></tr>
+<tr><td>0</td><td>&minus;15.6</td><td>&minus;18.1</td><td>&minus;18.1</td><td>&minus;18.1</td><td>&minus;18.1</td><td>&minus;18.1</td><td>&minus;18.6</td></tr>
+<tr><td>10</td><td>&minus;13.7</td><td>&minus;17.7</td><td>&minus;17.7</td><td>&minus;19.4</td><td>&minus;19.4</td><td>&minus;19.4</td><td>&minus;19.7</td></tr>
+<tr><td>20</td><td>&minus;18.1</td><td>&minus;18.1</td><td>&minus;18.0</td><td>&minus;19.6</td><td>&minus;19.7</td><td>&minus;20.2</td><td>&minus;20.2</td></tr>
+<tr><td>30</td><td>&minus;12.5</td><td>&minus;18.6</td><td>&minus;18.6</td><td>&minus;18.5</td><td>&minus;18.5</td><td>&minus;18.5</td><td>&minus;18.7</td></tr>
+<tr><td>40</td><td>&minus;16.9</td><td>&minus;18.1</td><td>&minus;18.8</td><td>&minus;18.8</td><td>&minus;19.0</td><td>&minus;19.0</td><td>&minus;18.8</td></tr>
+<tr><td>50</td><td>&minus;24.1</td><td>&minus;23.5</td><td>&minus;20.0</td><td>&minus;21.3</td><td>&minus;20.3</td><td>&minus;20.5</td><td>&minus;20.7</td></tr>
+<tr><td>60</td><td>&minus;21.9</td><td>&minus;21.9</td><td>&minus;21.4</td><td>&minus;21.4</td><td>&minus;21.0</td><td>&minus;21.5</td><td>&minus;21.6</td></tr>
 </table>
 
-<p>The line between the rows is not whether T moves but whether the knob changes what the
-system <em>does</em>: a commitment is declaration-side if and only if today&rsquo;s granted links
-are unchanged under it. Rows one and two leave the links identical, so they are declarations
-&mdash; the second an honest one, a promise about a peak the system may never sell. Row three
-changes today&rsquo;s links, so it is a redesign, to be chosen or refused as engineering. The
-non-monotone T is the proof the line matters: a knob that can worsen compliance cannot be a
-declaration-tightening move, because declarations never change behaviour.</p>
+<p><strong>The gap moves less than either curve,</strong> because E1 follows the same geometry
+through the mask:</p>
+<ul>
+<li>at 0 to 40&deg;&nbsp;N it reads 7.5 to 8.8&nbsp;dB at 1.0&nbsp;d, 6.4 to 8.6 at 2.0&nbsp;d,
+6.4 to 8.8 at 4.0&nbsp;d, 6.4 to 8.6 at 8.0&nbsp;d and 6.4 to 8.4 at 16.0&nbsp;d;</li>
+<li>at 50 and 60&deg;&nbsp;N it reads 11.1 to 11.7 from 2.0 to 16.0&nbsp;d;</li>
+<li>at every depth from 0.5&nbsp;d it stays within 6.4 to 10.6&nbsp;dB at 0 to 40&deg;&nbsp;N and
+10.7 to 11.7 at 50 and 60&deg;&nbsp;N;</li>
+<li>E1&nbsp;&ge;&nbsp;T at every latitude at every depth.</li>
+</ul>
 
-<p>The middle row is the one an operator would want: a commitment the system already
-honours at today&rsquo;s traffic, that buys 0.8&ndash;3.3&nbsp;dB on the examination, and whose
-only price falls on the busiest hour. The bottom row maps the extreme. Its lesson is not the
-dB: it is that <strong>a binding cap moves T in both directions</strong>. A refused link is
-not dropped, it is reassigned to the next-best satellite, and at some victims that satellite
-sits in worse geometry &mdash; T improved 1.1&nbsp;dB at latitude 10 and worsened 1.3&nbsp;dB at
-the equator from the same declaration, figures the depth pair finds firm. A tighter payload
-commitment is not monotone for compliance. * The table is a 0.1&nbsp;d comb. Cap&nbsp;4 now has a
-convergence pair of its own: truth-only reruns at 0.5&nbsp;d and 1.0&nbsp;d
-(<code>docs/compliance-steam-2-cap4-05d.md</code>, <code>docs/compliance-steam-2-cap4-1d.md</code>),
-each read against the baseline at the same depth. At the four latitudes the pair finds firm
-&mdash; 0, 10, 20 and 30, where no figure moved between the depths &mdash; T reads &minus;1.3, +1.1,
-+0.6 and &minus;0.2&nbsp;dB: both directions, firm. At 40 and 50 the cap-4 truth moved 2.8 and
-2.9&nbsp;dB between the depths, as the baseline&rsquo;s did at the same two latitudes; the two
-systems move together there and their matched-depth difference stays within 0.5&nbsp;dB (0.0 and
-&minus;0.5 at 0.5&nbsp;d, 0.0 and &minus;0.2 at 1.0&nbsp;d); 60 reads &minus;0.6 then &minus;0.2. The
-0.1&nbsp;d figures did not survive: the equatorial +1.5 read there is &minus;1.3 at both depths. The
-examination side: widest gap 11.0 &rarr; 5.9&nbsp;dB at 1.0&nbsp;d, and E1 alone gains 3.6 to
-6.4&nbsp;dB by latitude at every depth measured &mdash; the envelope gain of the 0.1&nbsp;d row is
-depth-stable. The mechanism, reassignment relocating interference, stands either way.</p>
+<div class="tech"><div class="t">Tech &middot; the long runs under the limit-curve rule</div>
+<p>The 8.0&nbsp;d run, the first under the limit-curve rule, names each latitude&rsquo;s deciding
+point: the maximum at 0 to 40&deg;&nbsp;N, the 1% point at 50 and 60&deg;&nbsp;N. It reports the
+curve crossing at &minus;164.1&nbsp;dB on the 0.029% segment at every latitude, and the curve
+margin binds only at 40&deg;&nbsp;N, by 0.2&nbsp;dB. At 16.0&nbsp;d the deciding points and the
+crossing bin are the same, and the curve margin binds only at 50&deg;&nbsp;N, by 0.5&nbsp;dB. The
+tables quote the point margins. On the parallel build the 2.0&nbsp;d sweep took 33 minutes, the
+4.0&nbsp;d one 75, the 8.0&nbsp;d one 128 and the 16.0&nbsp;d one 211. Differences at fixed depth
+stand; absolute short-term levels carry their run length, at any run length.</p></div>
 
-<div class="tech">
-<div class="t">A control that did not hold, then measured</div>
-<p>In the bottom row the derived R&nbsp;set also changed: the saturated probe could not
-place 47% of peak demand, and <code>min_exclude</code> tightened to 26.5&deg; and 33.0&deg; at
-the 35&deg; and 45&deg; bands against 22.0&deg; everywhere on the record. The examination reads
-that exclusion, so the E1 gain could not be attributed to the envelope alone &mdash; until an
-examination-only run held the record&rsquo;s R&nbsp;set fixed and swapped in the cap-4 mask. The
-result differs from the cap-4 record at one latitude by 0.1&nbsp;dB and at the other six not at
-all: the exclusion&rsquo;s share is nil, and the whole E1 gain &mdash; <strong>3.5 to
-6.4&nbsp;dB</strong> by latitude &mdash; is the top-4 envelope&rsquo;s. Why the tightened
-exclusion did not register has since been measured, and the first explanation offered for it
-&mdash; a notch in the derived mask &mdash; was wrong. With <code>min_exclude</code> forced to 0&deg;
-against the record mask &mdash; no exclusion zone at all &mdash; E1 moved at none of the seven
-latitudes, max epfd by +0.1&nbsp;dB at one. The dissection of that mask shows why, and it is not a
-notch: power within 3&nbsp;dB of the peak reaches alpha 12&ndash;16&deg; against the declared 22&deg;,
-the main-lobe edge of beams gated at their boresight reaching the neighbouring ground at this
-cell size. The mechanism is the algorithm&rsquo;s own: Step 22 counts main-beam satellites
-regardless of the zone, and when the zone is lifted the same satellites, being the strongest, are
-the first the capped pick takes. In-zone satellites near the victim&rsquo;s boresight are summed
-either way; the rest are too weak to register. The filed two-level mask measures inert for the
-complementary reason &mdash; its in-zone values sit 30&nbsp;dB down &mdash; so the result holds
-for both mask shapes met so far, and the consistency check now reports each mask&rsquo;s own
-reach into the declared zone rather than assuming one.</p>
-</div>
+<h2>The time step</h2>
+<p><strong>A 60&nbsp;s step under-samples the maxima that decide the verdict. On STEAM-2 a
+1&nbsp;s step reads within 0.1&nbsp;dB of the time step S.1503-4 prescribes, so the tool presets
+1&nbsp;s.</strong></p>
+<ul>
+<li>The fastest crossing of the earth station&rsquo;s 3&nbsp;dB beam by a STEAM-2 satellite takes
+3.34&nbsp;s. A 60&nbsp;s step samples about one crossing in eighteen, so the maxima that decide
+the verdict at 0 to 40&deg;&nbsp;N were starved of main-beam passes.</li>
+<li>Over half a day, from 60&nbsp;s to 6&nbsp;s, the truth&rsquo;s maximum rose 2.0 to
+3.3&nbsp;dB at 0 to 50&deg;&nbsp;N and the gap closed by 0.5 to 2.9&nbsp;dB at 0 to
+40&deg;&nbsp;N. E1&nbsp;&ge;&nbsp;T still held at every latitude.</li>
+<li>Over half a day the examination reads within 0.1&nbsp;dB of the S.1503-4 step at 1&nbsp;s
+and within 0.5&nbsp;dB at 6&nbsp;s. At 60&nbsp;s the S.1503-4 step moves its point margin by
+&minus;2.2 to +3.0&nbsp;dB.</li>
+<li>The long runs had largely paid the step down with depth. E1 at 60&nbsp;s over 16&nbsp;d sits
+within 0.4&nbsp;dB of E1 on the S.1503-4 step over half a day, and over 2&nbsp;d within
+0.9&nbsp;dB. The truth over 16&nbsp;d sits within 0.8&nbsp;dB of the truth at 6&nbsp;s over half
+a day, except at 30&deg;&nbsp;N (1.6&nbsp;dB).</li>
+<li>So the 16&nbsp;d figures on this page stand to about a dB, and the half-day and one-day
+figures at 60&nbsp;s do not.</li>
+<li>With the Random selection and no hold, the step is also the reselection period. The
+6&nbsp;s truth drew its selection ten times as often as the 60&nbsp;s one: the step changed the
+traffic model as well as the sampling.</li>
+</ul>
+<p>The Compliance loop window presets the step to 1&nbsp;s, about three samples per crossing,
+and warns when a step samples the fastest crossing fewer than three times. Its
+<strong>Examination step</strong> choice examines a declared mask on the S.1503-4 time step
+instead; the truth and the advisors stay on the preset step.</p>
 
-<div class="tech">
-<div class="t">Where this leaves the inner loop today</div>
-<p>For a payload that declares nothing beyond its reuse plan, the inner loop is spent: the
-service span certifies nothing on a global system, the grid is converged at 0.1&nbsp;dB, and
-the beam count has no warrant. Declaring the co-frequency beam capacity &mdash; a real
-property of the hardware &mdash; is what turns the beam count into a lever, and on STEAM-2
-it recovers <strong>0.0&ndash;1.8&nbsp;dB</strong> at the readout’s own K with T untouched. What
-remains &mdash; <strong>6.4 to 10.9&nbsp;dB</strong> in band at 0.1&nbsp;d &mdash; is the
-envelope price proper: the cost of describing a whole operating space with a single
-conservative surface. At 1.0&nbsp;d, its convergence pair, the gap reads <strong>7.5 to
-10.7&nbsp;dB</strong> in band (11.0 at latitude 60), and the run settled what moves with depth: the
-derivation does not &mdash; the R&nbsp;set and the mask derived at 1.0&nbsp;d are identical to the
-record&rsquo;s, so E1&rsquo;s movement was the examination sampling a fixed declaration &mdash; while
-the truth does, by up to 5.4&nbsp;dB at single latitudes, flattening to &minus;9.3&hellip;&minus;10.9 across
-all seven. Its pair, a truth-only rerun at 0.5&nbsp;d, moved no figure by more than 0.5&nbsp;dB at
-latitudes 0, 10, 20, 30 and 60 and moved 40 and 50 by 2.8 and 2.6. The 2.0&nbsp;d sweep meant to
-pair those two (<code>docs/compliance-steam-2-2d.md</code>, 33 minutes on the parallel build) did:
-0.1 and 0.6&nbsp;dB. It also moved 10, 20 and 30 &mdash; by 1.0, 2.7 and 1.2&nbsp;dB &mdash;
-latitudes the first pair had called firm. The movement is at the short-term end, where the
-deciding point sits: each doubling of the run can find a rarer, stronger geometry (the maximum at
-20&nbsp;N rose 2.7&nbsp;dB in the second day), so a pair firms the body of the distribution and only
-ever provisionally its tail. A fourth doubling, 4.0&nbsp;d, moved the equator by 1.1&nbsp;dB and 50 and
-60 by 0.7 each and left the other four where they were; a fifth, 8.0&nbsp;d, moved 20&nbsp;N alone, by
-1.1&nbsp;dB as its maximum rose again, and no other latitude by more than 0.2; a sixth, 16.0&nbsp;d, moved
-the equator by 1.4&nbsp;dB and 10&nbsp;N by 1.8 as their maxima rose, and no other latitude by more than 0.3.
-The gap at 0 to 40&nbsp;N
-reads <strong>7.5 to 8.8&nbsp;dB</strong> at 1.0&nbsp;d, <strong>6.4 to 8.6</strong> at 2.0&nbsp;d,
-<strong>6.4 to 8.8</strong> at 4.0&nbsp;d, <strong>6.4 to 8.6</strong> at 8.0&nbsp;d and <strong>6.4 to 8.4</strong>
-at 16.0&nbsp;d (11.1 to 11.7 at 50 and 60); the ladder below has all seven depths. Differences measured at fixed depth stand. A cap below what today&rsquo;s
-traffic reaches recovers more and moves T &mdash; in both
-directions, since refused links are reassigned rather than dropped &mdash; which makes it a
-design decision about the system rather than a better description of it.</p>
-</div>
+<div class="tech"><div class="t">Tech &middot; the S.1503-4 time step</div>
+<p>The fine step of S.1503-4 &sect;D4.2 is the pass time across the GSO earth station&rsquo;s
+3&nbsp;dB beam where that crossing is fastest, over N<sub>hit</sub>&nbsp;=&nbsp;16: for STEAM-2 a
+3.34&nbsp;s pass across the 1.156&deg; beam at 1&nbsp;150&nbsp;km, a fine step of 0.208&nbsp;s.
+The coarse step of &sect;D4.7.1 is 20 fine steps, 4.16&nbsp;s. The dual time step follows
+&sect;D5.1.4.1 Sub-steps 6.1 to 6.3, each sample counted T<sub>step</sub>/T<sub>fine</sub> times
+(Step&nbsp;24). Three samples per crossing is this tool&rsquo;s own threshold, where the measured
+maxima settled; the simulation methodology asks for at least five (Rec. ITU-R S.1325 revision
+draft &sect;2.7.2).</p></div>
 
-<div class="tech">
-<div class="t">The depth ladder</div>
-<p>The same truth-only sweep of the committed STEAM-2 declaration at seven run lengths, each an
-extension of the last on one comb of 60&nbsp;s steps, the record&rsquo;s declaration reused: the worst margin of T and
-of E1 by latitude, in dB. The body of each CDF settles by 0.5&nbsp;d; the deciding point sits at the
-short-term end, and at each doubling one or two latitudes move by 1 to 3&nbsp;dB while the others
-stand, and the set that moves changes from one doubling to the next. Two mechanisms: a maximum can only rise under extension
-(20&nbsp;N, +2.7&nbsp;dB in the second day), and a resolved percentile can fall as rarer samples
-dilute a cluster (60&nbsp;N: its maximum unchanged since 0.5&nbsp;d, its worst margin improved by
-1.0&nbsp;dB over three doublings). E1 follows the same geometry through the mask, so the gap moves
-less than either curve: 6.4 to 10.6&nbsp;dB at 0 to 40&nbsp;N and 10.7 to 11.7 at 50 and 60 at every
-depth from 0.5&nbsp;d, and E1&nbsp;&ge;&nbsp;T at every latitude at every depth.</p>
+<h2>The victim&rsquo;s geometry</h2>
+<p><strong>On STEAM-2 the victim&rsquo;s geometry is worth about 2&nbsp;dB to the examination at
+the equator and 0.6&nbsp;dB or less elsewhere, at 2.0&nbsp;d. The gap moves less than either
+curve, so the envelope&rsquo;s price is a property of the declaration, not of where the victim
+looks.</strong></p>
+<p>Every run above places the victim at one geometry: the earth station at longitude 0, the
+wanted GSO satellite 10&deg; east of it. The examination under S.1503-4 searches for the
+worst-case geometry itself; this tool does not, and the decomposition, whose three curves share
+the victim, has no term for it. What the fixed victim leaves out was measured by moving the GSO
+satellite:</p>
+<ul>
+<li>the same sweep of truth and examination, the baseline declaration reused, at 0.5&nbsp;d on a
+60&nbsp;s step, 0 to 60&deg;&nbsp;N;</li>
+<li>eight GSO longitude offsets from 10&deg; west to 60&deg; east, which take the wanted
+satellite from overhead at the equator down to 22&deg; of elevation, and at 60&deg;&nbsp;N from
+22&deg; down to 6&deg;;</li>
+<li>fifty-six victims; E1&nbsp;&ge;&nbsp;T at every one.</li>
+</ul>
+<p>Point margins in dB, 0.5&nbsp;d, 60&nbsp;s step:</p>
 <table class="ex">
-<tr><th>latitude</th><th colspan="7">T worst margin</th><th colspan="7">E1 worst margin</th></tr>
-<tr><th></th><th>0.1&nbsp;d</th><th>0.5</th><th>1.0</th><th>2.0</th><th>4.0</th><th>8.0</th><th>16.0</th><th>0.1&nbsp;d</th><th>0.5</th><th>1.0</th><th>2.0</th><th>4.0</th><th>8.0</th><th>16.0</th></tr>
-<tr><td>0</td><td>&minus;9.1</td><td>&minus;9.3</td><td>&minus;9.3</td><td>&minus;9.7</td><td>&minus;10.8</td><td>&minus;10.8</td><td>&minus;12.2</td><td>&minus;15.6</td><td>&minus;18.1</td><td>&minus;18.1</td><td>&minus;18.1</td><td>&minus;18.1</td><td>&minus;18.1</td><td>&minus;18.6</td></tr>
-<tr><td>10</td><td>&minus;4.8</td><td>&minus;10.2</td><td>&minus;10.2</td><td>&minus;11.2</td><td>&minus;11.2</td><td>&minus;11.2</td><td>&minus;13.0</td><td>&minus;13.7</td><td>&minus;17.7</td><td>&minus;17.7</td><td>&minus;19.4</td><td>&minus;19.4</td><td>&minus;19.4</td><td>&minus;19.7</td></tr>
-<tr><td>20</td><td>&minus;7.4</td><td>&minus;9.5</td><td>&minus;9.5</td><td>&minus;12.2</td><td>&minus;12.2</td><td>&minus;13.3</td><td>&minus;13.3</td><td>&minus;18.1</td><td>&minus;18.1</td><td>&minus;18.0</td><td>&minus;19.6</td><td>&minus;19.7</td><td>&minus;20.2</td><td>&minus;20.2</td></tr>
-<tr><td>30</td><td>&minus;5.7</td><td>&minus;10.9</td><td>&minus;10.9</td><td>&minus;12.1</td><td>&minus;12.1</td><td>&minus;12.1</td><td>&minus;12.3</td><td>&minus;12.5</td><td>&minus;18.6</td><td>&minus;18.6</td><td>&minus;18.5</td><td>&minus;18.5</td><td>&minus;18.5</td><td>&minus;18.7</td></tr>
-<tr><td>40</td><td>&minus;6.9</td><td>&minus;7.5</td><td>&minus;10.3</td><td>&minus;10.2</td><td>&minus;10.2</td><td>&minus;10.4</td><td>&minus;10.4</td><td>&minus;16.9</td><td>&minus;18.1</td><td>&minus;18.8</td><td>&minus;18.8</td><td>&minus;19.0</td><td>&minus;19.0</td><td>&minus;18.8</td></tr>
-<tr><td>50</td><td>&minus;11.9</td><td>&minus;11.9</td><td>&minus;9.3</td><td>&minus;9.9</td><td>&minus;9.2</td><td>&minus;9.3</td><td>&minus;9.0</td><td>&minus;24.1</td><td>&minus;23.5</td><td>&minus;20.0</td><td>&minus;21.3</td><td>&minus;20.3</td><td>&minus;20.5</td><td>&minus;20.7</td></tr>
-<tr><td>60</td><td>&minus;11.7</td><td>&minus;10.6</td><td>&minus;10.4</td><td>&minus;10.3</td><td>&minus;9.6</td><td>&minus;9.8</td><td>&minus;9.9</td><td>&minus;21.9</td><td>&minus;21.9</td><td>&minus;21.4</td><td>&minus;21.4</td><td>&minus;21.0</td><td>&minus;21.5</td><td>&minus;21.6</td></tr>
-</table>
-<p>Records: <code>docs/compliance-steam-2.md</code> (0.1&nbsp;d) and <code>-05d</code>, <code>-1d</code>,
-<code>-2d</code>, <code>-4d</code>, <code>-8d</code>, <code>-16d</code>; the 4.0&nbsp;d sweep took 75 minutes on the parallel build, the 8.0&nbsp;d one 128, the 16.0&nbsp;d one 211. The 8.0&nbsp;d record, the first written under the limit-curve rule, names each latitude&rsquo;s deciding point &mdash; the maximum at 0 to 40&nbsp;N, the 1% point at 50 and 60 &mdash; and reports the curve crossing at &minus;164.1&nbsp;dB on the 0.029% segment at every latitude; the curve margin binds only at 40&nbsp;N, by 0.2&nbsp;dB. At 16.0&nbsp;d the deciding points and the crossing bin are the same, and the curve margin binds only at 50&nbsp;N, by 0.5&nbsp;dB. The 0.1&nbsp;d
-column derives its declaration; the others reuse it. Differences at fixed depth stand; absolute
-short-term levels carry their run length, at any run length.</p>
-</div>
-<div class="tech">
-<div class="t">The gap, decomposed</div>
-<p>The brief&rsquo;s section&nbsp;2 asks not how close the examination comes to the truth but
-where its gap comes from. The decomposition runs three curves on one victim grid and one comb of 60&nbsp;s steps:
-<strong>T</strong>, every visible satellite at its live value, no selection;
-<strong>E<sub>sel</sub></strong>, the examination&rsquo;s selection rules (Sec.&nbsp;D5.1.4.1: the
-elevation gate, the exclusion zone, the MAX_CO_FREQ pick by highest contribution, MIN_ANGLE_AT_ES
-pruning, the main-beam always-include) applied to those same live values; <strong>E1</strong>, the
-same selection over the declared mask. E<sub>sel</sub>&nbsp;&minus;&nbsp;T is what the selection rules
-do to the count; E1&nbsp;&minus;&nbsp;E<sub>sel</sub> is what the mask envelope adds. On STEAM-2 against
-the committed declaration, at the deciding point of every latitude from 0 to 60, the selection
-component is <strong>0.0&nbsp;dB</strong> at 0.5 and 1.0&nbsp;d and 0.0 to &minus;0.1 at 0.1&nbsp;d; in the body of
-the distribution it removes 0.2 to 0.7&nbsp;dB at the 10% point. The envelope component is the whole
-gap: <strong>+6.5 to +12.1&nbsp;dB</strong> at 0.1&nbsp;d, <strong>+7.5 to +11.6</strong> at
-0.5&nbsp;d and <strong>+7.5 to +11.0</strong> at 1.0&nbsp;d, by latitude. The price of the format on this system is the mask envelope&rsquo;s, not the
-selection rules&rsquo;, and the granularity levers above act on exactly that component. The zero is
-checked, not assumed: with nothing declared E<sub>sel</sub> equals T bin for bin (V55). Records:
-<code>docs/margin-decomposition-steam-2.md</code> (0.1&nbsp;d),
-<code>docs/margin-decomposition-steam-2-05d.md</code> (0.5&nbsp;d) and <code>-1d</code> (1.0&nbsp;d, the
-0.5&nbsp;d run extended on its comb: T moved 2.8&nbsp;dB at 40&nbsp;N and 2.6 at 50&nbsp;N at the deciding
-point, and the selection component stayed 0.0 at every one); differences at matched depth are
-the quotable quantity, the absolute levels carry their comb.</p>
-</div>
-<div class="tech">
-<div class="t">The victim&rsquo;s geometry</div>
-<p>The brief&rsquo;s third component. Every record above plants the victim at one geometry &mdash;
-earth station at longitude 0, the wanted GSO satellite 10&deg; east of it &mdash; and the
-examination&rsquo;s own search for the worst-case geometry is the consumer&rsquo;s, by agreement, so
-the decomposition, whose three curves share the victim, has no term for it. What the fixed victim
-leaves on the table was measured by moving the GSO satellite: the same truth-only sweep of the
-committed declaration at 0.5&nbsp;d on 60&nbsp;s steps, 0 to 60&nbsp;N, at eight longitude offsets from 10&deg; west to
-60&deg; east &mdash; the wanted satellite from overhead at the equator down to 22&deg; of elevation,
-and at 60&nbsp;N from 22&deg; down to 6&deg;. Fifty-six victims; E1&nbsp;&ge;&nbsp;T at every one.</p>
-<table class="ex">
-<tr><th>latitude</th><th colspan="8">T worst margin, dB by GSO longitude offset (deg east of the earth station)</th><th>spread</th></tr>
+<tr><th>latitude</th><th colspan="8">T point margin, dB, by GSO longitude offset (deg east of the earth station)</th><th>spread</th></tr>
 <tr><th></th><th>&minus;10</th><th>0</th><th>+5</th><th>+10</th><th>+20</th><th>+30</th><th>+45</th><th>+60</th><th></th></tr>
 <tr><td>0</td><td>&minus;6.0</td><td>&minus;13.6</td><td>+1.3</td><td>&minus;9.3</td><td>&minus;12.2</td><td>&minus;6.1</td><td>&minus;7.6</td><td>&minus;4.4</td><td>14.9</td></tr>
 <tr><td>10</td><td>&minus;1.7</td><td>&minus;8.5</td><td>&minus;7.4</td><td>&minus;10.2</td><td>&minus;9.7</td><td>+0.4</td><td>&minus;10.2</td><td>&minus;5.0</td><td>10.6</td></tr>
@@ -575,7 +821,7 @@ and at 60&nbsp;N from 22&deg; down to 6&deg;. Fifty-six victims; E1&nbsp;&ge;&nb
 <tr><td>60</td><td>&minus;8.8</td><td>&minus;9.8</td><td>&minus;9.8</td><td>&minus;10.6</td><td>&minus;9.5</td><td>&minus;7.3</td><td>&minus;9.7</td><td>&minus;6.7</td><td>3.9</td></tr>
 </table>
 <table class="ex">
-<tr><th>latitude</th><th colspan="8">E1 worst margin, dB by GSO longitude offset (deg east of the earth station)</th><th>spread</th></tr>
+<tr><th>latitude</th><th colspan="8">E1 point margin, dB, by GSO longitude offset (deg east of the earth station)</th><th>spread</th></tr>
 <tr><th></th><th>&minus;10</th><th>0</th><th>+5</th><th>+10</th><th>+20</th><th>+30</th><th>+45</th><th>+60</th><th></th></tr>
 <tr><td>0</td><td>&minus;13.4</td><td>&minus;20.2</td><td>&minus;8.0</td><td>&minus;18.1</td><td>&minus;18.6</td><td>&minus;12.9</td><td>&minus;15.2</td><td>&minus;11.3</td><td>12.2</td></tr>
 <tr><td>10</td><td>&minus;12.7</td><td>&minus;17.1</td><td>&minus;17.3</td><td>&minus;17.7</td><td>&minus;17.3</td><td>&minus;6.9</td><td>&minus;18.3</td><td>&minus;12.2</td><td>11.4</td></tr>
@@ -585,103 +831,99 @@ and at 60&nbsp;N from 22&deg; down to 6&deg;. Fifty-six victims; E1&nbsp;&ge;&nb
 <tr><td>50</td><td>&minus;22.1</td><td>&minus;22.8</td><td>&minus;22.8</td><td>&minus;23.5</td><td>&minus;23.0</td><td>&minus;22.2</td><td>&minus;20.5</td><td>&minus;19.4</td><td>4.1</td></tr>
 <tr><td>60</td><td>&minus;20.1</td><td>&minus;20.3</td><td>&minus;21.5</td><td>&minus;21.9</td><td>&minus;21.4</td><td>&minus;19.2</td><td>&minus;21.1</td><td>&minus;15.8</td><td>6.1</td></tr>
 </table>
-<p>The gap moves less than either curve: its spread over the eight offsets is 2.6 to 3.9&nbsp;dB per
-latitude against 3.3 to 14.9 for T and 4.1 to 12.2 for E1, so the envelope&rsquo;s price is a
-property of the declaration, not of where the victim looks. The 10&deg;-east default is the worst
-offset for E1 at 30, 50 and 60&nbsp;N and within 1.1&nbsp;dB of the worst at 10 and 20; it is not the
-worst at the equator, where the satellite overhead reads 2.1&nbsp;dB worse on E1 and 4.3 on T, nor
-at 40&nbsp;N at this depth, where 10&deg; west reads 2.5 and 5.1 worse. Five offsets were then run
-on to 2.0&nbsp;d beside the 2.0&nbsp;d baseline: 10&deg; west, 0, 5, 45 and 60&deg; east. The equator&rsquo;s difference stood: overhead
-against 10&deg; east, 4.1&nbsp;dB on T and 2.1 on E1 (4.3 and 2.1 at 0.5&nbsp;d), pair-firm across a
-quadrupling. The 40&nbsp;N difference did not: the baseline&rsquo;s own maximum rose 2.7&nbsp;dB
-between the depths, as the ladder records, and 10&deg; west now reads 0.2&nbsp;dB better on T and
-0.6 worse on E1. The two far offsets, whose E1 sat 0.6 and 1.1&nbsp;dB below the default at 10 and
-20&nbsp;N at 0.5&nbsp;d, read better than the default at every latitude at 2.0&nbsp;d. And the one positive point margin any truth run has shown &mdash; +1.3&nbsp;dB at
-the equator with the satellite 5&deg; east, at 0.5&nbsp;d &mdash; was a low maximum: at 2.0&nbsp;d
-it reads &minus;4.4, and the curve verdict was FAIL at both depths (the distribution crosses the
-0.029% segment at &minus;165.4&nbsp;dB by 1.6 times the allowed percentage). So on this system the
-victim&rsquo;s geometry is worth about 2&nbsp;dB to the examination at the equator and
-0.6&nbsp;dB or less elsewhere at 2.0&nbsp;d, against an envelope component of 7 to
-11&nbsp;dB &mdash; and it is a lower bound, because the sweep is coarse (eight offsets, 10&deg; of
-latitude) where the consumer&rsquo;s search is fine. Records:
-<code>docs/compliance-steam-2-gso*.md</code> (seven at 0.5&nbsp;d, five <code>-2d</code>) beside
-the baselines <code>-05d</code> and <code>-2d</code>; the loop&rsquo;s <code>gso=</code> and
-<code>eslon=</code> arguments move the victim.</p>
-</div>
-<div class="tech">
-<div class="t">The time step</div>
-<p>Every table above ran on 60&nbsp;s steps. The fastest crossing of the earth station&rsquo;s
-3&nbsp;dB beam by a STEAM-2 satellite takes 3.34&nbsp;s, so a 60&nbsp;s step samples about one
-crossing in eighteen, and the maxima that decide the verdict at 0 to 40&nbsp;N were starved of
-main-beam passes. Measured on the committed declaration over half a day: from 60&nbsp;s to 6&nbsp;s
-the truth&rsquo;s maximum rose 2.0 to 3.3&nbsp;dB at 0 to 50&nbsp;N and the gap closed by 0.5 to
-2.9&nbsp;dB at 0 to 40&nbsp;N, E1&nbsp;&ge;&nbsp;T still at every latitude. The examination at
-1&nbsp;s reads within 0.1&nbsp;dB of the time step S.1503-4 prescribes (&sect;D4: a 0.208&nbsp;s fine
-step and a 4.16&nbsp;s coarse step), and at 6&nbsp;s within 0.5&nbsp;dB. The long rungs had largely
-paid the step down with depth: E1 at 60&nbsp;s over 16&nbsp;d sits within 0.4&nbsp;dB of E1 on the
-S.1503-4 step over half a day, and the truth over 16&nbsp;d within 0.8&nbsp;dB of the truth at
-6&nbsp;s over half a day, except at 30&nbsp;N (1.6&nbsp;dB). So the 16&nbsp;d figures stand to about a
-dB, and the half-day and one-day figures at 60&nbsp;s do not. The truth now runs on a preset
-1&nbsp;s step. With the Random strategy and no hold the step is also the reselection period, so
-the 6&nbsp;s truth also drew its selection ten times as often as the 60&nbsp;s one: the step
-changed the traffic model as well as the sampling.</p>
-</div>
-<h2>The rules the construction obeys</h2>
-
-<p>Each of these was bought with a measurement, and each is stated so it can be checked
-rather than believed.</p>
-
+<p>At 0.5&nbsp;d:</p>
 <ul>
-<li><strong>Measurement, not assertion.</strong> Every declared value is measured on the
-probe. A mask that asserts can assert what the scheduler does not enforce.</li>
+<li>the gap&rsquo;s spread over the eight offsets is 2.6 to 3.9&nbsp;dB per latitude, against
+3.3 to 14.9 for T and 4.1 to 12.2 for E1;</li>
+<li>the 10&deg;-east default is the worst offset for E1 at 30, 50 and 60&deg;&nbsp;N, and within
+1.1&nbsp;dB of the worst at 10 and 20&deg;&nbsp;N;</li>
+<li>it is not the worst at the equator, where the satellite overhead reads 2.1&nbsp;dB worse on
+E1 and 4.3 on T, nor at 40&deg;&nbsp;N at this depth, where 10&deg; west reads 2.5 and 5.1
+worse.</li>
+</ul>
+<p>Five offsets were then run on to 2.0&nbsp;d beside the 2.0&nbsp;d baseline: 10&deg; west, 0, 5,
+45 and 60&deg; east.</p>
+<ul>
+<li><strong>The equator&rsquo;s difference stood.</strong> Overhead against 10&deg; east reads
+4.1&nbsp;dB worse on T and 2.1 on E1 (4.3 and 2.1 at 0.5&nbsp;d): firm across a quadrupling of
+depth.</li>
+<li><strong>The 40&deg;&nbsp;N difference did not.</strong> The baseline&rsquo;s own maximum
+there rose 2.7&nbsp;dB between the depths, as the depth tables record, and 10&deg; west reads
+0.2&nbsp;dB better on T and 0.6 worse on E1 at 2.0&nbsp;d.</li>
+<li><strong>The two far offsets,</strong> whose E1 sat 0.6 and 1.1&nbsp;dB below the default at
+10 and 20&deg;&nbsp;N at 0.5&nbsp;d, read better than the default at every latitude at 2.0&nbsp;d,
+on T and on E1, except E1 at 40&deg;&nbsp;N with the satellite 60&deg; east, which is level with
+it (&minus;18.8&nbsp;dB).</li>
+<li><strong>The larger of the two positive point margins any truth run has shown,</strong>
++1.3&nbsp;dB at the equator with the satellite 5&deg; east at 0.5&nbsp;d, was a low maximum: at
+2.0&nbsp;d it reads &minus;4.4. Its curve verdict was FAIL at both depths: at 0.5&nbsp;d the
+distribution crosses the 0.029% segment at &minus;165.4&nbsp;dB by 1.6 times the allowed
+percentage. The other, +0.4&nbsp;dB at 10&deg;&nbsp;N with the satellite 30&deg; east at
+0.5&nbsp;d, also fails the curve and was not run to 2.0&nbsp;d.</li>
+</ul>
+<p>So at 2.0&nbsp;d, over six offsets, the victim&rsquo;s geometry is worth about 2&nbsp;dB to
+the examination at the equator and 0.6&nbsp;dB or less elsewhere, against an envelope component
+of 7 to 11&nbsp;dB. E1&nbsp;&ge;&nbsp;T at all 98 victims of both depths. The figure is a lower
+bound: eight offsets and 10&deg; of latitude are coarse where the examination&rsquo;s own search
+is fine, and the ES longitude was not moved. These runs used a 60&nbsp;s step; at the default
+geometry, E1 over 2&nbsp;d sits within 0.9&nbsp;dB of the S.1503-4 step.</p>
+<p>The Compliance loop window&rsquo;s <strong>ES lon / GSO offset</strong> fields move the victim,
+as do the <code>eslon=</code> and <code>gso=</code> arguments of the console loop mode.</p>
+
+<h2>The rules that follow</h2>
+<p>Each of these was bought with a measurement, and each is stated so it can be checked rather
+than believed.</p>
+<ul>
+<li><strong>Measurement, not assertion.</strong> Every value in a derived R&nbsp;set is measured
+on the probe, and a derived pfd mask is computed from the reachable envelope, every beam position
+the payload is permitted to take; neither is written by hand. A mask that asserts can assert what
+the scheduler does not enforce.</li>
 <li><strong>Saturate before measuring.</strong> Traffic may only thin what is lit, so a
 declaration measured under traffic is smaller than the commitment it stands for.</li>
 <li><strong>Unvisited is not unreachable.</strong> Nothing is declared absent because a finite
 probe happened not to visit it. A null needs a closed-form certificate from declared
 commitments.</li>
 <li><strong>The read-rule law.</strong> A declared array is safe if and only if its
-<em>read-rule reconstruction</em> bounds the measurement everywhere &mdash; not if its rows
-are correct at their own coordinates. See below. Header attribute and per-latitude array are
-<em>mutually exclusive per quantity</em>, and the nearest-row read is <em>total</em>: the outermost
-row governs every latitude beyond the table, so a set of rows is complete everywhere and a set
-carrying both forms of a quantity is an invalid filing &mdash; reported, not read under an
-invented precedence (design brief 3.8, EPS V43 6.7.2.2). An out-of-span fallback in the
-examination&rsquo;s resolver read the first derived sets as no floor and no cap at latitudes 50 and
-60 until it was removed.</li>
+<em>read-rule reconstruction</em> bounds the measurement everywhere, not merely if its rows are
+correct at their own coordinates (drawn below). Header attribute and per-latitude array are
+<em>mutually exclusive per quantity</em>. The nearest-row read is <em>total</em>: the outermost
+row governs every latitude beyond the table, so a set of rows is complete everywhere. A set
+carrying both forms of a quantity is an invalid filing: reported, not read under an invented
+precedence. An out-of-span fallback in the examination&rsquo;s resolver read the first derived
+sets as no floor and no cap at 50 and 60&deg;&nbsp;N until it was removed.</li>
 <li><strong>Figures travel with their controls.</strong> A margin carries the depth it was
-resolved at, the time step it was sampled at and the grid it was worst over. A comparison names what was held fixed. An
-<em>absolute</em> figure is quotable only with a convergence pair: the same statistic at depth
-d and at least 2d, moving no more than a stated tolerance &mdash; 0.5&nbsp;dB by default,
-0.1&nbsp;dB the bin floor &mdash; with both depths and the tolerance named where the figure is
-quoted. Differences at matched depth remain quotable as differences. The percentile floor
-guards a percentile&rsquo;s existence; the pair guards a value&rsquo;s stability, which is a
-property of the artefact &mdash; a two-level mask settles at once, a side-lobe-structured one
-needs samples.</li>
-<li><strong>Adequacy is the derivation’s test, not the system’s.</strong> If E1 falls
-below T, the declaration failed to envelope the system. That is a granularity failure of the
+resolved at, the time step it was sampled at and the grid it was worst over. A comparison names
+what was held fixed. An <em>absolute</em> figure is quotable only with a <em>convergence
+pair</em>: the same statistic at depth d and at least 2d, moving no more than a stated tolerance,
+0.5&nbsp;dB by default and 0.1&nbsp;dB the bin floor, with both depths and the tolerance named
+where the figure is quoted. Differences at matched depth remain quotable as differences. The
+percentile floor guards a percentile&rsquo;s existence; the pair guards a value&rsquo;s
+stability, which is a property of the artefact: a two-level mask settles at once, a
+side-lobe-structured one needs samples.</li>
+<li><strong>The acceptance test tests the derivation, not the system.</strong> If E1 falls below
+T, the declaration failed to envelope the system. That is a granularity failure of the
 measurement, never a compliance failure of the system.</li>
-<li><strong>Every grid is one of three things, and is named as such when introduced.</strong>
-A <em>declaration</em> &mdash; then its read-rule reconstruction must bound the measurement. A
-<em>measurement</em> &mdash; then its extrema travel with the grid. A <em>prescription</em>
-&mdash; then reproducing it exactly is the requirement, as the examination&rsquo;s own worst-case
-geometry search is. Five defects of one family were found in a day; asking this question at the
-moment each grid was introduced would have caught every one before it ran.</li>
-<li><strong>The verdict is the limit curve, and every record says so.</strong> A filing passes only
-if every tabulated Article&nbsp;22 point passes <em>and</em> its distribution nowhere crosses the
-log-linear curve between the points (design brief, verdict rule; tolerance 0.05&nbsp;dB read towards
-lower epfd). The gaps between points reach 5.4 to 34&nbsp;dB in Table&nbsp;22-1C, a point margin does
-not bound a crossing, and the Bureau&rsquo;s reference implementation applies the curve; the
-point-wise test alone is the lenient reading. Records quote the point margin and the curve margin
-and name the rule.</li>
+<li><strong>Every grid is one of three things, and is named as such when introduced.</strong> A
+<em>declaration</em>: its read-rule reconstruction must bound the measurement. A
+<em>measurement</em>: its extrema travel with the grid. A <em>prescription</em>: reproducing it
+exactly is the requirement, as it is for the examination&rsquo;s own worst-case geometry search.
+Five defects of one family were found in one day: the service-span certificate, the pfd mask
+rows, MIN_EXCLUDE, the sweep&rsquo;s own latitude grid, and the granularity walk&rsquo;s latitude
+axis, which rewarded the mask-row defect as recovery. Asking this question at the moment each
+grid was introduced would have caught every one before it ran.</li>
+<li><strong>The verdict is the limit curve, and every report says so.</strong> A distribution
+passes only if every tabulated Article&nbsp;22 point passes <em>and</em> it nowhere crosses the
+log-linear curve between the points (tolerance 0.05&nbsp;dB, read towards lower epfd). A point
+margin does not bound a crossing, and the point-wise test alone is the lenient reading. Reports
+and exports quote the point margin and the curve margin and name the rule.</li>
 </ul>
 
-<h2>The read-rule law, drawn</h2>
-
 <figure>
-<svg viewBox="0 0 700 252" role="img" aria-label="A nearest-read row must envelope the whole band it governs; an interpolation-read array must have its polyline bound the observed curve on every segment, not merely at the rows">
+<svg viewBox="0 0 700 214" role="img" aria-label="A nearest-read row must envelope the whole band it governs; an interpolation-read array must have its polyline bound the observed curve on every segment, not merely at the rows">
   <defs><marker id="ae" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
   <g style="color:var(--ink)">
-    <text x="14" y="20" class="svglbl">NEAREST-READ (pfd rows, min_elev, max_co_freq, min_duration)</text>
+    <text x="14" y="20" class="svglbl">NEAREST-READ</text>
+    <text x="14" y="36" class="svglbl">pfd rows, min_elev, max_co_freq, min_duration</text>
     <line x1="14" y1="100" x2="330" y2="100" stroke="currentColor"/>
     <line x1="80" y1="96" x2="80" y2="104" stroke="currentColor"/>
     <line x1="180" y1="96" x2="180" y2="104" stroke="currentColor"/>
@@ -697,9 +939,10 @@ and name the rule.</li>
     <text x="14" y="166" class="svglbl">not equal the value at its own coordinate.</text>
     <text x="14" y="182" class="svglbl">Sampling the centre under-declares the rest.</text>
 
-    <text x="380" y="20" class="svglbl">INTERPOLATION-READ (MIN_EXCLUDE alone)</text>
+    <text x="380" y="20" class="svglbl">INTERPOLATION-READ</text>
+    <text x="380" y="36" class="svglbl">MIN_EXCLUDE alone</text>
     <polyline points="392,86 470,70 548,58 626,74 686,66" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
-    <text x="392" y="46" class="svglbl">observed minimum</text>
+    <text x="392" y="55" class="svglbl">observed minimum</text>
     <polyline points="392,96 470,84 548,74 626,86 686,80" fill="none" stroke="var(--g1)" stroke-width="1.5"/>
     <circle cx="392" cy="96" r="3" fill="var(--g1)"/>
     <circle cx="470" cy="84" r="3" fill="var(--g1)"/>
@@ -711,32 +954,23 @@ and name the rule.</li>
     <text x="392" y="166" class="svglbl">not enough: the SEGMENT between two</text>
     <text x="392" y="182" class="svglbl">rows must also stay under the observed</text>
     <text x="392" y="198" class="svglbl">curve. A condition on pairs, not rows.</text>
-
-    <text x="14" y="232" class="svglbl">Four defects of this one shape were found in a single day: the service-span certificate, the pfd</text>
-    <text x="14" y="246" class="svglbl">mask rows, MIN_EXCLUDE, and the sweep’s own latitude grid.</text>
   </g>
 </svg>
 <figcaption>One law, two read rules. A declared array is safe only when the rule that reads
 it reconstructs something that bounds what was measured.</figcaption>
 </figure>
 
-<div class="tech">
-<div class="t">Implementation status</div>
-<p>The nearest-read case is implemented as stated: both mask samplers envelope the band a row
-governs. The interpolated case is implemented <em>conservatively</em>: the deriver applies a
-per-row sliding minimum, which satisfies the hull condition without exploiting it &mdash; the
-declaration it produces is safe and under-claims the exclusion the operator could have declared.
-The difference is exactly zero on both live cases, where <code>MIN_EXCLUDE</code> is flat; it will
-matter when a case flies a genuinely varying alpha table, and the refinement is parked until one
-does. The rule above is the rule; this line records how far the code has caught up with it.</p>
-</div>
-
-<h2>What a run emits</h2>
-
-<p>Profile, R&nbsp;set (Part&nbsp;B XML and the designer’s JSON) and pfd mask are written into
-one directory per run, so the three artefacts describe one system and can be read back
-together. The record beside them carries the verdict table, the derived declaration, the
-per-latitude E1&nbsp;&minus;&nbsp;T gap and the adequacy statement.</p>
+<div class="tech"><div class="t">Tech &middot; how far the code satisfies the law</div>
+<p>The nearest-read case is implemented as stated in the certificate: a row goes dark only when
+no latitude in the band it governs can reach the service span. The mask sampler reads each band
+at its centre and both edges and takes the maximum, which is exact where the emission varies
+monotonically across the band and approximate where it does not.</p>
+<p>The interpolated case is implemented <em>conservatively</em>: the deriver applies a per-row
+sliding minimum, which satisfies the hull condition without exploiting it. The declaration it
+produces is safe and under-claims the exclusion the operator could have declared. The difference
+is exactly zero on both cases checked, where MIN_EXCLUDE is flat (22.0&deg; on STEAM-2);
+it matters only where the table varies. The rule above is the rule; this box records how far the
+code has caught up with it.</p></div>
 
 <p class="foot">Companion pages:
 <a href="where-declarations-come-from.html">Where Declarations Come From</a> (the loop and the

@@ -159,6 +159,77 @@ public sealed class ComplianceViewModel : ObservableObject
     /// </summary>
     public string RSetPathText { get => _rSetPathText; set => SetField(ref _rSetPathText, value); }
 
+    // ---- the window's buttons: commands, with dialogs asked of the view ----
+
+    /// <summary>Supplied by the window: an open-file dialog (filter -> path, null when cancelled).</summary>
+    public Func<string, string?>? PickOpenFile { get; set; }
+    /// <summary>Supplied by the window: a save-file dialog (filter, file name -> path, null when cancelled).</summary>
+    public Func<string, string, string?>? PickSaveFile { get; set; }
+    /// <summary>Supplied by the window: opens a document with the shell.</summary>
+    public Action<string>? OpenDocument { get; set; }
+
+    /// <summary>The accompanying page, when the docs folder is found beside the app.</summary>
+    public string? GuidePath { get; }
+
+    public System.Windows.Input.ICommand BrowseDesignCommand { get; }
+    public System.Windows.Input.ICommand BrowseProfileCommand { get; }
+    public System.Windows.Input.ICommand BrowseRSetCommand { get; }
+    public System.Windows.Input.ICommand BrowseLimitsDbCommand { get; }
+    public System.Windows.Input.ICommand LoadLimitsCommand { get; }
+    public System.Windows.Input.ICommand UseLimitCommand { get; }
+    public System.Windows.Input.ICommand RunCommand { get; }
+    public System.Windows.Input.ICommand RunLoopCommand { get; }
+    public System.Windows.Input.ICommand AdviseCommand { get; }
+    public System.Windows.Input.ICommand ApplyCommand { get; }
+    public System.Windows.Input.ICommand AdviseNcoCommand { get; }
+    public System.Windows.Input.ICommand ApplyNcoCommand { get; }
+    public System.Windows.Input.ICommand ExportCommand { get; }
+    public System.Windows.Input.ICommand OpenGuideCommand { get; }
+
+    public ComplianceViewModel()
+    {
+        string? docs = HomeViewModel.FindDocsDir(AppContext.BaseDirectory);
+        string? guide = docs is null ? null : Path.Combine(docs, "compliance-loop.html");
+        GuidePath = guide is not null && File.Exists(guide) ? guide : null;
+
+        BrowseDesignCommand = new RelayCommand(() => Pick("Orbit design (*.orbitdesign.json)|*.orbitdesign.json|JSON|*.json", p => DesignPath = p));
+        BrowseProfileCommand = new RelayCommand(() => Pick("Operation profile (*.opprofile.json)|*.opprofile.json|JSON|*.json", p => ProfilePath = p));
+        BrowseRSetCommand = new RelayCommand(() => Pick("Operating parameters (*.opparams.json;*.operparams.json)|*.opparams.json;*.operparams.json|JSON|*.json", p => RSetPathText = p));
+        BrowseLimitsDbCommand = new RelayCommand(() => Pick("BR limits database (*.mdb)|*.mdb", p => LimitsDbPathText = p));
+        LoadLimitsCommand = new RelayCommand(LoadLimitsFromDb);
+        UseLimitCommand = new RelayCommand(UseSelectedLimit);
+        RunCommand = new AsyncRelayCommand(RunAsync);
+        RunLoopCommand = new AsyncRelayCommand(RunLoopAsync);
+        AdviseCommand = new AsyncRelayCommand(AdviseAsync);
+        ApplyCommand = new RelayCommand(() =>
+        {
+            try { ApplyFoundAlpha(); }
+            catch (Exception ex) { StatusText = "apply failed: " + ex.Message; }
+        });
+        AdviseNcoCommand = new AsyncRelayCommand(AdviseNcoAsync);
+        ApplyNcoCommand = new RelayCommand(ApplyNcoRows);
+        ExportCommand = new RelayCommand(ExportTable);
+        OpenGuideCommand = new RelayCommand(() => { if (GuidePath is string g) OpenDocument?.Invoke(g); },
+            () => GuidePath is not null);
+    }
+
+    private void Pick(string filter, Action<string> set)
+    {
+        if (PickOpenFile?.Invoke(filter) is string path) set(path);
+    }
+
+    /// <summary>Writes the table as CSV where the save dialog says.</summary>
+    private void ExportTable()
+    {
+        if (PickSaveFile?.Invoke("CSV (*.csv)|*.csv", "compliance.csv") is not string path) return;
+        try
+        {
+            File.WriteAllText(path, BuildCsv());
+            StatusText = "table written: " + path;
+        }
+        catch (Exception ex) { StatusText = "export failed: " + ex.Message; }
+    }
+
     private string _statusText = "";
     public string StatusText { get => _statusText; set => SetField(ref _statusText, value); }
 
@@ -367,6 +438,8 @@ public sealed class ComplianceViewModel : ObservableObject
         double freqMhz = prof.Down.FrequencyGhz * 1000.0;
         IProgress<SweepProgress>? Phase(string label, double from, double to) => progress is null ? null
             : new Relay<SweepProgress>(p => progress.Report(new SweepProgress(label + p.Text, from + p.Fraction * (to - from))));
+        if (ComplianceLoopSteps.MissingMaskNote(prof) is string missing)
+            throw new InvalidOperationException(missing);
 
         // 1. The declaration: a set governs one band, so a derived set carries the downlink's.
         OperatingParamsSet declared;
@@ -387,9 +460,10 @@ public sealed class ComplianceViewModel : ObservableObject
         Directory.CreateDirectory(runDir);
         string mask = prof.Down.MaskXmlPath;
         string maskNote = "the profile's declared mask";
-        if (mask.Length == 0 || !File.Exists(mask))
+        if (mask.Length == 0)
         {
-            string tag = ComplianceLoopSteps.MaskCacheTag(sweep.LatStep, 1.0, declared.EsLatMinDeg, declared.EsLatMaxDeg);
+            string tag = ComplianceLoopSteps.MaskCacheTag(sweep.LatStep, 1.0, declared.EsLatMinDeg, declared.EsLatMaxDeg,
+                prof.Down.YawSteeringRangeDeg ?? 0.0);
             mask = Path.Combine(runDir, string.Create(inv, $"{RunName(prof)}.mask.{tag}.xml"));
             if (File.Exists(mask) && File.GetLastWriteTimeUtc(mask) > File.GetLastWriteTimeUtc(profilePath))
                 maskNote = "the reachable-envelope mask, reused from this run directory";
@@ -756,18 +830,6 @@ public sealed class ComplianceViewModel : ObservableObject
     }
 
     /// <summary>
-    /// The profile as a SATURATED probe: demand, activity, operating
-    /// fraction and illumination duty all at their maxima.
-    ///
-    /// A declaration is an envelope of what the system MAY do, so it has to
-    /// be measured with traffic taken out. A value measured under a traffic
-    /// sample -- MAX_CO_FREQ above all -- is a commitment the operator never
-    /// made and may not be able to honour at peak. Demand rises to the
-    /// declared co-frequency cap so that the CAP binds rather than the
-    /// traffic model; with no cap declared the profile's own demand stands,
-    /// since an unbounded slot count is not a measurement of anything.
-    /// </summary>
-    /// <summary>
     /// The name one loop run goes by: the profile name up to any bracketed
     /// qualifier, lower-cased and punctuation-folded. ONE definition, because
     /// the loop writes its artefacts under this name and the designer looks
@@ -792,6 +854,18 @@ public sealed class ComplianceViewModel : ObservableObject
     public static string RunProfilePath(string repoDir, OperationProfile prof)
         => Path.Combine(RunDir(repoDir, prof), RunName(prof) + ".opprofile.json");
 
+    /// <summary>
+    /// The profile as a SATURATED probe: demand, activity, operating
+    /// fraction and illumination duty all at their maxima.
+    ///
+    /// A declaration is an envelope of what the system MAY do, so it has to
+    /// be measured with traffic taken out. A value measured under a traffic
+    /// sample -- MAX_CO_FREQ above all -- is a commitment the operator never
+    /// made and may not be able to honour at peak. Demand rises to the
+    /// declared co-frequency cap so that the CAP binds rather than the
+    /// traffic model; with no cap declared the profile's own demand stands,
+    /// since an unbounded slot count is not a measurement of anything.
+    /// </summary>
     public static OperationProfile Saturate(OperationProfile prof, OperatingParamsSet enforced)
     {
         int cap = 0;
@@ -816,8 +890,7 @@ public sealed class ComplianceViewModel : ObservableObject
     /// by construction, which is what keeps E1 >= T an adequacy test rather
     /// than a tautology -- a set derived from the very run that later
     /// verifies it would envelope that run trivially.
-    /// </summary>
-    /// <summary>
+    ///
     /// A derivation depends on the SYSTEM and the DEPTH -- nothing else. It
     /// has no victim and no limit to compare against, so it deliberately does
     /// NOT take a <see cref="Sweep"/>: coupling it to the examination's inputs

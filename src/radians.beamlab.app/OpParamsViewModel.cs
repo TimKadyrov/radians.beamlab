@@ -18,7 +18,81 @@ namespace radians.beamlab.app;
 /// </summary>
 public sealed class OpParamsViewModel : ObservableObject
 {
-    public OpParamsViewModel() => Recompute();
+    public OpParamsViewModel()
+    {
+        Recompute();
+        string? docs = HomeViewModel.FindDocsDir(AppContext.BaseDirectory);
+        string? guide = docs is null ? null : Path.Combine(docs, "r-set-designer.html");
+        GuidePath = guide is not null && File.Exists(guide) ? guide : null;
+        OpenGuideCommand = new RelayCommand(() => { if (GuidePath is string g) OpenDocument?.Invoke(g); },
+            () => GuidePath is not null);
+        SaveCommand = new RelayCommand(SaveSet);
+        LoadCommand = new RelayCommand(LoadSet);
+        BrowseDeriveProfileCommand = new RelayCommand(() =>
+        {
+            if (PickOpenFile?.Invoke("Operation profile (*.opprofile.json)|*.opprofile.json|JSON|*.json") is string p)
+                DeriveProfilePath = p;
+        });
+        DeriveCommand = new AsyncRelayCommand(DeriveAsync);
+        ExportCommand = new RelayCommand(ExportSet);
+    }
+
+    // ---- the window's buttons: commands, with dialogs asked of the view ----
+
+    /// <summary>Supplied by the window: an open-file dialog (filter -> path, null when cancelled).</summary>
+    public Func<string, string?>? PickOpenFile { get; set; }
+    /// <summary>Supplied by the window: a save-file dialog (filter, file name -> path).</summary>
+    public Func<string, string, string?>? PickSaveFile { get; set; }
+    /// <summary>Supplied by the window: opens a document with the shell.</summary>
+    public Action<string>? OpenDocument { get; set; }
+
+    /// <summary>The accompanying page, when the docs folder is found beside the app.</summary>
+    public string? GuidePath { get; }
+
+    public System.Windows.Input.ICommand OpenGuideCommand { get; }
+    public System.Windows.Input.ICommand SaveCommand { get; }
+    public System.Windows.Input.ICommand LoadCommand { get; }
+    public System.Windows.Input.ICommand BrowseDeriveProfileCommand { get; }
+    public System.Windows.Input.ICommand DeriveCommand { get; }
+    public System.Windows.Input.ICommand ExportCommand { get; }
+
+    /// <summary>Save: the set in the designer's format, a set filed in both forms flagged.</summary>
+    private void SaveSet()
+    {
+        try
+        {
+            string json = BuildJson();
+            if (PickSaveFile?.Invoke("Operating parameters (*.opparams.json)|*.opparams.json", "set.opparams.json") is not string path) return;
+            File.WriteAllText(path, json);
+            string conflict = FormConflictNote();
+            StatusText = "saved: " + path + (conflict.Length > 0 ? " -- " + conflict : "");
+        }
+        catch (Exception ex) { StatusText = "save failed: " + ex.Message; }
+    }
+
+    /// <summary>Load: a set in the designer's format, a loop run's *.operparams.json included.</summary>
+    private void LoadSet()
+    {
+        if (PickOpenFile?.Invoke("Operating parameters (*.opparams.json; a loop run's *.operparams.json)|*.opparams.json;*.operparams.json|JSON|*.json") is not string path) return;
+        try
+        {
+            LoadJson(File.ReadAllText(path));
+            StatusText = "loaded: " + path;
+        }
+        catch (Exception ex) { StatusText = "load failed: " + ex.Message; }
+    }
+
+    /// <summary>Export: the R-set XML, refused for an invalid set by the writer.</summary>
+    private void ExportSet()
+    {
+        if (PickSaveFile?.Invoke("R-set XML (*.xml)|*.xml", "opparams.xml") is not string path) return;
+        try
+        {
+            ExportXml(path);
+            StatusText = "R XML written: " + path + " — register it in the SNS builder as an f_mask R row";
+        }
+        catch (Exception ex) { StatusText = "export failed: " + ex.Message; }
+    }
 
     // ---- header fields (empty text = attribute omitted) -----------------
 
@@ -225,10 +299,11 @@ public sealed class OpParamsViewModel : ObservableObject
     /// </summary>
     public string DeriveProfilePath { get => _deriveProfilePath; set => SetField(ref _deriveProfilePath, value); }
 
-    // Depth and latitude band are NOT designer inputs. They decide how
-    // conservative a declaration is, which makes them part of the derivation
-    // the compliance loop owns -- a shallower probe yields a tighter, less
-    // conservative set, and nothing in a text box would tell the reader that.
+    // Depth and latitude band are NOT designer inputs. They decide how much
+    // of the system the envelope saw, which makes them part of the derivation
+    // the compliance loop owns (measured exactly depth-stable on STEAM-2, but
+    // that is a property of that system), and nothing in a text box would
+    // tell the reader that.
 
     private bool _isDeriving;
     public bool IsDeriving
@@ -374,7 +449,7 @@ public sealed class OpParamsViewModel : ObservableObject
         var prof = OperationProfileCodec.Load(System.IO.File.ReadAllText(_deriveProfilePath));
         return ComplianceViewModel.DeriveDeclared(shells, prof, simDurSec, stepSec, latBandDeg,
             _satName, ParseInt(_ntcIdText, "ntc_id") ?? 0, ParseInt(_paramIdText, "param_id") ?? 1,
-            // the designer declares one direction, so it keeps its own band
+            // the designer declares one direction: the band is the profile's downlink carrier
             prof.Down.FrequencyGhz * 1000.0, prof.Down.FrequencyGhz * 1000.0);
     }
 

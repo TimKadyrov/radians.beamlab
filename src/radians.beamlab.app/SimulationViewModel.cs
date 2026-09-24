@@ -94,6 +94,102 @@ public sealed class SimulationViewModel : ObservableObject
 
     public bool RunEnabled => !_isRunning;
 
+    // ---- the window's buttons: commands, with dialogs asked of the view ----
+
+    /// <summary>Supplied by the window: an open-file dialog (filter -> path, null when cancelled).</summary>
+    public Func<string, string?>? PickOpenFile { get; set; }
+    /// <summary>Supplied by the window: an open-file dialog over several files.</summary>
+    public Func<string, string[]?>? PickOpenFiles { get; set; }
+    /// <summary>Supplied by the window: a save-file dialog (filter, file name -> path).</summary>
+    public Func<string, string, string?>? PickSaveFile { get; set; }
+    /// <summary>Supplied by the window: opens a document with the shell.</summary>
+    public Action<string>? OpenDocument { get; set; }
+
+    /// <summary>Raised to show CDF curves in the viewer: the series and the viewer's title.</summary>
+    public event Action<System.Collections.Generic.IReadOnlyList<CdfSeries>, string>? ShowCdfsRequested;
+    /// <summary>Raised by play (false) and accelerated play (true); the window animates.</summary>
+    public event Action<bool>? PlayRequested;
+    /// <summary>Raised by stop; the window halts the animation.</summary>
+    public event Action? StopRequested;
+
+    /// <summary>The accompanying page, when the docs folder is found beside the app.</summary>
+    public string? GuidePath { get; }
+
+    public System.Windows.Input.ICommand BrowseDesignCommand { get; }
+    public System.Windows.Input.ICommand BrowseProfileCommand { get; }
+    public System.Windows.Input.ICommand BrowseOpParamsCommand { get; }
+    public System.Windows.Input.ICommand ValidateCommand { get; }
+    public System.Windows.Input.ICommand WriteCdfsCommand { get; }
+    public System.Windows.Input.ICommand ViewCdfsCommand { get; }
+    public System.Windows.Input.ICommand OpenGuideCommand { get; }
+    public System.Windows.Input.ICommand PlayCommand { get; }
+    public System.Windows.Input.ICommand FastForwardCommand { get; }
+    public System.Windows.Input.ICommand StopCommand { get; }
+
+    public SimulationViewModel()
+    {
+        string? docs = HomeViewModel.FindDocsDir(AppContext.BaseDirectory);
+        string? guide = docs is null ? null : Path.Combine(docs, "simulation-runner.html");
+        GuidePath = guide is not null && File.Exists(guide) ? guide : null;
+
+        // A browsed input is validated at once, so the status line says what a run would cover.
+        BrowseDesignCommand = new RelayCommand(() => Pick("Orbit design (*.orbitdesign.json)|*.orbitdesign.json|JSON|*.json", p => DesignPath = p));
+        BrowseProfileCommand = new RelayCommand(() => Pick("Operation profile (*.opprofile.json)|*.opprofile.json|JSON|*.json", p => ProfilePath = p));
+        BrowseOpParamsCommand = new RelayCommand(() => Pick("Operating parameters (*.opparams.json;*.operparams.json)|*.opparams.json;*.operparams.json|JSON|*.json", p => OpParamsPath = p));
+        ValidateCommand = new RelayCommand(ValidateInputs);
+        WriteCdfsCommand = new AsyncRelayCommand(WriteCdfsAsync);
+        ViewCdfsCommand = new RelayCommand(ViewCdfs);
+        OpenGuideCommand = new RelayCommand(() => { if (GuidePath is string g) OpenDocument?.Invoke(g); },
+            () => GuidePath is not null);
+        PlayCommand = new RelayCommand(() => PlayRequested?.Invoke(false));
+        FastForwardCommand = new RelayCommand(() => PlayRequested?.Invoke(true));
+        StopCommand = new RelayCommand(() => StopRequested?.Invoke());
+    }
+
+    private void Pick(string filter, Action<string> set)
+    {
+        if (PickOpenFile?.Invoke(filter) is not string path) return;
+        set(path);
+        ValidateInputs();
+    }
+
+    /// <summary>Write CDFs: a base name, the statistics run, then one viewer over the curves it wrote.</summary>
+    private async Task WriteCdfsAsync()
+    {
+        if (PickSaveFile?.Invoke("CDF base name (*.csv)|*.csv", "sim.csv") is not string chosen) return;
+        string baseName = chosen.EndsWith(".csv", StringComparison.OrdinalIgnoreCase) ? chosen[..^4] : chosen;
+        if (!await RunAsync(baseName)) return;
+        var series = new System.Collections.Generic.List<CdfSeries>();
+        foreach (var (sfx, label) in new[]
+            { (".down.csv", "epfd(down)"), (".is.csv", "epfd(is)"), (".up.csv", "epfd(up)") })
+            if (File.Exists(baseName + sfx))
+                series.Add(CdfSeries.LoadCsv(baseName + sfx, label));
+        if (series.Count > 0)
+            ShowCdfsRequested?.Invoke(series, "CDF viewer — " + Path.GetFileName(baseName));
+    }
+
+    /// <summary>View CDFs: existing curve files, one or more, in the viewer.</summary>
+    private void ViewCdfs()
+    {
+        if (PickOpenFiles?.Invoke("CDF CSV (*.csv)|*.csv") is not string[] files) return;
+        try
+        {
+            var series = files.Select(f => CdfSeries.LoadCsv(f, CdfLabel(f))).ToList();
+            ShowCdfsRequested?.Invoke(series, "CDF viewer — " + Path.GetFileName(files[0]));
+        }
+        catch (Exception ex) { StatusText = "CDF load failed: " + ex.Message; }
+    }
+
+    /// <summary>Direction label from a runner file name; the bare name otherwise.</summary>
+    public static string CdfLabel(string path)
+    {
+        string n = Path.GetFileNameWithoutExtension(path);
+        if (n.EndsWith(".down", StringComparison.OrdinalIgnoreCase)) return "epfd(down)";
+        if (n.EndsWith(".is", StringComparison.OrdinalIgnoreCase)) return "epfd(is)";
+        if (n.EndsWith(".up", StringComparison.OrdinalIgnoreCase)) return "epfd(up)";
+        return n;
+    }
+
     /// <summary>Parses every input and reports what a run would cover.</summary>
     public void ValidateInputs()
     {
@@ -201,8 +297,11 @@ public sealed class SimulationViewModel : ObservableObject
             $"victim ES lat={setup.EsLat} lon={setup.EsLon}, GSO lon={setup.GsoLon}, S.1428 {setup.DishM} m, {freqMhz:F0} MHz");
         if (stack.DownMask is not null) desc += " -- footprint: declared PFD mask (D5.1.4.1)";
         string downVerdict = Verdict(_downLimitsText, down.Accumulator, down.Steps, down.MaxEpfdDb, down.QuietSteps);
+        // The down file states the bandwidth its levels are in: the mask's
+        // own on the mask path, the profile's otherwise.
+        double downRefBwKHz = stack.DownMask?.RefBwKHz ?? refBwKHz;
         WriteCdf(outputBase + ".down.csv", "epfd(down)", desc,
-            down.Accumulator, down.Steps, down.QuietSteps, down.MaxEpfdDb, setup.StepSec, refBwKHz, downVerdict);
+            down.Accumulator, down.Steps, down.QuietSteps, down.MaxEpfdDb, setup.StepSec, downRefBwKHz, downVerdict);
         string isVerdict = "";
         if (down.IsAccumulator is not null)
         {

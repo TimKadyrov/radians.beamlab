@@ -39,14 +39,14 @@
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="Orbit design document"/>
                         <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding DesignPath, UpdateSourceTrigger=LostFocus}"/>
-                        <Button    Grid.Row="0" Grid.Column="2" Content="…" Margin="4,1,0,1" Click="OnBrowseDesignClick"/>
+                        <Button    Grid.Row="0" Grid.Column="2" Content="…" Margin="4,1,0,1" Command="{Binding BrowseDesignCommand}"/>
                         <TextBlock Grid.Row="1" Text="Operation profile"/>
                         <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding ProfilePath, UpdateSourceTrigger=LostFocus}"/>
-                        <Button    Grid.Row="1" Grid.Column="2" Content="…" Margin="4,1,0,1" Click="OnBrowseProfileClick"/>
+                        <Button    Grid.Row="1" Grid.Column="2" Content="…" Margin="4,1,0,1" Command="{Binding BrowseProfileCommand}"/>
                         <TextBlock Grid.Row="2" Text="Declared R set (optional)"/>
                         <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding RSetPathText, UpdateSourceTrigger=LostFocus}"
                                    ToolTip="An operating-parameter set in the designer's format (*.opparams.json). Run sweep examines a declared-mask profile against it, the examination of a filing; Run loop takes it instead of deriving one. Empty: Run sweep uses the profile's own gates and Run loop derives the set."/>
-                        <Button    Grid.Row="2" Grid.Column="2" Content="…" Margin="4,1,0,1" Click="OnBrowseRSetClick"/>
+                        <Button    Grid.Row="2" Grid.Column="2" Content="…" Margin="4,1,0,1" Command="{Binding BrowseRSetCommand}"/>
                     </Grid>
                 </GroupBox>
 
@@ -103,31 +103,31 @@
                             </Grid.ColumnDefinitions>
                             <TextBox Text="{Binding LimitsDbPathText, UpdateSourceTrigger=LostFocus}"
                                      ToolTip="The BR limits database (EPFD_limits_*.mdb). Reading needs the BR native pair EpfdLimitsApi64.dll + EpfdLimitsDbAccessLib64.dll next to the app or in a known location."/>
-                            <Button Grid.Column="1" Content="…" Margin="4,1,0,1" Click="OnBrowseLimitsDbClick"/>
-                            <Button Grid.Column="2" Content="Load" Margin="4,1,0,1" Click="OnLoadLimitsClick"
-                                    ToolTip="Extracts the epfd(down) Article 22 rows applicable to the profile's downlink carrier and the design's operating height — the radians reader's calling pattern over the vendored interop."/>
+                            <Button Grid.Column="1" Content="…" Margin="4,1,0,1" Command="{Binding BrowseLimitsDbCommand}"/>
+                            <Button Grid.Column="2" Content="Load" Margin="4,1,0,1" Command="{Binding LoadLimitsCommand}"
+                                    ToolTip="Extracts the epfd(down) Article 22 rows applicable to the profile's downlink carrier and the design's operating height from the BR limits database."/>
                         </Grid>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <ComboBox ItemsSource="{Binding LimitChoices}" SelectedIndex="{Binding SelectedLimitIndex}"/>
-                            <Button Grid.Column="1" Content="Use" Margin="4,1,0,1" Click="OnUseLimitClick"
+                            <Button Grid.Column="1" Content="Use" Margin="4,1,0,1" Command="{Binding UseLimitCommand}"
                                     ToolTip="Fills the limit text above with the chosen row's points; the sweep verdicts against exactly that text, so what is used stays visible and editable."/>
                         </Grid>
                     </StackPanel>
                 </GroupBox>
 
-                <GroupBox Header="Cap advisor (loop v2) — per-latitude Nco">
+                <GroupBox Header="Cap advisor — per-latitude Nco">
                     <StackPanel>
                         <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
                                    Text="Walks the per-cell co-frequency cap DOWN from the profile's effective baseline (declared cap clamped by demand), synthesizes the largest cap each latitude's own outcome allows, verifies the composed rows in one joint sweep, and writes the rows back — operator rows outside the grid span are never touched."/>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Range floor (cap ≥)" VerticalAlignment="Center"/>
                             <TextBox Width="46" Margin="6,1,0,1" Text="{Binding NcoRangeMinText, UpdateSourceTrigger=LostFocus}"/>
-                            <Button Content="Advise Nco rows" Margin="10,2,4,2" IsEnabled="{Binding RunEnabled}" Click="OnAdviseNcoClick"
-                                    ToolTip="Loop v2, Nco leg: delta walk over the baseline, per-latitude synthesis with the stay-passing check, joint verification. Reports 'not the lever' when margins do not move."/>
-                            <Button Content="Apply Nco rows" IsEnabled="{Binding ApplyNcoEnabled}" Click="OnApplyNcoClick"
+                            <Button Content="Advise Nco rows" Margin="10,2,4,2" IsEnabled="{Binding RunEnabled}" Command="{Binding AdviseNcoCommand}"
+                                    ToolTip="Walks the cap down from the baseline, keeps for each latitude the largest cap its own result allows without making a passing latitude fail, and verifies the combined rows in one joint sweep. Says the cap is not the lever when the margins do not move."/>
+                            <Button Content="Apply Nco rows" IsEnabled="{Binding ApplyNcoEnabled}" Command="{Binding ApplyNcoCommand}"
                                     ToolTip="Writes the verified per-latitude cap rows into the profile's NcoByLat — merged, never wiping operator rows outside the grid span."/>
                         </StackPanel>
                     </StackPanel>
@@ -141,9 +141,9 @@
                             <TextBox Width="56" Margin="6,1,0,1" Text="{Binding AlphaMaxText, UpdateSourceTrigger=LostFocus}"/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Suggest exclusion" IsEnabled="{Binding RunEnabled}" Click="OnAdviseClick"
+                            <Button Content="Suggest exclusion" IsEnabled="{Binding RunEnabled}" Command="{Binding AdviseCommand}"
                                     ToolTip="Walks the global exclusion angle upward from the profile's value, one full sweep per step, until every latitude passes or the cap is reached."/>
-                            <Button Content="Apply to profile" IsEnabled="{Binding ApplyEnabled}" Click="OnApplyClick"
+                            <Button Content="Apply to profile" IsEnabled="{Binding ApplyEnabled}" Command="{Binding ApplyCommand}"
                                     ToolTip="Writes the found exclusion angle into the operation profile file — from there, derive the R set and export the masks."/>
                         </StackPanel>
                     </StackPanel>
@@ -152,11 +152,11 @@
 
             <StackPanel Grid.Column="1">
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="Run sweep" IsEnabled="{Binding RunEnabled}" Click="OnRunClick"/>
-                    <Button Content="Run loop" IsEnabled="{Binding RunEnabled}" Click="OnRunLoopClick"
+                    <Button Content="Run sweep" IsEnabled="{Binding RunEnabled}" Command="{Binding RunCommand}"/>
+                    <Button Content="Run loop" IsEnabled="{Binding RunEnabled}" Command="{Binding RunLoopCommand}"
                             ToolTip="The compliance loop: derive the declaration on a saturated probe (or take the given R set), sweep the truth, examine the declaration (E1) against the declared or the exported reachable-envelope mask, and check E1 &gt;= T at every latitude. The run's profile and R set are written where the R-set designer's Derive &amp; fill finds them, and an exported mask lands beside them."/>
-                    <Button Content="Export table…" Click="OnExportClick"/>
-                    <Button x:Name="GuideBtn" Content="How is compliance judged?" IsEnabled="False" Click="OnGuideClick"
+                    <Button Content="Export table…" Command="{Binding ExportCommand}"/>
+                    <Button x:Name="GuideBtn" Content="How is compliance judged?" Command="{Binding OpenGuideCommand}"
                             ToolTip="Opens the accompanying page: the sweep and its verdicts, the limits, the advisor's walk and write-back, the power headroom line, and how deep a screening run really reads."/>
                 </StackPanel>
                 <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="420">

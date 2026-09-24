@@ -15,20 +15,16 @@ public partial class MaskXmlExportWindow : Window
     {
         InitializeComponent();
         _vm = vm;
-        DataContext = vm;
-    }
-
-    private void OnBrowse(object sender, RoutedEventArgs e)
-    {
-        var dlg = new SaveFileDialog
+        // The view model's Browse asks for the file; the dialog is this window's.
+        _vm.PickSaveFile = (filter, fileName) =>
         {
-            Title = "Save PFD mask XML",
-            Filter = "XML mask (*.xml)|*.xml|All files (*.*)|*.*",
-            DefaultExt = ".xml",
-            FileName = $"mask ntc_id {_vm.NtcId} mask_id {_vm.MaskId}.xml",
+            var dlg = new SaveFileDialog
+            {
+                Title = "Save PFD mask XML", Filter = filter, DefaultExt = ".xml", FileName = fileName,
+            };
+            return dlg.ShowDialog(this) == true ? dlg.FileName : null;
         };
-        if (dlg.ShowDialog(this) == true) _vm.OutputPath = dlg.FileName;
+        DataContext = vm;
+        // Close is the dialog's cancel button (IsCancel), so it needs no handler.
     }
-
-    private void OnClose(object sender, RoutedEventArgs e) => Close();
 }

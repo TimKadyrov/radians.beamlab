@@ -75,7 +75,7 @@ public sealed class PfdHeatmapRenderer
     /// </summary>
     private void DrawCutCursor(double l, double r, double t, double b)
     {
-        var stroke = new SolidColorBrush(Color.FromArgb(220, 0xff, 0xff, 0xff));
+        var stroke = new SolidColorBrush(Color.FromArgb(220, 0x1a, 0x1a, 0x1a));
         var lbl = new TextBlock
         {
             Text = _vm.ProfileCutReadout,
@@ -217,7 +217,7 @@ public sealed class PfdHeatmapRenderer
 
     private void DrawAxes(double l, double r, double t, double b)
     {
-        var gridStroke = new SolidColorBrush(Color.FromArgb(50, 0xff, 0xff, 0xff));
+        var gridStroke = new SolidColorBrush(Color.FromArgb(0x40, 0x88, 0x88, 0x88));
         var labelBrush = new SolidColorBrush(Color.FromRgb(0x1a, 0x1a, 0x1a));
         double xMin = _field.XMin, xMax = _field.XMax;
         double yMin = _field.YMin, yMax = _field.YMax;

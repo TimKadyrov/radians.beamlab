@@ -165,11 +165,11 @@
                         <GroupBox Header="Heatmap / probe">
                             <StackPanel>
                                 <RadioButton GroupName="HeatmapMode"
-                                             Content="Power-sum from adjacent beams"
-                                             IsChecked="{Binding IsPowerSumMode}"/>
-                                <RadioButton GroupName="HeatmapMode"
                                              Content="Single-beam max gain contribution"
                                              IsChecked="{Binding IsMaxSingleMode}"/>
+                                <RadioButton GroupName="HeatmapMode"
+                                             Content="Power-sum from adjacent beams (aggregate)"
+                                             IsChecked="{Binding IsPowerSumMode}"/>
                             </StackPanel>
                         </GroupBox>
 
@@ -202,10 +202,12 @@
                             </StackPanel>
                         </GroupBox>
 
+                        <Button Content="All beams ON" Command="{Binding AllOnCommand}"/>
+
                         <GroupBox Header="PFD adjustment">
                             <StackPanel>
                                 <TextBlock TextWrapping="Wrap"
-                                           Text="Reduce the gain of beams whose side lobes leak into the country selected above so the aggregate PFD over that country stays below the limit."/>
+                                           Text="Reduce the gain of beams whose side lobes leak into the country selected above so the PFD over that country, read in the active heatmap/probe mode (single-beam max by default), stays below the limit."/>
                                 <TextBlock Text="Tx power per beam, in refBW (dBW)"/>
                                 <TextBox Text="{Binding TxPowerDbw, UpdateSourceTrigger=LostFocus, StringFormat=F1}"/>
                                 <TextBlock Text="PFD limit mask (function of elevation δ)"/>
@@ -221,8 +223,6 @@
                                 <Button Content="Adjust adjacent beam gains" Command="{Binding PfdAdjustCommand}"/>
                             </StackPanel>
                         </GroupBox>
-
-                        <Button Content="All beams ON" Command="{Binding AllOnCommand}"/>
 
                         <GroupBox Header="Display">
                             <StackPanel>
@@ -241,8 +241,8 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <Border Grid.Column="1" Grid.Row="0" Background="#0d1014" BorderBrush="#D1EBF5" BorderThickness="1,0,0,0">
-                    <Canvas x:Name="MapCanvas" Background="#0d1014"/>
+                <Border Grid.Column="1" Grid.Row="0" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,0,0,0">
+                    <Canvas x:Name="MapCanvas" Background="#ffffff"/>
                 </Border>
 
                 <Border Grid.Column="1" Grid.Row="1" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,1,0,0" Padding="10,4">

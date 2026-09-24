@@ -70,8 +70,8 @@ public sealed class MapRenderer
         {
             Width = _vp.MapW,
             Height = _vp.MapH,
-            Fill = new SolidColorBrush(Color.FromRgb(0x14, 0x1a, 0x22)),
-            Stroke = new SolidColorBrush(Color.FromRgb(0x3a, 0x40, 0x47)),
+            Fill = new SolidColorBrush(Color.FromRgb(0xff, 0xff, 0xff)),
+            Stroke = new SolidColorBrush(Color.FromRgb(0x1a, 0x1a, 0x1a)),
             StrokeThickness = 1,
         };
         Canvas.SetLeft(bg, _vp.MapX);
@@ -81,7 +81,7 @@ public sealed class MapRenderer
 
     private void DrawCoastlines()
     {
-        var stroke = new SolidColorBrush(Color.FromRgb(0x6b, 0x88, 0xa8));
+        var stroke = new SolidColorBrush(Color.FromRgb(0x3f, 0x5f, 0x7f));
         var geom = new StreamGeometry();
         using (var ctx = geom.Open())
         {
@@ -101,7 +101,7 @@ public sealed class MapRenderer
 
     private void DrawGraticule()
     {
-        var stroke = new SolidColorBrush(Color.FromArgb(40, 0xff, 0xff, 0xff));
+        var stroke = new SolidColorBrush(Color.FromArgb(0x40, 0x88, 0x88, 0x88));
         for (double lat = -90.0 + GraticuleStepDeg; lat <= 90.0 - GraticuleStepDeg + 1e-6; lat += GraticuleStepDeg)
         {
             var (x1, y1) = _vp.ToCanvas(lat, -180);
@@ -122,7 +122,7 @@ public sealed class MapRenderer
         // curve; sample 360 points at fixed Earth-central distance from sub-sat.
         double alpha = HorizonHalfAngleDeg(_scene.AltitudeKm);
         var pts = GeoMath.SampleSmallCircle(_scene.SubSatLatDeg, _scene.SubSatLonDeg, alpha, 360);
-        var stroke = new SolidColorBrush(Color.FromArgb(180, 0xff, 0xc8, 0x66));
+        var stroke = new SolidColorBrush(Color.FromArgb(220, 0xc0, 0x80, 0x00));
         MapDraw.AddSplitPolyline(_canvas, pts, stroke, 1.2, _vp.MapW * 0.5, _vp.ToCanvas);
     }
 
@@ -184,7 +184,7 @@ public sealed class MapRenderer
 
             if (_vm.FootprintsEnabled)
             {
-                var stroke = new SolidColorBrush(Color.FromArgb(110, rgb.R, rgb.G, rgb.B));
+                var stroke = new SolidColorBrush(Color.FromArgb(170, rgb.R, rgb.G, rgb.B));
                 // Elliptical patterns: half-angle theta(phi) = asin(sin(thetab_rad)*sin(thetab_tr)/sqrt...)
                 // -- equivalent to sintheta(phi) = u_half*lambda / sqrt((Lr*cosphi)^2 + (Lt*sinphi)^2),
                 // i.e. ellipse on the unit-sphere boresight cone.

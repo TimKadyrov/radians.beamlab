@@ -5799,3 +5799,174 @@ line instead, and V16 passes unchanged.
 
 **State.** Checks V67 to V69 added; harness 165 passed, 0 failed.
 Uncommitted. Open: packages 5 to 7 of the review; the dataset's 30 s curves.
+
+## Beamlab — the review's fifth and sixth packages: what the pages say, and how the windows are built, 24 September 2026
+
+**What the pages say.** The pages, the guide and one parameter card
+still described the tool of a month ago. They said the saturated probe
+measures the pfd mask beside the R set; it measures the R set only, and
+the mask is the profile's declared one or is computed from the reachable
+envelope under the service-span certificate. Every figure, caption and
+paragraph now says so, and where-declarations-come-from.html no longer
+contradicts its own artefact box. The header-and-array reading is one
+rule everywhere: min_elev, max_co_freq and min_duration are each filed in
+one form, a set filing both is invalid, min_exclude has only the array
+form and is interpolated, and both reads hold the outermost row beyond
+the table. The MIN_ELEV card, its figure and the XML writer's refusal
+say the same. The runner's page reads a mask at the nearest latitude
+block and bilinearly inside it. The depth paragraph drops "a shallower
+probe gives a tighter set" for the measurement: the STEAM-2 R set and
+mask are identical at 0.1 and 1.0 d. The compliance page gains the lit
+reach and two cautions: the worst margin covers the grid points only,
+and the tool's geometry search is the loop over them.
+
+The user guide now follows the windows as they are. Windows open from
+the Home cards, and there is no Tools menu. The composite and generator
+tabs are described control by control in panel order. The PFD adjustment
+follows the active probe mode, single-beam by default. The Orbit Design
+parts name their sub-tabs. The builder's Preview, scenario name and the
+examset_type flag are described in plain words, and the flag has a
+technical box. The profile window is described group by group. Formulas
+and field names moved into technical-detail boxes. The sources list only
+ITU-R Recommendations, and the geodetic-geocentric figure is corrected
+from 0.15 to under 0.2 degrees. On WGS-84 the maximum is 0.19 degrees
+near 45. User-facing text no longer cites the design brief, the EPS, the
+reference implementation, radians, .md records, harness checks or
+dataset case ids. The examination is the Bureau's under S.1503-4, not
+"an administration's". The plan, the spec, the margin study and the
+operation-parameters note carry dated notes where they predate the work.
+Among them is a payload power budget that three pages claimed and the
+code does not have. The README names the six S.1528 models, the Home
+layout, the probe-mode PFD adjustment and the amber marker, and gains
+sections for the profile and compliance windows.
+
+The page work was done in three parallel passes and then reviewed
+against the code and the records, which caught three errors. The lit
+reach was written as "2 to 3 degrees on every mask"; the record gives
+2.7, 2.1 and 10.4 for the three shells. The profile's Traffic header
+said the minimum elevation reaches the R set; that field sits in Service
+& coverage, and the Traffic group's own minimum angles are what the
+derivation declares. The mask viewer's hint said the cut-off box ticks
+itself; it ticks only when a file opens on a block with an off-floor.
+
+**How the windows are built.** Every button in the app now binds to a
+command on its view model. That covers the compliance, simulation,
+designer, profile and builder windows, Home, the orbit design tab and
+the mask-export dialog. The two small dialogs' Close buttons are their
+cancel buttons and need no handler. The view supplies file dialogs, the
+clipboard and window opening through delegates and request events, so
+the commands run without a window, and V70 drives them. The composite
+tab's panel follows the agreed order: All beams ON sits between the
+exclusion and the adjustment, and the single-beam probe comes first. The
+power-sum label says "(aggregate)". The pattern viewer's title names the
+model it plots. Two misplaced summaries in the compliance view model are
+moved.
+
+WPF reads a single underscore in a header or a button label as an
+access key and drops it. The UI Automation probe read "mask_id" as
+"maskid", "Harmonize rpt_prd" as "Harmonize rptprd" and "α_excl" as
+"αexcl". DataGrid column headers do this too, which the package-4 fix to the GroupBox headers had not covered. 23
+labels in four windows are escaped, and the probe reads them back whole.
+
+**Verified through the windows.** A UI Automation walk opened every
+window from its card. It found the guide buttons enabled when the app
+runs from the repository build and saw every browse, save and load raise
+its dialog. The builder and the designer open from the buttons that name
+them, and the sub-tab buttons select their tab. Copy put the case
+summary on the clipboard, and Remove with no row selected removed
+nothing, as before. The two dialogs close by their Close button: the
+native window is destroyed, exactly as in a build of the previous
+commit.
+
+**Black on white, plots included.** The operator ruled that the rule
+covers the map and plot areas too (item 55). The two maps and the plot
+frames of the generator and the mask viewer are white. Frames, axes and
+the cut cursor are near-black, grids a translucent grey, coastlines a
+darker blue-grey. The horizon ring and the elevation guides keep their
+amber and move from cyan to teal, darkened to show on white. The two
+palest reuse colours become dark yellow and dark grey. The beam status
+colours stay, their 3 dB rings more opaque. The PFD ramp stays. The gain
+ramp ended in near-white, which would vanish into a white map; it now
+ends in bright yellow, the top half following viridis so the upper
+quarter keeps its contrast, and its lower half is unchanged.
+
+**The explanatory pages, rewritten for clarity.** Inside the Compliance
+Loop was rewritten around the window's own controls, with a figure of
+what Run loop does, and the six other pages followed on the same brief:
+plain sentences, controls named as the windows show them, detail in tech
+boxes, every measured number kept with its conditions. Checking them
+against the code corrected about fifty statements, among them the
+probe drawn as writing the mask, the consistency check drawn before the
+examination, and a positive point margin called the only one. The
+parameter cards are grouped as the windows group them: the declared
+cards by what they constrain, the operation cards in the Operation
+profile window's order, the orbit cards in case order; the catalog's
+sub-groups follow and the dataset case names are gone from both halves.
+The rewrite surfaced questions for the operator, not fixed: a Case 3
+shell from the tab carries no station keeping and so propagates as free
+drift, its declared rate unused; a Case 2 shell declared at its target
+altitude propagates with its natural drift, while the tooltips say only
+the declared repeat is flown; Run loop computes a mask when the named
+mask file is missing; the computed mask carries no yaw sweep.
+
+**Open.** Package 7 is deferred by the operator's word.
+
+**State.** Check V70 added; harness 166 passed, 0 failed. Uncommitted.
+
+## Beamlab — the orbit cases as S.1503-4 files them, 24 September 2026
+
+**What was wrong.** Checked against the Recommendation's text and the
+EPFD software specification, the Orbit Design tab had Case 3 on the wrong
+branch. S.1503-4 Figure 52 asks about station keeping first: without it
+the shell is Case 1 whatever else is filed; with it, a supplied
+precession rate makes Case 3, whose eq (52) keeps the keep_rnge sweep.
+The tab filed Case 3 without station keeping, so the examination, and our
+own propagator, which follows the same rule, ran it as free drift and
+never used the rate. The dataset's shell C has the same filing; its data
+stay as filed and its labels now say it is examined as Case 1. The tab's
+texts also said the calculation flies only the declared repeat of a
+Case-2 shell; eq (49) flies the filed orbit on its own J2 rates plus the
+sweep, the repeat period only setting the run length and step. The SRS
+writer put the rate in deg/s into a degrees/day field and left keep_rnge
+null where the specification wants 0.
+
+**What changed.** Case 3 files station keeping, keep_rnge and the repeat
+as Case 2 does, plus the rate; its default is the rate that closes the
+selected repeat at the target altitude under the Case-3 model (perigee
+held, point-mass motion, eqs (51)-(53)), D = omega_e - m n0 / k, rounded to
+the field's 0.01 deg/day. For 13/1 at 1200 km and 53 deg it is -3.45
+deg/day where the J2 node rate of eq (21) is -3.28: the supplied rate
+absorbs the J2 terms Case 3 drops. The field carries the magnitude and
+the direction is the one the inclination implies, -sign(cos i): a
+demonstration on the propagator showed a supplied rate turning the node
+the same way at 53, 127, -233 and -53 deg, since it enters only as a
+rotation about the Z axis, so the sign has to be applied when the field
+is read; S.1503-4 is silent on it and the specification's pseudocode
+adds the value as it stands, a gap carried over from S.1503-2. A rate
+turning against its inclination, a nonzero rate on a polar orbit, and a
+typed rate that misses the declared repeat by more than keep_rnge per
+cycle are refused, the last being the self-consistency check S.1503-2
+asked for and S.1503-4 dropped. An elliptical Case 3 is told that the
+perigee is held while the real apsides turn, except at the critical
+inclinations. The Case-2 default is now the exact repeat altitude, the
+only filing whose simulated track is the declared repeat; fixed altitude
+remains and says the calculation flies its drift every cycle. Harmonize
+covers Cases 2 and 3.
+
+**Checks.** V71 added. V5, V9, V10, V11, V12, V17 and V18 encoded the old
+defaults and were updated with the operator's approval.
+
+**Six smaller findings from the page rewrites, closed.** Run loop no
+longer replaces a named pfd mask that is missing with a computed one: it
+stops and names the file, in the window and the console mode. The
+profile gains a yaw steering range; the computed mask sweeps every body
+yaw within it in steps no coarser than its grid, and the cached mask's
+name carries it, so a profile without yaw is untouched. The deriver
+writes a latitude band where no exclusion shaped the links as a 0 deg
+min_exclude row instead of dropping it: dropped, the band left a gap the
+interpolated read spans, or an end the outermost row governs, and on a
+test case of six bands the one surviving row declared 12 deg at every
+latitude. The simulation runner's downlink file states the mask's own
+bandwidth on the mask path, its R-set picker shows the loop's
+*.operparams.json, and four window texts lose their jargon. Check V72
+added; harness 168 passed, 0 failed.

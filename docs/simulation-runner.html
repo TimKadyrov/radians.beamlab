@@ -40,6 +40,7 @@ h1{font-size:clamp(26px,4vw,36px); font-weight:700; letter-spacing:-.015em; marg
 h2{font-size:21px; font-weight:600; letter-spacing:-.01em; margin:2.2em 0 .4em; text-wrap:balance; max-width:var(--measure)}
 p{max-width:var(--measure)}
 ul{max-width:var(--measure)}
+li{margin:.35em 0}
 code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--code-bg); padding:0 4px; border-radius:3px}
 .tech{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--g1); border-radius:5px; padding:12px 16px; margin:14px 0; font-size:13.5px; max-width:var(--measure)}
 .tech .t{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; font-weight:600}
@@ -60,182 +61,298 @@ a{color:var(--g1)} a:hover{color:#1983AA}
 <div class="wrap">
 <div class="kicker">radians.beamlab &middot; simulation runner</div>
 <h1>Inside the Simulation Runner</h1>
-<p class="lede">The runner flies your constellation as an operated system and writes the
-epfd statistics a filing is judged by. This page explains which input supplies what,
-why the operation profile is mandatory, and what the optional R&nbsp;set changes when
-you add it.</p>
+<p class="lede">The Simulation runner window simulates your system as it operates, for one
+victim, and writes the statistics of the equivalent power flux-density (epfd) it produces.
+This page explains what each input supplies and what the window gives back.</p>
 
-<h2>One run, three files</h2>
-<p>A simulation needs two different kinds of truth: <em>where the satellites are</em>,
-and <em>what they do</em>. The window keeps them in separate files so each can be
-authored, reviewed and swapped on its own &mdash; and both are required. A third file
-&mdash; the declared operating parameters &mdash; is optional: when present it swaps
-the scheduler's gates for the declared constraints.</p>
+<h2>What a run computes</h2>
+<p>epfd is the power flux-density arriving from every transmitter in view, each weighted by
+the victim antenna&rsquo;s gain toward it relative to its peak, and summed. A run computes
+three directions:</p>
+<ul>
+<li><strong>epfd(down)</strong>: the satellites&rsquo; downlinks, received by a GSO earth
+station, the victim ES, pointed at its GSO satellite;</li>
+<li><strong>epfd(is)</strong>: the same downlinks, received by that GSO satellite;</li>
+<li><strong>epfd(up)</strong>: the system&rsquo;s transmitting earth stations, received by
+that GSO satellite.</li>
+</ul>
+
+<h2>Using the window</h2>
+<ul>
+<li>Pick the <strong>Orbit design document</strong> and the <strong>Operation profile</strong>.
+Both are required. <strong>Operating params (optional)</strong> takes an R&nbsp;set, a set of
+declared operating constraints.</li>
+<li>Set the victim and the run: the GSO longitude, the earth station&rsquo;s position and dish,
+the duration and the time step.</li>
+<li>For verdicts, type the Article&nbsp;22 limits into <strong>Limits (optional)</strong>.</li>
+<li>Press <strong>Validate inputs</strong>. The status line says what a run would cover, or
+why it cannot run.</li>
+<li>Press <strong>&#9654;</strong> to watch the operation on the map, or
+<strong>Write CDFs&#8230;</strong> to compute the statistics.</li>
+</ul>
 
 <figure>
-<svg viewBox="0 0 700 342" role="img" aria-label="Three input files feed the runner: the orbit design document supplies the space segment, the operation profile supplies the operated system, and the operating params act as fallback gates; the runner drives the play timeline and the CDF files">
+<svg viewBox="0 0 700 300" role="img" aria-label="Three input files feed the runner: the orbit design document says where the satellites are, the operation profile says what the system does, and an optional operating-parameter set replaces the profile's gates. The window's victim, duration, step and limit fields feed it too. The runner drives the animated map, which collects no statistics, and Write CDFs, which writes the down, is and up CSV files and opens the CDF viewer.">
   <defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="currentColor"/></marker></defs>
   <g style="color:var(--ink)">
-    <!-- input boxes -->
-    <rect x="14" y="24" width="214" height="66" rx="5" fill="none" stroke="currentColor"/>
-    <text x="26" y="46" class="svgtxt">Orbit design document</text>
-    <text x="26" y="63" class="svglbl">.orbitdesign.json</text>
-    <text x="26" y="79" class="svglbl">shells &middot; planes &middot; phasing</text>
+    <!-- input files -->
+    <rect x="10" y="16" width="210" height="66" rx="5" fill="none" stroke="currentColor"/>
+    <text x="22" y="38" class="svgtxt">Orbit design document</text>
+    <text x="22" y="56" class="svglbl">*.orbitdesign.json</text>
+    <text x="22" y="72" class="svglbl">where the satellites are</text>
 
-    <rect x="14" y="122" width="214" height="66" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
-    <text x="26" y="144" class="svgtxt">Operation profile</text>
-    <text x="26" y="161" class="svglbl">.opprofile.json</text>
-    <text x="26" y="177" class="svglbl">payload &middot; gates &middot; geography &middot; activity</text>
+    <rect x="10" y="110" width="210" height="66" rx="5" fill="var(--g1-tint)" stroke="var(--g1)" stroke-width="1.5"/>
+    <text x="22" y="132" class="svgtxt">Operation profile</text>
+    <text x="22" y="150" class="svglbl">*.opprofile.json</text>
+    <text x="22" y="166" class="svglbl">what the system does</text>
 
-    <rect x="14" y="220" width="214" height="66" rx="5" fill="none" stroke="currentColor" stroke-dasharray="5 4"/>
-    <text x="26" y="242" class="svgtxt">Operating params (R)</text>
-    <text x="26" y="259" class="svglbl">.opparams.json</text>
-    <text x="26" y="275" class="svglbl">declared gates &mdash; optional override</text>
+    <rect x="10" y="204" width="210" height="66" rx="5" fill="none" stroke="currentColor" stroke-dasharray="5 4"/>
+    <text x="22" y="226" class="svgtxt">Operating params</text>
+    <text x="22" y="244" class="svglbl">*.opparams.json, optional</text>
+    <text x="22" y="260" class="svglbl">replaces the profile&#8217;s gates</text>
 
-    <!-- arrows into the runner -->
-    <line x1="228" y1="57" x2="356" y2="130" stroke="currentColor" marker-end="url(#ar)"/>
-    <text x="244" y="66" class="svglbl">where the satellites are</text>
-    <line x1="228" y1="155" x2="356" y2="155" stroke="var(--g1)" stroke-width="1.5" marker-end="url(#ar)" style="color:var(--g1)"/>
-    <text x="244" y="149" class="svglbl">what the system does</text>
-    <line x1="228" y1="253" x2="356" y2="180" stroke="currentColor" stroke-dasharray="5 4" marker-end="url(#ar)"/>
-    <text x="244" y="266" class="svglbl">alternative gates</text>
+    <!-- into the runner -->
+    <line x1="220" y1="49" x2="258" y2="114" stroke="currentColor" marker-end="url(#ar)"/>
+    <line x1="220" y1="143" x2="258" y2="143" stroke="var(--g1)" stroke-width="1.5" marker-end="url(#ar)" style="color:var(--g1)"/>
+    <line x1="220" y1="237" x2="258" y2="172" stroke="currentColor" stroke-dasharray="5 4" marker-end="url(#ar)"/>
 
     <!-- runner -->
-    <rect x="360" y="106" width="180" height="98" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-    <text x="374" y="130" class="svgtxt">Simulation runner</text>
-    <text x="374" y="150" class="svglbl">scheduler marches the</text>
-    <text x="374" y="165" class="svglbl">operation; epfd summed</text>
-    <text x="374" y="180" class="svglbl">at the victim each step</text>
+    <rect x="262" y="100" width="180" height="86" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="276" y="124" class="svgtxt">Simulation runner</text>
+    <text x="276" y="144" class="svglbl">advances the operation</text>
+    <text x="276" y="160" class="svglbl">step by step and sums</text>
+    <text x="276" y="176" class="svglbl">the epfd at the victim</text>
 
-    <!-- victim / run fields -->
-    <rect x="360" y="252" width="180" height="52" rx="5" fill="none" stroke="currentColor"/>
-    <text x="374" y="272" class="svgtxt">victim &amp; run fields</text>
-    <text x="374" y="289" class="svglbl">GSO lon &middot; ES &middot; dish &middot; steps</text>
-    <line x1="450" y1="252" x2="450" y2="208" stroke="currentColor" marker-end="url(#ar)"/>
+    <!-- window fields -->
+    <rect x="262" y="224" width="180" height="64" rx="5" fill="none" stroke="currentColor"/>
+    <text x="276" y="246" class="svgtxt">window fields</text>
+    <text x="276" y="264" class="svglbl">victim &#183; duration &#183; step</text>
+    <text x="276" y="280" class="svglbl">limits (optional)</text>
+    <line x1="352" y1="224" x2="352" y2="190" stroke="currentColor" marker-end="url(#ar)"/>
 
     <!-- outputs -->
-    <line x1="540" y1="135" x2="588" y2="98" stroke="currentColor" marker-end="url(#ar)"/>
-    <rect x="560" y="52" width="126" height="58" rx="5" fill="none" stroke="currentColor"/>
-    <text x="572" y="74" class="svgtxt">&#9654; / &#9193; play</text>
-    <text x="572" y="92" class="svglbl">one timeline, no stats</text>
+    <line x1="442" y1="122" x2="486" y2="80" stroke="currentColor" marker-end="url(#ar)"/>
+    <rect x="490" y="40" width="200" height="66" rx="5" fill="none" stroke="currentColor"/>
+    <text x="502" y="62" class="svgtxt">&#9654; / &#9193; play</text>
+    <text x="502" y="80" class="svglbl">the map, step by step</text>
+    <text x="502" y="96" class="svglbl">no statistics</text>
 
-    <line x1="540" y1="175" x2="588" y2="212" stroke="currentColor" marker-end="url(#ar)"/>
-    <rect x="560" y="200" width="126" height="58" rx="5" fill="none" stroke="currentColor"/>
-    <text x="572" y="222" class="svgtxt">Write CDFs&#8230;</text>
-    <text x="572" y="240" class="svglbl">.down / .is / .up csv</text>
+    <line x1="442" y1="164" x2="486" y2="184" stroke="currentColor" marker-end="url(#ar)"/>
+    <rect x="490" y="146" width="200" height="82" rx="5" fill="none" stroke="currentColor"/>
+    <text x="502" y="168" class="svgtxt">Write CDFs&#8230;</text>
+    <text x="502" y="186" class="svglbl">statistics over the run:</text>
+    <text x="502" y="202" class="svglbl">.down / .is / .up .csv</text>
+    <text x="502" y="218" class="svglbl">then the CDF viewer</text>
   </g>
 </svg>
-<figcaption>The orbit design document places the satellites; the operation profile says what
-they do &mdash; both required. The R&nbsp;set is optional: when present the scheduler obeys the
-declared gates instead of the profile's.</figcaption>
+<figcaption>The orbit design document places the satellites and the operation profile says
+what they do; both are required. An optional R&nbsp;set replaces the profile&rsquo;s gates.
+&#9654; and &#9193; only animate; Write CDFs&#8230; is the statistics run.</figcaption>
 </figure>
 
-<h2>The orbit design document</h2>
-<p>An <code>*.orbitdesign.json</code> saved from the <strong>Orbit Design</strong> tab. It is
-the space segment and nothing else: every shell's orbit geometry, planes, phasing and repeat
-declaration, from which the runner rebuilds the constellation and propagates each satellite.
-It says nothing about payload, power or scheduling &mdash; deliberately, so the same
-constellation can be run under different operations.</p>
-<p>One quiet coupling: the first shell's operating height anchors the payload's
-beam-layout altitude &mdash; the profile carries no altitude of its own.</p>
+<h2>Orbit design document</h2>
+<p>A <code>*.orbitdesign.json</code> saved from the <strong>Orbit Design</strong> tab. It holds
+the space segment only: each shell&rsquo;s orbit, planes, phasing and orbit case (see
+<a href="orbit-design-cases.html">The Three Orbit Cases</a>). The runner rebuilds the
+constellation from it and propagates every satellite. It carries no payload, power or
+scheduling, so one constellation can be run under different operations.</p>
+<p>The first shell&rsquo;s operating height, or its altitude when no operating height is set,
+is the altitude the payload&rsquo;s beam layout is computed for. The profile has no altitude of
+its own.</p>
 
-<h2>The operation profile</h2>
-<p>An <code>*.opprofile.json</code> saved from the <strong>Operation profile</strong> window.
-This is the operated system in one file: the payload (beam pattern, layout, transmit power,
-frequency-reuse aggregation), the link discipline the real system enforces (minimum
-elevation, GSO exclusion, capacity caps, minimum hold), the service geography, the
-scheduling policy, the activity duty &mdash; and the downlink footprint source, which picks
-between the live scheduled beam composition and a declared PFD mask.</p>
-<p>The profile is <strong>required</strong> &mdash; the runner refuses to fly without one,
-and there is deliberately no stand-in payload behind it: a run that is meant to say
-anything about a real system must be a run of <em>that</em> system, transmission basics
-included. The profile supplies the whole system side &mdash; the downlink frequency and
-the minimum elevation among it &mdash; so the remaining fields describe only the victim
-and the run.</p>
-<div class="tech"><div class="t">Tech &middot; the mask footprint path</div>
-<p>With <em>declared PFD mask</em> as the footprint source, epfd(down) is computed the
-examination's way: the mask XML is read per Recommendation ITU-R S.1503-4 &sect;D5.1.4.1,
-interpolating the latitude blocks as &sect;D5.1.5 prescribes. No epfd(is) byproduct is
-written on this path &mdash; the in-space direction needs the e.i.r.p. masks, which a pfd
-mask does not carry.</p></div>
+<h2>Operation profile</h2>
+<p>A <code>*.opprofile.json</code> saved from the <strong>Operation profile</strong> window. It
+is the operated system in one file:</p>
+<ul>
+<li>the downlink payload: beam pattern and layout, transmit power, frequency reuse, reference
+bandwidth;</li>
+<li>the link rules the system enforces, its <em>gates</em>: minimum elevation, GSO exclusion,
+co-frequency caps, minimum angles at the satellite and at the earth station, hold before
+handover;</li>
+<li>the service geography: latitude and longitude span, cell size;</li>
+<li>the tracking strategy, demand and activity;</li>
+<li>the uplink fleet: frequency, power, power control, dish;</li>
+<li>the <strong>Footprint source</strong>, which sets how epfd(down) is computed.</li>
+</ul>
+<p>The profile is required: the window has no payload of its own to fall back on. A payload
+field left empty in the profile takes the payload model&rsquo;s default.</p>
+<p>With <em>beam composition (shaped)</em> as the footprint source, epfd(down) comes from the
+beams the scheduler switches on at each step. With <em>PFD mask (declared XML)</em>, it comes
+from a declared pfd mask instead, read the way S.1503-4 reads it.</p>
+<div class="tech"><div class="t">Tech &middot; the pfd mask footprint</div>
+<p>On this path epfd(down) is computed as in the examination under S.1503-4 (&sect;D5.1.4.1).
+At each step every satellite visible from the earth station reads its pfd from the mask: the
+latitude block nearest the satellite&rsquo;s sub-satellite latitude, read inside by the
+bilinear interpolation of &sect;D5.1.5. The gates in force, the profile&rsquo;s or the
+R&nbsp;set&rsquo;s, decide which satellites count. The map still plays the scheduler, and
+epfd(up) still uses it. No <code>.is.csv</code> is written: the in-space direction needs the
+e.i.r.p. masks, which a pfd mask does not carry.</p></div>
 
-<h2>The operating params (R&nbsp;set) &mdash; alternative gates</h2>
-<p>An <code>*.opparams.json</code> from the <strong>Operating parameters designer</strong> &mdash;
-the declared constraints, and the one optional input. When set, the scheduler obeys the
-<em>declared</em> pointing and scheduling constraints &mdash; minimum elevation per latitude,
-the exclusion angle, the co-frequency caps &mdash; instead of the profile's enforced gates,
-in both link directions. The payload, its power and everything else transmission-side still
-come from the profile: the truth payload run under the declared discipline.</p>
-<p>That comparison is the point. Run the same profile twice &mdash; once on its own gates,
-once under the derived R&nbsp;set &mdash; and the two CDFs show what the declared envelope
-costs or allows relative to the operation it was measured from.</p>
+<h2>Operating params (optional)</h2>
+<p>An R&nbsp;set: a <code>*.opparams.json</code> saved from the <strong>Operating parameters
+(R set)</strong> window. When you give one, its declared constraints replace the
+profile&rsquo;s gates, for the downlink and the uplink:</p>
+<ul>
+<li>the minimum elevation;</li>
+<li>the GSO exclusion angle;</li>
+<li>the co-frequency caps, per cell and per satellite;</li>
+<li>the minimum angles at the satellite and at the earth station;</li>
+<li>the minimum duration of a link, in place of the profile&rsquo;s hold before handover;</li>
+<li>the span of earth-station latitudes served.</li>
+</ul>
+<p>Everything else still comes from the profile: the payload and its power, the geography,
+the tracking strategy, demand and activity. <strong>Validate inputs</strong> then reports
+<em>gates: declared R set (override)</em>.</p>
+<p>Use it to see what a declaration costs or allows. Run the same profile twice, once on its
+own gates and once under the R&nbsp;set derived from it, and compare the two sets of curves.
+<strong>Run loop</strong> in the Compliance loop window saves its derived set as a
+<code>*.operparams.json</code> in its run directory, and the <strong>&hellip;</strong> button
+lists those files beside the designer&rsquo;s <code>*.opparams.json</code>.</p>
 <div class="tech"><div class="t">Tech &middot; how the gates are read</div>
-<p>The per-latitude arrays are read the way S.1503-4 Part&nbsp;B defines for the R&nbsp;set:
-minimum elevation at the nearest latitude row, the exclusion angle by linear interpolation
-between rows. Quantities the set does not declare fall back to its header values, and an
-absent header is permissive.</p></div>
+<p>The per-latitude rows are read the way S.1503-4 Part&nbsp;B defines for the R&nbsp;set: the
+minimum elevation and the co-frequency cap at the nearest latitude row, the exclusion angle by
+linear interpolation between rows; beyond the last row, the outermost row governs. Each
+quantity is filed in one form, header value or array. A set that files a quantity in both
+forms is an invalid filing, and the runner refuses it. A quantity filed in neither form does
+not constrain.</p></div>
 
 <h2>Who supplies what</h2>
 <table class="ex">
   <tr><th>quantity</th><th>source</th></tr>
-  <tr><td>satellites</td><td>the orbit design document (shells, planes, phasing)</td></tr>
-  <tr><td>payload &amp; power</td><td>the profile's composed scene (pattern, layout, transmit power, reuse)</td></tr>
-  <tr><td>frequency</td><td>the profile &mdash; downlink and uplink each declare their own; where a
-  band is shared and the patterns are envelopes, the assessment belongs at the lowest shared
-  frequency (Rec. ITU-R S.1325 revision draft &sect;2.5.4)</td></tr>
-  <tr><td>scheduler gates</td><td>the profile's enforced set; the R&nbsp;set instead, when one is given</td></tr>
-  <tr><td>service area</td><td>the profile's geography (latitude span, cell pitch)</td></tr>
-  <tr><td>scheduling</td><td>the profile's policy, capacity caps and activity duty</td></tr>
-  <tr><td>uplink ES</td><td>the profile's uplink side (power, control reference, dish)</td></tr>
-  <tr><td>victim &amp; sampling</td><td>the window's remaining fields</td></tr>
+  <tr><td>satellites</td><td>the orbit design document (shells, planes, phasing, orbit case)</td></tr>
+  <tr><td>payload &amp; power</td><td>the profile&rsquo;s downlink side (pattern, layout, transmit power, reuse)</td></tr>
+  <tr><td>frequency</td><td>the profile: downlink and uplink each set their own. Where a band is
+  shared and the antenna patterns are envelopes, assess at the lowest shared frequency
+  (Rec. ITU-R S.1325 revision draft &sect;2.5.4)</td></tr>
+  <tr><td>gates</td><td>the profile&rsquo;s; the R&nbsp;set&rsquo;s instead, when one is given</td></tr>
+  <tr><td>service area</td><td>the profile&rsquo;s geography (latitude and longitude span, cell size)</td></tr>
+  <tr><td>scheduling</td><td>the profile&rsquo;s tracking strategy, demand and activity</td></tr>
+  <tr><td>uplink ES</td><td>the profile&rsquo;s uplink fleet (power, power control, dish)</td></tr>
+  <tr><td>victim &amp; sampling</td><td>this window&rsquo;s remaining fields</td></tr>
 </table>
 
 <h2>The victim and the run</h2>
-<p>The loose fields below the file pickers describe the other side of the interference
-geometry and the sampling of the run:</p>
 <ul>
-<li><strong>Victim GSO longitude</strong> &mdash; the wanted satellite for epfd(down), the
-victim satellite for epfd(up) and epfd(is).</li>
-<li><strong>Victim ES latitude / longitude</strong> &mdash; the earth station the downlink
-statistics are collected at; also the in-space victim's boresight point.</li>
-<li><strong>ES dish diameter</strong> &mdash; the S.1428 pattern diameter of the victim
-earth station (down); it also stands in for the transmitting earth station (up) when the
-profile's uplink side declares no dish of its own.</li>
-<li><strong>Duration / time step</strong> &mdash; how long and how finely the operation is
-marched, preset to half a day at 1&nbsp;s. Statistics of rare deep events need runs long
-enough, and steps fine enough, to catch them: the status line warns when the step samples the
-fastest crossing of the earth station&rsquo;s 3&nbsp;dB beam fewer than three times, and
-estimates the time left while a run goes. With the Random strategy and no hold the
-selection is redrawn at every step, so the step is also the reselection period.</li>
-<li><strong>Limits (optional)</strong> &mdash; the applicable Article 22 rows for
-epfd(down), epfd(is) and epfd(up), one point per line. A direction with a limit gets a
-verdict under the limit-curve rule: every tabulated point, and the log-linear curve between
-them.</li>
+<li><strong>Victim GSO longitude (degE)</strong>, default 10: the GSO satellite the victim
+earth station points at for epfd(down), and the victim satellite for epfd(is) and
+epfd(up).</li>
+<li><strong>Victim ES latitude (deg)</strong> and <strong>Victim ES longitude (deg)</strong>,
+default 45 and 0: where epfd(down) is collected. The GSO satellite&rsquo;s receive beam points
+here for epfd(is) and epfd(up).</li>
+<li><strong>ES dish diameter (m)</strong>, default 0.6: the victim earth station&rsquo;s S.1428
+antenna. It also serves the transmitting earth stations when the profile&rsquo;s uplink side
+gives no dish.</li>
+<li><strong>Duration (days)</strong> and <strong>Time step (s)</strong>, preset to half a day
+at 1&nbsp;s: 43&nbsp;200 steps per direction.</li>
 </ul>
-<p>The uplink transmit power, its power-control reference elevation and its frequency are
-transmission basics and come from the profile's uplink side, not from this window.</p>
+<p>The step needs care:</p>
+<ul>
+<li><strong>It must be fine.</strong> A satellite crosses the victim&rsquo;s 3&nbsp;dB beam in
+seconds, and a coarse step misses the peak. The status line warns when the step samples the
+fastest crossing fewer than three times, and names the S.1503-4 fine step.</li>
+<li><strong>It can change the traffic.</strong> With the tracking strategy <em>random among
+feasible</em> and no hold, the selection is redrawn at every step, so the step is also the
+reselection period.</li>
+<li><strong>Rare events need long runs.</strong> A limit point at a small percentage of time
+rests on the few steps with the highest levels, so a short run resolves it poorly.</li>
+</ul>
+<p><a href="compliance-loop.html">Inside the Compliance Loop</a> gives the measured effect of
+the step and of the run length.</p>
+<div class="tech"><div class="t">Tech &middot; the antennas and the uplink</div>
+<p>For epfd(down) the victim earth station has the Rec. ITU-R S.1428 pattern of the
+<strong>ES dish diameter (m)</strong> at the profile&rsquo;s downlink frequency. For epfd(is)
+and epfd(up) the victim GSO satellite has a fixed Rec. ITU-R S.672 pattern: 40.7&nbsp;dBi peak
+gain, 1.55&deg; half-power beamwidth and a near-in side-lobe level of &minus;20&nbsp;dB. For
+epfd(up) each served cell transmits from its centre toward its serving satellite, with the
+S.1428 pattern at the profile&rsquo;s uplink frequency and uplink dish.</p>
+<p>Power control is on range. The profile&rsquo;s <em>ES power ceiling (dBW)</em>, per
+reference bandwidth, applies at the slant range seen at <em>Power control ref elev
+(deg)</em>; a shorter link transmits 20&nbsp;log<sub>10</sub>(d<sub>ref</sub>/d) dB below it,
+a longer one at the ceiling. Left empty in the profile, the ceiling is 0&nbsp;dBW, and the
+reference elevation is the R&nbsp;set&rsquo;s header minimum elevation when an R&nbsp;set gives
+one, else the profile&rsquo;s <em>Min elevation (deg)</em>.</p></div>
 
-<h2>&#9654;, &#9193; and Write CDFs</h2>
-<p>The two icons animate <strong>one continuous timeline</strong>: &#9654; advances one
-simulation step per tick with everything drawn &mdash; satellites, candidate links (thin) and
-granted links (thick) &mdash; and &#9193; advances many steps per tick <em>without touching
-the map</em>: the last drawn frame stays put and only the status clock and link counts move.
-Pressing the other icon mid-run only changes the pace; the clock and the scheduler state
-carry on. Neither collects statistics.</p>
-<p><strong>Write CDFs&#8230;</strong> is the statistics run: no map updates, the full step
-count on a worker thread, and three CSV files &mdash; <code>.down</code>, <code>.is</code>
-and <code>.up</code> &mdash; each a cumulative distribution of epfd at the victim. When the
-run completes, the <strong>CDF viewer</strong> opens over the written curves &mdash; epfd on
-a linear dB axis against percent of time exceeded on a log axis, one colour per
-direction; <strong>View CDFs&#8230;</strong> opens the same viewer over any existing CDF
-files.</p>
+<h2>Limits (optional)</h2>
+<p>Type the applicable Article&nbsp;22 limit for any direction, one point per line in the form
+<code>epfd_db percent_time</code>: <strong>epfd(down)</strong> from Tables&nbsp;22-1A to
+22-1E, <strong>epfd(is)</strong> from Table&nbsp;22-3, <strong>epfd(up)</strong> from
+Table&nbsp;22-2.</p>
+<p>A direction with a limit gets a verdict under the limit-curve rule. It passes only if its
+distribution stays within the limit at every tabulated point and nowhere crosses the log-linear
+curve between them. The verdict, PASS or FAIL with the point margin, the curve margin and the
+deciding point, goes into the status line and into that direction&rsquo;s CSV file. A direction
+without a limit gets no verdict. <a href="compliance-loop.html">Inside the Compliance Loop</a>
+explains the rule and the two margins.</p>
+<p>Set <strong>ES dish diameter (m)</strong> to the dish the limit row is written for; this
+window does not check it. On the pfd mask path epfd(is) is not computed, so it gets no
+verdict.</p>
+
+<h2>Checking the inputs</h2>
+<p><strong>Validate inputs</strong> reads every input; picking a file with its
+<strong>&#8230;</strong> button does the same at once. The status line then opens with
+<em>ready:</em> and gives the shells, the satellites, the victim and the number of steps. It
+adds, when they apply:</p>
+<ul>
+<li>that the gates come from the R&nbsp;set;</li>
+<li>that epfd(down) reads a declared mask, with the mask&rsquo;s type, latitude blocks and
+reference bandwidth;</li>
+<li>a warning when the profile has per-latitude exclusion rows: the scheduler obeys them, but
+the beams carry only the global exclusion angle;</li>
+<li>a note when the step samples the fastest crossing of the victim&rsquo;s 3&nbsp;dB beam
+fewer than three times.</li>
+</ul>
+<p>When something is wrong, the line opens with <em>invalid:</em> and names it. A run is
+refused when:</p>
+<ul>
+<li>the orbit design document or the operation profile is missing;</li>
+<li>the R&nbsp;set files a quantity in both header and array form;</li>
+<li>the duration, the time step or the dish diameter is not a positive number;</li>
+<li>a limit line is not two numbers;</li>
+<li>the profile&rsquo;s footprint source is a pfd mask but it names no mask file.</li>
+</ul>
+
+<h2>Watching the operation: &#9654;, &#9193; and &#9209;</h2>
+<p>The map plays one continuous timeline of the downlink schedule. It shows the service cells,
+the satellites, thin lines for candidate (feasible) links and thick lines for active (granted)
+links.</p>
+<ul>
+<li><strong>&#9654;</strong> advances one step per tick and redraws the map.</li>
+<li><strong>&#9193;</strong> advances 50 steps per tick without redrawing. The last frame
+stays; only the readout beside the buttons moves.</li>
+<li>Press the other icon at any moment to change pace. The time and the schedule carry
+on.</li>
+<li><strong>&#9209;</strong> stops. The next start begins again at time zero.</li>
+</ul>
+<p>The readout gives the time in hours and the active, candidate and unserved links. Neither
+pace collects statistics, and <strong>Write CDFs&#8230;</strong> is unavailable while the map
+plays.</p>
+
+<h2>The statistics: Write CDFs&#8230; and View CDFs&#8230;</h2>
+<p><strong>Write CDFs&#8230;</strong> asks for a base name, then runs the whole duration
+without drawing: epfd(down) and epfd(is) first, then epfd(up). The status line shows the
+progress and the time left. The run writes <code>base.down.csv</code>,
+<code>base.is.csv</code> and <code>base.up.csv</code>; on the pfd mask path there is no
+<code>.is.csv</code>. Each file is a cumulative distribution (CDF): for every epfd level, the
+percentage of time it is exceeded.</p>
+<p>When the run completes, the status line gives each direction&rsquo;s maximum epfd and its
+quiet steps, the steps in which nothing contributed, then the verdicts. The <strong>CDF
+viewer</strong> opens over the new curves: epfd on a linear dB axis against the percentage of
+time exceeded on a log axis, one colour per curve. <strong>View CDFs&#8230;</strong> opens the
+same viewer over existing CDF files; pick one or more.</p>
+<p>The runner judges one victim. To cover a grid of latitudes, and to derive and examine a
+declaration, use the Compliance loop window. It runs the same downlink calculation at every
+latitude.</p>
 <div class="tech"><div class="t">Tech &middot; the CDF files</div>
-<p>Levels are binned in the 0.1&nbsp;dB bins of S.1503-4 &sect;D7.1.2, and each file reports
-the step count, the step and the duration, the reference bandwidth of the levels, the quiet
-steps (nothing visible or transmitting) and the maximum epfd seen, and, when a limit was
-entered, its verdict. The runner verdicts one victim; the latitude grid, the declaration and
-its examination belong to the compliance loop, which reuses these same mechanics victim by
-victim.</p></div>
+<p>Levels fall in the 0.1&nbsp;dB bins of S.1503-4 &sect;D7.1.2. Each file opens with comment
+lines: the direction; the victim (for epfd(up), the earth stations&rsquo; power and reference
+elevation); the step count, the step and the duration; the reference bandwidth
+<code>refbw_khz</code>; the quiet steps; the maximum epfd; and, when a limit was entered, the
+verdict. The data rows are epfd and percentage of time exceeded.</p>
+<p><code>refbw_khz</code> is the bandwidth the file&rsquo;s levels are in, and the viewer labels
+its axis with it: the profile&rsquo;s <em>Ref bandwidth (kHz)</em>, except on the pfd mask
+path, where the downlink file states the mask&rsquo;s own reference bandwidth, which
+<strong>Validate inputs</strong> also reports. The level column is headed
+<code>epfd_dbw_m2_40khz</code> whatever the bandwidth.</p></div>
 
 <div class="foot">
 Companion pages: <a href="r-set-designer.html">Inside the R Set</a> &middot;

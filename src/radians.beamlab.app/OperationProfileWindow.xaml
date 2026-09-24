@@ -56,7 +56,7 @@
                                 <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="MaskPathBox" Text="{Binding MaskXmlPathText, UpdateSourceTrigger=LostFocus}"/>
-                            <Button Grid.Column="1" Content="…" Margin="4,1,0,1" Click="OnBrowseMaskClick"/>
+                            <Button Grid.Column="1" Content="…" Margin="4,1,0,1" Command="{Binding BrowseMaskCommand}"/>
                         </Grid>
                     </Grid>
                 </GroupBox>
@@ -116,6 +116,7 @@
                             <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
                             <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
                             <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                            <RowDefinition/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="Pattern model"/>
                         <ComboBox  x:Name="PatternCombo" Grid.Row="0" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding PatternKind}">
@@ -169,6 +170,8 @@
                         <TextBox   x:Name="CrossBox" Grid.Row="18" Grid.Column="1" Text="{Binding CrossoverText, UpdateSourceTrigger=LostFocus}"/>
                         <TextBlock Grid.Row="19" Grid.ColumnSpan="2" Foreground="#698089" FontSize="11" TextWrapping="Wrap"
                                    Text="minimum elevation is not repeated here — it comes from Service &amp; coverage"/>
+                        <TextBlock Grid.Row="20" Text="Yaw steering range (± deg)" TextWrapping="Wrap"/>
+                        <TextBox   x:Name="YawBox" Grid.Row="20" Grid.Column="1" Text="{Binding YawSteeringText, UpdateSourceTrigger=LostFocus}"/>
                     </Grid>
                 </GroupBox>
 
@@ -244,7 +247,7 @@
                     </Grid>
                 </GroupBox>
 
-                <GroupBox Header="Traffic &amp; scheduling — link discipline (scheduler gates, declared in the R set)">
+                <GroupBox Header="Traffic &amp; scheduling — link discipline (scheduler gates; the Nco caps, the exclusion and the minimum angles reach the R set, the strategy, hold, demand and activity do not)">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="190"/><ColumnDefinition Width="*"/>
@@ -311,7 +314,7 @@
                             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.ColumnSpan="3" TextWrapping="Wrap" Foreground="#698089" FontSize="11"
-                                   Text="One node per line: the earth-station latitude (deg), a space, the value. Read as the Recommendation reads them: min elevation and Nco at the nearest row, exclusion by linear interpolation between rows; outside the rows the scalar field on the left applies. Per-latitude exclusion rows gate the scheduler only until mask inheritance lands — setting them raises a warning in the compliance and simulation windows."/>
+                                   Text="One node per line: the earth-station latitude (deg), a space, the value. Read as the Recommendation reads them: min elevation and Nco at the nearest row, exclusion by linear interpolation between rows; beyond the rows the outermost row governs. Once rows are entered they replace the scalar field on the left for that quantity (for the exclusion the scalar still sets the scene ring the masks bake). Per-latitude exclusion rows gate the scheduler only until mask inheritance lands — setting them raises a warning in the compliance and simulation windows."/>
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="min elevation — lat(deg) elev(deg)" FontSize="11"/>
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="Nco — lat(deg) links" FontSize="11" Margin="6,2,0,2"/>
                         <TextBlock Grid.Row="1" Grid.Column="2" Text="exclusion — lat(deg) alpha(deg)" FontSize="11" Margin="6,2,0,2"/>
@@ -329,8 +332,8 @@
         <GroupBox Header="File">
             <StackPanel>
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="Save profile…" Click="OnSaveClick"/>
-                    <Button Content="Load profile…" Click="OnLoadClick"/>
+                    <Button Content="Save profile…" Command="{Binding SaveCommand}"/>
+                    <Button Content="Load profile…" Command="{Binding LoadCommand}"/>
                 </StackPanel>
                 <TextBlock Text="{Binding SummaryText}" Foreground="#698089" TextWrapping="Wrap"/>
                 <TextBlock Text="{Binding StatusText}" Foreground="#CC3F4D" TextWrapping="Wrap"/>

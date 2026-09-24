@@ -90,7 +90,31 @@ public sealed class HomeViewModel
 
         var v = Assembly.GetExecutingAssembly().GetName().Version;
         VersionText = v is null ? "" : $"v{v.Major}.{v.Minor}.{v.Build}";
+
+        OpenCardCommand = new RelayCommand<HomeCard>(card => OpenCardRequested?.Invoke(card));
+        OpenUserGuideCommand = DocCommand(() => UserGuidePath);
+        OpenParameterCardsCommand = DocCommand(() => ParameterCardsPath);
+        OpenOrbitCasesCommand = DocCommand(() => OrbitCasesPath);
+        OpenRepeatSolverCommand = DocCommand(() => RepeatSolverPath);
     }
+
+    // ---- the page's buttons: commands; the view opens tabs, windows and documents ----
+
+    /// <summary>Supplied by the view: opens a document with the shell.</summary>
+    public Action<string>? OpenDocument { get; set; }
+
+    /// <summary>Raised by a card's Open button; the view activates the tab or opens the window.</summary>
+    public event Action<HomeCard>? OpenCardRequested;
+
+    public System.Windows.Input.ICommand OpenCardCommand { get; }
+    public System.Windows.Input.ICommand OpenUserGuideCommand { get; }
+    public System.Windows.Input.ICommand OpenParameterCardsCommand { get; }
+    public System.Windows.Input.ICommand OpenOrbitCasesCommand { get; }
+    public System.Windows.Input.ICommand OpenRepeatSolverCommand { get; }
+
+    // A documentation link: available only when its page was found.
+    private System.Windows.Input.ICommand DocCommand(Func<string?> path)
+        => new RelayCommand(() => { if (path() is string p) OpenDocument?.Invoke(p); }, () => path() is not null);
 
     /// <summary>Walk up from the start directory to the repo docs folder.</summary>
     public static string? FindDocsDir(string startDir)

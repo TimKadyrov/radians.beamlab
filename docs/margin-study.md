@@ -63,3 +63,7 @@ decision, power budget contingent, tail floor as stated); additionally
 the payload here is a REQUIRED-envelope stand-in, not a real system --
 the 100% limit point's margin is a range artefact. CDFs:
 dataset/margin/study.{T,E1,E2,E1fine}.csv.
+
+> *Note, 24 September 2026:* "power budget contingent" means not modelled:
+> the code has no payload power budget. Every beam radiates the swept
+> per-beam density, with no total bound and no redistribution across beams.

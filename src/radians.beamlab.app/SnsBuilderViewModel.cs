@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Windows.Input;
 using radians.beamlab;
 
 namespace radians.beamlab.app;
@@ -117,6 +118,113 @@ public sealed class SnsBuilderViewModel : ObservableObject
     private string _statusText = "";
     public string StatusText { get => _statusText; set => SetField(ref _statusText, value); }
 
+    // ---- the window's buttons; the window supplies the dialogs and opens the designer ----
+
+    private const string DefaultDonorSrs =
+        @"C:\Projects\_EPFD\epfd-reference\Cases\S.1503-4\127520101 SRS.MDB";
+    private const string DefaultDonorMasks =
+        @"C:\Projects\_EPFD\epfd-reference\Cases\S.1503-4\127520101 Masks.MDB";
+
+    /// <summary>Supplied by the window: an open-file dialog over several files (filter -> paths, null when cancelled).</summary>
+    public Func<string, string[]?>? PickOpenFiles { get; set; }
+    /// <summary>Supplied by the window: a titled open-file dialog (title, filter -> path, null when cancelled).</summary>
+    public Func<string, string, string?>? PickOpenFileTitled { get; set; }
+    /// <summary>Supplied by the window: a save-file dialog (filter, file name -> path, null when cancelled).</summary>
+    public Func<string, string, string?>? PickSaveFile { get; set; }
+    /// <summary>Raised by Design operating parameters; the window opens the designer.</summary>
+    public event Action? OpenOpParamsRequested;
+
+    /// <summary>The grids' selected rows (object: a grid may select a row of another type while editing).</summary>
+    public object? SelectedShellEntry { get; set; }
+    public object? SelectedMask { get; set; }
+    public object? SelectedEarthStation { get; set; }
+    public object? SelectedFrequency { get; set; }
+
+    private ICommand? _addShells, _removeShell, _addMasks, _removeMask, _openOpParams, _addEs, _removeEs,
+        _addFreq, _removeFreq, _preview, _build;
+    public ICommand AddShellsCommand => _addShells ??= new RelayCommand(AddShellFiles);
+    public ICommand RemoveShellCommand => _removeShell ??= new RelayCommand(
+        () => { if (SelectedShellEntry is ShellEntry s) Shells.Remove(s); });
+    public ICommand AddMasksCommand => _addMasks ??= new RelayCommand(AddMaskFiles);
+    public ICommand RemoveMaskCommand => _removeMask ??= new RelayCommand(
+        () => { if (SelectedMask is MaskEntry m) Masks.Remove(m); });
+    public ICommand OpenOpParamsCommand => _openOpParams ??= new RelayCommand(() => OpenOpParamsRequested?.Invoke());
+    public ICommand AddEarthStationCommand => _addEs ??= new RelayCommand(AddEarthStation);
+    public ICommand RemoveEarthStationCommand => _removeEs ??= new RelayCommand(
+        () => { if (SelectedEarthStation is EsEntry s) EarthStations.Remove(s); });
+    public ICommand AddFrequencyCommand => _addFreq ??= new RelayCommand(() => Frequencies.Add(new FreqEntry()));
+    public ICommand RemoveFrequencyCommand => _removeFreq ??= new RelayCommand(
+        () => { if (SelectedFrequency is FreqEntry f) Frequencies.Remove(f); });
+    public ICommand PreviewCommand => _preview ??= new RelayCommand(() => StatusText = SummaryText());
+    public ICommand BuildCommand => _build ??= new RelayCommand(Build);
+
+    private void AddShellFiles()
+    {
+        if (PickOpenFiles?.Invoke("Orbit design (*.orbitdesign.json)|*.orbitdesign.json|JSON|*.json")
+                is not string[] files) return;
+        foreach (string f in files)
+        {
+            try { AddShellFile(f); }
+            catch (Exception ex) { StatusText = $"{Path.GetFileName(f)}: {ex.Message}"; return; }
+        }
+        StatusText = SummaryText();
+    }
+
+    private void AddMaskFiles()
+    {
+        if (PickOpenFiles?.Invoke("Mask XML (*.xml)|*.xml") is not string[] files) return;
+        int nextId = 1;
+        foreach (var m in Masks) nextId = Math.Max(nextId, m.MaskId + 1);
+        foreach (string f in files)
+            Masks.Add(new MaskEntry { MaskId = nextId++, FilePath = f });
+        StatusText = "set f_mask (P/E/S/R), type and the frequency range per row";
+    }
+
+    private void AddEarthStation()
+    {
+        int nextId = 1;
+        foreach (var s in EarthStations) nextId = Math.Max(nextId, s.EAsId + 1);
+        EarthStations.Add(new EsEntry { EAsId = nextId, StnName = $"ES-{nextId}" });
+    }
+
+    /// <summary>Build: the SRS database (and the Masks database when masks are registered) from donor databases.</summary>
+    private void Build()
+    {
+        try
+        {
+            var notice = BuildNotice();   // validates
+
+            string donorSrs = DefaultDonorSrs;
+            if (!File.Exists(donorSrs) && !PickDonor("Select a donor SRS database", ref donorSrs)) return;
+            if (PickSaveFile?.Invoke("SRS database (*.mdb)|*.mdb", $"{NtcId} SRS.MDB") is not string srsPath) return;
+            SrsMdbWriter.WriteSrs(donorSrs, srsPath, notice);
+
+            string masksNote = "";
+            var contents = BuildMaskContents();
+            if (contents.Count > 0)
+            {
+                string donorMasks = DefaultDonorMasks;
+                if (!File.Exists(donorMasks) && !PickDonor("Select a donor Masks database", ref donorMasks)) return;
+                string masksPath = Path.Combine(Path.GetDirectoryName(srsPath)!, $"{NtcId} Masks.MDB");
+                var stored = SrsMdbWriter.WriteMasks(donorMasks, masksPath, NtcId, SatName, contents);
+                var bad = stored.Where(r => r.Status != 0).ToList();
+                masksNote = bad.Count == 0
+                    ? $"; Masks: {stored.Count} row(s) -> {masksPath}"
+                    : "; mask store FAILED: " + string.Join(",", bad.Select(r => $"{r.MaskId}:{r.Status}"));
+            }
+            StatusText = $"SRS written: {srsPath} ({notice.Orbits.Count} orbit / " +
+                         $"{notice.Phases.Count} phase rows){masksNote}";
+        }
+        catch (Exception ex) { StatusText = "build failed: " + ex.Message; }
+    }
+
+    private bool PickDonor(string title, ref string path)
+    {
+        if (PickOpenFileTitled?.Invoke(title, "Database (*.mdb)|*.mdb") is not string picked) return false;
+        path = picked;
+        return true;
+    }
+
     /// <summary>Loads a design file; a schema-4 document contributes all its shells.</summary>
     public void AddShellFile(string path)
     {
@@ -129,7 +237,16 @@ public sealed class SnsBuilderViewModel : ObservableObject
     {
         if (Shells.Count == 0) throw new InvalidOperationException("add at least one orbit design");
         var n = new SrsNotice { NtcId = _ntcId, SatName = _satName, Adm = _adm };
-        foreach (var sh in Shells) n.AddShell(OrbitDesignFileCodec.ToShell(sh.Data));
+        foreach (var sh in Shells)
+        {
+            var shell = OrbitDesignFileCodec.ToShell(sh.Data);
+            // The filing carries the rate's magnitude; the inclination sets its direction.
+            if (shell.PrecessionSupplied
+                && !OrbitDesign.PrecessionMatchesInclination(shell.PrecessionRateDegPerSec, shell.InclinationDeg))
+                throw new InvalidOperationException(string.Create(CultureInfo.InvariantCulture,
+                    $"{sh.FileName}: a precession turning {(shell.PrecessionRateDegPerSec > 0 ? "east" : "west")} at i = {shell.InclinationDeg:F1} deg cannot be filed -- the filed magnitude turns the way the inclination implies"));
+            n.AddShell(shell);
+        }
 
         foreach (var m in Masks)
         {

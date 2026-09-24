@@ -137,8 +137,8 @@
             <Border Grid.Row="0" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,0,0,0" Padding="6,3">
                 <CheckBox Content="Show 3-dB footprint rings" IsChecked="{Binding FootprintsEnabled}"/>
             </Border>
-            <Border Grid.Row="1" Background="#0d1014" BorderBrush="#D1EBF5" BorderThickness="1,1,0,0">
-                <Canvas x:Name="MapCanvas" Background="#0d1014"/>
+            <Border Grid.Row="1" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,1,0,0">
+                <Canvas x:Name="MapCanvas" Background="#ffffff"/>
             </Border>
 
             <!-- Draggable divider between the map and the plots -->
@@ -158,7 +158,7 @@
 
                 <!-- Heatmap: toolbar + canvas -->
                 <Border Grid.Column="0" Grid.Row="0" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,1,0,0" Padding="6,3">
-                    <CheckBox Content="Mark α &lt; α_excl" IsChecked="{Binding ShowAlphaContour}"/>
+                    <CheckBox Content="Mark α &lt; α__excl" IsChecked="{Binding ShowAlphaContour}"/>
                 </Border>
                 <Border Grid.Column="0" Grid.Row="1" Background="#ffffff" BorderBrush="#D1EBF5" BorderThickness="1,1,0,0">
                     <Canvas x:Name="PlotCanvas" Background="#ffffff"/>

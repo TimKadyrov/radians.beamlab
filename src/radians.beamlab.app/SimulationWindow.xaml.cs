@@ -12,7 +12,9 @@ using radians.beamlab;
 namespace radians.beamlab.app;
 
 /// <summary>
-/// Dialogs and the animated map over <see cref="SimulationViewModel"/>.
+/// The animated map and the CDF viewer over <see cref="SimulationViewModel"/>;
+/// every button is a command of the view model, and the window supplies the
+/// dialogs and handles the play, stop and show-curves requests.
 /// Play marches the scheduler visibly (satellites, candidate and active
 /// links); Quick run is the accelerated statistics run on a worker
 /// thread with no UI updates.
@@ -25,116 +27,20 @@ public partial class SimulationWindow : Window
     private DispatcherTimer? _timer;
     private double _tSec;
 
-    private readonly string? _guidePath;
-
     public SimulationWindow()
     {
         InitializeComponent();
+        _vm.PickOpenFile = ViewServices.PickOpenFile;
+        _vm.PickOpenFiles = ViewServices.PickOpenFiles;
+        _vm.PickSaveFile = ViewServices.PickSaveFile;
+        _vm.OpenDocument = ViewServices.OpenDocument;
+        _vm.ShowCdfsRequested += (series, title) =>
+            new CdfWindow(series) { Owner = this, Title = title }.Show();
+        _vm.PlayRequested += fastForward => StartOrSwitch(fastForward);
+        _vm.StopRequested += () => StopPlay("stopped");
         DataContext = _vm;
-        string? docs = HomeViewModel.FindDocsDir(AppContext.BaseDirectory);
-        string? guide = docs is null ? null : System.IO.Path.Combine(docs, "simulation-runner.html");
-        _guidePath = guide is not null && System.IO.File.Exists(guide) ? guide : null;
-        GuideBtn.IsEnabled = _guidePath is not null;
         SizeChanged += (_, _) => { if (_session is not null) DrawStatic(); };
         Closed += (_, _) => _timer?.Stop();
-    }
-
-    private void OnGuideClick(object sender, RoutedEventArgs e)
-    {
-        if (_guidePath is null) return;
-        System.Diagnostics.Process.Start(
-            new System.Diagnostics.ProcessStartInfo(_guidePath) { UseShellExecute = true });
-    }
-
-    private void OnBrowseClick(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.OpenFileDialog
-        {
-            Filter = "Orbit design (*.orbitdesign.json)|*.orbitdesign.json|JSON|*.json",
-        };
-        if (dlg.ShowDialog() != true) return;
-        _vm.DesignPath = dlg.FileName;
-        _vm.ValidateInputs();
-    }
-
-    private void OnBrowseProfileClick(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.OpenFileDialog
-        {
-            Filter = "Operation profile (*.opprofile.json)|*.opprofile.json|JSON|*.json",
-        };
-        if (dlg.ShowDialog() != true) return;
-        _vm.ProfilePath = dlg.FileName;
-        _vm.ValidateInputs();
-    }
-
-    private void OnBrowseOpClick(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.OpenFileDialog
-        {
-            Filter = "Operating parameters (*.opparams.json)|*.opparams.json|JSON|*.json",
-        };
-        if (dlg.ShowDialog() != true) return;
-        _vm.OpParamsPath = dlg.FileName;
-        _vm.ValidateInputs();
-    }
-
-    private void OnValidateClick(object sender, RoutedEventArgs e) => _vm.ValidateInputs();
-
-    private async void OnRunClick(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.SaveFileDialog
-        {
-            Filter = "CDF base name (*.csv)|*.csv",
-            FileName = "sim.csv",
-        };
-        if (dlg.ShowDialog() != true) return;
-        string baseName = dlg.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
-            ? dlg.FileName[..^4]
-            : dlg.FileName;
-        if (!await _vm.RunAsync(baseName)) return;
-        // Show what was just written: one viewer over the run's curves.
-        var series = new List<CdfSeries>();
-        foreach (var (sfx, label) in new[]
-            { (".down.csv", "epfd(down)"), (".is.csv", "epfd(is)"), (".up.csv", "epfd(up)") })
-            if (System.IO.File.Exists(baseName + sfx))
-                series.Add(CdfSeries.LoadCsv(baseName + sfx, label));
-        if (series.Count > 0)
-            new CdfWindow(series)
-            {
-                Owner = this,
-                Title = "CDF viewer — " + System.IO.Path.GetFileName(baseName),
-            }.Show();
-    }
-
-    /// <summary>Direction label from a runner file name; the bare name otherwise.</summary>
-    private static string CdfLabel(string path)
-    {
-        string n = System.IO.Path.GetFileNameWithoutExtension(path);
-        if (n.EndsWith(".down", StringComparison.OrdinalIgnoreCase)) return "epfd(down)";
-        if (n.EndsWith(".is", StringComparison.OrdinalIgnoreCase)) return "epfd(is)";
-        if (n.EndsWith(".up", StringComparison.OrdinalIgnoreCase)) return "epfd(up)";
-        return n;
-    }
-
-    private void OnViewCdfsClick(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.OpenFileDialog
-        {
-            Filter = "CDF CSV (*.csv)|*.csv",
-            Multiselect = true,
-        };
-        if (dlg.ShowDialog() != true || dlg.FileNames.Length == 0) return;
-        try
-        {
-            var series = dlg.FileNames.Select(f => CdfSeries.LoadCsv(f, CdfLabel(f))).ToList();
-            new CdfWindow(series)
-            {
-                Owner = this,
-                Title = "CDF viewer — " + System.IO.Path.GetFileName(dlg.FileNames[0]),
-            }.Show();
-        }
-        catch (Exception ex) { _vm.StatusText = "CDF load failed: " + ex.Message; }
     }
 
     // ---- the animated timeline: play / accelerated play ---------------
@@ -143,10 +49,6 @@ public partial class SimulationWindow : Window
     private const int FastForwardStepsPerTick = 50;
 
     private bool _fastForward;
-
-    private void OnPlayClick(object sender, RoutedEventArgs e) => StartOrSwitch(fastForward: false);
-
-    private void OnFfClick(object sender, RoutedEventArgs e) => StartOrSwitch(fastForward: true);
 
     /// <summary>
     /// One continuous timeline for both speeds: the first press starts the
@@ -168,8 +70,6 @@ public partial class SimulationWindow : Window
         _timer.Tick += OnTick;
         _timer.Start();
     }
-
-    private void OnStopClick(object sender, RoutedEventArgs e) => StopPlay("stopped");
 
     private void StopPlay(string why)
     {

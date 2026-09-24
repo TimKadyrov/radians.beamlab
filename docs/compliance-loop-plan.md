@@ -118,6 +118,13 @@ exclusion — live-composition footprint only (a declared mask is fixed;
 a power move needs the mask regenerated). The advisor prints it at its
 endpoints too.
 
+*Superseded 24 September 2026:* since 18 September 2026 the verdict is not
+the point-wise `CompareWithLimits` but the limit-curve rule: a latitude
+passes only if every tabulated point passes and the CDF nowhere crosses
+the log-linear curve between them (0.05 dB tolerance). The table carries
+the point and the curve margin, and the headroom quotes the rule margin
+(the smaller of the two).
+
 ## Stage C — adjustment advisor and completion
 
 On failure: walk the exclusion angle upward (configurable step and cap),
@@ -651,9 +658,15 @@ from, not what it means.
 ## Decisions taken
 
 - Limits are hand-entered points in stage B (BR limits DB later).
+  *Superseded 24 September 2026:* the compliance window loads the BR
+  limits database (Load, then Use fills the limit text with the chosen
+  row); see the limits-database item under Open points.
 - The victim geometry is explicit (ES lon, GSO offset), not a hidden
   worst-case search — the sweep is over latitude only; a longitude sweep
   can be added the same way if it proves necessary.
+  *Superseded 24 September 2026 in part:* the GSO offset has been swept
+  too (the GSO-offset item under Open points); the geometry stays
+  explicit.
 - The scene's exclusion ring stays global in the composition (the
   per-latitude exclusion is enforced by the scheduler's gates); a
   per-latitude scene ring would need the advanced-rings dialog model and
@@ -696,6 +709,13 @@ from, not what it means.
   exploring is the **GSO offset** from the earth station, already an
   input; a sweep over it (not over ES longitude) is the candidate
   addition.
+  *Superseded 24 September 2026:* the offset sweep was measured (the
+  console loop's `gso=` argument, beside `eslon=` for the earth station's
+  longitude, which was not moved; docs/compliance-steam-2-gso*.md):
+  on the examination about 2 dB at the equator and 0.6 dB or less
+  elsewhere at 2.0 days. The operator decided on 21 September that the
+  producer's geometry search is the loop over the scenario's own grid
+  points; no worst-case victim is fed in from the consumer.
 - epfd(up)/(is) compliance sweeps: same machinery, different victim and
   limits; add after the downlink loop settles.
 - ~~Limits-database loading through the vendored `radlimits` reader.~~
@@ -713,6 +733,11 @@ from, not what it means.
   capability) settles whether the *truth* side needs the constraint;
   the *declaration* side (envelope basis under a budget) belongs to the
   filed-mask-basis decision and is decided there (debate Q1/Q2).
+  *Note, 24 September 2026:* no payload power budget is modelled, on
+  either side: every beam radiates the per-beam density TxEirpDbw
+  (PowerMode constant e.i.r.p. or constant boresight pfd), with no total
+  bound and no redistribution across beams. The co-frequency beam
+  capacity, added since, limits the beam count per colour, not power.
 - The exported mask does not yet inherit per-latitude exclusion: the R
   set can carry per-latitude alpha rows (scheduler-enforced) while the
   scene ring is global — at tightened latitudes the mask then describes

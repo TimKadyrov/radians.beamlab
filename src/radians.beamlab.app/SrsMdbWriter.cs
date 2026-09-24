@@ -71,10 +71,13 @@ public static class SrsMdbWriter
                 n.NtcId, o.OrbId, o.NbrSatPl, o.LanDeg, o.InclinationDeg,
                 o.Period.Days, o.Period.Hours, o.Period.Minutes,
                 o.ApogeeKm, o.PerigeeKm, o.PerigArgDeg, o.OpHtKm,
+                // EPS orbit fields: keep_rnge NOT NULL (0 when not station-kept);
+                // precession as its magnitude in degrees/day, format 999.99; the
+                // reader applies the direction the inclination implies.
                 o.StationKeeping ? "Y" : "N",
-                o.StationKeeping ? (object?)o.KeepRangeDeg : null,
+                o.StationKeeping ? o.KeepRangeDeg : 0.0,
                 o.PrecessionSupplied ? "Y" : "N",
-                o.PrecessionSupplied ? (object?)o.PrecessionRateDegPerSec : null,
+                o.PrecessionSupplied ? (object?)OrbitDesign.PrecessionFieldDegPerDay(o.PrecessionRateDegPerSec) : null,
                 o.LanDeg, "N",
                 o.RepeatPeriod is { } rp ? (object)rp.Days : DBNull.Value,
                 o.RepeatPeriod is { } rp2 ? (object)rp2.Hours : DBNull.Value,

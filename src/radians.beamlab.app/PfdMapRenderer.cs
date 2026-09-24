@@ -36,11 +36,11 @@ public sealed class PfdMapRenderer
     {
         Color.FromRgb(0x4c, 0xc6, 0x76),   // green
         Color.FromRgb(0x4c, 0x8a, 0xd6),   // blue
-        Color.FromRgb(0xe6, 0xc8, 0x44),   // yellow
+        Color.FromRgb(0xc8, 0xa0, 0x00),   // dark yellow
         Color.FromRgb(0xb0, 0x6c, 0xd6),   // violet
         Color.FromRgb(0x4c, 0xc6, 0xc6),   // cyan
         Color.FromRgb(0xe6, 0x8a, 0x44),   // orange
-        Color.FromRgb(0xd8, 0xd8, 0xd8),   // light grey
+        Color.FromRgb(0x60, 0x60, 0x60),   // dark grey
     };
 
     public PfdMapRenderer(Canvas canvas, MapViewport viewport, PfdMaskViewModel vm, CoastlineDataProvider coasts)
@@ -73,8 +73,8 @@ public sealed class PfdMapRenderer
         var bg = new Rectangle
         {
             Width = w, Height = h,
-            Fill = new SolidColorBrush(Color.FromRgb(0x14, 0x1a, 0x22)),
-            Stroke = new SolidColorBrush(Color.FromRgb(0x3a, 0x40, 0x47)),
+            Fill = new SolidColorBrush(Color.FromRgb(0xff, 0xff, 0xff)),
+            Stroke = new SolidColorBrush(Color.FromRgb(0x1a, 0x1a, 0x1a)),
             StrokeThickness = 1,
             IsHitTestVisible = false,
         };
@@ -85,7 +85,7 @@ public sealed class PfdMapRenderer
 
     private void DrawCoastlines(double mapW, Func<double, double, (double x, double y)> toCanvas)
     {
-        var stroke = new SolidColorBrush(Color.FromRgb(0x6b, 0x88, 0xa8));
+        var stroke = new SolidColorBrush(Color.FromRgb(0x3f, 0x5f, 0x7f));
         double maxSegPx = mapW * 0.5;
         foreach (var ring in _coasts.Polylines)
         {
@@ -96,7 +96,7 @@ public sealed class PfdMapRenderer
 
     private void DrawGraticule(double mapW, Func<double, double, (double x, double y)> toCanvas)
     {
-        var stroke = new SolidColorBrush(Color.FromArgb(40, 0xff, 0xff, 0xff));
+        var stroke = new SolidColorBrush(Color.FromArgb(0x40, 0x88, 0x88, 0x88));
         for (double lat = -90.0 + GraticuleStepDeg; lat <= 90.0 - GraticuleStepDeg + 1e-6; lat += GraticuleStepDeg)
         {
             var (x1, y1) = toCanvas(lat, -180);
@@ -115,7 +115,7 @@ public sealed class PfdMapRenderer
     {
         double alpha = HorizonHalfAngleDeg(_vm.Scene.AltitudeKm);
         var pts = GeoMath.SampleSmallCircle(_vm.Scene.SubSatLatDeg, _vm.Scene.SubSatLonDeg, alpha, 240);
-        var stroke = new SolidColorBrush(Color.FromArgb(180, 0xff, 0xc8, 0x66));
+        var stroke = new SolidColorBrush(Color.FromArgb(220, 0xc0, 0x80, 0x00));
         MapDraw.AddSplitPolyline(_canvas, pts, stroke, 1.0, mapW * 0.5, toCanvas);
     }
 
@@ -174,7 +174,7 @@ public sealed class PfdMapRenderer
 
             if (!_vm.FootprintsEnabled) continue;
 
-            var ringBrush = new SolidColorBrush(Color.FromArgb(110, c.R, c.G, c.B));
+            var ringBrush = new SolidColorBrush(Color.FromArgb(170, c.R, c.G, c.B));
             Func<double, double> halfAngleAt;
             if (beam.Pattern is Rec1528_1p4_Ell ell)
             {

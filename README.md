@@ -3,9 +3,11 @@
 A small C# / WPF tool for studying the composite antenna pattern and
 downlink PFD of a non-GSO satellite as individual beams are switched on or
 off (e.g. to avoid transmissions toward a protected region). The single-beam
-pattern is the **Taylor circular illumination function** of Recommendation
-**ITU-R S.1528-1 §1.4** (2025 revision), which gives a realistic side-lobe
-shape rather than an envelope.
+pattern is one of six ITU-R S.1528 models. The default is the **Taylor
+illumination function** of Recommendation **ITU-R S.1528-1 §1.4** (2025
+revision), circular or elliptical, which gives a realistic side-lobe shape
+rather than an envelope; the S.1528-0 §1.2 envelope and the §1.3 LEO, MEO
+and HEO patterns are the alternatives.
 
 Functions (each a tab or tool window, launched from the Home page):
 
@@ -114,8 +116,11 @@ footprint centre. The horizon (line-of-sight) cap on Earth has half-angle
 ### Home
 
 The front door: one card per function with a description and an Open
-button, links to the local user guide and the parameter cards, and the
-version. The functional tabs keep their state while you switch.
+button, the EPFD pipeline first in flow order and the other tools after
+it; links to the local documentation (the user guide, the parameter cards,
+the orbit case guide and the repeat solver guide), each enabled when its
+file is found; and the version. The functional tabs keep their state while
+you switch.
 
 ### Composite gain map
 
@@ -125,12 +130,15 @@ Taylor circular/elliptical, §1.2 envelope, §1.3 LEO/MEO/HEO); the beam layout
 (auto hex tessellation or concentric rings, driven by a served
 min-elevation and an adjacent-beam crossover level); heatmap/probe mode; a
 country- or bounding-box exclusion; and an optional PFD-adjuster that trims
-adjacent-beam gains to hold an aggregate PFD limit over a chosen country.
+adjacent-beam gains to hold a PFD limit over a chosen country, the PFD read
+in the active heatmap/probe mode (single-beam max by default, the
+adjacent-beam power sum when that mode is chosen).
 
 Map (right panel): equirectangular world map with coastlines from
 `countries.json`, the sub-satellite point and horizon disc, and each beam's
-ground footprint as a coloured marker (green = on, red = off) with an optional
-3-dB ring. **Click a beam** to toggle it, **click elsewhere** to probe the
+ground footprint as a coloured marker (green = on, amber = on with its peak
+gain reduced by the PFD adjustment, red = off) with an optional 3-dB ring.
+**Click a beam** to toggle it, **click elsewhere** to probe the
 composite gain; **left-drag** pans, **right-drag** moves the satellite, wheel
 zooms.
 
@@ -162,18 +170,29 @@ Prototypes the SNS v10 orbit declaration, shell by shell — one document
 holds every shell of the constellation. Four sub-tabs share the state:
 **Start here** (the shells list — named, ordered, add/duplicate/remove —
 and the target orbit every case starts from), the **Repeat solver** (mode
-first: *fixed altitude* declares a repeat pair at your own altitude,
-auto-filled with the nearest, station keeping absorbing the drift;
-*adjusting altitude* solves the exact closing altitudes; then the
-`keep_rnge` tolerance, the candidate grid with both cycle readings, and
-one propagated declared cycle over the coastline map — closure 0 at the
-exact altitude, the free-flight drift at the target, with a
-whole-constellation overlay), the **Station-keeping cases** (the three
-S.1503-4 cases previewed as ready SNS fields — Case 1 purely
-informational, Case 3 with an optional admin-supplied precession rate)
+first: *adjusting altitude*, the default, files the selected repeat's
+exact closing altitude, where the filed orbit repeats by itself; *fixed
+altitude* declares a repeat pair at your own altitude, auto-filled with
+the nearest; the EPFD calculation flies the filed orbit on its own J2
+rates plus the `keep_rnge` sweep (S.1503-4 eq (49)), so at a fixed
+altitude it flies that orbit's drift every cycle; then the `keep_rnge`
+tolerance, the candidate grid with both cycle readings, and one propagated
+declared cycle over the coastline map — closure 0 at the exact altitude, the
+free-flight drift at the target, with a whole-constellation overlay), the
+**Station-keeping cases** (the three S.1503-4 cases, decided as in its
+Figure 52, previewed as ready SNS fields — Case 1 free drift, purely
+informational; Case 2 station-kept repeating; Case 3 station keeping with
+a supplied precession rate, the Case 2 repeat and `keep_rnge` plus the
+rate, by default the one that closes the repeat at the target altitude,
+filed as its magnitude in degrees/day with the direction the inclination
+implies, west below 90° and east above — a rate turning against its
+inclination is refused at save and by the SNS builder, and a typed rate
+that misses the repeat by more than `keep_rnge` a cycle at save; for an
+elliptical orbit the panel notes that Case 3 holds the perigee fixed)
 and the **Constellation** (Walker shell to live SNS orbit/phase tables,
 selected shell or all shells combined, with the constellation repeat
-period P_repeat and one-click `rpt_prd` harmonization across shells).
+period P_repeat and one-click `rpt_prd` harmonization across the Case 2
+and Case 3 shells).
 Designs save and reload as `*.orbitdesign.json` documents (every shell,
 selected candidates included); tooltips share their text with the
 parameter cards.
@@ -212,6 +231,48 @@ switchable mid-run; **Write CDFs** executes the statistics run with no
 UI updates, writes the three CDF CSVs in S.1503-4 D7.1.2 bins and
 opens the CDF viewer over the written curves.
 
+### Operation profile (window)
+
+Edits the operation profile (`*.opprofile.json`): the real system's
+operating characteristics, read by the simulation runner, the R-set
+deriver and the compliance loop. A profile name and a **Direction**
+selector (Downlink / Uplink) head the window; the selector shows that
+direction's groups and keeps the shared ones, and the file always carries
+both sides. Downlink: the projection switch (footprint from the live beam
+composition or from a declared PFD mask XML), radiated power and spectrum
+(frequency, per-beam power density, power mode, aggregation and reuse
+cluster, reference bandwidth, illumination duty cycle, co-frequency beam
+capacity), beam shape and layout (the six S.1528 models and the layout
+inputs) and a composition preview. Uplink: the earth-station transmit
+chain (frequency, power ceiling, power-control reference elevation, dish).
+Shared: service and coverage; traffic and scheduling (the tracking
+strategy — highest elevation, max GSO separation, random among feasible,
+hold until forced — the Nco caps, hold, demand, activity, operational
+fraction, exclusion angle and the selected direction's separation angles);
+and per-latitude rows for minimum elevation, Nco and exclusion. Empty optional fields keep the scene defaults. **Save
+profile…** and **Load profile…** write and read the file.
+
+### Compliance loop (window)
+
+Verdicts epfd(down) for an orbit design document and an operation profile
+over a victim sweep: ES latitude from / to / step at a chosen ES longitude,
+the wanted GSO satellite at an offset, the ES dish, and the duration and
+step (the truth's preset 1 s). **Run sweep** verdicts each latitude against
+the limit under the limit-curve rule and tabulates the maximum, the point
+and curve margins, the verdict, the deciding point and any curve crossing;
+an optional **Declared R set** is the declaration a declared-mask sweep
+examines, the truth keeping the profile's own gates. **Run loop** derives
+the declaration on a saturated probe (or takes the given R set), sweeps the
+truth, examines the declaration (E1) and shows T, E1, the gap and E1 ≥ T
+per latitude in a second table. The **Examination step** choice runs a
+declared-mask examination on the preset step or on the S.1503-4 §D4 fine
+and coarse steps with the dual time step. Limits are typed one point per
+line, or loaded from the BR limits database (**Load**, then **Use** a row).
+Two advisors write their result back into the profile: the **exclusion
+advisor** walks the global exclusion angle up to the smallest compliant
+value, the **cap advisor** derives per-latitude Nco rows. **Export
+table…** writes the results as CSV headed by the run's inputs.
+
 Full details and the maths for every control are in the
 **[user guide](docs/user-guide.md)**.
 
@@ -238,14 +299,14 @@ Targets `net8.0` (Core) and `net8.0-windows` (App, WPF). Tested with the
 dotnet run --project tests/radians.beamlab.checks
 ```
 
-Headless business-logic checks against independent invariants — the α
-solver vs brute force, frame round-trips, reuse colourings, aggregation
-ordering, export round-trips and envelope binning, peak retention on coarse
-grids, Taylor-kernel bounds, array-steered beams, the mask-viewer's
-§D5.1.5 reads, and the Orbit Design suite (repeat solver, cases,
-multi-shell documents, builder and simulation runner). Prints PASS/FAIL
-per check; exit code 0 iff all pass. A few
-checks use a local ITU reference filing and skip cleanly when it is absent.
+Headless checks of the business logic against independent invariants
+(brute-force references, closed-form identities, round-trips) and reference
+cases, each defined in `tests/radians.beamlab.checks/Program.cs`. Each check
+prints PASS or FAIL with its detail, a closing line counts passed and
+failed, and the exit code is 0 iff all pass. Checks that need files from
+outside the repository (a local ITU reference filing, donor SNS databases,
+the BR native DLLs, the radians working copy) skip cleanly when those are
+absent and print as PASS marked skipped.
 
 The same executable carries the producer's headless measurement modes,
 each opt-in by its first argument and each writing the record it is named

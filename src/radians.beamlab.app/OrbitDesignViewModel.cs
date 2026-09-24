@@ -140,14 +140,15 @@ public sealed class OrbitDesignViewModel : ObservableObject
         set { if (SetField(ref _keepRangeDeg, value)) RecomputeDetails(); }
     }
 
-    private bool _declareAtTargetAltitude = true;
+    private bool _declareAtTargetAltitude;
     /// <summary>
-    /// Case-2 default ("fixed altitude"): the repeat is declared at the
-    /// target altitude and station keeping absorbs the natural drift (the
-    /// EPFD calculation flies the declared repeat and sweeps the deadband
-    /// either way). False ("adjusting altitude") adopts the selected
-    /// candidate's exact closing altitude, where the repeat costs zero
-    /// correction.
+    /// Case-2 altitude mode. False, the default ("adjusting altitude"),
+    /// files the selected candidate's exact closing altitude: the EPFD
+    /// calculation flies the filed orbit on its own J2 rates plus the
+    /// keep_rnge sweep (Rec. S.1503-4 eq (49)), so only there is the
+    /// simulated track the declared repeat. True ("fixed altitude") files
+    /// the target altitude; the calculation then flies that orbit's natural
+    /// drift@target every cycle.
     /// </summary>
     public bool DeclareAtTargetAltitude
     {
@@ -187,23 +188,36 @@ public sealed class OrbitDesignViewModel : ObservableObject
         set { if (SetField(ref _harmonizedRptSeconds, value)) RecomputeDetails(); }
     }
 
-    /// <summary>This shell's own declared cycle in whole seconds (Case 2 with a selection; else null).</summary>
+    /// <summary>
+    /// This shell's own declared cycle in whole seconds: Case 2 at the
+    /// declared altitude, Case 3 as k point-mass orbits at the target
+    /// altitude; null without a selection or for Case 1.
+    /// </summary>
     public long? OwnRptSeconds
-        => _caseChoice == 1 && _selectedSolution is { } r
-            ? (long)Math.Round(_declareAtTargetAltitude
-                ? r.Solution.RepeatSecondsAtTarget
-                : r.Solution.RepeatSeconds)
+        => _selectedSolution is { } r
+            ? _caseChoice switch
+            {
+                1 => (long)Math.Round(_declareAtTargetAltitude
+                    ? r.Solution.RepeatSecondsAtTarget
+                    : r.Solution.RepeatSeconds),
+                2 => (long)Math.Round(OrbitDesign.Case3RepeatSeconds(
+                    OrbitalConstants.EarthRadiusKm + _targetAltitudeKm, r.Orbits)),
+                _ => null,
+            }
             : null;
 
-    /// <summary>The rpt_prd this shell declares: the harmonized period or its own cycle.</summary>
+    /// <summary>The rpt_prd this shell declares (Cases 2 and 3): the harmonized period or its own cycle.</summary>
     public long? DeclaredRptSeconds
-        => _caseChoice == 1 ? _harmonizedRptSeconds ?? OwnRptSeconds : null;
+        => _caseChoice is 1 or 2 ? _harmonizedRptSeconds ?? OwnRptSeconds : null;
 
     private string _precessionText = "";
     /// <summary>
-    /// Case-3 admin-supplied precession rate (deg/s, any sign); empty
-    /// declares the plain-J2 default for the target orbit. Unparsable text
-    /// behaves as empty and the Case-3 preview says so.
+    /// Case-3 admin-supplied precession rate (deg/s, signed); empty declares
+    /// the rate that closes the selected repeat at the target altitude. The
+    /// filing carries its magnitude and the direction is the one the
+    /// inclination implies, so a rate turning the other way is shown but
+    /// refused at save. Unparsable text behaves as empty and the Case-3
+    /// preview says so.
     /// </summary>
     public string PrecessionText
     {
@@ -214,6 +228,32 @@ public sealed class OrbitDesignViewModel : ObservableObject
     private double? ParsedPrecession()
         => double.TryParse(_precessionText, NumberStyles.Float, CultureInfo.InvariantCulture,
             out double v) ? v : null;
+
+    /// <summary>
+    /// The Case-3 rate this shell declares (deg/s): the typed rate, else
+    /// the rate that closes the selected repeat at the target altitude;
+    /// null without a selection.
+    /// </summary>
+    public double? Case3RateDegPerSec
+        => ParsedPrecession() ?? (_selectedSolution is { } r
+            ? OrbitDesign.Case3ClosingRateDegPerSec(
+                OrbitalConstants.EarthRadiusKm + _targetAltitudeKm, r.Orbits, r.NodalDays)
+            : null);
+
+    /// <summary>
+    /// How far a TYPED Case-3 rate leaves the track from closing the selected
+    /// repeat every cycle (deg): (typed - exact closing rate) x the Case-3
+    /// period. Null for the default rate or without a selection. Above
+    /// keep_rnge the declared tolerance cannot hold even for one cycle, and
+    /// Save design refuses it (the self-consistency check S.1503-2 asked of
+    /// a supplied rate).
+    /// </summary>
+    public double? Case3MismatchDegPerCycle
+        => ParsedPrecession() is double typed && _selectedSolution is { } r
+            ? (typed - OrbitDesign.Case3ExactClosingRateDegPerSec(
+                OrbitalConstants.EarthRadiusKm + _targetAltitudeKm, r.Orbits, r.NodalDays))
+              * Math.Round(OrbitDesign.Case3RepeatSeconds(OrbitalConstants.EarthRadiusKm + _targetAltitudeKm, r.Orbits))
+            : null;
 
     // ---- outputs -------------------------------------------------------
 
@@ -383,8 +423,8 @@ public sealed class OrbitDesignViewModel : ObservableObject
             RecomputeConstellation();
             return;
         }
-        // Cases 1 and 3 describe the TARGET orbit (no solved repeat needed);
-        // Case 2 describes the selected candidate.
+        // Case 1 describes the TARGET orbit (no solved repeat needed); Cases 2
+        // and 3 describe the selected candidate, Case 3 at the target altitude.
         double aTarget = OrbitalConstants.EarthRadiusKm + _targetAltitudeKm;
         var inv = CultureInfo.InvariantCulture;
 
@@ -414,8 +454,9 @@ public sealed class OrbitDesignViewModel : ObservableObject
                 string altLine = _declareAtTargetAltitude
                     ? drift > 1e-9
                         ? string.Create(inv,
-                            $"declared at the target {_targetAltitudeKm:F1} km; station keeping absorbs {drift:F4} deg/cycle\n" +
-                            $"(keep_rnge crossed in {_keepRangeDeg / drift:F1} cycle(s) ~ {_keepRangeDeg / drift * s.RepeatSecondsAtTarget / 86400.0:F1} d between corrections)")
+                            $"declared at the target {_targetAltitudeKm:F1} km: the EPFD calculation flies this orbit, so its track\n" +
+                            $"drifts {drift:F4} deg every cycle of the run beyond the keep_rnge sweep (the real\n" +
+                            $"station keeping absorbs it, crossing keep_rnge in {_keepRangeDeg / drift:F1} cycle(s) ~ {_keepRangeDeg / drift * s.RepeatSecondsAtTarget / 86400.0:F1} d)")
                         : string.Create(inv,
                             $"declared at the target {_targetAltitudeKm:F1} km; station keeping absorbs negligible drift")
                     : string.Create(inv,
@@ -443,17 +484,59 @@ public sealed class OrbitDesignViewModel : ObservableObject
         }
         KeepRangeHintText = _selectedSolution is { } hr ? BuildKeepHint(hr.Solution) : "";
 
-        double rate3 = OrbitDesign.J2NodalRateDegPerSec(aTarget, _eccentricity, _inclinationDeg);
-        Case3Text = ParsedPrecession() is { } custom
-            ? string.Create(inv,
-                $"f_precess='Y'   precession = {custom:E4} deg/s (admin-supplied)\n" +
-                $"(plain-J2 at {_targetAltitudeKm:F1} km / i={_inclinationDeg:F1} would be {rate3:E4} deg/s)")
-            : _precessionText.Trim().Length > 0
-                ? "precession: not a number -- empty declares the J2 default"
-                : string.Create(inv,
-                    $"f_precess='Y'   precession = {rate3:E4} deg/s\n" +
-                    $"(the plain-J2 declaration rate at {_targetAltitudeKm:F1} km / i={_inclinationDeg:F1})");
+        Case3Text = BuildCase3Text(aTarget);
         RecomputeConstellation();
+    }
+
+    // Case 3 is station-kept with a supplied rate (Rec. S.1503-4 Fig. 52):
+    // it files the repeat and keep_rnge as Case 2 does, plus the rate. The
+    // filing carries the rate's magnitude; its direction is the one the
+    // inclination implies, -sign(cos i).
+    private string BuildCase3Text(double aTarget)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        double j2 = OrbitDesign.J2NodalRateDegPerSec(aTarget, _eccentricity, _inclinationDeg);
+        if (_selectedSolution is not { } row)
+            return "f_stn_keep='Y', f_precess='Y': Case 3 is station-kept, so it needs a repeat --\n"
+                 + "select a repeating candidate (or validate your own period) on the Repeat solver";
+        if (ParsedPrecession() is null && _precessionText.Trim().Length > 0)
+            return "precession: not a number -- empty declares the rate that closes the selected repeat";
+        double rate = Case3RateDegPerSec!.Value;
+        // Case 3's own cycle (the harmonized one when Case 3 is the shell's
+        // case), whatever case the shell currently declares.
+        long rpt3 = _caseChoice == 2 && _harmonizedRptSeconds is long hp
+            ? hp : (long)Math.Round(OrbitDesign.Case3RepeatSeconds(aTarget, row.Orbits));
+        var (d, h, m, sec) = OrbitDesign.DecomposePeriod(rpt3);
+        string source = ParsedPrecession() is not null
+            ? "admin-supplied"
+            : string.Create(inv, $"closes the {row.Orbits}/{row.NodalDays} repeat at {_targetAltitudeKm:F1} km");
+        int dir = OrbitDesign.PrecessionDirection(_inclinationDeg);
+        string turns = rate > 0.0 ? "east" : rate < 0.0 ? "west" : "nowhere";
+        string text = string.Create(inv,
+            $"f_stn_keep='Y'   keep_rnge = {_keepRangeDeg:F3} deg   rpt_prd_dd={d}  hh={h}  mm={m}  ss={sec}\n" +
+            $"f_precess='Y'   precession = {rate:E4} deg/s: {OrbitDesign.PrecessionFieldDegPerDay(rate):F2} deg/day on file, turning {turns} ({source})\n" +
+            $"(the plain-J2 rate at {_targetAltitudeKm:F1} km / i={_inclinationDeg:F1} would be {j2:E4} deg/s)");
+        if (!OrbitDesign.PrecessionMatchesInclination(rate, _inclinationDeg))
+            text += dir == 0
+                ? "\npolar: the filing implies no direction at i = 90 deg, so a nonzero rate cannot be filed -- use Case 2"
+                : string.Create(inv, $"\nthe filed magnitude turns a {(dir < 0 ? "prograde" : "retrograde")} orbit {(dir < 0 ? "west" : "east")}, so this rate\n")
+                  + "cannot be filed -- use Case 2 for this orbit";
+        if (Case3MismatchDegPerCycle is double mm)
+            text += string.Create(inv,
+                $"\nthe typed rate leaves the track {Math.Abs(mm):F3} deg from closing the {row.Orbits}/{row.NodalDays} repeat per cycle")
+              + (Math.Abs(mm) > _keepRangeDeg
+                  ? string.Create(inv, $", more than keep_rnge {_keepRangeDeg:F3} deg: it cannot be filed")
+                  : string.Create(inv, $" (keep_rnge {_keepRangeDeg:F3} deg)"));
+        if (_eccentricity > 1e-9)
+        {
+            double apsDay = OrbitDesign.ApsidalRateDegPerSec(aTarget, _eccentricity, _inclinationDeg) * 86400.0;
+            text += Math.Abs(apsDay) >= 0.005
+                ? string.Create(inv,
+                    $"\nelliptical: Case 3 holds the perigee fixed (S.1503-4 eq (51)), while the real apsides turn\n" +
+                    $"{apsDay:+0.00;-0.00} deg/day at this inclination (still only at 63.43 and 116.57 deg)")
+                : "\nelliptical, at a critical inclination: the real apsides are still, as Case 3 holds them";
+        }
+        return text;
     }
 
     // keep_rnge is the operator's own tolerance promise; the solver only
@@ -513,7 +596,7 @@ public sealed class OrbitDesignViewModel : ObservableObject
         : string.Create(CultureInfo.InvariantCulture,
             $"track closure after one cycle: {TrackClosureDeg:F4} deg")
           + (_declareAtTargetAltitude
-              ? " (flown at the target altitude: the gap is the free-flight drift station keeping absorbs)"
+              ? " (flown at the target altitude: the gap is the drift the EPFD calculation flies every cycle)"
               : "");
 
     // ---- constellation construction (Walker shell -> SNS tables) -------
@@ -551,20 +634,25 @@ public sealed class OrbitDesignViewModel : ObservableObject
     public string OpHeightText { get => _opHeightText; set { if (SetField(ref _opHeightText, value)) RecomputeConstellation(); } }
 
     private int _caseChoice = 1;
-    /// <summary>0 = Case 1 free drift, 1 = Case 2 station-kept, 2 = Case 3 declared.</summary>
+    /// <summary>0 = Case 1 free drift, 1 = Case 2 station-kept, 2 = Case 3 station-kept with a supplied rate.</summary>
     public int CaseChoice
     {
         get => _caseChoice;
         set
         {
             if (!SetField(ref _caseChoice, value)) return;
+            _harmonizedRptSeconds = null;   // the declared cycle changed
             OnPropertyChanged(nameof(IsCase2));
-            RecomputeConstellation();
+            OnPropertyChanged(nameof(IsStationKept));
+            RecomputeDetails();
         }
     }
 
-    /// <summary>True when the station-keeping case is Case 2 (gates the harmonize control).</summary>
+    /// <summary>True when the station-keeping case is Case 2.</summary>
     public bool IsCase2 => _caseChoice == 1;
+
+    /// <summary>True for the station-kept cases 2 and 3, which declare a repeat (gates the harmonize control).</summary>
+    public bool IsStationKept => _caseChoice is 1 or 2;
 
     private IReadOnlyList<SrsOrbitRow> _orbitRows = Array.Empty<SrsOrbitRow>();
     public IReadOnlyList<SrsOrbitRow> OrbitRows { get => _orbitRows; private set => SetField(ref _orbitRows, value); }
@@ -592,10 +680,9 @@ public sealed class OrbitDesignViewModel : ObservableObject
     /// <summary>The designed shell: the declared altitude with the chosen case's fields.</summary>
     public ConstellationShell BuildShell()
     {
-        // Cases 1 and 3 fly the target orbit as-is; Case 2 declares at the
-        // target altitude too by default (station keeping absorbs the
-        // drift) and only adopts the solved candidate's exact altitude
-        // when the operator opts out of the default.
+        // Cases 1 and 3 fly the target orbit as entered; Case 2 files the
+        // solved candidate's exact closing altitude by default, and the
+        // target altitude in fixed-altitude mode.
         double alt = _caseChoice == 1 && !_declareAtTargetAltitude
             ? _selectedSolution?.Solution.AltitudeKm ?? _targetAltitudeKm
             : _targetAltitudeKm;
@@ -620,11 +707,13 @@ public sealed class OrbitDesignViewModel : ObservableObject
                         ? _selectedSolution.Solution.RptPrdAtTarget
                         : _selectedSolution.Solution.RptPrd,
             },
-            2 => shell with
+            // Case 3: station keeping with the supplied rate (Fig. 52, eq (52)).
+            2 when _selectedSolution is not null => shell with
             {
+                StationKeeping = true, WDeltaDeg = _keepRangeDeg,
+                RepeatPeriod = OrbitDesign.DecomposePeriod(DeclaredRptSeconds!.Value),
                 PrecessionSupplied = true,
-                PrecessionRateDegPerSec = ParsedPrecession() ?? OrbitDesign.J2NodalRateDegPerSec(
-                    OrbitalConstants.EarthRadiusKm + alt, _eccentricity, _inclinationDeg),
+                PrecessionRateDegPerSec = Case3RateDegPerSec!.Value,
             },
             _ => shell with { NOrbits = Math.Max(1, _nOrbits) },
         };
@@ -646,7 +735,8 @@ public sealed class OrbitDesignViewModel : ObservableObject
             OrbitRows = n.Orbits;
             PhaseRows = n.Phases;
             SnsStatusText = $"{n.Orbits.Count} orbit row(s), {n.Phases.Count} phase row(s)"
-                + (_caseChoice == 1 && _selectedSolution is null ? " -- select a repeating candidate for Case 2" : "");
+                + (_caseChoice is 1 or 2 && _selectedSolution is null
+                    ? $" -- select a repeating candidate for Case {_caseChoice + 1}" : "");
         }
         catch (Exception ex)
         {
@@ -721,7 +811,9 @@ public sealed class OrbitDesignViewModel : ObservableObject
         // the declared altitude.
         (int Days, int Hours, int Minutes, int Seconds)? rpt = _harmonizedRptSeconds is long hs
             ? OrbitDesign.DecomposePeriod(hs)
-            : _declareAtTargetAltitude ? sol?.RptPrdAtTarget : sol?.RptPrd;
+            : _caseChoice == 2
+                ? OwnRptSeconds is long c3 ? OrbitDesign.DecomposePeriod(c3) : null
+                : _declareAtTargetAltitude ? sol?.RptPrdAtTarget : sol?.RptPrd;
         return new OrbitDesignData(6, _targetAltitudeKm, _inclinationDeg, _eccentricity,
             _maxOrbitsPerCycle, _searchBandKm, _planeCount, _satsPerPlane, _walkerPhasingF,
             _lan0Deg, _lanSpreadDeg, _inPlaneOffsetDeg, _argPerigeeDeg, _opHeightText,

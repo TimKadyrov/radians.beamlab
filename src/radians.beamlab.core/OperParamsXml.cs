@@ -106,7 +106,7 @@ public static class OperParamsXmlWriter
             if (both.Count > 0)
                 throw new ArgumentException(
                     "filed in both header and array form: " + string.Join("; ", both)
-                    + " -- one form per quantity (EPS V43 Sec. 6.7.2.2); a both-forms set is an invalid filing.");
+                    + " -- one form per quantity; a both-forms set is an invalid filing.");
         }
         Validate(p);
         var settings = new XmlWriterSettings

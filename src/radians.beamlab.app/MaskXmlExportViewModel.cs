@@ -28,10 +28,20 @@ public sealed class MaskXmlExportViewModel : ObservableObject
 
         GenerateCommand = new AsyncRelayCommand(GenerateAsync);
         CancelCommand = new RelayCommand(() => _cts?.Cancel());
+        BrowseOutputCommand = new RelayCommand(() =>
+        {
+            if (PickSaveFile?.Invoke("XML mask (*.xml)|*.xml|All files (*.*)|*.*",
+                    $"mask ntc_id {NtcId} mask_id {MaskId}.xml") is string p)
+                OutputPath = p;
+        });
     }
 
     public ICommand GenerateCommand { get; }
     public ICommand CancelCommand { get; }
+    /// <summary>Browse: the output file, from a save dialog the window supplies.</summary>
+    public ICommand BrowseOutputCommand { get; }
+    /// <summary>Supplied by the window: a save-file dialog (filter, file name -> path, null when cancelled).</summary>
+    public System.Func<string, string, string?>? PickSaveFile { get; set; }
 
     // --- Metadata ---
     private string _satName = "NGSO-SAT";

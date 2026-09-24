@@ -31,7 +31,7 @@
                         <CheckBox IsChecked="{Binding TreatMinAsCutoff}" IsEnabled="{Binding CanTreatMinAsCutoff}" Margin="0,4,0,0"
                                   Content="Treat min as unreachable cut-off"/>
                         <TextBlock Foreground="#698089" TextWrapping="Wrap" Margin="0,6,0,0"
-                                   Text="The −1000 dBW null of S.1503-4 is always blanked. If the block minimum is below −300 dB(W/m²) it cannot be operational PFD — it is the mask's 'off' floor (e.g. −999) and the box ticks itself; untick to see it raw. Minima above −300 may be real PFD and are never treated as cut-off."/>
+                                   Text="The −1000 dBW null of S.1503-4 is always blanked. If the block minimum is below −300 dB(W/m²) it cannot be operational PFD — it is the mask's 'off' floor (e.g. −999), and the box ticks itself when a file opens on a block with such a floor; untick to see it raw. Minima above −300 may be real PFD and are never treated as cut-off."/>
                     </StackPanel>
                 </GroupBox>
             </StackPanel>

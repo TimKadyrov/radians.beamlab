@@ -13,10 +13,10 @@ namespace radians.beamlab.app;
 /// </summary>
 public static class ChartPrimitives
 {
-    private static readonly Brush PlotFill   = new SolidColorBrush(Color.FromRgb(0x14, 0x1a, 0x22));
-    private static readonly Brush PlotStroke = new SolidColorBrush(Color.FromRgb(0x3a, 0x40, 0x47));
+    private static readonly Brush PlotFill   = new SolidColorBrush(Color.FromRgb(0xff, 0xff, 0xff));
+    private static readonly Brush PlotStroke = new SolidColorBrush(Color.FromRgb(0x1a, 0x1a, 0x1a));
 
-    /// <summary>Dark plot-area rectangle with a subtle border, filling (l,t)-(r,b).</summary>
+    /// <summary>White plot-area rectangle with a near-black border, filling (l,t)-(r,b).</summary>
     public static void AddBackground(Canvas canvas, double l, double r, double t, double b)
     {
         var bg = new Rectangle

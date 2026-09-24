@@ -150,14 +150,14 @@ public sealed class PfdProfileRenderer
 
         // Horizon (ES eps ~ 0 deg): the data edges of the slice ARE the visible-disc
         // boundary -- mark the outermost samples in amber.
-        var amber = new SolidColorBrush(Color.FromArgb(200, 0xff, 0xc8, 0x66));
+        var amber = new SolidColorBrush(Color.FromArgb(220, 0xc0, 0x80, 0x00));
         Vertical(slice[0].xDeg, amber);
         Vertical(slice[^1].xDeg, amber);
         Label("ES ε≈0°", amber, slice[^1].xDeg, b - 40);
 
         // eps_min: crossing detection along the slice, skipping pairs that span a
         // data gap (a jump much larger than the bin width means a discontinuity).
-        var cyan = new SolidColorBrush(Color.FromArgb(200, 0x5a, 0xd0, 0xe0));
+        var teal = new SolidColorBrush(Color.FromArgb(220, 0x00, 0x80, 0x98));
         double target = _vm.MinElevDeg;
         bool labelled = false;
         for (int i = 1; i < slice.Count; i++)
@@ -171,10 +171,10 @@ public sealed class PfdProfileRenderer
 
             double frac = d0 / (d0 - d1);
             double xCross = x0 + frac * (x1 - x0);
-            Vertical(xCross, cyan);
+            Vertical(xCross, teal);
             if (!labelled)
             {
-                Label($"ES ε={target:F0}°", cyan, xCross, b - 26);
+                Label($"ES ε={target:F0}°", teal, xCross, b - 26);
                 labelled = true;
             }
         }
@@ -240,7 +240,7 @@ public sealed class PfdProfileRenderer
     /// Vertical guide lines translating the mask-elevation X axis into physical
     /// earth-station elevation, for the current slice azimuth:
     ///   * ES eps = 0 deg (the geometric horizon), amber;
-    ///   * ES eps = eps_min (the user's <see cref="PfdMaskViewModel.MinElevDeg"/>), cyan.
+    ///   * ES eps = eps_min (the user's <see cref="PfdMaskViewModel.MinElevDeg"/>), teal.
     /// Along a fixed azimuth the ES elevation is symmetric in mask-el sign, so
     /// each target draws a +/- pair. Lines that fall off-plot (target unreachable
     /// at this azimuth) are skipped.
@@ -279,8 +279,8 @@ public sealed class PfdProfileRenderer
             }
         }
 
-        Guide(0.0, Color.FromArgb(200, 0xff, 0xc8, 0x66), "ES ε=0°", b - 40);
-        Guide(_vm.MinElevDeg, Color.FromArgb(200, 0x5a, 0xd0, 0xe0), $"ES ε={_vm.MinElevDeg:F0}°", b - 26);
+        Guide(0.0, Color.FromArgb(220, 0xc0, 0x80, 0x00), "ES ε=0°", b - 40);
+        Guide(_vm.MinElevDeg, Color.FromArgb(220, 0x00, 0x80, 0x98), $"ES ε={_vm.MinElevDeg:F0}°", b - 26);
     }
 
     /// <summary>
@@ -309,7 +309,7 @@ public sealed class PfdProfileRenderer
     private void DrawAxes(double l, double r, double t, double b,
                           double xMin, double xMax, double yMin, double yMax)
     {
-        var gridStroke = new SolidColorBrush(Color.FromArgb(50, 0xff, 0xff, 0xff));
+        var gridStroke = new SolidColorBrush(Color.FromArgb(0x40, 0x88, 0x88, 0x88));
         var labelBrush = new SolidColorBrush(Color.FromRgb(0x1a, 0x1a, 0x1a));
 
         // X ticks every 30 deg across the range (el/alpha: +/-90 deg; deltaLongitude: +/-180 deg).

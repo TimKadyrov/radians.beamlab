@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -6,8 +5,9 @@ namespace radians.beamlab.app;
 
 /// <summary>
 /// The Home tab: launcher cards for the other tabs, documentation links and
-/// the version. The hosting window supplies <see cref="OpenTab"/> so a card
-/// can activate its function's tab.
+/// the version. Every button is a command of <see cref="HomeViewModel"/>; the
+/// view opens what a command asks for -- a tab through <see cref="OpenTab"/>,
+/// which the hosting window supplies, a window, or a document.
 /// </summary>
 public partial class HomeView : UserControl
 {
@@ -19,16 +19,13 @@ public partial class HomeView : UserControl
     public HomeView()
     {
         InitializeComponent();
+        _vm.OpenDocument = ViewServices.OpenDocument;
+        _vm.OpenCardRequested += OpenCard;
         DataContext = _vm;
-        GuideButton.IsEnabled = _vm.UserGuidePath is not null;
-        CardsButton.IsEnabled = _vm.ParameterCardsPath is not null;
-        OrbitCasesButton.IsEnabled = _vm.OrbitCasesPath is not null;
-        SolverGuideButton.IsEnabled = _vm.RepeatSolverPath is not null;
     }
 
-    private void OnCardOpenClick(object sender, RoutedEventArgs e)
+    private void OpenCard(HomeCard card)
     {
-        if (sender is not Button { Tag: HomeCard card }) return;
         if (card.TabIndex >= 0) { OpenTab?.Invoke(card.TabIndex); return; }
         Window w = card.Key switch
         {
@@ -40,16 +37,5 @@ public partial class HomeView : UserControl
         };
         w.Owner = Window.GetWindow(this);
         w.Show();
-    }
-
-    private void OnGuideClick(object sender, RoutedEventArgs e) => Shell(_vm.UserGuidePath);
-    private void OnCardsClick(object sender, RoutedEventArgs e) => Shell(_vm.ParameterCardsPath);
-    private void OnOrbitCasesClick(object sender, RoutedEventArgs e) => Shell(_vm.OrbitCasesPath);
-    private void OnSolverGuideClick(object sender, RoutedEventArgs e) => Shell(_vm.RepeatSolverPath);
-
-    private static void Shell(string? path)
-    {
-        if (path is null) return;
-        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
     }
 }

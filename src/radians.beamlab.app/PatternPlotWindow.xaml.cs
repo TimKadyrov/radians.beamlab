@@ -27,6 +27,7 @@ public partial class PatternPlotWindow : Window
         InitializeComponent();
         _pattern = pattern;
         HeaderText.Text = headerLine;
+        Title = "Beam pattern (" + PatternName(pattern) + ")";
 
         // Plot the full forward + back hemisphere. Beyond 90 deg the Sec. 1.4 Taylor
         // pattern is clamped to LF in our implementation, so the curve will be
@@ -35,6 +36,16 @@ public partial class PatternPlotWindow : Window
 
         Loaded += (_, _) => Draw();
     }
+
+    /// <summary>The S.1528-1 model a pattern is, for the window title (it was fixed at the Sec. 1.4 Taylor).</summary>
+    public static string PatternName(ISinglePattern pattern) => pattern switch
+    {
+        Rec1528_1p4_Ell => "S.1528-1 §1.4 Taylor, elliptical",
+        Rec1528_1p4 => "S.1528-1 §1.4 Taylor, circular",
+        Rec1528_1p2 => "S.1528-1 §1.2",
+        Rec1528_1p3 p => "S.1528-1 §1.3 " + p.Kind.ToString().ToUpperInvariant(),
+        _ => pattern.GetType().Name,
+    };
 
     private void PlotCanvas_SizeChanged(object sender, SizeChangedEventArgs e) => Draw();
 

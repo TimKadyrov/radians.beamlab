@@ -131,20 +131,38 @@ public static class OpParamsDeriver
         // INTERPOLATION between latitude rows; the others are read at the
         // nearest row. Labelling a band minimum at its band centre is right
         // for a nearest read and WRONG for an interpolated one -- see
-        // InterpolationSafeFloor. The sliding minimum runs BEFORE the
-        // near-zero filter, so a band where no exclusion shaped operations
-        // pulls its neighbours down with it rather than being punched out of
-        // the list for interpolation to span.
+        // InterpolationSafeFloor. The sliding minimum pulls the neighbours of
+        // a band where no exclusion shaped operations down with it, and such
+        // near-zero bands are written as explicit 0 deg rows: dropped, they
+        // would leave a gap interpolation spans (or an end the outermost row
+        // governs), declaring an exclusion the operation never showed there.
+        // Without any band above the near-zero cut no array is declared.
         var bandRows = minAlphaByBand.OrderBy(kv => kv.Key)
             .Select(kv => (LatDeg: BandLat(kv.Key, latBandDeg), Value: kv.Value)).ToList();
         var ex = new MinExcludeByOrbit { OrbId = 0 };
-        foreach (var (lat, alpha) in InterpolationSafeFloor(bandRows))
-            if (alpha > 0.05) ex.ByLat.Add((lat, FloorTenth(alpha)));
-        if (ex.ByLat.Count > 0) p.MinExclude.Add(ex);
+        var exRows = ExclusionRows(bandRows);
+        if (exRows.Count > 0)
+        {
+            foreach (var row in exRows) ex.ByLat.Add(row);
+            p.MinExclude.Add(ex);
+        }
         foreach (var (band, cnt) in maxCoFreqByBand.OrderBy(kv => kv.Key))
             p.MaxCoFreqByLat.Add((BandLat(band, latBandDeg), cnt));
 
         return new Result(p, steps, samples);
+    }
+
+    /// <summary>
+    /// The min_exclude rows declared from per-band minima (lat at the band
+    /// centre, deg): the interpolation-safe floor, near-zero bands (0.05 deg
+    /// or less) written as 0 deg, the rest floored to 0.1 deg; empty when no
+    /// band exceeds the near-zero cut.
+    /// </summary>
+    public static List<(double LatDeg, double AlphaDeg)> ExclusionRows(List<(double LatDeg, double Value)> bandRows)
+    {
+        var safe = InterpolationSafeFloor(bandRows);
+        if (!safe.Any(r => r.Value > 0.05)) return new List<(double, double)>();
+        return safe.Select(r => (r.LatDeg, r.Value > 0.05 ? FloorTenth(r.Value) : 0.0)).ToList();
     }
 
     /// <summary>

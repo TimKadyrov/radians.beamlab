@@ -14,12 +14,13 @@
             <TextBlock VerticalAlignment="Center" Foreground="#698089" Margin="0,0,10,0"
                        Text="Prototype the SNS v10 orbit declaration: solve a repeating track, read the station-keeping cases, grow the shell."/>
             <Button x:Name="CasesGuideButton" Content="What are the three cases?" Padding="8,2"
-                    Click="OnCasesGuideClick"/>
+                    Command="{Binding DataContext.CasesGuideCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
             <TextBlock VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#0B516F"
                        Text="{Binding ShellHeaderText}"/>
         </StackPanel>
 
-        <TabControl Grid.Row="1" x:Name="InnerTabs" DataContext="{Binding SelectedShell}">
+        <TabControl Grid.Row="1" x:Name="InnerTabs" DataContext="{Binding SelectedShell}"
+                    SelectedIndex="{Binding DataContext.InnerTabIndex, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}">
 
             <!-- ============ sub-tab 0: start here ============ -->
             <TabItem Header="Start here">
@@ -42,12 +43,12 @@
                                 </ListBox.ItemTemplate>
                             </ListBox>
                             <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                <Button Content="Add shell" Margin="0,0,6,0" Click="OnAddShellClick"/>
-                                <Button Content="Duplicate" Margin="0,0,6,0" Click="OnDuplicateShellClick"/>
-                                <Button Content="Move up" Margin="0,0,6,0" Click="OnMoveShellUpClick"
+                                <Button Content="Add shell" Margin="0,0,6,0" Command="{Binding DataContext.AddShellCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                <Button Content="Duplicate" Margin="0,0,6,0" Command="{Binding DataContext.DuplicateShellCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                <Button Content="Move up" Margin="0,0,6,0" Command="{Binding DataContext.MoveShellUpCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         ToolTip="Shell order numbers orb_id across shells in the combined notice and the built SRS."/>
-                                <Button Content="Move down" Margin="0,0,6,0" Click="OnMoveShellDownClick"/>
-                                <Button Content="Remove" Click="OnRemoveShellClick"
+                                <Button Content="Move down" Margin="0,0,6,0" Command="{Binding DataContext.MoveShellDownCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                <Button Content="Remove" Command="{Binding DataContext.RemoveShellCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         ToolTip="Removes the selected shell; a document always keeps at least one."/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
@@ -78,7 +79,7 @@
                                 <TextBox   x:Name="EccBox" Grid.Row="2" Grid.Column="1" Text="{Binding Eccentricity, UpdateSourceTrigger=LostFocus}"/>
                             </Grid>
                             <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,4,0,0"
-                                       Text="Free drift (Case 1) and declared precession (Case 3) fly this orbit exactly as entered; a station-kept repeating design (Case 2) also declares at this altitude by default — the solver's exact closing altitudes remain the zero-correction reference, adoptable via the solver's 'adjusting altitude' mode."/>
+                                       Text="Free drift (Case 1) and station keeping with a supplied precession (Case 3) fly this orbit as entered; a station-kept repeating design (Case 2) files the solver's exact closing altitude by default, or this altitude in the solver's 'fixed altitude' mode."/>
                         </StackPanel>
                     </GroupBox>
 
@@ -86,10 +87,10 @@
                         <StackPanel>
                             <TextBlock FontWeight="SemiBold" Text="1 · Repeat solver — find the orbit"/>
                             <TextBlock TextWrapping="Wrap" Foreground="#698089" Margin="0,2,0,6"
-                                       Text="Mode first: fixed altitude (the default) keeps your orbit — the declared pair is auto-filled with the nearest repeat and station keeping absorbs the drift@target; adjusting altitude searches the nearby altitudes where a track closes by itself and adopts one. The grid shows every candidate both ways. Only a station-kept repeating design (Case 2) needs a repeat from here — free drift and declared precession skip this step entirely."/>
+                                       Text="Mode first: adjusting altitude (the default) files the nearby altitude where the track closes by itself, the only filing whose simulated track is the declared repeat; fixed altitude keeps your orbit, and the EPFD calculation then flies its drift@target every cycle. The grid shows every candidate both ways. The station-kept cases (2 and 3) need a repeat from here; free drift skips this step."/>
                             <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#0B516F" Margin="0,0,0,6"
                                        Text="Feeds forward: the selected candidate — its exact altitude, cycle and rpt_prd fields — drives the cases, the constellation and the saved design."/>
-                            <Button Content="Open Repeat solver" HorizontalAlignment="Left" Click="OnGoSolverClick"/>
+                            <Button Content="Open Repeat solver" HorizontalAlignment="Left" Command="{Binding DataContext.GoSolverCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                         </StackPanel>
                     </Border>
 
@@ -97,10 +98,10 @@
                         <StackPanel>
                             <TextBlock FontWeight="SemiBold" Text="2 · Station-keeping cases — read the filing variants"/>
                             <TextBlock TextWrapping="Wrap" Foreground="#698089" Margin="0,2,0,6"
-                                       Text="The three ways the filing can describe the orbit: free drift (informational — how the EPFD calculation will model the target orbit, with NOrbits derivable from a victim beamwidth), station-kept repeating (the selected candidate's cycle, keep_rnge checked against its bound), or a declared precession rate."/>
+                                       Text="The three ways the filing can describe the orbit: free drift (informational — how the EPFD calculation will model the target orbit, with NOrbits derivable from a victim beamwidth), station-kept repeating (the selected candidate's cycle, keep_rnge checked against its bound), or station keeping with a supplied precession rate (Case 3: the same repeat and keep_rnge, plus the rate)."/>
                             <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#0B516F" Margin="0,0,0,6"
                                        Text="Feeds forward: the case you choose, with its keep_rnge or NOrbits, becomes the constellation's orbit-row fields."/>
-                            <Button Content="Open Station-keeping cases" HorizontalAlignment="Left" Click="OnGoCasesClick"/>
+                            <Button Content="Open Station-keeping cases" HorizontalAlignment="Left" Command="{Binding DataContext.GoCasesCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                         </StackPanel>
                     </Border>
 
@@ -111,7 +112,7 @@
                                        Text="Planes, satellites per plane and Walker phasing grow the orbit into a full shell; the SNS orbit and phase tables preview live — for the selected shell or all shells combined. Save design writes every shell of the document — including selected candidates — to one *.orbitdesign.json file."/>
                             <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#0B516F" Margin="0,0,0,6"
                                        Text="Feeds forward: the design file is the hand-off — reload it here, feed a simulation, or give it to the builder."/>
-                            <Button Content="Open Constellation" HorizontalAlignment="Left" Click="OnGoConstellationClick"/>
+                            <Button Content="Open Constellation" HorizontalAlignment="Left" Command="{Binding DataContext.GoConstellationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                         </StackPanel>
                     </Border>
 
@@ -120,7 +121,7 @@
                             <TextBlock FontWeight="SemiBold" Text="4 · SNS v10 builder — assemble the dataset (window)"/>
                             <TextBlock TextWrapping="Wrap" Foreground="#698089" Margin="0,2,0,6"
                                        Text="Load a design document (all its shells at once) or individual files, register mask XMLs and operating-parameter sets, set the scenario frequencies — and build both databases: the SRS and the Masks."/>
-                            <Button Content="Open SNS v10 builder" HorizontalAlignment="Left" Click="OnOpenSnsBuilderClick"/>
+                            <Button Content="Open SNS v10 builder" HorizontalAlignment="Left" Command="{Binding DataContext.OpenSnsBuilderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                         </StackPanel>
                     </Border>
 
@@ -150,12 +151,12 @@
                         </StackPanel>
                         <GroupBox Header="1 · Altitude mode">
                             <StackPanel>
-                                <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"><Run Text="Target orbit from the Start tab: "/><Run Text="{Binding TargetAltitudeKm, Mode=OneWay, StringFormat=F1}"/><Run Text=" km, i "/><Run Text="{Binding InclinationDeg, Mode=OneWay, StringFormat=F1}"/><Run Text="°, e "/><Run Text="{Binding Eccentricity, Mode=OneWay, StringFormat=F3}"/><Run Text="."/></TextBlock>
+                                <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"><Run Text="Target orbit from Start here: "/><Run Text="{Binding TargetAltitudeKm, Mode=OneWay, StringFormat=F1}"/><Run Text=" km, i "/><Run Text="{Binding InclinationDeg, Mode=OneWay, StringFormat=F1}"/><Run Text="°, e "/><Run Text="{Binding Eccentricity, Mode=OneWay, StringFormat=F3}"/><Run Text="."/></TextBlock>
                                 <RadioButton x:Name="FixedAltRadio" FontSize="11" GroupName="Case2Alt"
-                                             Content="fixed altitude — declare at the target; station keeping holds the repeat (default)"
+                                             Content="fixed altitude — file the target altitude; the calculation flies its drift@target"
                                              IsChecked="{Binding DeclareAtTargetAltitude}"/>
                                 <RadioButton x:Name="AdjustAltRadio" FontSize="11" GroupName="Case2Alt" Margin="0,2,0,0"
-                                             Content="adjusting altitude — adopt the exact closing altitude (zero correction)"
+                                             Content="adjusting altitude — file the exact closing altitude, where the track repeats (default)"
                                              IsChecked="{Binding AdjustAltitudeChoice}"/>
                             </StackPanel>
                         </GroupBox>
@@ -163,7 +164,7 @@
                                   Visibility="{Binding DeclareAtTargetAltitude, Converter={StaticResource BoolToVis}}">
                             <StackPanel>
                                 <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
-                                           Text="The declaration itself: auto-filled with the nearest repeat, updated by selecting a grid row, or type any pair (whole orbits per whole nodal days). It rides as the highlighted top row; drift@target is what station keeping absorbs."/>
+                                           Text="The declaration itself: auto-filled with the nearest repeat, updated by selecting a grid row, or type any pair (whole orbits per whole nodal days). It rides as the highlighted top row; at a fixed altitude, drift@target is the drift the calculation flies every cycle."/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="130"/>
@@ -200,7 +201,7 @@
                                 </Grid>
                             </StackPanel>
                         </GroupBox>
-                        <GroupBox Header="3 · Tolerance (keep_rnge)">
+                        <GroupBox Header="3 · Tolerance (keep__rnge)">
                             <StackPanel>
                                 <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
                                            Text="The Case-2 deadband half-width the filing promises — your choice, not a solved value; the solver only bounds it. Mirrored with the cases tab."/>
@@ -228,7 +229,7 @@
                         </GroupBox>
                         <TextBlock Text="{Binding StatusText}" Foreground="#698089" TextWrapping="Wrap"/>
                         <Button x:Name="SolverGuideButton" Content="How the solver works" HorizontalAlignment="Left"
-                                Padding="8,2" Click="OnSolverGuideClick"/>
+                                Padding="8,2" Command="{Binding DataContext.SolverGuideCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                         <TextBlock Text="{Binding TrackClosureText}" Foreground="#698089"
                                    FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
                     </StackPanel>
@@ -269,11 +270,11 @@
                                     <DataGridTextColumn Header="cycle@exact" Binding="{Binding CycleText}" Width="100"/>
                                     <DataGridTextColumn Header="drift@target (deg/cyc)" Binding="{Binding DriftText}" Width="140"/>
                                     <DataGridTextColumn Header="spacing (deg)" Binding="{Binding SpacingText}" Width="95"/>
-                                    <DataGridTextColumn Header="max keep_rnge" Binding="{Binding MaxKeepText}" Width="100"/>
+                                    <DataGridTextColumn Header="max keep__rnge" Binding="{Binding MaxKeepText}" Width="100"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                             <TextBlock Foreground="#698089" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
-                                       Text="cycle@target / cycle@exact: the rpt_prd declared at your altitude (the default) vs at the exact closing altitude · drift@target: the free-flight node drift per cycle at your altitude — what station keeping absorbs · max keep_rnge: half the track spacing — a wider deadband makes adjacent swept tracks overlap."/>
+                                       Text="cycle@target / cycle@exact: the rpt_prd declared at your altitude (fixed altitude) vs at the exact closing altitude (the default) · drift@target: the node drift per cycle at your altitude — what the real station keeping corrects, and what the EPFD calculation flies every cycle when you file that altitude · max keep_rnge: half the track spacing — a wider deadband makes adjacent swept tracks overlap."/>
                         </StackPanel>
 
                         <Border Grid.Row="1" Margin="0,8,0,0" BorderBrush="#D1EBF5" BorderThickness="1" Background="#ffffff">
@@ -330,7 +331,7 @@
                     <GroupBox Header="Case 2 — station-kept repeating track">
                         <StackPanel>
                             <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
-                                       Text="A committed repeating track: declare the cycle (rpt_prd, from the selected row of the Repeat solver) and the longitude deadband (keep_rnge) the EPFD calculation sweeps. The declared altitude follows the solver's altitude mode — fixed altitude (default) keeps your target orbit and station keeping absorbs the natural drift; adjusting altitude adopts the exact closing altitude where the repeat holds itself. The calculation flies the declared repeat and sweeps the deadband either way."/>
+                                       Text="A committed repeating track: declare the cycle (rpt_prd, from the selected row of the Repeat solver) and the longitude deadband (keep_rnge) the EPFD calculation sweeps. The declared altitude follows the solver's altitude mode — adjusting altitude (default) files the exact closing altitude, where the filed orbit repeats by itself; fixed altitude files your target orbit. The EPFD calculation flies the filed orbit on its J2 rates and sweeps the deadband (Rec. S.1503-4 eq (49)), so at a fixed altitude its track also drifts by drift@target every cycle."/>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="150"/>
@@ -354,10 +355,10 @@
                         </StackPanel>
                     </GroupBox>
 
-                    <GroupBox Header="Case 3 — declared precession">
+                    <GroupBox Header="Case 3 — station keeping with supplied precession">
                         <StackPanel>
                             <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11" Margin="0,0,0,4"
-                                       Text="The administration files its own nodal precession rate and the EPFD calculation uses it as-is — no solved repeat is needed. Enter a rate to declare your own (any sign; prograde orbits drift westward, so negative is the normal case); empty declares the J2 default for your target orbit."/>
+                                       Text="Station keeping with a nodal precession rate the administration supplies (Rec. S.1503-4 Fig. 52): the filing carries the repeat and keep_rnge of Case 2 plus the rate, and the EPFD calculation turns the node at that rate instead of the J2 term. Empty declares the rate that closes the selected repeat at your target altitude. The filing carries the rate's magnitude in degrees/day; its direction is the one the inclination implies, west for a prograde orbit and east for a retrograde one. A rate turning the other way, or a typed rate that misses the repeat by more than keep_rnge per cycle, cannot be filed. For an elliptical orbit Case 3 holds the perigee fixed."/>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="150"/>
@@ -370,7 +371,7 @@
                         </StackPanel>
                     </GroupBox>
 
-                    <Button Content="Copy case summary (text)" HorizontalAlignment="Left" Click="OnCopyClick"
+                    <Button Content="Copy case summary (text)" HorizontalAlignment="Left" Command="{Binding DataContext.CopyCaseSummaryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                             ToolTip="Puts a plain-text summary of the selected candidate on the clipboard: the three case previews as shown, for pasting into notes or mail. Machine-readable output is the saved design file and the SNS v10 builder."/>
                 </StackPanel>
                 </ScrollViewer>
@@ -432,20 +433,20 @@
                                     <ComboBox  Grid.Row="8" Grid.Column="1" SelectedIndex="{Binding CaseChoice}">
                                         <ComboBoxItem Content="Case 1 — free drift"/>
                                         <ComboBoxItem Content="Case 2 — station-kept repeating"/>
-                                        <ComboBoxItem Content="Case 3 — declared precession"/>
+                                        <ComboBoxItem Content="Case 3 — station keeping, supplied precession"/>
                                     </ComboBox>
                                 </Grid>
                             </StackPanel>
                         </GroupBox>
-                        <StackPanel Visibility="{Binding IsCase2, Converter={StaticResource BoolToVis}}">
-                            <Button Content="Harmonize rpt_prd" HorizontalAlignment="Left" Click="OnHarmonizeClick"
-                                    ToolTip="Declares the common constellation repeat period — the LCM of every Case-2 shell's own cycle — as rpt_prd on every shell (Rec. S.1503-4 A2.4: one repeat period appropriate for all satellites, including all sub-constellations). Any multiple of a shell's own cycle is a valid repeat period for its track; station keeping holds each track either way. Changing a shell's pair or altitude mode clears its harmonization."/>
+                        <StackPanel Visibility="{Binding IsStationKept, Converter={StaticResource BoolToVis}}">
+                            <Button Content="Harmonize rpt__prd" HorizontalAlignment="Left" Command="{Binding DataContext.HarmonizeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    ToolTip="Declares the common constellation repeat period — the LCM of every Case-2 and Case-3 shell's own cycle — as rpt_prd on every shell (Rec. S.1503-4 A2.4: one repeat period appropriate for all satellites, including all sub-constellations). Any multiple of a shell's own cycle is a valid repeat period for its track; station keeping holds each track either way. Changing a shell's pair or altitude mode clears its harmonization."/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Save design" Margin="0,0,6,0" Click="OnSaveDesignClick"/>
-                            <Button Content="Load design" Click="OnLoadDesignClick"/>
+                            <Button Content="Save design" Margin="0,0,6,0" Command="{Binding DataContext.SaveDesignCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                            <Button Content="Load design" Command="{Binding DataContext.LoadDesignCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                         </StackPanel>
-                        <Button Content="Open SNS v10 builder…" HorizontalAlignment="Left" Click="OnOpenSnsBuilderClick"/>
+                        <Button Content="Open SNS v10 builder…" HorizontalAlignment="Left" Command="{Binding DataContext.OpenSnsBuilderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                         <TextBlock TextWrapping="Wrap" Foreground="#698089" FontSize="11"
                                    Text="The builder assembles whole datasets (SRS + Masks) from saved designs, mask XMLs and operating-parameter sets."/>
                         <TextBlock Text="{Binding SnsStatusText}" Foreground="#698089" FontSize="11" TextWrapping="Wrap"/>
@@ -480,10 +481,10 @@
                                     <DataGridTextColumn Header="incl" Binding="{Binding InclinationDeg, StringFormat=F1}" Width="55"/>
                                     <DataGridTextColumn Header="apog" Binding="{Binding ApogeeKm, StringFormat=F1}" Width="75"/>
                                     <DataGridTextColumn Header="perig" Binding="{Binding PerigeeKm, StringFormat=F1}" Width="75"/>
-                                    <DataGridTextColumn Header="op_ht" Binding="{Binding OpHtKm, StringFormat=F0}" Width="60"/>
+                                    <DataGridTextColumn Header="op__ht" Binding="{Binding OpHtKm, StringFormat=F0}" Width="60"/>
                                     <DataGridTextColumn Header="keep" Binding="{Binding StationKeeping}" Width="50"/>
-                                    <DataGridTextColumn Header="keep_rnge" Binding="{Binding KeepRangeDeg}" Width="70"/>
-                                    <DataGridTextColumn Header="rpt_prd" Binding="{Binding RptPrdText}" Width="90"/>
+                                    <DataGridTextColumn Header="keep__rnge" Binding="{Binding KeepRangeDeg}" Width="70"/>
+                                    <DataGridTextColumn Header="rpt__prd" Binding="{Binding RptPrdText}" Width="90"/>
                                     <DataGridTextColumn Header="precess" Binding="{Binding PrecessionRateDegPerSec, StringFormat=E2}" Width="80"/>
                                 </DataGrid.Columns>
                             </DataGrid>
@@ -494,7 +495,7 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="orb" Binding="{Binding OrbId}" Width="45"/>
                                     <DataGridTextColumn Header="sat" Binding="{Binding OrbSatId}" Width="45"/>
-                                    <DataGridTextColumn Header="phase_ang" Binding="{Binding PhaseAngDeg, StringFormat=F3}" Width="90"/>
+                                    <DataGridTextColumn Header="phase__ang" Binding="{Binding PhaseAngDeg, StringFormat=F3}" Width="90"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Grid>

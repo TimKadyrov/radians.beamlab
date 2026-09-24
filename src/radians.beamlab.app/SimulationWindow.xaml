@@ -33,15 +33,15 @@
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="Orbit design document"/>
                     <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding DesignPath, UpdateSourceTrigger=LostFocus}"/>
-                    <Button    Grid.Row="0" Grid.Column="2" Content="…" Margin="4,1,0,1" Click="OnBrowseClick"/>
+                    <Button    Grid.Row="0" Grid.Column="2" Content="…" Margin="4,1,0,1" Command="{Binding BrowseDesignCommand}"/>
                     <TextBlock Grid.Row="1" Text="Operation profile"/>
                     <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding ProfilePath, UpdateSourceTrigger=LostFocus}"
                                ToolTip="An *.opprofile.json — required. It supplies the whole system side (payload, transmission basics, gates, geography, policy, duty and the downlink frequency); the remaining fields describe only the victim and the run."/>
-                    <Button    Grid.Row="1" Grid.Column="2" Content="…" Margin="4,1,0,1" Click="OnBrowseProfileClick"/>
+                    <Button    Grid.Row="1" Grid.Column="2" Content="…" Margin="4,1,0,1" Command="{Binding BrowseProfileCommand}"/>
                     <TextBlock Grid.Row="2" Text="Operating params (optional)"/>
                     <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding OpParamsPath, UpdateSourceTrigger=LostFocus}"
                                ToolTip="An *.opparams.json from the R-set designer — an alternative gate source: when set, the scheduler obeys the declared pointing/scheduling constraints instead of the profile's enforced gates (both directions). The transmission side still comes from the profile."/>
-                    <Button    Grid.Row="2" Grid.Column="2" Content="…" Margin="4,1,0,1" Click="OnBrowseOpClick"/>
+                    <Button    Grid.Row="2" Grid.Column="2" Content="…" Margin="4,1,0,1" Command="{Binding BrowseOpParamsCommand}"/>
                     <TextBlock Grid.Row="3" Text="Victim GSO longitude (degE)"/>
                     <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding GsoLonText, UpdateSourceTrigger=LostFocus}"/>
                     <TextBlock Grid.Row="4" Text="Victim ES latitude (deg)"/>
@@ -55,7 +55,7 @@
                     <TextBox   Grid.Row="7" Grid.Column="1" Text="{Binding DurationDaysText, UpdateSourceTrigger=LostFocus}"/>
                     <TextBlock Grid.Row="8" Text="Time step (s)"/>
                     <TextBox   Grid.Row="8" Grid.Column="1" Text="{Binding StepSecText, UpdateSourceTrigger=LostFocus}"
-                               ToolTip="The truth's step, 1 s preset. The status line warns when it samples the fastest crossing of the earth station's 3 dB beam fewer than three times. With the Random strategy and no hold the selection is redrawn at every step, so the step is also the reselection period."/>
+                               ToolTip="The simulation's time step, 1 s preset. The status line warns when it samples the fastest crossing of the earth station's 3 dB beam fewer than three times. With the Random strategy and no hold the selection is redrawn at every step, so the step is also the reselection period."/>
                 </Grid>
             </GroupBox>
 
@@ -83,12 +83,12 @@
             </GroupBox>
 
             <StackPanel Orientation="Horizontal">
-                <Button Content="Validate inputs" Click="OnValidateClick"/>
-                <Button x:Name="QuickBtn" Content="Write CDFs…" IsEnabled="{Binding RunEnabled}" Click="OnRunClick"
+                <Button Content="Validate inputs" Command="{Binding ValidateCommand}"/>
+                <Button x:Name="QuickBtn" Content="Write CDFs…" IsEnabled="{Binding RunEnabled}" Command="{Binding WriteCdfsCommand}"
                         ToolTip="The statistics run: no UI updates; picks a base name, runs down (+is byproduct) and up on a worker thread, and writes base.down.csv / base.is.csv / base.up.csv."/>
-                <Button Content="View CDFs…" Click="OnViewCdfsClick"
+                <Button Content="View CDFs…" Command="{Binding ViewCdfsCommand}"
                         ToolTip="Open existing CDF CSV files (this window's Write CDFs output, or any run's) in the CDF viewer — pick one or more."/>
-                <Button x:Name="GuideBtn" Content="What feeds the run?" IsEnabled="False" Click="OnGuideClick"
+                <Button x:Name="GuideBtn" Content="What feeds the run?" Command="{Binding OpenGuideCommand}"
                         ToolTip="Opens the accompanying page explaining which input supplies what: the orbit design document, the operation profile, the operating params and the loose fields."/>
             </StackPanel>
             <TextBlock Text="{Binding StatusText}" Foreground="#698089" TextWrapping="Wrap"/>
@@ -101,11 +101,11 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
             <StackPanel Orientation="Horizontal">
-                <Button x:Name="PlayBtn" Content="▶" FontSize="14" Width="34" Click="OnPlayClick"
+                <Button x:Name="PlayBtn" Content="▶" FontSize="14" Width="34" Command="{Binding PlayCommand}"
                         ToolTip="Play: one simulation step per tick, satellites and links drawn live. Switches an accelerated run back to normal pace on the same timeline."/>
-                <Button x:Name="FfBtn" Content="⏩" FontSize="14" Width="34" Click="OnFfClick"
+                <Button x:Name="FfBtn" Content="⏩" FontSize="14" Width="34" Command="{Binding FastForwardCommand}"
                         ToolTip="Accelerated play: the same continuous timeline, many steps per tick with no map updates — the last frame stays and only the status clock moves. Switch back to ▶ at any moment."/>
-                <Button x:Name="StopBtn" Content="⏹" FontSize="14" Width="34" IsEnabled="False" Click="OnStopClick"/>
+                <Button x:Name="StopBtn" Content="⏹" FontSize="14" Width="34" IsEnabled="False" Command="{Binding StopCommand}"/>
                 <TextBlock x:Name="PlayStatus" VerticalAlignment="Center" Margin="10,0,0,0"
                            Foreground="#0B516F"/>
             </StackPanel>

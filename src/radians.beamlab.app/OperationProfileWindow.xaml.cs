@@ -11,6 +11,8 @@ public partial class OperationProfileWindow : Window
     public OperationProfileWindow()
     {
         InitializeComponent();
+        _vm.PickOpenFile = ViewServices.PickOpenFile;
+        _vm.PickSaveFile = ViewServices.PickSaveFile;
         DataContext = _vm;
         WireToolTips();
         _vm.PropertyChanged += (_, e) =>
@@ -119,13 +121,17 @@ public partial class OperationProfileWindow : Window
     /// <summary>
     /// Every field's help comes from the shared ParameterCatalog (the
     /// card deck's twin) -- one card per parameter, UI and documentation
-    /// unable to drift.
+    /// unable to drift -- except where the only card describes a declaration
+    /// the field does not carry: the carrier frequencies (the FREQ card is the
+    /// R set's band identity) and the hold (the MIN_DURATION card is a filed
+    /// quantity the hold never becomes) keep their own help.
     /// </summary>
     private void WireToolTips()
     {
         static string? Cat(string name) => radians.beamlab.ParameterCatalog.Find(name)?.ToolTipText;
-        FreqBox.ToolTip = Cat("FREQ_MIN / FREQ_MAX");
-        UlFreqBox.ToolTip = Cat("FREQ_MIN / FREQ_MAX");
+        const string carrierTip = "The carrier frequency of this direction (GHz): it sets the wavelength of every pattern and picks the Article 22 limit row. The R set's band identity, its low and high frequency in MHz, is declared in the operating-parameters designer.";
+        FreqBox.ToolTip = carrierTip;
+        UlFreqBox.ToolTip = carrierTip;
         FootprintCombo.ToolTip = Cat("FootprintSource");
         MaskPathBox.ToolTip = Cat("FootprintSource");
         GainBox.ToolTip = Cat("GainPeakDbi");
@@ -138,6 +144,7 @@ public partial class OperationProfileWindow : Window
         AggCombo.ToolTip = Cat("Aggregation · ReuseClusterIndex");
         ReuseBox.ToolTip = Cat("Aggregation · ReuseClusterIndex");
         BeamCapBox.ToolTip = Cat("CoFrequencyBeamCapacity");
+        YawBox.ToolTip = Cat("YawSweepDeg");
         RefBwBox.ToolTip = Cat("RefBwKHz");
         PatternCombo.ToolTip = Cat("PatternKind");
         ThetaBBox.ToolTip = Cat("ThetaBDeg");
@@ -162,7 +169,7 @@ public partial class OperationProfileWindow : Window
         DlAngleEsBox.ToolTip = Cat("MIN_ANGLE_AT_ES");
         UlAngleSatBox.ToolTip = Cat("MIN_ANGLE_AT_SAT");
         UlAngleEsBox.ToolTip = Cat("MIN_ANGLE_AT_ES");
-        HoldBox.ToolTip = Cat("MIN_DURATION");
+        // HoldBox keeps its own tooltip (see the summary).
         DemandBox.ToolTip = Cat("DemandLinks");
         ActivityBox.ToolTip = Cat("ActivityFactor");
         FractionBox.ToolTip = Cat("OperationalFraction");
@@ -171,47 +178,5 @@ public partial class OperationProfileWindow : Window
         AlphaByLatBox.ToolTip = Cat("MIN_EXCLUDE");
         EsPowerBox.ToolTip = Cat("PowerDbw");
         PowerRefBox.ToolTip = Cat("PowerControlRefElevDeg");
-    }
-
-    private void OnBrowseMaskClick(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.OpenFileDialog
-        {
-            Filter = "S.1503-4 PFD mask (*.xml)|*.xml",
-        };
-        if (dlg.ShowDialog() != true) return;
-        _vm.MaskXmlPathText = dlg.FileName;
-    }
-
-    private void OnSaveClick(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            string json = _vm.BuildJson();
-            var dlg = new Microsoft.Win32.SaveFileDialog
-            {
-                Filter = "Operation profile (*.opprofile.json)|*.opprofile.json",
-                FileName = "system.opprofile.json",
-            };
-            if (dlg.ShowDialog() != true) return;
-            System.IO.File.WriteAllText(dlg.FileName, json);
-            _vm.StatusText = "saved: " + dlg.FileName;
-        }
-        catch (Exception ex) { _vm.StatusText = "save failed: " + ex.Message; }
-    }
-
-    private void OnLoadClick(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.OpenFileDialog
-        {
-            Filter = "Operation profile (*.opprofile.json)|*.opprofile.json|JSON|*.json",
-        };
-        if (dlg.ShowDialog() != true) return;
-        try
-        {
-            _vm.LoadJson(System.IO.File.ReadAllText(dlg.FileName));
-            _vm.StatusText = "loaded: " + dlg.FileName;
-        }
-        catch (Exception ex) { _vm.StatusText = "load failed: " + ex.Message; }
     }
 }

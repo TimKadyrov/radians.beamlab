@@ -37,8 +37,12 @@ public sealed record DownlinkProfile(
     double? CrossoverDb = null,
     // Maximum same-colour beams a satellite radiates at once: payload hardware,
     // enforced by the scheduler and enveloped over by the mask (S.1325-rev 2.5.2).
-    // LAST on purpose: the profile window constructs this record positionally.
-    int? CoFrequencyBeamCapacity = null);
+    int? CoFrequencyBeamCapacity = null,
+    // Body-yaw range (+/- deg) a yaw-steering payload can take: the computed
+    // mask sweeps it so the envelope covers every yaw. Null or 0 = no yaw
+    // steering. New fields go LAST: the profile window constructs this
+    // record positionally.
+    double? YawSteeringRangeDeg = null);
 
 /// <summary>Earth-to-space side: the transmitting earth stations and their link discipline.</summary>
 public sealed record UplinkProfile(
@@ -233,5 +237,5 @@ public static class OperationComposer
     public static string? PerLatExclusionSceneGap(OperationProfile p)
         => (p.AlphaByLat?.Count ?? 0) == 0 ? null
            : FormattableString.Invariant(
-               $"WARNING: {p.AlphaByLat!.Count} per-latitude exclusion row(s) gate the scheduler but the scene/mask bakes only the global alpha ({p.AlphaExclDeg:F1} deg) -- exported masks and projection margins from this profile are inflated until mask inheritance lands");
+               $"WARNING: {p.AlphaByLat!.Count} per-latitude exclusion row(s) gate the scheduler, but the beams and any exported mask carry only the global exclusion angle ({p.AlphaExclDeg:F1} deg) -- masks and margins from this profile do not reflect those rows");
 }

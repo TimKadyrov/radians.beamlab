@@ -3056,7 +3056,8 @@ var looks = RandomLooks(300);
 
 // ---- V5: the Orbit Design tab view model, headless ----
 {
-    var vmO = new OrbitDesignViewModel();   // defaults: 1200 km, i 53, e 0; fixed mode
+    var vmO = new OrbitDesignViewModel();   // defaults: 1200 km, i 53, e 0; adjusting mode
+    vmO.DeclareAtTargetAltitude = true;     // fixed mode: its auto-fill is what this block reads
     var expO = OrbitDesign.RepeatSolutions(1200.0, 0.0, 53.0, 120, take: 10);
     // Fixed mode auto-declares the nearest pair as the checked top row.
     bool autoOk = vmO.CheckOrbitsText == expO[0].Orbits.ToString()
@@ -3197,7 +3198,7 @@ var looks = RandomLooks(300);
     bool tablesOk = vmC.OrbitRows.Count == 3 && vmC.PhaseRows.Count == 15
         && vmC.OrbitRows[0].StationKeeping
         && vmC.OrbitRows[0].KeepRangeDeg == vmC.KeepRangeDeg
-        && vmC.OrbitRows[0].RepeatPeriod == sol.RptPrdAtTarget
+        && vmC.OrbitRows[0].RepeatPeriod == sol.RptPrd   // the exact closing altitude, the default
         && vmC.OrbitRows[0].RptPrdText.Contains("d ")
         && Math.Abs(vmC.OrbitRows[1].LanDeg - vmC.OrbitRows[0].LanDeg - 120.0) < 1e-9
         && Math.Abs(vmC.PhaseRows[1].PhaseAngDeg - 72.0) < 1e-9;
@@ -3205,7 +3206,8 @@ var looks = RandomLooks(300);
     vmC.CaseChoice = 2;
     bool case3Ok = vmC.OrbitRows[0].PrecessionSupplied
         && vmC.OrbitRows[0].PrecessionRateDegPerSec < 0
-        && !vmC.OrbitRows[0].StationKeeping;
+        && vmC.OrbitRows[0].StationKeeping   // Case 3 is station-kept with the supplied rate
+        && vmC.OrbitRows[0].PrecessionRateDegPerSec == vmC.Case3RateDegPerSec;
     vmC.CaseChoice = 0;
     bool case1Ok = !vmC.OrbitRows[0].StationKeeping && !vmC.OrbitRows[0].PrecessionSupplied;
 
@@ -3237,8 +3239,8 @@ var looks = RandomLooks(300);
 
     var shellB = OrbitDesignFileCodec.ToShell(OrbitDesignFileCodec.Load(dj));
     bool shellOk = shellB.StationKeeping
-        && shellB.RepeatPeriod == vmS.SelectedSolution!.Solution.RptPrdAtTarget
-        && Math.Abs(shellB.AltitudeKm - vmS.TargetAltitudeKm) < 1e-9;
+        && shellB.RepeatPeriod == vmS.SelectedSolution!.Solution.RptPrd   // the exact altitude, the default
+        && Math.Abs(shellB.AltitudeKm - vmS.SelectedSolution!.Solution.AltitudeKm) < 1e-9;
 
     var b = new SnsBuilderViewModel { NtcId = 900555001, SatName = "V10SAT" };
     b.AddShellFile(tmpD);
@@ -3285,6 +3287,7 @@ var looks = RandomLooks(300);
     // VM: the entered pair becomes the selected, highlighted top row and
     // replaces the identical scan row; clearing restores the plain scan.
     var vmV = new OrbitDesignViewModel();
+    vmV.DeclareAtTargetAltitude = true;   // the own-period entry is a fixed-mode control
     int baseCount = vmV.Solutions.Count;
     vmV.CheckOrbitsText = refW.Orbits.ToString();
     vmV.CheckDaysText = refW.NodalDays.ToString();
@@ -3315,8 +3318,11 @@ var looks = RandomLooks(300);
     vmP.CaseChoice = 2;   // Case 3 declared precession
     double aT12 = OrbitalConstants.EarthRadiusKm + vmP.TargetAltitudeKm;
     double j2Def = OrbitDesign.J2NodalRateDegPerSec(aT12, 0.0, 53.0);
-    bool defOk = vmP.OrbitRows[0].PrecessionRateDegPerSec == j2Def
-        && vmP.Case3Text.Contains("plain-J2");
+    // The default is the rate that closes the selected repeat at the target altitude.
+    double closeDef = vmP.Case3RateDegPerSec!.Value;
+    bool defOk = vmP.OrbitRows[0].PrecessionRateDegPerSec == closeDef
+        && closeDef == OrbitDesign.Case3ClosingRateDegPerSec(aT12, vmP.SelectedSolution!.Orbits, vmP.SelectedSolution.NodalDays)
+        && vmP.Case3Text.Contains("closes the");
 
     vmP.PrecessionText = "-2.5e-5";
     bool ovrOk = vmP.OrbitRows[0].PrecessionRateDegPerSec == -2.5e-5
@@ -3338,13 +3344,20 @@ var looks = RandomLooks(300);
     bool loadOk = vmQ.BuildDesignJson() == j12
         && vmQ.OrbitRows[0].PrecessionRateDegPerSec == -2.5e-5;
 
-    // A version-2 file (field absent) declares the plain-J2 default.
+    // A version-2 file (rate absent) with a stored repeat declares the closing rate ...
     var shv2 = OrbitDesignFileCodec.ToShell(
         OrbitDesignFileCodec.Load(OrbitDesignFileCodec.Save(
             d12 with { SchemaVersion = 2, PrecessionDegPerSec = null })));
-    bool v2Ok = shv2.PrecessionRateDegPerSec == j2Def;
+    // ... and one with no stored repeat keeps its old reading: the plain-J2 rate, no station keeping.
+    var shLegacy = OrbitDesignFileCodec.ToShell(d12 with
+    {
+        SchemaVersion = 2, PrecessionDegPerSec = null, SelectedAltitudeKm = null, SelectedOrbits = null,
+        SelectedNodalDays = null, RptDays = null, RptHours = null, RptMinutes = null, RptSeconds = null,
+    });
+    bool v2Ok = shv2.PrecessionRateDegPerSec == closeDef
+        && shLegacy.PrecessionRateDegPerSec == j2Def && !shLegacy.StationKeeping;
 
-    Check("V12 Case-3 precession override: default, signed pass-through, schema v3, v2 fallback",
+    Check("V12 Case-3 precession override: the closing-rate default, signed pass-through, schema v3, legacy fallbacks",
         defOk && ovrOk && signOk && fileOk && loadOk && v2Ok,
         $"def={defOk} ovr={ovrOk} sign={signOk} file={fileOk} load={loadOk} v2={v2Ok}");
 }
@@ -3543,7 +3556,9 @@ var looks = RandomLooks(300);
 
 // ---- V17: Case-2 declaration at the operator's own altitude ----
 {
-    var vmT = new OrbitDesignViewModel();     // DeclareAtTargetAltitude defaults true
+    bool defaultExact17 = new OrbitDesignViewModel().AdjustAltitudeChoice;   // the exact altitude is the default
+    var vmT = new OrbitDesignViewModel();
+    vmT.DeclareAtTargetAltitude = true;       // fixed mode: the at-target declaration under test
     var st = vmT.SelectedSolution!.Solution;  // 13/1 near 1205 km
     var (_, tnT) = OrbitDesign.NodalPassGeometry(
         OrbitalConstants.EarthRadiusKm + vmT.TargetAltitudeKm, 0.0, 53.0);
@@ -3588,6 +3603,7 @@ var looks = RandomLooks(300);
     // Fixed mode auto-fills the nearest pair at start; picking a scan row
     // loads its pair, which rides to the top as the checked row.
     var vmU = new OrbitDesignViewModel();
+    vmU.DeclareAtTargetAltitude = true;       // fixed mode auto-fills the nearest pair
     bool autoFillOk = vmU.CheckOrbitsText.Length > 0 && vmU.Solutions[0].IsUserEntry
         && ReferenceEquals(vmU.SelectedSolution, vmU.Solutions[0]);
     var pick = vmU.Solutions[1];
@@ -3603,19 +3619,21 @@ var looks = RandomLooks(300);
     bool noSyncOk = ReferenceEquals(vmU.SelectedSolution, pick2)
         && vmU.CheckOrbitsText == pick.Orbits.ToString();
 
-    Check("V17 Case-2 at-target declaration: default, rpt_prd@target, file, legacy, auto-fill",
-        secOk && defOk && exactOk && fileOk17 && oldOk && autoFillOk && syncOk && noSyncOk,
-        $"sec={secOk} def={defOk} exact={exactOk} file={fileOk17} old={oldOk} " +
+    Check("V17 Case-2 declaration: the exact altitude by default; at the target in fixed mode, rpt_prd@target, file, legacy, auto-fill",
+        defaultExact17 && secOk && defOk && exactOk && fileOk17 && oldOk && autoFillOk && syncOk && noSyncOk,
+        $"defaultExact={defaultExact17} sec={secOk} def={defOk} exact={exactOk} file={fileOk17} old={oldOk} " +
         $"auto={autoFillOk} sync={syncOk} noSync={noSyncOk}");
 }
 
 // ---- V18: constellation repeat period (A2.4) and harmonization ----
 {
     var docR = new OrbitDesignDocumentViewModel();
+    docR.Shells[0].DeclareAtTargetAltitude = true;   // fixed mode: a typed pair clears the override below
     bool singleOk = docR.ConstellationRepeatText.Contains("P_repeat")
         && docR.ConstellationRepeatText.Contains("1x shell 1");
 
     docR.AddShell();
+    docR.SelectedShell.DeclareAtTargetAltitude = true;
     docR.SelectedShell.CaseChoice = 0;
     bool mixedOk = docR.ConstellationRepeatText.Contains("mix");
     docR.SelectedShell.CaseChoice = 1;
@@ -6503,6 +6521,230 @@ var looks = RandomLooks(300);
     Check("V69 the profile window refuses fractional or zero counts and fractional seconds instead of rounding; the exclusion summary, the mask viewer's block readout and the track closure follow their inputs; Copy case summary without a candidate copies Cases 1 and 3, and Harmonize says what it did or why not",
         okBase69 && demandOk69 && holdOk69 && ncoOk69 && wholeOk69 && readoutsOk69 && copyOk69 && harmOk69,
         $"base={okBase69} demand={demandOk69} hold={holdOk69} nco={ncoOk69} whole={wholeOk69} readouts={readoutsOk69} copy={copyOk69} harmonize={harmOk69} ({notHarm69} | {harm69})");
+}
+
+// ---- V70: the windows' buttons are view-model commands; dialogs come from the view ----
+{
+    string exp70 = Path.Combine(AppContext.BaseDirectory, "exp");
+    // SNS builder: add and remove rows by command, the grid selection held on the view model.
+    var sns70 = new SnsBuilderViewModel();
+    sns70.AddEarthStationCommand.Execute(null); sns70.AddEarthStationCommand.Execute(null);
+    bool esAdd70 = sns70.EarthStations.Count == 2 && sns70.EarthStations[1].EAsId == 2 && sns70.EarthStations[1].StnName == "ES-2";
+    sns70.SelectedEarthStation = sns70.EarthStations[0];
+    sns70.RemoveEarthStationCommand.Execute(null);
+    bool esRemove70 = sns70.EarthStations.Count == 1 && sns70.EarthStations[0].EAsId == 2;
+    sns70.AddFrequencyCommand.Execute(null);
+    sns70.RemoveFrequencyCommand.Execute(null);                 // nothing selected: nothing removed
+    bool freq70 = sns70.Frequencies.Count == 1;
+    sns70.PickOpenFiles = _ => null;                            // cancelled dialog
+    sns70.AddShellsCommand.Execute(null);
+    bool cancel70 = sns70.Shells.Count == 0 && sns70.StatusText == "";
+    sns70.PickOpenFiles = _ => new[] { "a.xml", "b.xml" };
+    sns70.AddMasksCommand.Execute(null);
+    bool masks70 = sns70.Masks.Count == 2 && sns70.Masks[0].MaskId == 1 && sns70.Masks[1].MaskId == 2;
+    sns70.BuildCommand.Execute(null);
+    bool build70 = sns70.StatusText == "build failed: add at least one orbit design";
+    int opened70 = 0;
+    sns70.OpenOpParamsRequested += () => opened70++;
+    sns70.OpenOpParamsCommand.Execute(null);
+    bool snsOk70 = esAdd70 && esRemove70 && freq70 && cancel70 && masks70 && build70 && opened70 == 1;
+    // Orbit design tab: sub-tab switches, shells, clipboard, save and load through supplied dialogs.
+    var doc70 = new OrbitDesignDocumentViewModel();
+    doc70.GoSolverCommand.Execute(null); int t1 = doc70.InnerTabIndex;
+    doc70.GoCasesCommand.Execute(null); int t2 = doc70.InnerTabIndex;
+    doc70.GoConstellationCommand.Execute(null); int t3 = doc70.InnerTabIndex;
+    bool tabs70 = t1 == 1 && t2 == 2 && t3 == 3;
+    doc70.AddShellCommand.Execute(null); int two70 = doc70.Shells.Count;
+    doc70.RemoveShellCommand.Execute(null);
+    bool shells70 = two70 == 2 && doc70.Shells.Count == 1;
+    string? clip70 = null;
+    doc70.SetClipboardText = s => clip70 = s;
+    doc70.CopyCaseSummaryCommand.Execute(null);
+    bool copy70 = clip70 is string c70 && c70 == doc70.SelectedShell.BuildCopyText() && c70.Length > 0
+        && doc70.SelectedShell.SnsStatusText == "case summary copied to the clipboard";
+    string design70 = Path.Combine(exp70, "v70.orbitdesign.json");
+    if (File.Exists(design70)) File.Delete(design70);
+    string? suggested70 = null;
+    doc70.PickSaveFile = (_, name) => { suggested70 = name; return design70; };
+    doc70.SaveDesignCommand.Execute(null);
+    string saved70 = doc70.SelectedShell.SnsStatusText;
+    doc70.AddShellCommand.Execute(null);
+    doc70.PickOpenFile = _ => design70;
+    doc70.LoadDesignCommand.Execute(null);
+    bool saveLoad70 = suggested70 == "design.orbitdesign.json" && File.Exists(design70)
+        && saved70 == "design saved (1 shell(s)): " + design70 && doc70.Shells.Count == 1
+        && doc70.SelectedShell.SnsStatusText == "design loaded (1 shell(s)): " + design70;
+    int builder70 = 0;
+    doc70.OpenSnsBuilderRequested += () => builder70++;
+    doc70.OpenSnsBuilderCommand.Execute(null);
+    string? guide70 = null;
+    doc70.OpenDocument = p => guide70 = p;
+    doc70.CasesGuideCommand.Execute(null);
+    bool guideOk70 = doc70.CasesGuideCommand.CanExecute(null) == (doc70.CasesGuidePath is not null) && guide70 == doc70.CasesGuidePath;
+    bool orbitOk70 = tabs70 && shells70 && copy70 && saveLoad70 && builder70 == 1 && guideOk70;
+    // Mask export dialog: Browse suggests the notice-named file and takes the chosen path.
+    var mx70 = new MaskXmlExportViewModel(new PfdMaskViewModel());
+    string? mxName70 = null;
+    mx70.PickSaveFile = (_, name) => { mxName70 = name; return "chosen.xml"; };
+    mx70.BrowseOutputCommand.Execute(null);
+    bool maskOk70 = mxName70 == $"mask ntc_id {mx70.NtcId} mask_id {mx70.MaskId}.xml" && mx70.OutputPath == "chosen.xml";
+    // Compliance window: a cancelled browse leaves the path, a chosen one sets it.
+    var cvm70 = new ComplianceViewModel();
+    string design0 = cvm70.DesignPath;
+    cvm70.PickOpenFile = _ => null; cvm70.BrowseDesignCommand.Execute(null);
+    bool keep70 = cvm70.DesignPath == design0;
+    cvm70.PickOpenFile = _ => "picked.orbitdesign.json"; cvm70.BrowseDesignCommand.Execute(null);
+    bool complianceOk70 = keep70 && cvm70.DesignPath == "picked.orbitdesign.json";
+    // Home: a card's Open is a command carrying its card; the guide buttons open their page.
+    var home70 = new HomeViewModel();
+    HomeCard? card70 = null;
+    home70.OpenCardRequested += c => card70 = c;
+    var probe70 = new HomeCard("probe", "a card");
+    bool cardCan70 = home70.OpenCardCommand.CanExecute(probe70) && !home70.OpenCardCommand.CanExecute(null);
+    home70.OpenCardCommand.Execute(probe70);
+    string? doc70Path = null;
+    home70.OpenDocument = p => doc70Path = p;
+    home70.OpenUserGuideCommand.Execute(null);
+    bool homeOk70 = cardCan70 && card70 == probe70
+        && (home70.UserGuidePath is null ? doc70Path is null : doc70Path == home70.UserGuidePath);
+    Check("V70 the windows' buttons are view-model commands: the SNS builder adds and removes rows by the selection it holds and refuses a build with no design, the orbit design tab switches sub-tabs, copies, saves and loads through the dialogs its view supplies, the mask export's Browse suggests the notice-named file, a cancelled browse changes nothing, and a Home card's Open carries its card",
+        snsOk70 && orbitOk70 && maskOk70 && complianceOk70 && homeOk70,
+        $"sns={snsOk70} (add={esAdd70} remove={esRemove70} freq={freq70} cancel={cancel70} masks={masks70} build={build70} opener={opened70}) orbit={orbitOk70} (tabs={t1}/{t2}/{t3} shells={shells70} copy={copy70} saveLoad={saveLoad70} builder={builder70} guide={guideOk70}) mask={maskOk70} compliance={complianceOk70} home={homeOk70}");
+}
+
+// ---- V71: Case 3 as S.1503-4 and the EPS define it; the exact repeat altitude as the Case-2 default ----
+{
+    // A new shell files Case 2 at the candidate's exact closing altitude.
+    var fresh71 = new OrbitDesignViewModel();
+    bool defaultMode71 = !fresh71.DeclareAtTargetAltitude;
+    // Case 3 is station keeping with a supplied rate (Fig. 52): a retrograde
+    // 900 km shell declaring the 14/1 repeat, whose closing rate is eastward.
+    var vm71 = new OrbitDesignViewModel();
+    vm71.DeclareAtTargetAltitude = true;
+    vm71.TargetAltitudeKm = 900.0; vm71.InclinationDeg = 98.0;
+    vm71.CheckOrbitsText = "14"; vm71.CheckDaysText = "1";
+    vm71.CaseChoice = 2;
+    double a71 = OrbitalConstants.EarthRadiusKm + 900.0;
+    var sh71 = vm71.BuildShell();
+    double want71 = OrbitDesign.Case3ClosingRateDegPerSec(a71, 14, 1);
+    long p71 = (long)Math.Round(OrbitDesign.Case3RepeatSeconds(a71, 14));
+    var el71 = new Constellation(new[] { sh71 }).Elements[0];
+    bool fieldsOk71 = sh71.StationKeeping && sh71.PrecessionSupplied
+        && sh71.WDeltaDeg == vm71.KeepRangeDeg
+        && sh71.RepeatPeriod == OrbitDesign.DecomposePeriod(p71)
+        && sh71.PrecessionRateDegPerSec == want71 && want71 > 0.0
+        && Math.Abs(want71 * 86400.0 - Math.Round(want71 * 86400.0, 2)) < 1e-9
+        && el71.OrbitCase == 3
+        && vm71.Case3Text.Contains("f_stn_keep='Y'") && vm71.Case3Text.Contains("deg/day on file, turning east");
+    // The supplied rate closes the repeat: with no keep_rnge sweep the track
+    // returns after one repeat period, to the rate's 0.01 deg/day rounding
+    // and the period's whole seconds.
+    var closed71 = new Constellation(new[] { sh71 with { WDeltaDeg = 0.0 } });
+    var s0 = closed71.StateAt(0, 0.0, p71);
+    var s1 = closed71.StateAt(0, p71, p71);
+    double la0 = s0.SubSatLatDeg * Math.PI / 180.0, la1 = s1.SubSatLatDeg * Math.PI / 180.0;
+    double closure71 = Math.Acos(Math.Clamp(Math.Sin(la0) * Math.Sin(la1) + Math.Cos(la0) * Math.Cos(la1)
+        * Math.Cos((s1.SubSatLonDeg - s0.SubSatLonDeg) * Math.PI / 180.0), -1.0, 1.0)) * 180.0 / Math.PI;
+    bool closeOk71 = closure71 < 0.05;
+    // The design file carries the same shell.
+    var doc71 = new OrbitDesignDocumentViewModel();
+    doc71.LoadDocumentJson(OrbitDesignFileCodec.SaveDocument(new OrbitDesignDocument(4, new[] { vm71.BuildDesignData() })));
+    var fileSh71 = OrbitDesignFileCodec.ToShell(vm71.BuildDesignData());
+    bool fileOk71 = fileSh71.StationKeeping && fileSh71.RepeatPeriod == sh71.RepeatPeriod
+        && fileSh71.PrecessionRateDegPerSec == sh71.PrecessionRateDegPerSec
+        && doc71.SaveBlocker() is null;
+    // The filing carries the magnitude and the inclination sets the direction:
+    // a prograde shell's westward closing rate files; an eastward rate on it cannot.
+    var pro71 = new OrbitDesignDocumentViewModel();
+    var p0 = pro71.Shells[0];
+    p0.CaseChoice = 2;
+    bool proFiles71 = p0.Case3RateDegPerSec < 0.0 && pro71.SaveBlocker() is null;
+    p0.PrecessionText = "1e-5";   // eastward on a prograde orbit
+    string? proWhy71 = pro71.SaveBlocker();
+    var sns71 = new SnsBuilderViewModel();
+    sns71.Shells.Add(new ShellEntry("prograde.orbitdesign.json", p0.BuildDesignData()));
+    bool snsRefused71; try { sns71.BuildNotice(); snsRefused71 = false; }
+    catch (InvalidOperationException ex) { snsRefused71 = ex.Message.Contains("cannot be filed"); }
+    bool directionOk71 = proWhy71 is not null && proWhy71.Contains("cannot be filed") && snsRefused71
+        && p0.Case3Text.Contains("cannot be filed");
+    // A typed rate must close the declared repeat within keep_rnge every cycle.
+    double exact71 = OrbitDesign.Case3ExactClosingRateDegPerSec(
+        OrbitalConstants.EarthRadiusKm + p0.TargetAltitudeKm, p0.SelectedSolution!.Orbits, p0.SelectedSolution.NodalDays);
+    p0.PrecessionText = (exact71 * 0.999).ToString("R", CultureInfo.InvariantCulture);   // close: accepted
+    bool nearOk71 = pro71.SaveBlocker() is null && p0.Case3MismatchDegPerCycle is double mNear && Math.Abs(mNear) < p0.KeepRangeDeg;
+    p0.PrecessionText = (exact71 * 0.75).ToString("R", CultureInfo.InvariantCulture);    // far: refused
+    string? farWhy71 = pro71.SaveBlocker();
+    bool farOk71 = farWhy71 is not null && farWhy71.Contains("keep_rnge") && p0.Case3Text.Contains("more than keep_rnge");
+    bool refuseOk71 = proFiles71 && directionOk71 && nearOk71 && farOk71;
+    // An elliptical Case 3 says that the perigee is held while the real apsides turn.
+    var ell71 = new OrbitDesignViewModel();
+    ell71.Eccentricity = 0.05; ell71.CaseChoice = 2;
+    bool apsOk71 = ell71.Case3Text.Contains("holds the perigee fixed");
+    ell71.InclinationDeg = 63.4349;
+    apsOk71 &= ell71.Case3Text.Contains("critical inclination");
+    // The station-kept cases harmonize together: Case 2 and Case 3 shells.
+    var mix71 = new OrbitDesignDocumentViewModel();
+    mix71.AddShell();
+    var c3_71 = mix71.Shells[1];
+    c3_71.DeclareAtTargetAltitude = true;
+    c3_71.TargetAltitudeKm = 900.0; c3_71.InclinationDeg = 98.0;
+    c3_71.CheckOrbitsText = "14"; c3_71.CheckDaysText = "1";
+    c3_71.CaseChoice = 2;
+    string harm71 = mix71.HarmonizeRptPrd();
+    bool harmOk71 = harm71.StartsWith("rpt_prd harmonized") && c3_71.IsStationKept
+        && c3_71.BuildShell().RepeatPeriod == OrbitDesign.DecomposePeriod(c3_71.HarmonizedRptSeconds!.Value);
+    // The field carries the magnitude in degrees/day; a reader recovers the sign from the inclination.
+    bool srsOk71 = OrbitDesign.PrecessionFieldDegPerDay(-3.9931e-5) == 3.45
+        && OrbitDesign.PrecessionFromField(3.45, 53.0) == -3.45 / 86400.0
+        && OrbitDesign.PrecessionFromField(1.45, 98.0) == 1.45 / 86400.0
+        && OrbitDesign.PrecessionDirection(90.0) == 0
+        && OrbitDesign.PrecessionFromField(OrbitDesign.PrecessionFieldDegPerDay(want71), 98.0) == want71;
+    Check("V71 Case 3 is station keeping with a supplied rate: the tab files keep_rnge, the repeat and the rate that closes it (0.01 deg/day), the propagator runs it as case 3 and the track closes; the field carries the magnitude and the inclination the direction, a rate against it or off the repeat by more than keep_rnge is refused; the elliptical note; Case 3 harmonizes with Case 2; the exact repeat altitude is the Case-2 default",
+        defaultMode71 && fieldsOk71 && closeOk71 && fileOk71 && refuseOk71 && apsOk71 && harmOk71 && srsOk71,
+        string.Create(CultureInfo.InvariantCulture,
+            $"default={defaultMode71} fields={fieldsOk71} (case {el71.OrbitCase}, {want71 * 86400.0:F2} deg/day, rpt {p71} s) closure={closure71:F4} deg file={fileOk71} refuse={refuseOk71} (files={proFiles71} direction={directionOk71} near={nearOk71} far={farOk71}: {farWhy71}) apsides={apsOk71} harmonize={harmOk71} srs={srsOk71}"));
+}
+
+// ---- V72: a missing named mask stops the loop; the yaw steering range; explicit 0 deg exclusion rows ----
+{
+    // Item 3: a named pfd mask that is missing is reported, not replaced.
+    var missProf72 = new OperationProfile(Name: "v72") with
+    {
+        Downlink = new OperationProfile().Down with { MaskXmlPath = Path.Combine(AppContext.BaseDirectory, "exp", "no-such-mask.xml") },
+    };
+    string? miss72 = ComplianceLoopSteps.MissingMaskNote(missProf72);
+    bool missOk72 = miss72 is not null && miss72.Contains("no-such-mask.xml") && miss72.Contains("missing")
+        && ComplianceLoopSteps.MissingMaskNote(new OperationProfile()) is null;
+    // Item 4: the yaw sweep covers -R..+R in steps no coarser than the grid;
+    // without yaw the sweep and the mask cache name are unchanged.
+    double[] y0 = ComplianceLoopSteps.YawSweep(null, 1.0);
+    double[] y25 = ComplianceLoopSteps.YawSweep(2.5, 1.0);
+    bool sweepOk72 = y0.Length == 1 && y0[0] == 0.0
+        && y25.First() == -2.5 && y25.Last() == 2.5 && y25.Contains(0.0)
+        && y25.Zip(y25.Skip(1), (a, b) => b - a).All(d => d <= 1.0 + 1e-12);
+    string tag0 = ComplianceLoopSteps.MaskCacheTag(10.0, 1.0, -50.0, 50.0);
+    bool tagOk72 = ComplianceLoopSteps.MaskCacheTag(10.0, 1.0, -50.0, 50.0, 0.0) == tag0
+        && ComplianceLoopSteps.MaskCacheTag(10.0, 1.0, -50.0, 50.0, 15.0) is string ty
+        && ty != tag0 && ty.Contains("yaw15p0");
+    var pvm72 = new OperationProfileViewModel();
+    pvm72.YawSteeringText = "12.5";
+    var built72 = pvm72.Build();
+    var back72 = OperationProfileCodec.Load(OperationProfileCodec.Save(built72));
+    bool fieldOk72 = built72.Down.YawSteeringRangeDeg == 12.5 && back72.Down.YawSteeringRangeDeg == 12.5
+        && new OperationProfile().Down.YawSteeringRangeDeg is null;
+    // Item 7: a band where no exclusion shaped the links is declared as 0 deg,
+    // so interpolation does not span it; no band above the cut declares nothing.
+    var rows72 = OpParamsDeriver.ExclusionRows(new List<(double LatDeg, double Value)>
+        { (0.0, 12.0), (10.0, 12.0), (20.0, 0.02), (30.0, 12.0), (40.0, 12.0), (50.0, 0.0) });
+    bool rowsOk72 = rows72.Count == 6
+        && rows72.First(r => r.LatDeg == 20.0).AlphaDeg == 0.0
+        && rows72.First(r => r.LatDeg == 50.0).AlphaDeg == 0.0
+        && rows72.First(r => r.LatDeg == 0.0).AlphaDeg == 12.0
+        && OpParamsDeriver.ExclusionRows(new List<(double LatDeg, double Value)> { (0.0, 0.01), (10.0, 0.0) }).Count == 0;
+    Check("V72 a named pfd mask that is missing stops the loop; the yaw steering range sweeps -R..+R within the mask grid and names its cached mask; near-zero exclusion bands are declared as 0 deg rows",
+        missOk72 && sweepOk72 && tagOk72 && fieldOk72 && rowsOk72,
+        string.Create(CultureInfo.InvariantCulture,
+            $"missing={missOk72} sweep={sweepOk72} ({y25.Length} offsets) tag={tagOk72} field={fieldOk72} rows={rowsOk72} ({string.Join(" ", rows72.Select(r => $"{r.LatDeg:F0}:{r.AlphaDeg:F1}"))})"));
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

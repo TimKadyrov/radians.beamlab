@@ -130,6 +130,14 @@ public sealed class OperationProfileViewModel : ObservableObject
         }
     }
 
+    private string _yawSteeringText = "";
+    /// <summary>Yaw steering range (+/- deg); empty = the payload does not steer in yaw.</summary>
+    public string YawSteeringText
+    {
+        get => _yawSteeringText;
+        set { if (SetField(ref _yawSteeringText, value)) Recompute(); }
+    }
+
     private string _beamCapacityText = "";
     /// <summary>Co-frequency beam capacity per satellite; "" = no hardware limit.</summary>
     public string BeamCapacityText
@@ -474,7 +482,8 @@ public sealed class OperationProfileViewModel : ObservableObject
                 Opt(_thetaBText, "beamwidth"), _autoHex, _uvArrayBeams,
                 Opt(_ellAlphaText, "ell alpha"), Opt(_ellBetaText, "ell beta"),
                 Opt(_lnText, "near-in side-lobe"), Opt(_crossoverText, "crossover"),
-                OptInt(_beamCapacityText, "co-frequency beam capacity")),
+                OptInt(_beamCapacityText, "co-frequency beam capacity"),
+                Opt(_yawSteeringText, "yaw steering range")),
             new UplinkProfile(
                 Req(_ulFrequencyGhzText, "uplink frequency"),
                 Opt(_esPowerText, "ES power"), Opt(_powerRefElevText, "power control ref elev"),
@@ -498,6 +507,43 @@ public sealed class OperationProfileViewModel : ObservableObject
 
     public string BuildJson() => OperationProfileCodec.Save(Build());
 
+    // ---- the window's buttons: commands, with dialogs asked of the view ----
+
+    /// <summary>Supplied by the window: an open-file dialog (filter -> path, null when cancelled).</summary>
+    public Func<string, string?>? PickOpenFile { get; set; }
+    /// <summary>Supplied by the window: a save-file dialog (filter, file name -> path).</summary>
+    public Func<string, string, string?>? PickSaveFile { get; set; }
+
+    private System.Windows.Input.ICommand? _browseMaskCommand, _saveCommand, _loadCommand;
+
+    public System.Windows.Input.ICommand BrowseMaskCommand => _browseMaskCommand ??= new RelayCommand(() =>
+    {
+        if (PickOpenFile?.Invoke("S.1503-4 PFD mask (*.xml)|*.xml") is string p) MaskXmlPathText = p;
+    });
+
+    public System.Windows.Input.ICommand SaveCommand => _saveCommand ??= new RelayCommand(() =>
+    {
+        try
+        {
+            string json = BuildJson();
+            if (PickSaveFile?.Invoke("Operation profile (*.opprofile.json)|*.opprofile.json", "system.opprofile.json") is not string p) return;
+            System.IO.File.WriteAllText(p, json);
+            StatusText = "saved: " + p;
+        }
+        catch (Exception ex) { StatusText = "save failed: " + ex.Message; }
+    });
+
+    public System.Windows.Input.ICommand LoadCommand => _loadCommand ??= new RelayCommand(() =>
+    {
+        if (PickOpenFile?.Invoke("Operation profile (*.opprofile.json)|*.opprofile.json|JSON|*.json") is not string p) return;
+        try
+        {
+            LoadJson(System.IO.File.ReadAllText(p));
+            StatusText = "loaded: " + p;
+        }
+        catch (Exception ex) { StatusText = "load failed: " + ex.Message; }
+    });
+
     public void LoadJson(string json) => Apply(OperationProfileCodec.Load(json));
 
     /// <summary>Populates every field from a profile (load, or the advisor's result).</summary>
@@ -517,6 +563,7 @@ public sealed class OperationProfileViewModel : ObservableObject
         Aggregation = dl.Aggregation;
         ReuseClusterText = dl.ReuseClusterIndex?.ToString(inv) ?? "";
         BeamCapacityText = dl.CoFrequencyBeamCapacity?.ToString(inv) ?? "";
+        YawSteeringText = dl.YawSteeringRangeDeg?.ToString(inv) ?? "";
         RefBwText = dl.RefBwKHz.ToString(inv);
         DlAngleSatText = dl.MinAngleAtSatDeg?.ToString(inv) ?? "";
         DlAngleEsText = dl.MinAngleAtEsDeg?.ToString(inv) ?? "";

@@ -7,17 +7,20 @@ namespace radians.beamlab;
 public enum ParameterGroup { Declared, Truth, Orbit }
 
 /// <summary>
-/// Intent sub-groups of the Truth (operation profile) cards: what job the
-/// parameter does in the simulation. Mirrored as the h3 headings of the
-/// "Real-system operation" section on docs/parameter-cards.html.
+/// Intent sub-groups of the Truth (operation profile) cards, named and ordered
+/// as the Operation profile window groups its fields (the last one is the mask
+/// export's option). Mirrored as the h3 headings of the "Real-system
+/// operation" section on docs/parameter-cards.html.
 /// </summary>
 public static class ProfileIntent
 {
-    public const string Service = "Service, traffic & scheduling";
+    public const string Projection = "The projection switch";
     public const string Power = "Radiated power & spectrum";
     public const string Shape = "Beam shape & layout";
     public const string Uplink = "Uplink fleet";
-    public const string Projection = "The projection switch";
+    public const string Coverage = "Service & coverage";
+    public const string Traffic = "Traffic & scheduling";
+    public const string MaskExport = "Mask export";
 }
 
 /// <summary>One parameter's help text -- the app-facing twin of its card.</summary>
@@ -51,11 +54,10 @@ public static class ParameterCatalog
     {
         new(ParameterGroup.Declared, "FREQ_MIN / FREQ_MAX", "MHz",
             "OperatingParamsSet.LowFreqMhz/HighFreqMhz · epfd_freq, mask_info",
-            "The band identity of the set. A band may not carry two sets, and every examined band must have one — the rule that decides how sets 21–25 partition the BL family.",
+            "The band identity of the set. A band may not carry two sets, and every examined band must have one.",
             new[]
             {
                 "scopes which masks and which scenario frequencies the set governs",
-                "one-set-per-band forces BL-ALL to drop the standalone I1 set for its D2 overlap",
             }),
         new(ParameterGroup.Declared, "MIN_EXCLUDE", "deg α · [lat][orb_id]",
             "MinExcludeByOrbit · min_exclude/exclusion_zone_angle",
@@ -73,11 +75,11 @@ public static class ParameterCatalog
             {
                 "reference elevation for PowerControlRefElevDeg — the ceiling’s slant range",
                 "sets the FOV edge the mask latitude cap and beam lattice must reach",
-                "array prevails over the header inside its latitude span",
+                "one form per quantity: a set filing both the header and the array is an invalid filing",
             }),
         new(ParameterGroup.Declared, "MIN_DURATION", "s · [lat]",
             "MinDurationByLat / header · min_duration",
-            "Minimum tracking dwell once a link is made: voluntary handover to a better satellite waits out the dwell; only infeasibility forces one. Non-zero also gates admission — a new link is only made toward a satellite that stays above the elevation floor and outside the exclusion for the whole duration — and selects the track-duration examination algorithm (BL-D1).",
+            "Minimum tracking dwell once a link is made: voluntary handover to a better satellite waits out the dwell; only infeasibility forces one. Non-zero also gates admission — a new link is only made toward a satellite that stays above the elevation floor and outside the exclusion for the whole duration — and selects the track-duration examination algorithm.",
             new[]
             {
                 "mutually exclusive with MIN_ANGLE_AT_ES — a band declares one regime",
@@ -104,7 +106,7 @@ public static class ParameterCatalog
             "Minimum separation, seen from one cell, between the satellites co-serving it: slot k only takes a satellite at least this far from every satellite already serving the cell.",
             new[]
             {
-                "MIN_DURATION — the classic-algorithm half of the pair (BL-D2)",
+                "MIN_DURATION — the classic-algorithm half of the pair",
                 "inert until MAX_CO_FREQ and DemandLinks allow a second slot",
             }),
         new(ParameterGroup.Declared, "MIN_ANGLE_AT_SAT", "deg · header",
@@ -119,8 +121,8 @@ public static class ParameterCatalog
             "The typical-ES deployment declaration: the examination plants representative stations every ES_DISTANCE inside the victim beam with NUM_ES = dist²·density aggregation (§D5.2.5). The truth side transmits from actually scheduled cells instead — that asymmetry is measured margin.",
             new[]
             {
-                "switched off entirely by specific earth stations (e_as_stn, mask ES_ID) — BL-U2",
-                "BL-U1 declares both active; its up-CDF is the scheduled-cells truth",
+                "switched off entirely by specific earth stations (e_as_stn, mask ES_ID)",
+                "with both declared, the truth's up-CDF still comes from the scheduled cells",
             }),
         new(ParameterGroup.Declared, "ES_LAT_MIN / ES_LAT_MAX", "deg",
             "EsLatMinDeg / EsLatMaxDeg · es_lat_min, es_lat_max",
@@ -131,7 +133,7 @@ public static class ParameterCatalog
             }),
         new(ParameterGroup.Declared, "header ↔ arrays", "one form per quantity",
             "ElevAngleHeaderDeg, MaxCoFreqHeader, MinDurationSecHeader vs the [lat] arrays",
-            "Three declared quantities come in two forms: min_elev (header name elev_angle), max_co_freq and min_duration each exist as an XML header scalar and as a per-latitude array. The two forms are mutually exclusive per quantity (EPS V43 6.7.2.2, design brief 3.8): a valid set files each quantity in exactly one form, and a set carrying both is an invalid filing — reported by name, never resolved by a precedence. An array is read at the nearest row everywhere, and the read is total: beyond the outermost rows the nearest row is the outermost row, so edge rows govern out to the poles and a single row declares a globally constant value, as filings write constants. The header remains for the scalar-only quantities (min_angle_at_es, min_angle_at_sat, max_co_freq_sat, es_density, es_distance, es_lat_min and es_lat_max). Example, for min_elev: rows at lat 30 and 60 — lat 45 reads the nearest row, lat 10 reads row 30 and lat 80 reads row 60. The BL sets carry the header-only shape (set 23) and the arrays-only shape (set 21); set 22, which files both forms with different values, is the invalid-filing probe whose expectation is the rejection.",
+            "Three declared quantities come in two forms: min_elev (header name elev_angle), max_co_freq and min_duration each exist as an XML header scalar and as a per-latitude array. The two forms are mutually exclusive per quantity: a valid set files each quantity in exactly one form, and a set carrying both is an invalid filing — reported by name, never resolved by a precedence. An array is read at the nearest row everywhere, and the read is total: beyond the outermost rows the nearest row is the outermost row, so edge rows govern out to the poles and a single row declares a globally constant value, as filings write constants. The header remains for the scalar-only quantities (min_angle_at_es, min_angle_at_sat, max_co_freq_sat, es_density, es_distance, es_lat_min and es_lat_max). Example, for min_elev: rows at lat 30 and 60 — lat 45 reads the nearest row, lat 10 reads row 30 and lat 80 reads row 60. The BL sets carry the header-only shape (set 23) and the arrays-only shape (set 21); set 22, which files both forms with different values, is the invalid-filing probe whose expectation is the rejection.",
             new[]
             {
                 "DeclaredConstraints reads the array when it is filed, else the header; FormConflicts names a set that carries both",
@@ -144,15 +146,15 @@ public static class ParameterCatalog
             {
                 "MAX_CO_FREQ caps it into the slot count",
                 "with ActivityFactor, offered intensity ≈ DemandLinks × activity Erlang",
-            }) { SubGroup = ProfileIntent.Service },
+            }) { SubGroup = ProfileIntent.Traffic },
         new(ParameterGroup.Truth, "ActivityFactor", "0–1 · + ActivityPeriodSec",
             "ServiceCell.ActivityFactor / ActivityPeriodSec (1.0 / 300 s)",
             "On/off traffic per slot: in each holding window a deterministic hash of (cell, slot, window) decides whether demand exists. Inactive windows release the link with no handover and no unserved count — no traffic, no transmission, in both link directions at once. This is the basic level of the two-level traffic model (S.1325 rev §2.3.4): the link is on or off and the amount of traffic while on is ignored. The advanced level — a traffic level compared against a trigger, scaling transmit power — and the hourly local-time profile that drives it are not modelled here; a constant factor is their degenerate case.",
             new[]
             {
                 "releases restart MIN_DURATION dwell without counting handovers",
-                "hash-deterministic: same inputs, same CDFs — no RNG state anywhere",
-            }) { SubGroup = ProfileIntent.Service },
+                "hash-deterministic: same inputs, same CDFs — the activity model holds no random state (the Random selection policy draws from its own seeded stream)",
+            }) { SubGroup = ProfileIntent.Traffic },
         new(ParameterGroup.Truth, "PowerDbw", "dBW / ref. BW",
             "EpfdUpEsModel.PowerDbw",
             "The ES transmit ceiling into its antenna — the same base the declared E mask envelopes (mask = PowerDbw + G(θ) monotone hull), so simulated eirp ≤ mask by construction.",
@@ -163,7 +165,7 @@ public static class ParameterCatalog
             }) { SubGroup = ProfileIntent.Uplink },
         new(ParameterGroup.Truth, "PowerControlRefElevDeg", "deg · nullable",
             "EpfdUpEsModel.PowerControlRefElevDeg",
-            "Range-based closed-loop power control (power control on range, S.1325 rev §2.3.3, the receiver-power-density formulation): the ceiling corresponds to the slant range at this elevation, and each link transmits 20 log₁₀(d ref / d link) below it — constant flux at the serving satellite. Worth ≈2 dB in the BL-U1 truth CDF.",
+            "Range-based closed-loop power control (power control on range, S.1325 rev §2.3.3, the receiver-power-density formulation): the ceiling corresponds to the slant range at this elevation, and each link transmits 20 log₁₀(d ref / d link) below it — constant flux at the serving satellite. Worth ≈2 dB in the uplink truth CDF of the validation dataset.",
             new[]
             {
                 "referenced to the band’s declared MIN_ELEV in the dataset",
@@ -185,38 +187,38 @@ public static class ParameterCatalog
                 "MaxGsoSeparation maximises the same α that MIN_EXCLUDE bounds",
                 "drives the candidate sort and the voluntary-handover comparison",
                 "no strategy has an R-set field — selection reaches the filing only through the gates it obeys (the 4A/653 alpha table proposed to carry it and was rejected)",
-            }) { SubGroup = ProfileIntent.Service },
+            }) { SubGroup = ProfileIntent.Traffic },
         new(ParameterGroup.Truth, "OperationalFraction", "0–1 · per shell",
             "ConstellationShell.OperationalFraction",
             "The transmitting cohort: spares and orbit-raising satellites fly with real positions but radiate nothing and never serve, interleaved by a Bresenham spread. The SRS always declares the full shell, so truth ≤ declaration by construction.",
             new[]
             {
                 "declared N_sat stays the envelope; the fraction is pure measured margin",
-            }) { SubGroup = ProfileIntent.Service },
+            }) { SubGroup = ProfileIntent.Traffic },
         new(ParameterGroup.Truth, "YawSweepDeg", "deg[] · default {0}",
-            "MaskXmlExportOptions.YawSweepDeg → ReachableEnvelopeSampler",
-            "Body-yaw offsets swept on top of each pass heading when the pfd envelope is sampled. A yaw-steering payload must sweep its reachable yaw range here or the derived mask is not an envelope — the one parameter that guards mask correctness rather than tightness.",
+            "profile YawSteeringRangeDeg → MaskXmlExportOptions.YawSweepDeg → ReachableEnvelopeSampler",
+            "Body-yaw offsets swept on top of each pass heading when the pfd envelope is sampled. A yaw-steering payload must sweep its reachable yaw range here or the derived mask is not an envelope — the one parameter that guards mask correctness rather than tightness. The Operation profile's Yaw steering range sets it for the compliance loop's computed mask, swept from minus to plus the range in steps no coarser than the mask's grid.",
             new[]
             {
                 "the S mask needs no sweep: body yaw is a rigid rotation about nadir and its azimuth envelope is invariant",
                 "sweep step no coarser than the output bin, or peaks slip between cells",
-            }) { SubGroup = ProfileIntent.Shape },
+            }) { SubGroup = ProfileIntent.MaskExport },
         new(ParameterGroup.Truth, "CellPitchKm / coverageRadiusKm", "km",
             "ServiceGeography.CellPitchKm · Scheduler ctor override",
             "The service-grid pitch, doubling as the default radius within which a resolved beam footprint must land to cover a cell. It is the average distance between co-frequency, co-polarized earth stations that the uniform deployment model is defined by (S.1325 rev §2.3.1.2), and the quantity the declaration carries as es_distance. The default hex layout has no central beam — nearest boresights sit 433 km from the sub-satellite point at 1200 km — a lattice fact that decides feasibility.",
             new[]
             {
-                "too tight a radius silently unserves covered-looking cells (three harness checks learned this)",
+                "too tight a radius silently unserves covered-looking cells",
                 "interacts with MIN_ELEV: both must admit the geometry before a candidate exists",
-            }) { SubGroup = ProfileIntent.Service },
+            }) { SubGroup = ProfileIntent.Coverage },
         new(ParameterGroup.Truth, "GainPeakDbi", "dBi · per beam",
             "PfdMaskViewModel.GmDbi · profile GainPeakDbi",
             "Per-beam peak gain Gm of the S.1528-1 §1.4 pattern — the top of every beam's gain curve and the bridge from transmit power to e.i.r.p.: per beam at its own boresight, e.i.r.p. density = TxEirpDbw + Gm (the composite adds neighbouring side lobes on top). Empty in the profile keeps the scene default.",
             new[]
             {
-                "with TxEirpDbw it sets the boresight density the payload envelope study sweeps",
+                "with TxEirpDbw it sets the boresight density",
                 "beam width comes from the layout, not Gm — cell sizing lives in BeamCellRadiusKm",
-            }) { SubGroup = ProfileIntent.Power },
+            }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "BeamCellRadiusKm", "km · per beam",
             "PfdMaskViewModel.CellRadiusKm · profile BeamCellRadiusKm",
             "Ground-cell radius one beam serves — sets the beam lattice density and each beam's width in the auto layout: smaller cells mean more, narrower beams over the same service area.",
@@ -242,7 +244,7 @@ public static class ParameterCatalog
             }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "TxEirpDbw", "dBW / ref. BW · per beam",
             "PfdMaskViewModel.TxEirpDbw · profile TxEirpDbw",
-            "Per-beam transmit power density into the pattern (dBW in the reference bandwidth): constant-e.i.r.p. mode feeds exactly this to every beam and the composite adds the pattern gain on top. Every epfd statistic moves dB for dB with it — the payload envelope study's compliance frontier is linear in this one parameter.",
+            "Per-beam transmit power density into the pattern (dBW in the reference bandwidth): constant-e.i.r.p. mode feeds exactly this to every beam and the composite adds the pattern gain on top. Every epfd statistic moves dB for dB with it.",
             new[]
             {
                 "per-beam boresight e.i.r.p. density = TxEirpDbw + GainPeakDbi",
@@ -253,7 +255,7 @@ public static class ParameterCatalog
             "Downlink power control: constant e.i.r.p. (the default) drives every beam at TxEirpDbw; constant boresight PFD adds 20 log₁₀(slant/altitude) per beam so every boresight lands the same flux on the ground despite spreading — the compensation a real payload applies. These are the two formulations of power control on range (S.1325 rev §2.3.3): a target power density at the receiver, and a target flux at the surface. A filed mask whose plateau is flat in pfd across range was built the second way.",
             new[]
             {
-                "check C4 pins the compensation: boresight PFD flat across the layout",
+                "the compensation holds the boresight PFD flat across the layout",
                 "the derived masks bake whichever mode the profile declares",
             }) { SubGroup = ProfileIntent.Power },
         new(ParameterGroup.Truth, "Aggregation · ReuseClusterIndex", "enum · index",
@@ -262,11 +264,11 @@ public static class ParameterCatalog
             new[]
             {
                 "checks pin the K-colour adjacency and the ordering (C2, C3)",
-                "modelled in the truth run too: with co-channel declared, the epfd composite takes the worst colour (V32)",
+                "modelled in the truth run too: with co-channel declared, the epfd composite takes the worst colour",
             }) { SubGroup = ProfileIntent.Power },
         new(ParameterGroup.Truth, "CoFrequencyBeamCapacity", "count per colour",
             "DownlinkProfile.CoFrequencyBeamCapacity -> PfdMaskViewModel, ResolvedBeamSet; scheduler gate and mask top-K",
-            "The most same-colour (co-frequency) beams one satellite radiates at once. Payload hardware, not traffic: the study Recommendation lists the maximum number of co-frequency, co-polarisation beams as a required antenna input. Declared here it does two things at once. The scheduler refuses a satellite a further link in a colour that already has this many lit, so the truth honours it; and the reachable-envelope mask sums only the largest K same-colour contributions at each cell instead of the whole colour. That second step is E1-1, and this field is its warrant: without an enforced capacity the observed count is a sample maximum and the only ceiling the envelope may use is the colour size itself. Left empty, nothing is limited and the mask sums every beam of the colour.",
+            "The most same-colour (co-frequency) beams one satellite radiates at once. Payload hardware, not traffic: the study Recommendation lists the maximum number of co-frequency, co-polarisation beams as a required antenna input. Declared here it does two things at once. The scheduler refuses a satellite a further link in a colour that already has this many lit, so the truth honours it; and the reachable-envelope mask sums only the largest K same-colour contributions at each cell instead of the whole colour. That second step needs this field as its warrant: without an enforced capacity the observed count is a sample maximum and the only ceiling the envelope may use is the colour size itself. Left empty, nothing is limited and the mask sums every beam of the colour.",
             new[]
             {
                 "distinct from MAX_CO_FREQ_SAT, which counts earth stations across all colours and is an R-set item",
@@ -309,7 +311,7 @@ public static class ParameterCatalog
             "The layout switches: auto hex tessellation on or off (off = the concentric-rings layout), and array-steered UV beams for the circular §1.4 pattern — radial width ×1/cos θ, the phased-array broadening. Indeterminate in the profile keeps the scene defaults.",
             new[]
             {
-                "checks H1/H2 pin the UV-beam geometry and the crossover uniformity it buys",
+                "the array broadening buys a uniform crossover across the UV lattice",
                 "rings mode is where CrossoverDb bites",
             }) { SubGroup = ProfileIntent.Shape },
         new(ParameterGroup.Truth, "EllAlphaDeg · EllBetaDeg", "deg at sat",
@@ -356,9 +358,9 @@ public static class ParameterCatalog
             {
                 "cells outside the declared ES_LAT range are never served — declaration binds truth",
                 "the deriver's measured es_lat envelope comes from exactly these cells",
-            }) { SubGroup = ProfileIntent.Service },
+            }) { SubGroup = ProfileIntent.Coverage },
         new(ParameterGroup.Orbit, "StationKeeping · WDeltaDeg · RepeatPeriod", "Case 2",
-            "f_stn_keep='Y', keep_rnge, rpt_prd_* · shell A",
+            "f_stn_keep='Y', keep_rnge, rpt_prd_*",
             "Station-kept repeating ground track: the longitude tolerance W_delta sweeps the track across its deadband, and the declared repeat period tells the examination the time grid it may fold over.",
             new[]
             {
@@ -366,7 +368,7 @@ public static class ParameterCatalog
                 "keep_rnge is a float column: compare at 1e-4, not 1e-6",
             }),
         new(ParameterGroup.Orbit, "NOrbits", "count · Case 1",
-            "ConstellationShell.NOrbits → ArtificialPrecession · shell B",
+            "ConstellationShell.NOrbits → ArtificialPrecession",
             "Free drift: the examination adds artificial precession so NOrbits nodal passes tile the equator (§D6.3.2 Steps 8–11). Transcribed formula-identically — including the documented sign quirk where the measured spacing lands at 2·S_pass − S_grid.",
             new[]
             {
@@ -374,14 +376,15 @@ public static class ParameterCatalog
                 "identity with the examination outranks track-repeat elegance — see the upstream note",
             }),
         new(ParameterGroup.Orbit, "PrecessionSupplied · PrecessionRateDegPerSec", "Case 3",
-            "f_precess='Y', precession · shell C (J2 rate)",
-            "Administration-supplied nodal precession: the declared rate is used directly instead of the derived artificial one. The BL value is the standard J2 regression for the elliptical shell (−1.81×10⁻⁵ deg/s).",
+            "f_stn_keep='Y', keep_rnge, rpt_prd_*, f_precess='Y', precession (deg/day)",
+            "Station keeping with an administration-supplied nodal precession (S.1503-4 Fig. 52, eq (52)): the rate replaces the J2 term, the argument of perigee is held and the satellite moves at the point-mass mean motion, so the rate is the one that closes the repeat. Empty declares the rate that closes the selected repeat at the target altitude. Filed as its magnitude in degrees/day; the direction is the one the inclination implies, west for a prograde orbit and east for a retrograde one.",
             new[]
             {
-                "supersedes NOrbits-derived precession on that shell",
+                "needs station keeping: without it the examination runs the shell as Case 1 and ignores the rate",
+                "a rate turning against the inclination, or a typed rate off the repeat by more than keep_rnge per cycle, cannot be filed",
             }),
         new(ParameterGroup.Orbit, "Eccentricity · ArgumentOfPerigee · OperatingHeightKm", "elliptical",
-            "apog/perig_km, perig_arg, op_ht_km · shell C",
+            "apog/perig_km, perig_arg, op_ht_km",
             "The elliptical declarations. The minimum operating height (H_MIN) is an emission gate: below it the satellite flies dark — and it sets the worst-case range the pfd envelope is sampled at (Vm uses op-height, not mean altitude).",
             new[]
             {

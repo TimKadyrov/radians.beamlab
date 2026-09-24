@@ -24,7 +24,7 @@
                                 <TextBlock Text="{Binding Description}" TextWrapping="Wrap"
                                            Foreground="#698089" Margin="0,4,0,8" MinHeight="60"/>
                                 <Button Content="Open" Width="80" HorizontalAlignment="Left"
-                                        Tag="{Binding}" Click="OnCardOpenClick"/>
+                                        Tag="{Binding}" Command="{Binding DataContext.OpenCardCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
                             </StackPanel>
                         </Border>
                     </DataTemplate>
@@ -46,7 +46,7 @@
                                 <TextBlock Text="{Binding Description}" TextWrapping="Wrap"
                                            Foreground="#698089" Margin="0,4,0,8" MinHeight="60"/>
                                 <Button Content="Open" Width="80" HorizontalAlignment="Left"
-                                        Tag="{Binding}" Click="OnCardOpenClick"/>
+                                        Tag="{Binding}" Command="{Binding DataContext.OpenCardCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
                             </StackPanel>
                         </Border>
                     </DataTemplate>
@@ -55,13 +55,13 @@
             <TextBlock Text="Documentation" FontSize="15" FontWeight="SemiBold" Margin="0,10,0,4"/>
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="GuideButton" Content="User guide" Margin="0,0,8,0" Padding="10,3"
-                        Click="OnGuideClick"/>
+                        Command="{Binding OpenUserGuideCommand}"/>
                 <Button x:Name="CardsButton" Content="Parameter cards" Margin="0,0,8,0" Padding="10,3"
-                        Click="OnCardsClick"/>
+                        Command="{Binding OpenParameterCardsCommand}"/>
                 <Button x:Name="OrbitCasesButton" Content="Orbit case guide" Margin="0,0,8,0" Padding="10,3"
-                        Click="OnOrbitCasesClick"/>
+                        Command="{Binding OpenOrbitCasesCommand}"/>
                 <Button x:Name="SolverGuideButton" Content="Repeat solver guide" Padding="10,3"
-                        Click="OnSolverGuideClick"/>
+                        Command="{Binding OpenRepeatSolverCommand}"/>
             </StackPanel>
 
             <TextBlock Text="{Binding VersionText}" Foreground="#698089" Margin="0,16,0,0"/>
