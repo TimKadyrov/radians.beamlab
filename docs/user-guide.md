@@ -84,7 +84,7 @@ numbered tabs below describe the functions in their card order.
 
 | Gesture | Action |
 |---|---|
-| Left-click a beam marker | toggle that beam on/off |
+| Left-click a beam marker | toggle that beam on/off (on release; a drag that starts on a marker pans instead) |
 | Left-click elsewhere | probe gain / PFD at that point |
 | Left-drag | pan |
 | Right-drag | move the satellite (live) |
@@ -395,7 +395,7 @@ Case 2 reads the selected candidate row.
   a rate you supply yourself (deg/s, any sign — prograde orbits drift
   westward, so negative is the normal case), shown against the J2 value.
 
-**Copy SNS fields** puts all three previews on the clipboard.
+**Copy case summary (text)** puts all three previews on the clipboard; with no repeating candidate selected it copies Cases 1 and 3, which stand without one.
 
 **Ground track (bottom right).** One full cycle of the selected
 candidate, propagated through the real constellation propagator over the
@@ -427,8 +427,9 @@ Earth) — and warns when shells mix repeating and non-repeating
 (§A2.4/§B5.1 want all one or the other). The **Harmonize rpt_prd**
 button on the Constellation sub-tab (shown while the case is Case 2)
 declares that common period on every Case-2 shell: any multiple of a
-shell's own cycle is a valid repeat period for its track. Changing a
-shell's pair or altitude mode clears its harmonization.
+shell's own cycle is a valid repeat period for its track. It needs every
+shell to be Case 2 with a candidate, and says which shell is not when one
+is not. Changing a shell's pair or altitude mode clears its harmonization.
 Only a Case-2 repeating design needs the solver's repeat pair — and by
 default even that is declared at the target altitude, the exact closing
 altitude staying as the zero-correction reference; free drift and
@@ -594,7 +595,9 @@ same text as `docs/parameter-cards.html`, kept identical by a check):
   with per-latitude rows, service area, cell pitch, coverage radius).
 - **Operation / scheduling** — scheduler gates and the derived R set
   (tracking strategy, Nco per cell and per satellite, hold time, demand,
-  activity factor/period, operational fraction, illumination duty).
+  activity factor/period, operational fraction, illumination duty). Demand,
+  the hold time and the per-latitude Nco rows take whole numbers; a
+  fraction or a zero is refused rather than rounded.
 - **Exclusion** — the one number that reaches *both* sides: the scene
   ring baked into every exported mask, and the scheduler gate declared
   in the R set (left at 0 until the compliance loop finds it).
@@ -654,7 +657,14 @@ nowhere crosses the log-linear curve between the tabulated points
 (tolerance 0.05 dB towards lower epfd). Each row reports the worst point
 margin read off the CDF (positive = room to spare) and the curve margin,
 the dB shift that just clears the curve; the summary quotes the smaller of
-the two and names the rule. Failing rows show red, and the table exports to CSV. The summary also
+the two and names the rule; the table also shows the deciding point and
+the worst crossing of the curve. Failing rows show red. The status line
+adds the steps per latitude and the resolvable percentile floor, estimates
+the time left while a run goes, warns when the step samples the fastest
+crossing of the earth station's 3 dB beam fewer than three times, and says
+so when the limit is still the permissive template. **Export table…**
+writes the rows as CSV, headed by `#` lines naming the run, its inputs,
+grid, depth, step and limit; after a loop run the E1 columns follow. The summary also
 prints the **power headroom**: epfd moves exactly dB-for-dB with the
 per-beam Tx power density, so the worst margin doubles as the TxEirpDbw
 headroom at the swept exclusion (live-composition footprint only — a
@@ -720,12 +730,20 @@ under the declared discipline. The remaining fields describe the victim
 and the run: GSO longitude; ES latitude/longitude, which also serve as
 the up/is victim's boresight; the S.1428 dish diameter (victim dish;
 also the transmitting ES when the profile's uplink side declares no
-dish); duration and time step, the step preset to 1 s, the truth's step
-in the compliance loop as well. **Write CDFs…** executes on a
+dish); duration and time step, preset to half a day at 1 s, the truth's
+step in the compliance loop as well — the status line warns when the step
+samples the fastest crossing of the earth station's 3 dB beam fewer than
+three times, and with the Random strategy and no hold the step is also the
+reselection period. The optional **Limits** group takes the applicable
+Article 22 rows for epfd(down), epfd(is) and epfd(up); a direction with a
+limit gets a verdict under the limit-curve rule in the run's summary and in
+its CDF file. **Write CDFs…** executes on a
 worker thread, using every processor for the satellites of each step
 (set the `BEAMLAB_THREADS` environment variable to a smaller count to
 leave the machine responsive; the result does not depend on it), and
-writes three CDF CSVs in S.1503-4 D7.1.2 bins (0.1 dB):
+writes three CDF CSVs in S.1503-4 D7.1.2 bins (0.1 dB), each stating its
+step, duration and reference bandwidth in its header, with the time left
+estimated while it runs:
 `base.down.csv`, `base.is.csv` (the byproduct at the GSO satellite
 victim — S.672, 40.7 dBi / 1.55°) and `base.up.csv` — then opens the
 **CDF viewer** over the written curves (epfd on a linear dB axis

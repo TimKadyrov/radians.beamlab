@@ -202,8 +202,15 @@ statistics are collected at; also the in-space victim's boresight point.</li>
 earth station (down); it also stands in for the transmitting earth station (up) when the
 profile's uplink side declares no dish of its own.</li>
 <li><strong>Duration / time step</strong> &mdash; how long and how finely the operation is
-marched. Statistics of rare deep events need runs long enough, and steps fine enough, to
-catch them.</li>
+marched, preset to half a day at 1&nbsp;s. Statistics of rare deep events need runs long
+enough, and steps fine enough, to catch them: the status line warns when the step samples the
+fastest crossing of the earth station&rsquo;s 3&nbsp;dB beam fewer than three times, and
+estimates the time left while a run goes. With the Random strategy and no hold the
+selection is redrawn at every step, so the step is also the reselection period.</li>
+<li><strong>Limits (optional)</strong> &mdash; the applicable Article 22 rows for
+epfd(down), epfd(is) and epfd(up), one point per line. A direction with a limit gets a
+verdict under the limit-curve rule: every tabulated point, and the log-linear curve between
+them.</li>
 </ul>
 <p>The uplink transmit power, its power-control reference elevation and its frequency are
 transmission basics and come from the profile's uplink side, not from this window.</p>
@@ -224,10 +231,11 @@ direction; <strong>View CDFs&#8230;</strong> opens the same viewer over any exis
 files.</p>
 <div class="tech"><div class="t">Tech &middot; the CDF files</div>
 <p>Levels are binned in the 0.1&nbsp;dB bins of S.1503-4 &sect;D7.1.2, and each file reports
-the step count, the quiet steps (nothing visible or transmitting) and the maximum epfd seen.
-The runner deliberately stops at the distribution: verdicts against a limit &mdash; the
-&sect;D7.1.3 comparison &mdash; belong to the compliance loop, which reuses these same
-mechanics victim by victim.</p></div>
+the step count, the step and the duration, the reference bandwidth of the levels, the quiet
+steps (nothing visible or transmitting) and the maximum epfd seen, and, when a limit was
+entered, its verdict. The runner verdicts one victim; the latitude grid, the declaration and
+its examination belong to the compliance loop, which reuses these same mechanics victim by
+victim.</p></div>
 
 <div class="foot">
 Companion pages: <a href="r-set-designer.html">Inside the R Set</a> &middot;

@@ -59,6 +59,35 @@ public static class ComplianceLoopSteps
     }
 
     /// <summary>
+    /// How often a step samples the fastest crossing of the earth station's
+    /// 3 dB beam -- the pass time of S.1503-4 Sec. D4.2 at the lowest shell --
+    /// with the S.1503-4 fine step beside it. The time step is a control of
+    /// every figure, as the depth and the grid are.
+    /// </summary>
+    public static (double PassTimeSec, double Samples, double FineStepSec) StepSampling(
+        IReadOnlyList<ConstellationShell> shells, double freqMhz, double dishM, double stepSec)
+    {
+        var plan = S1503TimeStep.Downlink(shells, radantenna.AntennaLibrary.Compute3dBDeg(freqMhz, dishM));
+        return (plan.PassTimeSec, plan.PassTimeSec / stepSec, plan.FineStepSec);
+    }
+
+    /// <summary>
+    /// The step's sampling as one sentence for a record. Fewer than three
+    /// samples per crossing is named as under-sampling: on STEAM-2 three
+    /// samples (a 1 s step) read within 0.1 dB of the S.1503-4 step, half a
+    /// sample (6 s) up to 0.5 dB below it, a twentieth (60 s) up to 2.2 dB
+    /// where the maximum decides.
+    /// </summary>
+    public static string StepSentence(IReadOnlyList<ConstellationShell> shells, double freqMhz, double dishM, double stepSec)
+    {
+        var (pass, n, fine) = StepSampling(shells, freqMhz, dishM, stepSec);
+        return string.Create(CultureInfo.InvariantCulture,
+            $"Step: the fastest crossing of the earth station's 3 dB beam takes {pass:F2} s, so the {stepSec:0.###} s step samples it {n:0.##} time(s)")
+            + (n < 3.0 ? ", fewer than three: maxima are under-sampled" : "")
+            + string.Create(CultureInfo.InvariantCulture, $"; the S.1503-4 fine step is {fine:0.000} s.");
+    }
+
+    /// <summary>
     /// Exports the pfd mask of the REACHABLE envelope to <paramref name="path"/>:
     /// the ungated configuration space, the mask's saturated counterpart to the
     /// R set's saturated probe, written under the service-span certificate.

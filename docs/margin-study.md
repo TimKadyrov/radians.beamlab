@@ -1,5 +1,12 @@
 # Payload envelope study
 
+> *Note, 24 September 2026:* this study ran on a 60 s comb on the 1 200 km
+> / 450 km-cell geometry where the maxima later moved about 20 dB between
+> 60 s and 6 s steps, and it verdicts point-wise, the rule in force when it
+> was produced. Its headline margin and frontier are therefore step-starved;
+> the 6 s margin figures (docs/margin-figure-6s*.md) are the fine-step
+> reading of the same geometry.
+
 *Produced by `dotnet run --project tests/radians.beamlab.checks -- study`.*
 *Date: 2026-08-31. Wall clock 11.4 min.*
 

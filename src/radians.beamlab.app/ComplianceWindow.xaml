@@ -85,7 +85,7 @@
                     </Grid>
                 </GroupBox>
 
-                <GroupBox Header="Limit — one point per line: epfd_db percent_time">
+                <GroupBox Header="Limit — one point per line: epfd__db percent__time">
                     <StackPanel>
                         <TextBox AcceptsReturn="True" Height="80" VerticalScrollBarVisibility="Auto"
                                  FontFamily="Consolas" Text="{Binding LimitsText, UpdateSourceTrigger=LostFocus}"
@@ -166,7 +166,9 @@
                         <DataGridTextColumn Header="point margin (dB)" Binding="{Binding MarginText}" Width="110"/>
                         <DataGridTextColumn Header="curve margin (dB)" Binding="{Binding CurveMarginText}" Width="110"/>
                         <DataGridTextColumn Header="verdict" Binding="{Binding PassText}" Width="70"/>
+                        <DataGridTextColumn Header="deciding point" Binding="{Binding DecidingText}" Width="95"/>
                         <DataGridTextColumn Header="quiet" Binding="{Binding QuietSteps}" Width="60"/>
+                        <DataGridTextColumn Header="curve crossing" Binding="{Binding CrossingText}" Width="320"/>
                     </DataGrid.Columns>
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow">

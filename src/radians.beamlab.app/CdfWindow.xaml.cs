@@ -16,6 +16,12 @@ namespace radians.beamlab.app;
 public sealed record CdfSeries(string Label, double[] EpfdDb, double[] Pct)
 {
     /// <summary>
+    /// The reference bandwidth the file states (a "refbw_khz=" token in its
+    /// comment lines); null for files that do not say.
+    /// </summary>
+    public double? RefBwKHz { get; init; }
+
+    /// <summary>
     /// Reads a runner CDF CSV: '#' comment lines and the header line are
     /// skipped; every other line is "epfd_db,percent".
     /// </summary>
@@ -23,10 +29,19 @@ public sealed record CdfSeries(string Label, double[] EpfdDb, double[] Pct)
     {
         var e = new List<double>();
         var p = new List<double>();
+        double? refBw = null;
         foreach (string raw in System.IO.File.ReadAllLines(path))
         {
             string line = raw.Trim();
-            if (line.Length == 0 || line.StartsWith('#') || line.StartsWith("epfd")) continue;
+            if (line.StartsWith('#'))
+            {
+                foreach (string tok in line.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                    if (tok.StartsWith("refbw_khz=") && double.TryParse(tok["refbw_khz=".Length..],
+                            NumberStyles.Float, CultureInfo.InvariantCulture, out double r))
+                        refBw = r;
+                continue;
+            }
+            if (line.Length == 0 || line.StartsWith("epfd")) continue;
             var parts = line.Split(',');
             if (parts.Length != 2)
                 throw new FormatException($"{path}: expected 'epfd,percent', got '{line}'");
@@ -34,7 +49,7 @@ public sealed record CdfSeries(string Label, double[] EpfdDb, double[] Pct)
             p.Add(double.Parse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture));
         }
         if (e.Count == 0) throw new InvalidOperationException($"{path}: no data rows");
-        return new CdfSeries(label, e.ToArray(), p.ToArray());
+        return new CdfSeries(label, e.ToArray(), p.ToArray()) { RefBwKHz = refBw };
     }
 }
 
@@ -56,6 +71,20 @@ public partial class CdfWindow : Window
         Color.FromRgb(0xC0, 0x6E, 0x27),
         Color.FromRgb(0xB2, 0x3A, 0x64),
     };
+
+    /// <summary>
+    /// The bandwidth the curves are per: the one their files state when they
+    /// agree; 40 kHz for files that state none (the runner's earlier files,
+    /// which were labelled so); the reference bandwidth when they differ.
+    /// </summary>
+    public static string BandwidthLabel(IReadOnlyList<CdfSeries> series)
+    {
+        var stated = series.Select(s => s.RefBwKHz).Distinct().ToList();
+        if (stated.Count == 1 && stated[0] is double r)
+            return r.ToString("0.###", CultureInfo.InvariantCulture) + " kHz";
+        if (stated.Count == 1) return "40 kHz";
+        return "the reference bandwidth";
+    }
 
     public CdfWindow(IEnumerable<CdfSeries> series)
     {
@@ -135,7 +164,7 @@ public partial class CdfWindow : Window
         { X1 = ml, Y1 = mt + ph, X2 = ml + pw, Y2 = mt + ph, Stroke = axisBrush, StrokeThickness = 1 });
         canvas.Children.Add(new Line
         { X1 = ml, Y1 = mt, X2 = ml, Y2 = mt + ph, Stroke = axisBrush, StrokeThickness = 1 });
-        Label("epfd (dBW/m² in 40 kHz)", ml + pw / 2.0, mt + ph + 20, centerX: true);
+        Label("epfd (dBW/m² in " + BandwidthLabel(_series) + ")", ml + pw / 2.0, mt + ph + 20, centerX: true);
         Label("% time exceeded", ml + 110, mt - 10, centerX: true);
 
         for (int si = 0; si < _series.Count; si++)

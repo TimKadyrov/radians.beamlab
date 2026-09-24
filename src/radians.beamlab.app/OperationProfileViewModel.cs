@@ -486,14 +486,14 @@ public sealed class OperationProfileViewModel : ObservableObject
             Req(_lonMinText, "lon min"), Req(_lonMaxText, "lon max"),
             Req(_cellKmText, "cell size"), Opt(_coverageRadiusText, "coverage radius"),
             _trackingPolicy.Trim(),
-            Opt(_minHoldText, "hold time"),
+            WholeOrNull(Opt(_minHoldText, "hold time"), "hold time (whole seconds)"),
             OptInt(_ncoText, "Nco"), OptInt(_maxCoFreqSatText, "max co-freq sat"),
-            (int)Req(_demandLinksText, "demand links"),
+            ReqWhole(_demandLinksText, "demand links", 1),
             Req(_activityFactorText, "activity factor"), Req(_activityPeriodText, "activity period"),
             Req(_operationalFractionText, "operational fraction"), Req(_dutyText, "illumination duty"),
             Req(_alphaText, "exclusion alpha"),
             Rows(_minElevByLatText, "min_elev by lat"),
-            Rows(_ncoByLatText, "Nco by lat"),
+            WholeRows(Rows(_ncoByLatText, "Nco by lat"), "Nco by lat", 1),
             Rows(_alphaByLatText, "alpha by lat"));
 
     public string BuildJson() => OperationProfileCodec.Save(Build());
@@ -577,6 +577,28 @@ public sealed class OperationProfileViewModel : ObservableObject
         => text.Trim().Length == 0 ? null
             : int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v)
                 ? v : throw new FormatException($"{what}: '{text.Trim()}' is not a whole number");
+
+    // Counts and whole seconds are refused, not rounded, when the entry is not
+    // one: the scheduler and the filing would otherwise run on a value the
+    // operator never typed.
+    private static int ReqWhole(string text, string what, int min)
+        => int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v)
+            ? v >= min ? v : throw new FormatException($"{what}: must be at least {min}, not {v}")
+            : throw new FormatException($"{what}: '{text.Trim()}' is not a whole number");
+
+    private static double? WholeOrNull(double? v, string what)
+        => v is double d && d != Math.Floor(d)
+            ? throw new FormatException(string.Create(CultureInfo.InvariantCulture, $"{what}: {d} is not a whole number"))
+            : v;
+
+    private static IReadOnlyList<ProfileLatRow> WholeRows(IReadOnlyList<ProfileLatRow> rows, string array, int min)
+    {
+        foreach (var r in rows)
+            if (r.Value != Math.Floor(r.Value) || r.Value < min)
+                throw new FormatException(string.Create(CultureInfo.InvariantCulture,
+                    $"{array} at lat {r.LatDeg}: {r.Value} is not a whole number of at least {min}"));
+        return rows;
+    }
 
     private static IReadOnlyList<ProfileLatRow> Rows(string text, string array)
     {

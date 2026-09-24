@@ -221,7 +221,12 @@ public sealed class PfdMaskViewModel : ObservableObject
     public double AlphaExclDeg
     {
         get => _alphaExclDeg;
-        set { if (SetField(ref _alphaExclDeg, value)) OnSceneChanged(rebuild: true); }
+        set
+        {
+            if (!SetField(ref _alphaExclDeg, value)) return;
+            OnPropertyChanged(nameof(ExclusionSummary));   // the basic summary quotes this angle
+            OnSceneChanged(rebuild: true);
+        }
     }
 
     private bool _useAdvancedExclusion;

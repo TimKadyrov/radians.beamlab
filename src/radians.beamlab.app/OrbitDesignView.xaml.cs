@@ -61,7 +61,7 @@ public partial class OrbitDesignView : UserControl
     private void OnCopyClick(object sender, RoutedEventArgs e)
     {
         string text = _vm.BuildCopyText();
-        if (text.Length > 0) Clipboard.SetText(text);
+        if (text.Length > 0) { Clipboard.SetText(text); _vm.SnsStatusText = "case summary copied to the clipboard"; }
     }
 
     private void OnCasesGuideClick(object sender, RoutedEventArgs e)
@@ -143,7 +143,7 @@ public partial class OrbitDesignView : UserControl
     private void OnMoveShellUpClick(object sender, RoutedEventArgs e) => _doc.MoveSelectedUp();
     private void OnMoveShellDownClick(object sender, RoutedEventArgs e) => _doc.MoveSelectedDown();
     private void OnRemoveShellClick(object sender, RoutedEventArgs e) => _doc.RemoveSelected();
-    private void OnHarmonizeClick(object sender, RoutedEventArgs e) => _doc.HarmonizeRptPrd();
+    private void OnHarmonizeClick(object sender, RoutedEventArgs e) => _vm.SnsStatusText = _doc.HarmonizeRptPrd();
 
     private void OnOpenSnsBuilderClick(object sender, RoutedEventArgs e)
     {

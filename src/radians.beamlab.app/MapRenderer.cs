@@ -220,13 +220,18 @@ public sealed class MapRenderer
         }
     }
 
+    /// <summary>
+    /// The beam whose marker the left button went down on, toggled by the
+    /// interaction handler on release when the mouse did not move -- so a
+    /// left drag that starts on a marker still pans the map.
+    /// </summary>
+    public Beam? PendingToggleBeam { get; set; }
+
     private void BeamMarker_Click(object sender, MouseButtonEventArgs e)
     {
-        if (sender is Ellipse el && el.Tag is Beam beam)
-        {
-            _vm.ToggleBeam(beam);
-            e.Handled = true;
-        }
+        // Not handled here: the press also reaches the canvas, which starts
+        // a possible pan; the release decides between a pan and a toggle.
+        if (sender is Ellipse el && el.Tag is Beam beam) PendingToggleBeam = beam;
     }
 
     private void DrawHeatmap()

@@ -303,3 +303,7 @@ the spec reads as history rather than as pending work.
 4. Sampling depth is **option 2** (body percentiles from a fixed 30 s comb,
    the tail justified by the envelope argument); no dual time step. The
    BL-* dataset ships its expectation CDFs on that basis.
+   *Superseded 24 September 2026:* the examination on the S.1503-4 time
+   step (the Sec. D4 fine and coarse steps with the dual time step) is
+   built, beside a truth on a preset 1 s step; the dataset's curves stay
+   at 30 s for now (docs/simulation-debate.md, 23-24 September).

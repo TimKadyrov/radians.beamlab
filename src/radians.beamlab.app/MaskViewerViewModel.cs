@@ -104,6 +104,7 @@ public sealed class MaskViewerViewModel : ObservableObject
         MaskXmlImport.ApplyBlockToField(_mask, blk, Field);
         OnPropertyChanged(nameof(MinPfdReadout));
         OnPropertyChanged(nameof(CanTreatMinAsCutoff));
+        OnPropertyChanged(nameof(InfoReadout));   // rows and c-nodes are the selected block's
         MaskChanged?.Invoke();
     }
 

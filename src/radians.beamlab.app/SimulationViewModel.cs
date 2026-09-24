@@ -60,8 +60,22 @@ public sealed class SimulationViewModel : ObservableObject
     /// </summary>
     public string EsDishMText { get => _esDishMText; set => SetField(ref _esDishMText, value); }
 
-    private string _durationDaysText = "2";
+    // Half a day: at the 1 s step that is 43 200 steps per direction, and on
+    // STEAM-2 half a day sampled finely reached the maxima 60 s steps needed
+    // 16 days for (docs/simulation-debate.md).
+    private string _durationDaysText = "0.5";
     public string DurationDaysText { get => _durationDaysText; set => SetField(ref _durationDaysText, value); }
+
+    // Optional Article 22 limits per direction, one "epfd_db percent" per
+    // line: a CDF with a limit gets a verdict under the limit-curve rule.
+    private string _downLimitsText = "";
+    public string DownLimitsText { get => _downLimitsText; set => SetField(ref _downLimitsText, value); }
+
+    private string _isLimitsText = "";
+    public string IsLimitsText { get => _isLimitsText; set => SetField(ref _isLimitsText, value); }
+
+    private string _upLimitsText = "";
+    public string UpLimitsText { get => _upLimitsText; set => SetField(ref _upLimitsText, value); }
 
     // Preset 1 s, the truth's step in the compliance loop as well
     // (ComplianceViewModel.StepSecText).
@@ -95,9 +109,11 @@ public sealed class SimulationViewModel : ObservableObject
                 ? " -- " + g : "";
             string gates = s.DeclaredOverride is not null
                 ? "; gates: declared R set (override)" : "";
+            // The status opens with "ready:"; a step warning closes it.
+            string stepNote = ComplianceViewModel.StepAdequacyNote(s.Shells, s.FreqGhz * 1000.0, s.DishM, s.StepSec);
             StatusText = string.Create(CultureInfo.InvariantCulture,
                 $"ready: {s.Shells.Length} shell(s), {s.SatCount} satellites; victim ES {s.EsLat}/{s.EsLon}, GSO {s.GsoLon} degE; {s.Steps} steps of {s.StepSec} s -- Write CDFs writes .down/.is/.up.csv")
-                + gates + fp + gap;
+                + gates + fp + gap + (stepNote.Length > 0 ? " -- " + stepNote.TrimEnd(' ', '-') : "");
         }
         catch (Exception ex) { StatusText = "invalid: " + ex.Message; }
     }
@@ -116,9 +132,13 @@ public sealed class SimulationViewModel : ObservableObject
         IsRunning = true;
         StatusText = string.Create(CultureInfo.InvariantCulture,
             $"running: {setup.Steps} steps x {setup.SatCount} satellites (down+is, then up)...");
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var progress = new Progress<double>(f => StatusText = string.Create(CultureInfo.InvariantCulture,
+            $"running {(f < 0.5 ? "down+is" : "up")}: {f * 100.0:F0}% of {setup.Steps} steps x 2 directions")
+            + ComplianceViewModel.EtaText(clock.Elapsed, f));
         try
         {
-            string summary = await Task.Run(() => RunCore(setup, outputBase));
+            string summary = await Task.Run(() => RunCore(setup, outputBase, progress));
             StatusText = summary;
             return true;
         }
@@ -127,12 +147,17 @@ public sealed class SimulationViewModel : ObservableObject
     }
 
     /// <summary>Synchronous run (the check harness calls this directly).</summary>
-    public string RunCore(Setup setup, string outputBase)
+    public string RunCore(Setup setup, string outputBase, IProgress<double>? progress = null)
     {
         var inv = CultureInfo.InvariantCulture;
         var con = new Constellation(setup.Shells);
         double simDur = setup.Steps * setup.StepSec;
         double freqMhz = setup.FreqGhz * 1000.0;
+        // Every density in the chain is per the profile's reference bandwidth.
+        double refBwKHz = setup.Profile.Down.RefBwKHz;
+        // Down (with the is byproduct) is the first half of the run, up the second.
+        IProgress<double>? downProgress = progress is null ? null : new Relay(f => progress.Report(0.5 * f));
+        IProgress<double>? upProgress = progress is null ? null : new Relay(f => progress.Report(0.5 + 0.5 * f));
 
         var stack = BuildStack(setup);
         var declared = stack.Declared;
@@ -163,24 +188,29 @@ public sealed class SimulationViewModel : ObservableObject
         if (stack.DownMask is { } downMask)
         {
             down = EpfdDownMask.Run(con, downMask, declared, downVictim,
-                setup.StepSec, setup.Steps, PermissiveLimits(), simDur);
+                setup.StepSec, setup.Steps, PermissiveLimits(), simDur, downProgress);
         }
         else
         {
             var pointing = new ScheduledPointing(con, geo, declared, scene, simDur,
                 coverageKm, policy, duty);
             down = EpfdDown.Run(con, pointing, downVictim, setup.StepSec, setup.Steps,
-                PermissiveLimits(), simDur, isVictim);
+                PermissiveLimits(), simDur, isVictim, progress: downProgress);
         }
         string desc = string.Create(inv,
             $"victim ES lat={setup.EsLat} lon={setup.EsLon}, GSO lon={setup.GsoLon}, S.1428 {setup.DishM} m, {freqMhz:F0} MHz");
         if (stack.DownMask is not null) desc += " -- footprint: declared PFD mask (D5.1.4.1)";
+        string downVerdict = Verdict(_downLimitsText, down.Accumulator, down.Steps, down.MaxEpfdDb, down.QuietSteps);
         WriteCdf(outputBase + ".down.csv", "epfd(down)", desc,
-            down.Accumulator, down.Steps, down.QuietSteps, down.MaxEpfdDb);
+            down.Accumulator, down.Steps, down.QuietSteps, down.MaxEpfdDb, setup.StepSec, refBwKHz, downVerdict);
+        string isVerdict = "";
         if (down.IsAccumulator is not null)
+        {
+            isVerdict = Verdict(_isLimitsText, down.IsAccumulator, down.Steps, down.MaxEpfdIsDb, down.IsQuietSteps);
             WriteCdf(outputBase + ".is.csv", "epfd(is)",
                 string.Create(inv, $"victim GSO sat lon={setup.GsoLon}, boresight {setup.EsLat}/{setup.EsLon}, S.672 40.7 dBi / 1.55 deg / Ls -20"),
-                down.IsAccumulator, down.Steps, down.IsQuietSteps, down.MaxEpfdIsDb);
+                down.IsAccumulator, down.Steps, down.IsQuietSteps, down.MaxEpfdIsDb, setup.StepSec, refBwKHz, isVerdict);
+        }
 
         // The up scheduler enforces the UPLINK side's link discipline;
         // a declared R override governs both directions.
@@ -202,19 +232,54 @@ public sealed class SimulationViewModel : ObservableObject
             PowerControlRefElevDeg = refElevDeg,
         };
         var up = EpfdUp.Run(con, scheduler, geo, isVictim, esModel,
-            setup.StepSec, setup.Steps, PermissiveLimits(), simDur);
+            setup.StepSec, setup.Steps, PermissiveLimits(), simDur, upProgress);
+        string upVerdict = Verdict(_upLimitsText, up.Accumulator, up.Steps, up.MaxEpfdDb, up.QuietSteps);
         WriteCdf(outputBase + ".up.csv", "epfd(up)",
             string.Create(inv, $"ES power {esPowerDbw} dBW, power control ref elev {refElevDeg} deg"),
-            up.Accumulator, up.Steps, up.QuietSteps, up.MaxEpfdDb);
+            up.Accumulator, up.Steps, up.QuietSteps, up.MaxEpfdDb, setup.StepSec, refBwKHz, upVerdict);
 
         string isPart = down.IsAccumulator is null
             ? "is n/a (mask footprint), "
             : string.Create(inv, $"is max {down.MaxEpfdIsDb:F1} (quiet {down.IsQuietSteps}), ");
+        var verdicts = new System.Collections.Generic.List<string>();
+        if (downVerdict.Length > 0) verdicts.Add("down " + downVerdict);
+        if (isVerdict.Length > 0) verdicts.Add("is " + isVerdict);
+        if (upVerdict.Length > 0) verdicts.Add("up " + upVerdict);
+        // The summary opens with "done:" (its callers read it so); the step
+        // warning, when there is one, closes it.
+        string stepNote = ComplianceViewModel.StepAdequacyNote(setup.Shells, freqMhz, setup.DishM, setup.StepSec);
         return string.Create(inv,
             $"done: {setup.Steps} steps; down max {down.MaxEpfdDb:F1} dB (quiet {down.QuietSteps}), ")
             + isPart
             + string.Create(inv,
-            $"up max {up.MaxEpfdDb:F1} (quiet {up.QuietSteps}); CDFs at {outputBase}.*.csv");
+            $"up max {up.MaxEpfdDb:F1} (quiet {up.QuietSteps}); CDFs at {outputBase}.*.csv")
+            + (verdicts.Count > 0 ? " -- verdicts: " + string.Join("; ", verdicts) : "")
+            + (stepNote.Length > 0 ? " -- " + stepNote.TrimEnd(' ', '-') : "");
+    }
+
+    /// <summary>
+    /// One direction's verdict against its entered limit, under the
+    /// limit-curve rule (every tabulated point, and the log-linear curve
+    /// between them); empty when no limit is entered for it.
+    /// </summary>
+    private static string Verdict(string limitsText, EpfdAccumulator accumulator, long steps, double maxDb, long quiet)
+    {
+        if (limitsText.Trim().Length == 0) return "";
+        var limits = ComplianceViewModel.ParseLimits(limitsText);
+        var row = ComplianceViewModel.BuildRow(0.0, new EpfdDownResult
+        {
+            Accumulator = accumulator, Steps = steps, MaxEpfdDb = maxDb, QuietSteps = quiet,
+        }, limits);
+        return string.Create(CultureInfo.InvariantCulture,
+            $"{(row.Pass ? "PASS" : "FAIL")} (point margin {row.MarginText} dB, curve margin {row.CurveMarginText} dB, deciding point {row.DecidingText})");
+    }
+
+    /// <summary>Synchronous IProgress adapter: no context capture on the worker thread.</summary>
+    private sealed class Relay : IProgress<double>
+    {
+        private readonly Action<double> _sink;
+        public Relay(Action<double> sink) => _sink = sink;
+        public void Report(double value) => _sink(value);
     }
 
     // ---- composition ----------------------------------------------------
@@ -291,6 +356,13 @@ public sealed class SimulationViewModel : ObservableObject
         double dish = Num(_esDishMText, "dish diameter");
         if (days <= 0.0 || step <= 0.0 || dish <= 0.0)
             throw new InvalidOperationException("duration, step and dish must be positive");
+        foreach (var (text, what) in new[]
+            { (_downLimitsText, "epfd(down) limit"), (_isLimitsText, "epfd(is) limit"), (_upLimitsText, "epfd(up) limit") })
+        {
+            if (text.Trim().Length == 0) continue;
+            try { ComplianceViewModel.ParseLimits(text); }
+            catch (Exception ex) { throw new FormatException(what + ": " + ex.Message); }
+        }
         long steps = Math.Max(1, (long)(days * 86400.0 / step));
 
         return new Setup(shells, sats, declaredOverride, prof.Down.FrequencyGhz,
@@ -306,14 +378,18 @@ public sealed class SimulationViewModel : ObservableObject
     };
 
     private static void WriteCdf(string path, string label, string desc,
-        EpfdAccumulator acc, long steps, long quietSteps, double maxDb)
+        EpfdAccumulator acc, long steps, long quietSteps, double maxDb,
+        double stepSec, double refBwKHz, string verdict)
     {
         var (epfd, pct) = acc.BuildCdf();
         var sb = new StringBuilder();
         sb.AppendLine($"# {label} CDF -- simulated at the victim, S.1503-4 D7.1.2 bins (0.1 dB).");
         sb.AppendLine(FormattableString.Invariant($"# {desc}"));
+        // The step and the reference bandwidth travel with the curve; the
+        // column name keeps the family's schema, whatever the bandwidth.
         sb.AppendLine(FormattableString.Invariant(
-            $"# steps={steps}  quiet_steps={quietSteps}  max_epfd_db={maxDb:F3}"));
+            $"# steps={steps}  step_s={stepSec}  duration_s={steps * stepSec}  refbw_khz={refBwKHz}  quiet_steps={quietSteps}  max_epfd_db={maxDb:F3}"));
+        if (verdict.Length > 0) sb.AppendLine("# verdict: " + verdict);
         sb.AppendLine("epfd_dbw_m2_40khz,percent_time_exceeded");
         int first = Array.FindIndex(pct, p => p < 100.0);
         int last = Array.FindLastIndex(pct, p => p > 0.0);

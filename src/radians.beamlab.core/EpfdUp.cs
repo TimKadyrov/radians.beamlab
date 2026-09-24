@@ -60,8 +60,9 @@ public static class EpfdUp
     public static EpfdUpResult Run(Constellation constellation, Scheduler scheduler,
         ServiceGeography geography, EpfdGsoSatVictim victim,
         EpfdUpEsModel es, double timeStepSec, long steps, List<LimitPoint> limits,
-        double? simulationDurationSec = null)
+        double? simulationDurationSec = null, IProgress<double>? progress = null)
     {
+        long progressEvery = Math.Max(1, steps / 100);   // ~1% granularity for callers that listen
         double simDur = simulationDurationSec ?? timeStepSec * steps;
         var acc = new EpfdAccumulator(limits);
 
@@ -80,6 +81,7 @@ public static class EpfdUp
 
         for (long k = 0; k < steps; k++)
         {
+            if (progress is not null && k % progressEvery == 0) progress.Report((double)k / steps);
             double t = k * timeStepSec;
             var step = scheduler.Step(t);
 

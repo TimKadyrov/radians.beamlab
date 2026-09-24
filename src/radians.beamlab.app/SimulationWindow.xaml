@@ -54,7 +54,31 @@
                     <TextBlock Grid.Row="7" Text="Duration (days)"/>
                     <TextBox   Grid.Row="7" Grid.Column="1" Text="{Binding DurationDaysText, UpdateSourceTrigger=LostFocus}"/>
                     <TextBlock Grid.Row="8" Text="Time step (s)"/>
-                    <TextBox   Grid.Row="8" Grid.Column="1" Text="{Binding StepSecText, UpdateSourceTrigger=LostFocus}"/>
+                    <TextBox   Grid.Row="8" Grid.Column="1" Text="{Binding StepSecText, UpdateSourceTrigger=LostFocus}"
+                               ToolTip="The truth's step, 1 s preset. The status line warns when it samples the fastest crossing of the earth station's 3 dB beam fewer than three times. With the Random strategy and no hold the selection is redrawn at every step, so the step is also the reselection period."/>
+                </Grid>
+            </GroupBox>
+
+            <GroupBox Header="Limits (optional) — one point per line: epfd__db percent__time">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="90"/><ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition/><RowDefinition/><RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="epfd(down)"/>
+                    <TextBox   Grid.Row="0" Grid.Column="1" AcceptsReturn="True" Height="44" VerticalScrollBarVisibility="Auto" FontFamily="Consolas"
+                               Text="{Binding DownLimitsText, UpdateSourceTrigger=LostFocus}"
+                               ToolTip="The applicable Article 22 epfd(down) rows (Tables 22-1A to 22-1E) for the band and dish. When entered, the run reports the epfd(down) verdict under the limit-curve rule."/>
+                    <TextBlock Grid.Row="1" Text="epfd(is)"/>
+                    <TextBox   Grid.Row="1" Grid.Column="1" AcceptsReturn="True" Height="44" VerticalScrollBarVisibility="Auto" FontFamily="Consolas"
+                               Text="{Binding IsLimitsText, UpdateSourceTrigger=LostFocus}"
+                               ToolTip="The applicable Article 22 epfd(is) rows (Table 22-3). When entered, the run reports the epfd(is) verdict; no is CDF is written for a declared-mask footprint."/>
+                    <TextBlock Grid.Row="2" Text="epfd(up)"/>
+                    <TextBox   Grid.Row="2" Grid.Column="1" AcceptsReturn="True" Height="44" VerticalScrollBarVisibility="Auto" FontFamily="Consolas"
+                               Text="{Binding UpLimitsText, UpdateSourceTrigger=LostFocus}"
+                               ToolTip="The applicable Article 22 epfd(up) rows (Table 22-2). When entered, the run reports the epfd(up) verdict under the limit-curve rule."/>
                 </Grid>
             </GroupBox>
 

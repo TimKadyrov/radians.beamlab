@@ -682,7 +682,10 @@ from, not what it means.
   declared zone while the mask file stays fixed, exactly as the
   examination treats them. No epfd(is) byproduct under the mask source
   (it needs the e.i.r.p. masks); MIN_OPERATING_HEIGHT and the dual time
-  step are not modelled.
+  step are not modelled. *Superseded 24 September 2026 for the dual time
+  step:* the examination runs on the S.1503-4 fine and coarse steps when
+  asked (the window's Examination step choice, the console's
+  `examstep=d4`); MIN_OPERATING_HEIGHT is still not modelled.
 
 ## Open points
 

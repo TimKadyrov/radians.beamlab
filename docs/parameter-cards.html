@@ -551,7 +551,7 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     among the feasible set, and hold-until-forced. Highest elevation has two handover variants and both are
     present — always take the highest, or keep the active satellite until it drops below the floor, which is
     hold-until-forced here. The random draw is the software-defined-networking case, where the real selection is
-    proprietary or too complex to model and operators report a random choice as an adequate approximation. Where
+    proprietary or too complex to model and operators report a random choice as an adequate approximation. With no hold the random draw is repeated at every time step, so the step is also the reselection period and a finer step is a faster traffic model; with a hold a link is kept at least that long, and after it a fresh draw can hand it over at any step. Where
     a cell serves more than one slot, the next slot takes the next candidate down: second best, then third. All
     obey every declared bound; the differences between their CDFs price the strategies.</p>
     <ul class="rel">
@@ -623,7 +623,7 @@ a{color:var(--g1)} a:hover{color:#1983AA}
     <div class="name-row"><span class="pname">IlluminationDutyCycle</span><span class="unit">(0,1] </span></div>
     <div class="where"><b>ScenePointing(&hellip;, illuminationDutyCycle)</b></div>
     <div class="chips"><span class="chip on">Emission composite</span></div>
-    <p class="desc">Beam-hopping time average for frames much shorter than the 30&nbsp;s step: every resolved beam
+    <p class="desc">Beam-hopping time average for frames much shorter than the time step: every resolved beam
     power carries <code>10&#8201;log&#8321;&#8320;(duty)</code>. The declared masks stay peak-PSD envelopes &mdash;
     only the simulated statistics average (see the duty row in the Activity timeline).</p>
     <ul class="rel">

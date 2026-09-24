@@ -37,6 +37,17 @@ internal sealed class ProgressCollector : IProgress<ComplianceViewModel.SweepPro
 }
 
 /// <summary>
+/// Collects plain fraction reports synchronously, as <see cref="ProgressCollector"/>
+/// does for sweep reports (Progress&lt;double&gt; posts asynchronously).
+/// </summary>
+internal sealed class ProgressCollectorD : IProgress<double>
+{
+    private readonly List<double> _sink;
+    public ProgressCollectorD(List<double> sink) => _sink = sink;
+    public void Report(double value) { lock (_sink) _sink.Add(value); }
+}
+
+/// <summary>
 /// Headless compliance loop: the same Sweep / RunSweep / Advise the window
 /// calls, driven from case files, with the progress reports echoed. This is
 /// how a long sweep on a large constellation is verified without clicking --
@@ -44,7 +55,7 @@ internal sealed class ProgressCollector : IProgress<ComplianceViewModel.SweepPro
 ///
 /// Run:  dotnet run --project tests/radians.beamlab.checks -- loop
 ///           [profile.json] [design.json] [days] [stepSec] [latFrom] [latTo] [latStep] [walk]
-/// Defaults: the STEAM-2 case files, 0.1 d at 60 s, latitudes 0..60 step 10,
+/// Defaults: the STEAM-2 case files, 0.1 d at 1 s (the truth's step), latitudes 0..60 step 10,
 /// no advisor walk ("walk" as the last argument adds it).
 /// </summary>
 internal static class ComplianceLoop
@@ -92,7 +103,8 @@ internal static class ComplianceLoop
             $"system: {shells.Length} shell(s), {new Constellation(shells).SatelliteCount} satellites; min elev {prof.MinElevDeg:F0} deg, alpha {prof.AlphaExclDeg:F1} deg, Nco {prof.NcoPerCell}, selection {prof.TrackingPolicy}, footprint {prof.Down.FootprintSource}"));
         Console.WriteLine("limit row: " + ComplianceViewModel.DescribeLimit(lim));
         Console.WriteLine(string.Create(inv,
-            $"sweep: lat {latFrom:F0}..{latTo:F0} step {latStep:F0}; {steps} steps of {stepSec:F0} s ({days:F3} d) per latitude; resolvable percentile floor {100.0 / steps:F3}%"));
+            $"sweep: lat {latFrom:F0}..{latTo:F0} step {latStep:F0}; {steps} steps of {stepSec:0.###} s ({days:F3} d) per latitude; resolvable percentile floor {100.0 / steps:F3}%"));
+        Console.WriteLine(ComplianceLoopSteps.StepSentence(shells, freqMhz, dishM, stepSec));
 
         // ---- Position 1: the derivation probe (saturated, no victim) --------
         // A declaration is an envelope of what the system MAY do, so it is
@@ -113,7 +125,7 @@ internal static class ComplianceLoop
         {
             Console.WriteLine();
             Console.WriteLine(string.Create(inv,
-                $"derivation probe: saturated, no victim; {steps} steps of {stepSec:F0} s, latitude band {latStep:F0} deg..."));
+                $"derivation probe: saturated, no victim; {steps} steps of {stepSec:0.###} s, latitude band {latStep:F0} deg..."));
             var probe = ComplianceViewModel.Saturate(prof,
                 OperationComposer.Compose(prof, altKm).Enforced);
             var derived = ComplianceViewModel.DeriveDeclared(shells, prof,
@@ -335,13 +347,13 @@ internal static class ComplianceLoop
         var sb = new StringBuilder();
         sb.AppendLine($"# Compliance loop: {prof.Name}");
         sb.AppendLine();
-        sb.AppendLine(string.Create(inv, $"*Produced by `dotnet run --project tests/radians.beamlab.checks -- loop \"{Path.GetFileName(profilePath)}\" \"{Path.GetFileName(designPath)}\" {days} {stepSec:F0} {latFrom:F0} {latTo:F0} {latStep:F0}{(walk ? " walk" : "")}{(reuseDir is not null ? " reuse=" + Path.GetRelativePath(repo, reuseDir).Replace('\\', '/') : "")}{(gsoOffset != 10.0 ? " gso=" + gsoOffset.ToString("0.#", inv) : "")}{(esLon != 0.0 ? " eslon=" + esLon.ToString("0.#", inv) : "")}{(d4Exam ? " examstep=d4" : "")}`.*"));
+        sb.AppendLine(string.Create(inv, $"*Produced by `dotnet run --project tests/radians.beamlab.checks -- loop \"{Path.GetFileName(profilePath)}\" \"{Path.GetFileName(designPath)}\" {days} {stepSec} {latFrom:F0} {latTo:F0} {latStep:F0}{(walk ? " walk" : "")}{(reuseDir is not null ? " reuse=" + Path.GetRelativePath(repo, reuseDir).Replace('\\', '/') : "")}{(gsoOffset != 10.0 ? " gso=" + gsoOffset.ToString("0.#", inv) : "")}{(esLon != 0.0 ? " eslon=" + esLon.ToString("0.#", inv) : "")}{(d4Exam ? " examstep=d4" : "")}`.*"));
         sb.AppendLine(string.Create(inv, $"*Date: {DateTime.Now:yyyy-MM-dd}. Wall clock {t0.Elapsed.TotalMinutes:F1} min.*"));
         sb.AppendLine();
         sb.AppendLine("## The system under test");
         sb.AppendLine();
         sb.AppendLine(string.Create(inv, $"- Shell(s): {shells.Length}, {new Constellation(shells).SatelliteCount} satellites at {altKm:F0} km / inclination {shells[0].InclinationDeg:F1} deg."));
-        sb.AppendLine(string.Create(inv, $"- Enforced rules: minimum elevation {prof.MinElevDeg:F0} deg, exclusion alpha {prof.AlphaExclDeg:F1} deg, Nco {prof.NcoPerCell}, selection {prof.TrackingPolicy}."));
+        sb.AppendLine(string.Create(inv, $"- Enforced rules: minimum elevation {prof.MinElevDeg:F0} deg, exclusion alpha {prof.AlphaExclDeg:F1} deg, Nco {prof.NcoPerCell}, selection {prof.TrackingPolicy}{RedrawNote(prof)}."));
         sb.AppendLine(string.Create(inv, $"- Footprint source: {prof.Down.FootprintSource}{(prof.Down.FootprintSource == "mask" ? " (" + Path.GetFileName(prof.Down.MaskXmlPath) + ")" : " (live beam composition -- the truth)")}."));
         sb.AppendLine(string.Create(inv, $"- Victim: earth station at longitude {esLon:0.#}, GSO satellite {(gsoOffset >= 0 ? "+" : "")}{gsoOffset:0.#} deg, dish {dishM:F2} m (the limit row's own reference diameter)."));
         sb.AppendLine();
@@ -352,7 +364,9 @@ internal static class ComplianceLoop
         sb.AppendLine();
         sb.AppendLine("## Verdicts");
         sb.AppendLine();
-        sb.AppendLine(string.Create(inv, $"Depth: {steps} steps of {stepSec:F0} s per latitude ({days:F3} d) -- resolvable percentile floor {100.0 / steps:F3}%, so short-term points below that floor are located, not decided, at this depth."));
+        sb.AppendLine(string.Create(inv, $"Depth: {steps} steps of {stepSec:0.###} s per latitude ({days:F3} d) -- resolvable percentile floor {100.0 / steps:F3}%, so short-term points below that floor are located, not decided, at this depth."));
+        sb.AppendLine();
+        sb.AppendLine(ComplianceLoopSteps.StepSentence(shells, freqMhz, dishM, stepSec));
         sb.AppendLine();
         sb.AppendLine(string.Create(inv,
             $"Sweep grid: latitudes {latFrom:F0}..{latTo:F0} every {latStep:F0} deg. The worst margin "
@@ -620,7 +634,7 @@ internal static class ComplianceLoop
         Console.WriteLine("  mask  : " + Path.GetRelativePath(repo, maskXmlPath));
         Console.WriteLine("  limit : " + ComplianceViewModel.DescribeLimit(lim));
         Console.WriteLine(string.Create(inv,
-            $"  sweep : lat {latFrom:F0}..{latTo:F0} step {latStep:F0}; {steps} steps of {stepSec:F0} s ({days:F3} d); floor {100.0 / steps:F3}%"));
+            $"  sweep : lat {latFrom:F0}..{latTo:F0} step {latStep:F0}; {steps} steps of {stepSec:0.###} s ({days:F3} d); floor {100.0 / steps:F3}%"));
         // The mask is given here, not derived: before reading it, ask whether it
         // already carries the shaping the R set declares (see MaskConsistency).
         var consistency = MaskConsistency.Check(maskXmlPath, altKm, declared);
@@ -660,7 +674,8 @@ internal static class ComplianceLoop
         sb.AppendLine("- mask: `" + Path.GetRelativePath(repo, maskXmlPath) + "`");
         if (trackNote.Length > 0) sb.AppendLine("- " + trackNote + ".");
         sb.AppendLine("- " + ComplianceViewModel.DescribeLimit(lim));
-        sb.AppendLine(string.Create(inv, $"- sweep: lat {latFrom:F0}..{latTo:F0} step {latStep:F0}; {steps} steps of {stepSec:F0} s; floor {100.0 / steps:F3}%; wall clock {t0.Elapsed.TotalMinutes:F1} min"));
+        sb.AppendLine(string.Create(inv, $"- sweep: lat {latFrom:F0}..{latTo:F0} step {latStep:F0}; {steps} steps of {stepSec:0.###} s; floor {100.0 / steps:F3}%; wall clock {t0.Elapsed.TotalMinutes:F1} min"));
+        sb.AppendLine("- " + ComplianceLoopSteps.StepSentence(shells, freqMhz, dishM, stepSec));
         sb.AppendLine();
         sb.AppendLine("| latitude | max epfd (dB) | E1 point margin (dB) | deciding point (% of time) | curve margin (dB) | curve crossing | verdict |");
         sb.AppendLine("|---|---|---|---|---|---|---|");
@@ -746,6 +761,12 @@ internal static class ComplianceLoop
     }
 
     /// <summary>One-line rendering of a derived R set, for the console and the record.</summary>
+    // Random selection with no hold redraws at every step, so the step is
+    // also the reselection period: a record says so where it names the rule.
+    internal static string RedrawNote(OperationProfile prof)
+        => prof.TrackingPolicy == "Random" && (prof.MinHoldSec ?? 0.0) <= 0.0
+            ? ", redrawn at every step (no hold), so the step is also the reselection period" : "";
+
     internal static string DescribeSet(OperatingParamsSet p, CultureInfo inv)
         => ComplianceLoopSteps.DescribeSet(p, inv);
 

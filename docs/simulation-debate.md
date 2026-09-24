@@ -5750,3 +5750,52 @@ its acceptance line. The dated record stays the console mode's.
 
 **State.** Checks V62 to V66 added; harness 162 passed, 0 failed.
 Uncommitted. Open: packages 3 to 7 of the review.
+
+## Beamlab — the review's third and fourth packages: the step lessons in the tool, and how results are shown, 24 September 2026
+
+**The time step, in the tool.** Every run now says how its step samples
+the fastest crossing of the earth station's 3 dB beam, the S.1503-4
+Sec. D4.2 pass time: the console loop and examine records carry the
+sentence beside their depth, and both windows warn below three samples
+per crossing. Three is where the STEAM-2 measurement shows the maxima
+settled (1 s reads within 0.1 dB of the S.1503-4 step); the simulation
+methodology's draft asks for five, so the threshold is ours and named as
+such. On BL-D2 at 60 s the loop record now reads 0.06 samples per crossing.
+The console loop and examine modes default to 1 s, as the windows do; the
+simulation window presets half a day, 43 200 steps a direction, and both
+windows estimate the time left from the run's own pace. The records
+print a fractional step as it is. Where a record names the Random
+selection with no hold it says the step is also the reselection period,
+and the selection card says so too; the duty card no longer speaks of a
+30 s step. The explanatory pages follow: the construction page names the
+60 s step on every table and gains a box on the step, the rule that
+figures travel with their controls now names the step, Annex A's item 5
+carries the STEAM-2 and S.1503-4 findings with the 1 s decision and
+items 7, 8 and 10 their 60 s step, and the spec, the plan and the margin
+study carry dated notes where they predate the step work.
+
+**How results are shown.** The compliance table shows the deciding
+point and the worst crossing of the curve; the status line gives the
+steps per latitude and the resolvable floor, and names the permissive
+template when no limit was entered. The export is headed by the run,
+its inputs, grid, depth, step and limit, and gains the curve and rule
+margins, the deciding point and, after a loop run, the E1 columns, the
+five long-standing columns first. The simulation window takes optional
+Article 22 rows per direction and verdicts each under the limit-curve
+rule, in its summary and in the CDF file, which now also states its
+step, duration and reference bandwidth; the viewer labels the bandwidth
+the files state. The uplink run reports progress. The profile window
+refuses a fractional or zero demand, a fractional hold and fractional Nco
+rows instead of rounding them; the exclusion summary, the mask viewer's
+block readout and the track closure follow their inputs; Copy case
+summary copies Cases 1 and 3 when no candidate is selected; Harmonize
+says what it did or why not; a left drag that starts on a beam marker
+pans, and the marker toggles on release.
+
+**A check that caught a change.** The runner's summary was first given
+the step warning in front, and V16, which reads the summary as starting
+with "done:", failed; the warning now closes the summary and the status
+line instead, and V16 passes unchanged.
+
+**State.** Checks V67 to V69 added; harness 165 passed, 0 failed.
+Uncommitted. Open: packages 5 to 7 of the review; the dataset's 30 s curves.

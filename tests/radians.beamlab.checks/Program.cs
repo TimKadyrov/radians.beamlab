@@ -52,7 +52,8 @@ if (args.Length > 0 && args[0] == "loop")
     return ComplianceLoop.Run(
         a.Length > 1 ? a[1] : System.IO.Path.Combine(srcDir, "STEAM-2.opprofile.json"),
         a.Length > 2 ? a[2] : System.IO.Path.Combine(srcDir, "STEAM-2.orbitdesign.json"),
-        D(3, 0.1), D(4, 60.0), D(5, 0.0), D(6, 60.0), D(7, 10.0),
+        // Default step 1 s, the truth's step (the windows preset it too).
+        D(3, 0.1), D(4, 1.0), D(5, 0.0), D(6, 60.0), D(7, 10.0),
         a.Any(x => x.Equals("walk", StringComparison.OrdinalIgnoreCase)),
         a.Any(x => x.Equals("minimise", StringComparison.OrdinalIgnoreCase)),
         reuse, gso, eslon, examD4);
@@ -76,7 +77,7 @@ if (args.Length > 0 && args[0] == "examine")
     if (e.Length < 5) { Console.WriteLine("usage: examine profile design rset.json mask.xml [days] [stepSec] [latFrom] [latTo] [latStep] [tag] [examstep=d4]"); return 2; }
     double DE(int i, double dflt) => e.Length > i && double.TryParse(e[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : dflt;
     return ComplianceLoop.Examine(e[1], e[2], e[3], e[4],
-        DE(5, 0.1), DE(6, 60.0), DE(7, 0.0), DE(8, 60.0), DE(9, 10.0),
+        DE(5, 0.1), DE(6, 1.0), DE(7, 0.0), DE(8, 60.0), DE(9, 10.0),
         e.Length > 10 ? e[10] : "examine", examD4E);
 }
 if (args.Length > 0 && args[0] == "parity")
@@ -6365,6 +6366,143 @@ var looks = RandomLooks(300);
         shapeOk66 && stepsOk66 && filesOk66 && givenOk66 && d4Ok66 && fwdOk66,
         string.Create(inv66, $"shape={shapeOk66} steps={stepsOk66} files={filesOk66} given={givenOk66} d4={d4Ok66} forwarders={fwdOk66}; ")
         + string.Create(inv66, $"{ComplianceLoopSteps.E1Summary(r66.Truth, r66.E1, inv66)}; mask {Path.GetFileName(r66.MaskPath)}"));
+}
+
+// ---- V67: the compliance window says what a run is -- notes, depth, step, time left, export ----
+{
+    // The status notes: the permissive template named; the step warned
+    // below three samples per crossing of the earth station's 3 dB beam
+    // (STEAM-2, 18.15 GHz, 1 m dish: a 3.34 s pass, so 60 s warns and 1 s
+    // does not); the time-left estimate. Then a real Run sweep through the
+    // view model and its export: '#' header lines, the long-standing five
+    // columns first, the curve and rule margins and the deciding point after.
+    var inv67 = CultureInfo.InvariantCulture;
+    var template67 = ComplianceViewModel.ParseLimits("-300 100\n0 100");
+    var real67 = ComplianceViewModel.ParseLimits("-175.4 100\n-164 0");
+    bool templateOk67 = ComplianceViewModel.TemplateNote(template67).Length > 0 && ComplianceViewModel.TemplateNote(real67) == "";
+    var steam67 = new[] { new ConstellationShell { AltitudeKm = 1150.0, InclinationDeg = 53.0, PlaneCount = 32, SatsPerPlane = 50 } };
+    string at60 = ComplianceViewModel.StepAdequacyNote(steam67, 18150.0, 1.0, 60.0);
+    string at1 = ComplianceViewModel.StepAdequacyNote(steam67, 18150.0, 1.0, 1.0);
+    string sentence67 = ComplianceLoopSteps.StepSentence(steam67, 18150.0, 1.0, 60.0);
+    bool stepOk67 = at60.Contains("fewer than three") && at1 == ""
+        && sentence67.Contains("3.34 s") && sentence67.Contains("under-sampled") && sentence67.Contains("0.208 s");
+    bool etaOk67 = ComplianceViewModel.EtaText(TimeSpan.FromSeconds(10), 0.5) == " -- about 10 s left"
+        && ComplianceViewModel.EtaText(TimeSpan.FromSeconds(3), 0.5) == ""
+        && ComplianceViewModel.EtaText(TimeSpan.FromSeconds(600), 0.01) == ""
+        && ComplianceViewModel.EtaText(TimeSpan.FromSeconds(3600), 0.25) == " -- about 3.0 h left";
+    string exp67 = Path.Combine(AppContext.BaseDirectory, "exp");
+    var doc67 = new OrbitDesignDocumentViewModel();
+    doc67.Shells[0].PlaneCount = 1; doc67.Shells[0].SatsPerPlane = 2;
+    string design67 = Path.Combine(exp67, "v67.orbitdesign.json");
+    File.WriteAllText(design67, doc67.BuildDocumentJson());
+    string prof67 = Path.Combine(exp67, "v67.opprofile.json");
+    File.WriteAllText(prof67, OperationProfileCodec.Save(new OperationProfile(Name: "V67", MinElevDeg: 10.0, CellKm: 900.0)));
+    var cvm67 = new ComplianceViewModel
+    {
+        DesignPath = design67, ProfilePath = prof67,
+        LatFromText = "40", LatToText = "50", LatStepText = "10",
+        DurationDaysText = (60.0 / 1440.0).ToString(inv67), StepSecText = "60",
+    };
+    cvm67.RunAsync().GetAwaiter().GetResult();
+    var csv67 = cvm67.BuildCsv().Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0).ToList();
+    int hdr67 = csv67.FindIndex(l => l.StartsWith("es_lat_deg,"));
+    bool csvOk67 = hdr67 > 0 && csv67.Take(hdr67).All(l => l.StartsWith("# "))
+        && csv67[0].Contains("Run sweep") && csv67.Any(l => l.StartsWith("# depth: 60 steps of 60 s"))
+        && csv67.Any(l => l.Contains("the permissive template"))
+        && csv67[hdr67] == "es_lat_deg,max_epfd_db,worst_margin_db,pass,quiet_steps,curve_margin_db,rule_margin_db,deciding_point_pct"
+        && csv67.Count == hdr67 + 3 && csv67.Skip(hdr67 + 1).All(l => l.Split(',').Length == 8);
+    Check("V67 the compliance window says what a run is: the permissive template named, the step warned below three samples per beam crossing, the time left estimated, and the export headed by its run, inputs, depth, step and limit with the rule and curve margins beside the long-standing columns",
+        templateOk67 && stepOk67 && etaOk67 && csvOk67,
+        $"template={templateOk67} step={stepOk67} eta={etaOk67} csv={csvOk67}; {sentence67}");
+}
+
+// ---- V68: the simulation runner writes its step and bandwidth, and verdicts a direction with a limit ----
+{
+    var inv68 = CultureInfo.InvariantCulture;
+    string exp68 = Path.Combine(AppContext.BaseDirectory, "exp");
+    var doc68 = new OrbitDesignDocumentViewModel();
+    doc68.Shells[0].PlaneCount = 1; doc68.Shells[0].SatsPerPlane = 2;
+    string design68 = Path.Combine(exp68, "v68.orbitdesign.json");
+    File.WriteAllText(design68, doc68.BuildDocumentJson());
+    string prof68 = Path.Combine(exp68, "v68.opprofile.json");
+    File.WriteAllText(prof68, OperationProfileCodec.Save(new OperationProfile(Name: "V68", CellKm: 900.0)));
+    var fresh68 = new SimulationViewModel();
+    bool presetOk68 = fresh68.DurationDaysText == "0.5" && fresh68.StepSecText == "1";
+    var sim68 = new SimulationViewModel
+    {
+        DesignPath = design68, ProfilePath = prof68,
+        DurationDaysText = (20.0 / 1440.0).ToString(inv68), StepSecText = "60",
+        DownLimitsText = "-300 100\n0 100",
+    };
+    var reports68 = new List<double>();
+    string base68 = Path.Combine(exp68, "v68sim");
+    string sum68 = sim68.RunCore(sim68.BuildSetup(), base68, new ProgressCollectorD(reports68));
+    var down68 = File.ReadAllLines(base68 + ".down.csv");
+    var up68 = File.ReadAllLines(base68 + ".up.csv");
+    bool headerOk68 = down68.Any(l => l.StartsWith("# steps=20  step_s=60  duration_s=1200  refbw_khz=40 "))
+        && down68.Any(l => l.StartsWith("# verdict: PASS")) && !up68.Any(l => l.StartsWith("# verdict:"));
+    bool summaryOk68 = sum68.Contains("verdicts: down PASS") && !sum68.Contains("up PASS") && !sum68.Contains("up FAIL");
+    bool progressOk68 = reports68.Count > 0 && reports68.Max() > 0.5 && reports68.All(f => f >= 0.0 && f <= 1.0);
+    // the viewer reads the bandwidth the files state
+    var s68 = CdfSeries.LoadCsv(base68 + ".down.csv", "down");
+    string legacy68 = Path.Combine(exp68, "v68legacy.csv");
+    File.WriteAllText(legacy68, "# old file\n# steps=10  quiet_steps=0  max_epfd_db=-150.000\nepfd_dbw_m2_40khz,percent_time_exceeded\n-150.0,100\n-149.9,0\n");
+    var l68 = CdfSeries.LoadCsv(legacy68, "old");
+    bool viewerOk68 = s68.RefBwKHz == 40.0 && l68.RefBwKHz is null
+        && CdfWindow.BandwidthLabel(new[] { s68 }) == "40 kHz"
+        && CdfWindow.BandwidthLabel(new[] { l68 }) == "40 kHz"
+        && CdfWindow.BandwidthLabel(new[] { s68, s68 with { RefBwKHz = 1000.0 } }) == "the reference bandwidth";
+    // a malformed limit is refused before the run
+    sim68.UpLimitsText = "not a limit";
+    bool refusedOk68;
+    try { sim68.BuildSetup(); refusedOk68 = false; }
+    catch (FormatException ex) { refusedOk68 = ex.Message.StartsWith("epfd(up) limit"); }
+    Check("V68 the simulation runner presets half a day at 1 s, writes each CDF's step, duration and reference bandwidth, verdicts a direction with an entered limit under the limit-curve rule and no other, reports progress through both directions, refuses a malformed limit; the viewer labels the bandwidth the files state",
+        presetOk68 && headerOk68 && summaryOk68 && progressOk68 && viewerOk68 && refusedOk68,
+        $"preset={presetOk68} header={headerOk68} summary={summaryOk68} progress={progressOk68} (max {(reports68.Count > 0 ? reports68.Max() : double.NaN):F2}) viewer={viewerOk68} refused={refusedOk68}");
+}
+
+// ---- V69: inputs refused not rounded; readouts that follow; actions that say what happened ----
+{
+    // The profile window refuses a fractional or zero demand, a fractional
+    // hold and a fractional Nco row instead of rounding them.
+    var p69 = new OperationProfileViewModel();
+    bool Refused69(Action set) { set(); try { p69.Build(); return false; } catch (FormatException) { return true; } }
+    bool okBase69; try { p69.Build(); okBase69 = true; } catch { okBase69 = false; }
+    bool demandOk69 = Refused69(() => p69.DemandLinksText = "1.5") && Refused69(() => p69.DemandLinksText = "0");
+    p69.DemandLinksText = "1";
+    bool holdOk69 = Refused69(() => p69.MinHoldText = "2.5");
+    p69.MinHoldText = "";
+    bool ncoOk69 = Refused69(() => p69.NcoByLatText = "30 2.5");
+    p69.NcoByLatText = "";
+    bool wholeOk69; try { p69.MinHoldText = "30"; p69.NcoByLatText = "30 2"; p69.Build(); wholeOk69 = true; } catch { wholeOk69 = false; }
+    // Readouts that follow their inputs.
+    var raised69 = new List<string>();
+    var pfd69 = new PfdMaskViewModel();
+    pfd69.PropertyChanged += (_, e) => raised69.Add("pfd." + e.PropertyName);
+    pfd69.AlphaExclDeg = pfd69.AlphaExclDeg + 1.0;
+    var mv69 = new MaskViewerViewModel();
+    mv69.LoadFile(Path.Combine(AppContext.BaseDirectory, "exp", "v59mask.xml"));
+    mv69.PropertyChanged += (_, e) => raised69.Add("mv." + e.PropertyName);
+    mv69.SelectedLatIndex = mv69.SelectedLatIndex == 0 ? 1 : 0;
+    var od69 = new OrbitDesignViewModel();
+    od69.PropertyChanged += (_, e) => raised69.Add("od." + e.PropertyName);
+    od69.SelectedSolution = null;
+    bool readoutsOk69 = raised69.Contains("pfd.ExclusionSummary") && raised69.Contains("mv.InfoReadout")
+        && raised69.Contains("od.TrackClosureText") && od69.TrackClosureText == "";
+    // Actions that say what happened.
+    string copy69 = od69.BuildCopyText();
+    bool copyOk69 = copy69.Contains("[Case 1 free drift]") && copy69.Contains("[Case 3 declared precession]")
+        && !copy69.Contains("[Case 2") && copy69.Contains("no repeating candidate");
+    var docH69 = new OrbitDesignDocumentViewModel();
+    docH69.Shells[0].CaseChoice = 0;                          // Case 1: no repeat period
+    string notHarm69 = docH69.HarmonizeRptPrd();
+    docH69.Shells[0].CaseChoice = 1;
+    string harm69 = docH69.HarmonizeRptPrd();
+    bool harmOk69 = notHarm69.StartsWith("rpt_prd not harmonized: shell 1") && harm69.StartsWith("rpt_prd harmonized to ");
+    Check("V69 the profile window refuses fractional or zero counts and fractional seconds instead of rounding; the exclusion summary, the mask viewer's block readout and the track closure follow their inputs; Copy case summary without a candidate copies Cases 1 and 3, and Harmonize says what it did or why not",
+        okBase69 && demandOk69 && holdOk69 && ncoOk69 && wholeOk69 && readoutsOk69 && copyOk69 && harmOk69,
+        $"base={okBase69} demand={demandOk69} hold={holdOk69} nco={ncoOk69} whole={wholeOk69} readouts={readoutsOk69} copy={copyOk69} harmonize={harmOk69} ({notHarm69} | {harm69})");
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

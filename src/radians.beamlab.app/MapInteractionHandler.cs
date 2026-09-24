@@ -51,7 +51,8 @@ public sealed class MapInteractionHandler
 
     private void OnLeftDown(object sender, MouseButtonEventArgs e)
     {
-        // Beam-marker clicks set Handled = true and never reach here.
+        // A press on a beam marker arrives here too, with the beam pending in
+        // the renderer: the release toggles it unless the press became a pan.
         if (e.Handled) return;
         var pos = e.GetPosition(_canvas);
         if (_vp.FromCanvas(pos.X, pos.Y) is null) return;
@@ -121,6 +122,8 @@ public sealed class MapInteractionHandler
 
     private void OnLeftUp(object sender, MouseButtonEventArgs e)
     {
+        var pendingBeam = _renderer.PendingToggleBeam;
+        _renderer.PendingToggleBeam = null;
         if (!_maybePan) return;
         bool wasPanning = _panning;
         _maybePan = false;
@@ -132,6 +135,13 @@ public sealed class MapInteractionHandler
         if (wasPanning)
         {
             _renderer.Redraw();
+            return;
+        }
+
+        // No drag on a beam marker -> toggle that beam.
+        if (pendingBeam is not null)
+        {
+            _vm.ToggleBeam(pendingBeam);
             return;
         }
 

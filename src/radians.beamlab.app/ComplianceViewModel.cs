@@ -193,11 +193,31 @@ public sealed class ComplianceViewModel : ObservableObject
     }
 
     /// <summary>UI-thread progress sink: status line + bar. Create it on the UI thread.</summary>
-    private IProgress<SweepProgress> UiProgress() => new Progress<SweepProgress>(p =>
+    private IProgress<SweepProgress> UiProgress()
     {
-        StatusText = p.Text;
-        ProgressPercent = Math.Clamp(p.Fraction * 100.0, 0.0, 100.0);
-    });
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        return new Progress<SweepProgress>(p =>
+        {
+            StatusText = p.Text + EtaText(clock.Elapsed, p.Fraction);
+            ProgressPercent = Math.Clamp(p.Fraction * 100.0, 0.0, 100.0);
+        });
+    }
+
+    /// <summary>
+    /// " -- about N min left", from the time spent and the fraction done;
+    /// empty until the estimate means something (5 s in and 2% done). The
+    /// cost of a step depends on the system, so the run measures its own.
+    /// </summary>
+    public static string EtaText(TimeSpan elapsed, double fraction)
+    {
+        if (fraction < 0.02 || fraction >= 1.0 || elapsed.TotalSeconds < 5.0) return "";
+        double left = elapsed.TotalSeconds * (1.0 - fraction) / fraction;
+        var inv = CultureInfo.InvariantCulture;
+        string t = left < 90.0 ? string.Create(inv, $"{left:F0} s")
+            : left < 5400.0 ? string.Create(inv, $"{left / 60.0:F0} min")
+            : string.Create(inv, $"{left / 3600.0:F1} h");
+        return " -- about " + t + " left";
+    }
 
     // ---- the sweep ------------------------------------------------------
 
@@ -258,6 +278,8 @@ public sealed class ComplianceViewModel : ObservableObject
         IsRunning = true;
         ProgressPercent = 0;
         StatusText = "sweeping latitudes...";
+        LoopRows.Clear();   // the loop table would otherwise describe an earlier run
+        OnPropertyChanged(nameof(HasLoopRows));
         var progress = UiProgress();
         bool onS1503Step = _examStepIndex == 1;
         try
@@ -290,8 +312,14 @@ public sealed class ComplianceViewModel : ObservableObject
                 trackNote = TrackDurationNote(sweep.Declared
                     ?? OperationComposer.Compose(sweep.Profile, sh0.OperatingHeightKm ?? sh0.AltitudeKm).Enforced);
             }
-            StatusText = DishMismatchNote(sweep) + rSetNote + trackNote + gap + (sweep.Profile.Down.FootprintSource == "mask"
-                ? "declared-mask footprint -- " : "") + stepNote + SummarizeRows(rows) + headroom;
+            // On the S.1503-4 step the examination's depth is its fine steps,
+            // and the step warning belongs to the predefined step only.
+            long depthSteps = plan is null ? sweep.Steps : (long)Math.Round(sweep.Steps * sweep.StepSec / plan.FineStepSec);
+            string stepWarn = plan is null ? StepAdequacyNote(sweep) : "";
+            StatusText = DishMismatchNote(sweep) + TemplateNote(sweep.Limits) + stepWarn + rSetNote + trackNote + gap
+                + (sweep.Profile.Down.FootprintSource == "mask" ? "declared-mask footprint -- " : "") + stepNote
+                + SummarizeRows(rows) + DepthNote(depthSteps, plan?.FineStepSec ?? sweep.StepSec) + headroom;
+            RecordRunForExport(sweep, "Run sweep", plan is null ? "predefined step" : "S.1503-4 fine/coarse, " + plan.Text);
         }
         catch (Exception ex) { StatusText = "sweep failed: " + ex.Message; }
         finally { IsRunning = false; }
@@ -440,14 +468,18 @@ public sealed class ComplianceViewModel : ObservableObject
                     r.E1OnS1503Step is { } d && i < d.Count ? d[i].WorstMarginDb : double.NaN));
             OnPropertyChanged(nameof(HasLoopRows));
             var inv = CultureInfo.InvariantCulture;
-            StatusText = DishMismatchNote(sweep) + TrackDurationNote(r.Declared)
+            StatusText = DishMismatchNote(sweep) + TemplateNote(sweep.Limits) + StepAdequacyNote(sweep)
+                + TrackDurationNote(r.Declared)
                 + ComplianceLoopSteps.E1Summary(r.Truth, r.E1, inv)
-                + " -- truth: " + SummarizeRows(r.Truth)
+                + " -- truth: " + SummarizeRows(r.Truth) + DepthNote(sweep.Steps, sweep.StepSec)
                 + " -- declaration: " + (r.Derived ? "derived on a saturated probe at this depth and grid" : "the given R set")
                 + "; mask: " + r.MaskNote
                 + (r.Plan is not null ? "; E1 also on the S.1503-4 time step (" + r.Plan.Text + ")" : "")
                 + (r.ConsistencyText.Length > 0 ? " -- " + r.ConsistencyText : "")
                 + " -- run files in " + r.RunDir;
+            RecordRunForExport(sweep, "Run loop -- rows: the truth T; e1 columns: the examination of the "
+                + (r.Derived ? "derived" : "given") + " declaration",
+                r.Plan is null ? "predefined step" : "predefined step, E1 also on the S.1503-4 step: " + r.Plan.Text);
         }
         catch (Exception ex) { StatusText = "loop failed: " + ex.Message; }
         finally { IsRunning = false; }
@@ -482,6 +514,57 @@ public sealed class ComplianceViewModel : ObservableObject
         => set.MinDurationByLat.Any(v => v.Seconds > 0) || set.MinDurationSecHeader is > 0
             ? "NOTE: the examined set declares min_duration, which calls for the track-duration examination (S.1503-4 Sec. D5.1.4.2); that is not built here, so this sweep uses the classic algorithm -- "
             : "";
+
+    /// <summary>
+    /// A note when the limit is still the permissive template: the verdicts
+    /// then say nothing about Article 22. Empty otherwise.
+    /// </summary>
+    public static string TemplateNote(IReadOnlyList<radlimits.LimitPoint> limits)
+        => limits.Count == 2 && limits[0].EPFD == -300.0 && limits[0].Perc == 100.0
+           && limits[1].EPFD == 0.0 && limits[1].Perc == 100.0
+            ? "NOTE: no limit entered -- these verdicts are against the permissive template, not an Article 22 row -- "
+            : "";
+
+    /// <summary>A run's depth: its steps per latitude and the resolvable percentile floor.</summary>
+    public static string DepthNote(long steps, double stepSec)
+        => string.Create(CultureInfo.InvariantCulture,
+            $" -- {steps} steps of {stepSec:0.###} s per latitude, resolvable floor {100.0 / Math.Max(1, steps):0.####}%");
+
+    /// <summary>
+    /// A warning when the step samples the fastest crossing of the earth
+    /// station's 3 dB beam fewer than three times, so that the maxima are
+    /// under-sampled (<see cref="ComplianceLoopSteps.StepSentence"/>). Empty otherwise.
+    /// </summary>
+    public static string StepAdequacyNote(IReadOnlyList<ConstellationShell> shells, double freqMhz, double dishM, double stepSec)
+    {
+        var (pass, n, fine) = ComplianceLoopSteps.StepSampling(shells, freqMhz, dishM, stepSec);
+        return n >= 3.0 ? "" : string.Create(CultureInfo.InvariantCulture,
+            $"NOTE: the {stepSec:0.###} s step samples the fastest crossing of the earth station's 3 dB beam ({pass:F2} s) {n:0.##} time(s), fewer than three, so the maxima are under-sampled; the S.1503-4 fine step is {fine:0.000} s -- ");
+    }
+
+    private static string StepAdequacyNote(Sweep sweep)
+        => StepAdequacyNote(sweep.Shells, sweep.Profile.Down.FrequencyGhz * 1000.0, sweep.DishM, sweep.StepSec);
+
+    // The export's header: what produced the rows on screen.
+    private List<string> _exportHeader = new();
+
+    private void RecordRunForExport(Sweep sweep, string run, string examStep)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        _exportHeader = new List<string>
+        {
+            string.Create(inv, $"radians.beamlab compliance window export, {DateTime.Now:yyyy-MM-dd HH:mm}; {run}"),
+            "design: " + _designPath.Trim() + "; profile: " + _profilePath.Trim()
+                + "; R set: " + (_rSetPathText.Trim().Length > 0 ? _rSetPathText.Trim() : "none"),
+            string.Create(inv, $"grid: ES lat {sweep.LatFrom:0.###}..{sweep.LatTo:0.###} step {sweep.LatStep:0.###} deg; ES lon {sweep.EsLon:0.###}; GSO offset {sweep.GsoOffset:0.###} deg; dish {sweep.DishM:0.###} m"),
+            string.Create(inv, $"depth: {sweep.Steps} steps of {sweep.StepSec:0.###} s ({sweep.Steps * sweep.StepSec / 86400.0:0.####} d) per latitude, resolvable floor {100.0 / Math.Max(1, sweep.Steps):0.####}%; examination step: {examStep}"),
+            ComplianceLoopSteps.StepSentence(sweep.Shells, sweep.Profile.Down.FrequencyGhz * 1000.0, sweep.DishM, sweep.StepSec),
+            "limit (epfd_db@percent): " + string.Join("; ", sweep.Limits.Select(l => string.Create(inv, $"{l.EPFD}@{l.Perc}")))
+                + (TemplateNote(sweep.Limits).Length > 0 ? " -- the permissive template, not an Article 22 row" : ""),
+            "verdict rule: pass only if every tabulated point passes and the CDF nowhere crosses the log-linear curve between them (0.05 dB tolerance); "
+                + "worst_margin_db is the point-wise margin, rule_margin_db the smaller of the point and the curve margin",
+        };
+    }
 
     /// <summary>
     /// One full latitude sweep at the given GLOBAL exclusion angle: the
@@ -983,9 +1066,12 @@ public sealed class ComplianceViewModel : ObservableObject
         // alpha for the profile's declared per-latitude rows -- declared
         // structure is ignored while walking, and the found global can
         // sit below a declared row. v2 walks deltas over the rows.
-        string rowsNote = sweep.Profile.AlphaByLat is { Count: > 0 }
-            ? "NOTE: the profile declares per-latitude alpha rows; the walk IGNORES them and uses a global value (v2 will walk deltas over the rows) -- "
-            : "";
+        string rowsNote = TemplateNote(sweep.Limits) + StepAdequacyNote(sweep)
+            + (sweep.Profile.AlphaByLat is { Count: > 0 }
+                ? "NOTE: the profile declares per-latitude alpha rows; the walk IGNORES them and uses a global value (v2 will walk deltas over the rows) -- "
+                : "");
+        LoopRows.Clear();
+        OnPropertyChanged(nameof(HasLoopRows));
         try
         {
             var advice = await Task.Run(() => Advise(sweep, stepA, maxA, progress));
@@ -993,6 +1079,10 @@ public sealed class ComplianceViewModel : ObservableObject
             Rows.Clear();
             foreach (var r in advice.FinalRows) Rows.Add(r);
             FoundAlphaDeg = advice.FoundAlpha;
+            RecordRunForExport(sweep, advice.FoundAlpha is double fa
+                ? string.Create(CultureInfo.InvariantCulture, $"exclusion advisor -- rows at the found alpha {fa:0.###} deg")
+                : string.Create(CultureInfo.InvariantCulture, $"exclusion advisor -- rows at the cap, alpha {maxA:0.###} deg, not compliant"),
+                "predefined step");
             bool livePower = sweep.Profile.Down.FootprintSource != "mask"
                 && double.IsFinite(advice.WorstMarginEndDb);
             StatusText = rowsNote + (advice.FoundAlpha is double a
@@ -1246,6 +1336,9 @@ public sealed class ComplianceViewModel : ObservableObject
         ProgressPercent = 0;
         _foundNcoRows = null; OnPropertyChanged(nameof(ApplyNcoEnabled));
         StatusText = "advising (v2): walking the per-cell cap down from the baseline...";
+        string notes = TemplateNote(sweep.Limits) + StepAdequacyNote(sweep);
+        LoopRows.Clear();
+        OnPropertyChanged(nameof(HasLoopRows));
         var progress = UiProgress();
         // Nested sweeps relabel their lines under the v2 walk; the walk's own
         // lines (delta, verify) come from NcoAdviseCore.
@@ -1260,16 +1353,17 @@ public sealed class ComplianceViewModel : ObservableObject
             ProgressPercent = 100;
             Rows.Clear();
             foreach (var r in advice.FinalRows) Rows.Add(r);
+            RecordRunForExport(sweep, "Nco advisor -- rows of the final joint sweep", "predefined step");
             if (!advice.LeverMoves)
             {
-                StatusText = string.Create(CultureInfo.InvariantCulture,
+                StatusText = notes + string.Create(CultureInfo.InvariantCulture,
                     $"Nco is not the lever here: no margin moved over the walk ({advice.Sweeps} sweep(s)) -- with demand {Math.Max(1, sweep.Profile.DemandLinksPerCell)} link(s)/cell the cap barely binds");
                 return;
             }
             _foundNcoRows = advice.Rows; OnPropertyChanged(nameof(ApplyNcoEnabled));
             string rowsTxt = string.Join(", ", advice.Rows.Select(r =>
                 string.Create(CultureInfo.InvariantCulture, $"{r.LatDeg:F0}→{r.Value:F0}")));
-            StatusText = (advice.Converged
+            StatusText = notes + (advice.Converged
                     ? "v2 Nco rows VERIFIED (joint sweep passes): "
                     : "v2 Nco: NOT compliant even at the range floor -- tightest caps shown: ")
                 + $"[{rowsTxt}]"
@@ -1299,13 +1393,35 @@ public sealed class ComplianceViewModel : ObservableObject
             $"Nco rows written into the profile ({found.Count} row(s); operator rows outside the grid span kept) -- derive the R set next");
     }
 
+    /// <summary>
+    /// The table as CSV: '#' lines saying what produced it (run, inputs, grid,
+    /// depth, step, limit, rule), then one row per latitude. The first five
+    /// columns are the long-standing ones; the curve and rule margins and the
+    /// deciding point follow, and after a loop run the E1 columns.
+    /// </summary>
     public string BuildCsv()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("es_lat_deg,max_epfd_db,worst_margin_db,pass,quiet_steps");
-        foreach (var r in Rows)
-            sb.AppendLine(FormattableString.Invariant(
+        foreach (var line in _exportHeader) sb.AppendLine("# " + line);
+        bool loop = LoopRows.Count > 0 && LoopRows.Count == Rows.Count;
+        sb.AppendLine("es_lat_deg,max_epfd_db,worst_margin_db,pass,quiet_steps,curve_margin_db,rule_margin_db,deciding_point_pct"
+            + (loop ? ",e1_margin_db,gap_db,e1_ge_t,e1_s1503_step_margin_db" : ""));
+        static string Num(double v) => double.IsFinite(v) ? v.ToString("F2", CultureInfo.InvariantCulture) : "";
+        for (int i = 0; i < Rows.Count; i++)
+        {
+            var r = Rows[i];
+            sb.Append(FormattableString.Invariant(
                 $"{r.LatDeg},{r.MaxEpfdDb:F2},{r.WorstMarginDb:F2},{(r.Pass ? 1 : 0)},{r.QuietSteps}"));
+            sb.Append(',').Append(Num(r.CurveMarginDb)).Append(',').Append(Num(r.RuleMarginDb))
+              .Append(',').Append(double.IsNaN(r.DecidingPercent) ? "" : r.DecidingPercent.ToString("G6", CultureInfo.InvariantCulture));
+            if (loop)
+            {
+                var l = LoopRows[i];
+                sb.Append(',').Append(Num(l.E1MarginDb)).Append(',').Append(Num(l.GapDb))
+                  .Append(',').Append(l.Adequate ? '1' : '0').Append(',').Append(Num(l.E1OnS1503StepDb));
+            }
+            sb.AppendLine();
+        }
         return sb.ToString();
     }
 

@@ -270,20 +270,27 @@ declaration gives away &mdash; and at the same dB-for-dB rate as the power headr
 is operating power the system could have been licensed for.</p>
 
 <h2>What a run can resolve</h2>
-<p>The defaults &mdash; 0.1&nbsp;day at 60&nbsp;s, 144 steps per sweep &mdash; are
-<em>screening-grade</em>, chosen so a fifteen-step walk stays affordable. Short-term limit
+<p>The defaults &mdash; 0.1&nbsp;day at a 1&nbsp;s step, 8&nbsp;640 steps per latitude sweep &mdash;
+are <em>screening-grade</em>. The exclusion walk costs up to one sweep per walk step, so the
+status line estimates the time left while a run goes, measured on the run itself. Short-term limit
 points at very small percentages need far longer runs to even resolve: a point at 0.017%
 of the time is decided by a handful of extreme samples, on the order of six thousand steps
 or more. And the step size matters as much as the count: measured on the reference
 geometry (450&nbsp;km cells at 1200&nbsp;km), 60&nbsp;s steps miss the main-beam transients
 entirely &mdash; per-run maxima moved ~20&nbsp;dB between 60&nbsp;s and 6&nbsp;s time steps and
-only ~0.3&nbsp;dB between 6&nbsp;s and 1&nbsp;s &mdash; so verdict-grade tail levels need
-steps of a few seconds, enough to resolve the beam footprint crossing the victim. That is
-our own measurement of a rule the simulation methodology states generally: tie the time
-step to the beamwidth of the <em>interfered</em> antenna, so that at least five samples fall
-while a satellite crosses its 3&nbsp;dB beam (Rec. ITU-R S.1325 revision draft
-&sect;2.7.2). It governs a simulation's own stepping; the examination's stepping is
-S.1503-4's business, not this one's. The
+only ~0.3&nbsp;dB between 6&nbsp;s and 1&nbsp;s. On STEAM-2 the truth's maxima rose 2.0 to
+3.3&nbsp;dB between 60&nbsp;s and 6&nbsp;s, and the examination at 1&nbsp;s reads within
+0.1&nbsp;dB of the time step S.1503-4 prescribes. So the truth runs on a preset 1&nbsp;s step,
+and the window warns when a step samples the fastest crossing of the earth station&rsquo;s
+3&nbsp;dB beam fewer than three times. That is our own measurement of a rule the simulation
+methodology states generally: tie the time step to the beamwidth of the <em>interfered</em>
+antenna, so that at least five samples fall while a satellite crosses its 3&nbsp;dB beam
+(Rec. ITU-R S.1325 revision draft &sect;2.7.2); three is where the measurement shows the
+maxima settled. With the Random strategy and no hold the selection is redrawn at every step,
+so the step is also the reselection period: changing the step changes the traffic model as
+well as the sampling. The examination&rsquo;s own stepping is S.1503-4&rsquo;s (&sect;D4): the
+<strong>Examination step</strong> choice runs a declared-mask sweep on its fine and coarse steps
+with the dual time step, over the same duration. The
 loop's job at screening depth is to locate the compliant region, the binding
 latitude and the trend; the final word belongs to a long, fine-stepped run at the found
 angle. The window

@@ -231,15 +231,21 @@ public sealed class OrbitDesignDocumentViewModel : ObservableObject
     /// Declares the common constellation period -- the LCM of every
     /// shell's own cycle -- as rpt_prd on every shell (A2.4: one repeat
     /// period appropriate for all satellites, including all
-    /// sub-constellations). No-op unless every shell is Case 2.
+    /// sub-constellations). No-op unless every shell is Case 2 with a
+    /// candidate; the returned line says what happened, or why nothing did.
     /// </summary>
-    public void HarmonizeRptPrd()
+    public string HarmonizeRptPrd()
     {
         var own = Shells.Select(s => s.OwnRptSeconds).ToList();
-        if (own.Count == 0 || own.Any(v => v is null)) return;
+        int missing = own.FindIndex(v => v is null);
+        if (own.Count == 0 || missing >= 0)
+            return own.Count == 0 ? "nothing to harmonize: no shells"
+                : $"rpt_prd not harmonized: shell {missing + 1} is not Case 2 with a repeating candidate, and one repeat period must hold for every shell";
         long p = 1;
         foreach (var v in own) p = Lcm(p, v!.Value);
         foreach (var s in Shells) s.HarmonizedRptSeconds = p;
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"rpt_prd harmonized to {p} s on all {Shells.Count} shell(s)");
     }
 
     /// <summary>All shells in one preview notice, orb_id continuing across shells.</summary>

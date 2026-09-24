@@ -250,6 +250,7 @@ checks use a local ITU reference filing and skip cleanly when it is absent.
 The same executable carries the producer's headless measurement modes,
 each opt-in by its first argument and each writing the record it is named
 for: `margin` (the projection-margin figure), `loop` (the compliance loop;
+its step defaults to 1 s, the truth's step, as the examine mode's does;
 `reuse=<run dir>` reads a run's declaration back instead of deriving it, and
 `gso=<deg>` / `eslon=<deg>` move the victim: the wanted GSO satellite's
 longitude offset east of the earth station and the earth station's longitude,

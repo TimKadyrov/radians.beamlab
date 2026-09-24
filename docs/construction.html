@@ -405,7 +405,7 @@ declared, binding commitment makes the tightening true.</p>
 <p>Whether declaring the capacity costs anything depends on which side of two numbers it
 sits: K<sub>sat</sub>, the most same-colour beams the <em>saturated</em> probe ever lights
 (20 on STEAM-2), and K<sub>truth</sub>, the most <em>today&rsquo;s traffic</em> ever lights
-(11). The readout measures both. STEAM-2, 0.1&nbsp;d, against the committed record:</p>
+(11). The readout measures both. STEAM-2, 0.1&nbsp;d on 60&nbsp;s steps, against the committed record:</p>
 
 <table class="ex">
 <tr><th>capacity</th><th>binds today</th><th>binds at peak</th><th>T</th><th>widest gap</th><th>cost today</th><th>cost at peak</th></tr>
@@ -505,7 +505,7 @@ design decision about the system rather than a better description of it.</p>
 <div class="tech">
 <div class="t">The depth ladder</div>
 <p>The same truth-only sweep of the committed STEAM-2 declaration at seven run lengths, each an
-extension of the last on one comb, the record&rsquo;s declaration reused: the worst margin of T and
+extension of the last on one comb of 60&nbsp;s steps, the record&rsquo;s declaration reused: the worst margin of T and
 of E1 by latitude, in dB. The body of each CDF settles by 0.5&nbsp;d; the deciding point sits at the
 short-term end, and at each doubling one or two latitudes move by 1 to 3&nbsp;dB while the others
 stand, and the set that moves changes from one doubling to the next. Two mechanisms: a maximum can only rise under extension
@@ -533,7 +533,7 @@ short-term levels carry their run length, at any run length.</p>
 <div class="tech">
 <div class="t">The gap, decomposed</div>
 <p>The brief&rsquo;s section&nbsp;2 asks not how close the examination comes to the truth but
-where its gap comes from. The decomposition runs three curves on one victim grid and one comb:
+where its gap comes from. The decomposition runs three curves on one victim grid and one comb of 60&nbsp;s steps:
 <strong>T</strong>, every visible satellite at its live value, no selection;
 <strong>E<sub>sel</sub></strong>, the examination&rsquo;s selection rules (Sec.&nbsp;D5.1.4.1: the
 elevation gate, the exclusion zone, the MAX_CO_FREQ pick by highest contribution, MIN_ANGLE_AT_ES
@@ -560,7 +560,7 @@ earth station at longitude 0, the wanted GSO satellite 10&deg; east of it &mdash
 examination&rsquo;s own search for the worst-case geometry is the consumer&rsquo;s, by agreement, so
 the decomposition, whose three curves share the victim, has no term for it. What the fixed victim
 leaves on the table was measured by moving the GSO satellite: the same truth-only sweep of the
-committed declaration at 0.5&nbsp;d, 0 to 60&nbsp;N, at eight longitude offsets from 10&deg; west to
+committed declaration at 0.5&nbsp;d on 60&nbsp;s steps, 0 to 60&nbsp;N, at eight longitude offsets from 10&deg; west to
 60&deg; east &mdash; the wanted satellite from overhead at the equator down to 22&deg; of elevation,
 and at 60&nbsp;N from 22&deg; down to 6&deg;. Fifty-six victims; E1&nbsp;&ge;&nbsp;T at every one.</p>
 <table class="ex">
@@ -608,6 +608,24 @@ latitude) where the consumer&rsquo;s search is fine. Records:
 the baselines <code>-05d</code> and <code>-2d</code>; the loop&rsquo;s <code>gso=</code> and
 <code>eslon=</code> arguments move the victim.</p>
 </div>
+<div class="tech">
+<div class="t">The time step</div>
+<p>Every table above ran on 60&nbsp;s steps. The fastest crossing of the earth station&rsquo;s
+3&nbsp;dB beam by a STEAM-2 satellite takes 3.34&nbsp;s, so a 60&nbsp;s step samples about one
+crossing in eighteen, and the maxima that decide the verdict at 0 to 40&nbsp;N were starved of
+main-beam passes. Measured on the committed declaration over half a day: from 60&nbsp;s to 6&nbsp;s
+the truth&rsquo;s maximum rose 2.0 to 3.3&nbsp;dB at 0 to 50&nbsp;N and the gap closed by 0.5 to
+2.9&nbsp;dB at 0 to 40&nbsp;N, E1&nbsp;&ge;&nbsp;T still at every latitude. The examination at
+1&nbsp;s reads within 0.1&nbsp;dB of the time step S.1503-4 prescribes (&sect;D4: a 0.208&nbsp;s fine
+step and a 4.16&nbsp;s coarse step), and at 6&nbsp;s within 0.5&nbsp;dB. The long rungs had largely
+paid the step down with depth: E1 at 60&nbsp;s over 16&nbsp;d sits within 0.4&nbsp;dB of E1 on the
+S.1503-4 step over half a day, and the truth over 16&nbsp;d within 0.8&nbsp;dB of the truth at
+6&nbsp;s over half a day, except at 30&nbsp;N (1.6&nbsp;dB). So the 16&nbsp;d figures stand to about a
+dB, and the half-day and one-day figures at 60&nbsp;s do not. The truth now runs on a preset
+1&nbsp;s step. With the Random strategy and no hold the step is also the reselection period, so
+the 6&nbsp;s truth also drew its selection ten times as often as the 60&nbsp;s one: the step
+changed the traffic model as well as the sampling.</p>
+</div>
 <h2>The rules the construction obeys</h2>
 
 <p>Each of these was bought with a measurement, and each is stated so it can be checked
@@ -631,7 +649,7 @@ invented precedence (design brief 3.8, EPS V43 6.7.2.2). An out-of-span fallback
 examination&rsquo;s resolver read the first derived sets as no floor and no cap at latitudes 50 and
 60 until it was removed.</li>
 <li><strong>Figures travel with their controls.</strong> A margin carries the depth it was
-resolved at and the grid it was worst over. A comparison names what was held fixed. An
+resolved at, the time step it was sampled at and the grid it was worst over. A comparison names what was held fixed. An
 <em>absolute</em> figure is quotable only with a convergence pair: the same statistic at depth
 d and at least 2d, moving no more than a stated tolerance &mdash; 0.5&nbsp;dB by default,
 0.1&nbsp;dB the bin floor &mdash; with both depths and the tolerance named where the figure is

@@ -478,6 +478,7 @@ public sealed class OrbitDesignViewModel : ObservableObject
         {
             TrackSegments = Array.Empty<IReadOnlyList<(double, double)>>();
             TrackClosureDeg = double.NaN;
+            OnPropertyChanged(nameof(TrackClosureText));   // clears the last candidate's closure
             TrackChanged?.Invoke();
             return;
         }
@@ -771,7 +772,12 @@ public sealed class OrbitDesignViewModel : ObservableObject
     public string BuildCopyText()
     {
         var row = _selectedSolution;
-        if (row is null) return "";
+        // Without a candidate Case 2 has nothing to show, but Cases 1 and 3 still stand.
+        if (row is null)
+            return string.Create(CultureInfo.InvariantCulture,
+                $"SNS v10 orbit fields -- target {_targetAltitudeKm:F2} km / i {_inclinationDeg:F1} deg / e {_eccentricity:F3}; " +
+                $"no repeating candidate selected\n" +
+                $"[Case 1 free drift]\n{Case1Text}\n[Case 3 declared precession]\n{Case3Text}\n");
         var s = row.Solution;
         return string.Create(CultureInfo.InvariantCulture,
             $"SNS v10 orbit fields -- target {_targetAltitudeKm:F2} km / i {_inclinationDeg:F1} deg / e {_eccentricity:F3}; " +
