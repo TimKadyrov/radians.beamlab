@@ -44,7 +44,7 @@ One constructed system — three shells covering the three orbit models of the R
 
 | Case | What it exercises | What a correct implementation reproduces |
 |---|---|---|
-| BL-D1, BL-U1, BL-U2, BL-I1, BL-ALL | the five band and mask forms, both downlink algorithms, all three directions | the truth CDFs (48 h at 30 s, the step they were computed on; an implementation on the Recommendation’s time step should expect its short-term end at or above them, item 5), each with its 24 h prefix so every level says how far it is from converged; for BL-I1 the examination-read curve beside the truth, direction holding with a smallest gap of 10 dB |
+| BL-D1, BL-U1, BL-U2, BL-I1, BL-ALL | the five band and mask forms, both downlink algorithms, all three directions | the truth CDFs over 48 h, each direction on the largest step that samples the fastest crossing of its beam at least three times (1 s for the downlink, 0.5 s and 0.2 s for the two uplinks; until 25 September a 30 s step, which put the downlink’s short-term end up to 4 dB low, item 5), each with its 24 h prefix so every level says how far it is from converged; for BL-I1 the examination-read curve on the Recommendation’s time step beside the truth, direction holding with a smallest gap of 10 dB |
 | BL-D2 | a set filed in both the header and the array form | a rejection naming the two quantities — not an examination under any precedence |
 | BL-R1 | the nearest-row read: two MIN_ELEV rows, victims half a step either side of their midpoint | FAIL at one victim, PASS at the other; interpolation or a point read fails both |
 | BL-R2 | the interpolated read of MIN_EXCLUDE | the resolved angle at each victim, 8 / 10 / 12 degrees (the verdict does not discriminate, see § 4.4) |

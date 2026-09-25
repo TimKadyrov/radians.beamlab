@@ -143,22 +143,33 @@ public static class ReadRuleProbes
     /// <summary>What one probe emission measured and wrote (for the generator's log and the harness).</summary>
     public sealed record Emitted(string RecordPath, IReadOnlyList<string> Files, string Headline);
 
-    private sealed record Read(string Label, string ValueText, ProbeExamination.Verdict Full, ProbeExamination.Verdict Half);
+    private sealed record Read(string Label, string ValueText, ProbeExamination.Verdict Full, ProbeExamination.Verdict Half,
+        ProbeExamination.D4Verdicts D4);
 
     private static readonly UTF8Encoding Utf8NoBom = new(false);
 
-    /// <summary>The depths: the family's 48 h at 30 s and its 24 h prefix (the extension pair); quick mode 2 h / 1 h.</summary>
+    /// <summary>
+    /// The probes' depth until 2026-09-25: 48 h at 30 s and its 24 h prefix;
+    /// quick mode 2 h / 1 h. The probes now examine on the S.1503-4 time step
+    /// over <see cref="Duration"/>; the curvescan console mode still reads at
+    /// this depth.
+    /// </summary>
     public static (double StepSec, long Steps, long HalfSteps) Depth(bool quick)
         => quick ? (30.0, 240, 120) : (30.0, 5760, 2880);
+
+    /// <summary>The probes' run: 48 h, 2 h in quick mode, the first half the extension pair.</summary>
+    public static double Duration(bool quick) => quick ? 7200.0 : 172800.0;
 
     private static Read Measure(Constellation con, MaskFootprint mask, OperatingParamsSet set, ProbeExamination.LimitRow lim,
         double freqMhz, double lat, bool quick, string label, string valueText)
     {
-        var (step, steps, half) = Depth(quick);
-        var full = ProbeExamination.Examine(con, mask, set, lim, freqMhz, lat, EsLonDeg, GsoLonDeg, step, steps);
-        var h = ProbeExamination.Examine(con, mask, set, lim, freqMhz, lat, EsLonDeg, GsoLonDeg, step, half);
-        return new Read(label, valueText, full, h);
+        var d4 = ProbeExamination.ExamineD4(con, DatasetGenerator.Shells, mask, set, lim, freqMhz, lat, EsLonDeg, GsoLonDeg, Duration(quick));
+        return new Read(label, valueText, d4.Fine, d4.FineHalf, d4);
     }
+
+    /// <summary>The dual-time-step sentence over every read of a probe, each named by victim and read.</summary>
+    private static string DualSentence(IEnumerable<(double Lat, List<Read> Reads)> rows)
+        => ProbeExamination.DualSentence(rows.SelectMany(r => r.Reads.Select(x => (LatText(r.Lat) + ", " + x.Label, x.D4))).ToList());
 
     /// <summary>BL-R1: the nearest-read probe's expectation record and the examination CDFs at its two victims.</summary>
     public static Emitted EmitR1(string caseDir, string maskPath, string paramPath, OperatingParamsSet s27,
@@ -190,7 +201,7 @@ public static class ReadRuleProbes
         foreach (var (lat, reads) in rows)
         {
             string csv = Path.Combine(expDir, string.Create(inv, $"examination_lat{lat:F0}_cdf.csv"));
-            WriteExaminationCdf(csv, reads[0].Full, lat, s27, lim, "min_elev read " + reads[0].ValueText + " deg (nearest row)");
+            WriteExaminationCdf(csv, reads[0].Full, reads[0].D4, lat, s27, lim, "min_elev read " + reads[0].ValueText + " deg (nearest row)");
             files.Add(Path.GetFileName(csv));
         }
 
@@ -213,7 +224,9 @@ public static class ReadRuleProbes
         string headline = string.Create(inv, $"correct read: {Word(v25.Pass)} at {LatText(rows[0].Lat)} ({v25.WorstMarginDb:+0.0;-0.0} dB), {Word(v35.Pass)} at {LatText(rows[1].Lat)} ({v35.WorstMarginDb:+0.0;-0.0} dB)");
         sb.AppendLine("Verdicts a consumer must reproduce: **" + headline + "**. The two victims sit in near-identical geometry, so the difference between them is the read: a consumer whose two verdicts agree with the interpolation rows, or with the point-read rows, has read the array wrongly; a consumer that reproduces the first row of each victim reads it as the Recommendation does. Margins are quotable to the tolerance of the pair column: the 24 h run is the first half of the 48 h run (an extension pair, not an independent draw).");
         sb.AppendLine();
-        AppendCommon(sb, lim, maskPath, paramPath, MaskSpecR1, quick, provenance, inv,
+        sb.AppendLine(DualSentence(rows));
+        sb.AppendLine();
+        AppendCommon(sb, lim, maskPath, paramPath, MaskSpecR1, rows[0].Reads[0].D4, quick, provenance, inv,
             "The mask is a rule mask: mask 1's reachable-envelope construction over the three shells with the declared exclusion zone written into the alpha axis (nodes strictly inside |alpha| < " + F(MaskSpecR1.NotchAlphaDeg) + " deg carry the Sec. C1 -1000 null), alpha nodes every " + F(MaskSpecR1.BStepDeg) + " deg, and the payload " + F(-MaskSpecR1.TxDeltaDb) + " dB below mask 1's so that the BODY of the CDF sits at the limit -- the notch keeps the main-beam pass (which no read rule touches: Sec. D5.1.4.1 Step 22 counts it regardless) from deciding the verdict. The mask is consistent with the declared exclusion (notch = declared alpha0) and tighter than nothing on elevation: its envelope was composed at " + F(MaskSpecR1.MinElevDeg) + " deg minimum elevation, below the row values, so the elevation gate is the R set's alone -- which is what this probe tests.");
         string rec = Path.Combine(expDir, "read-rule-probe.md");
         File.WriteAllText(rec, sb.ToString(), Utf8NoBom);
@@ -250,7 +263,7 @@ public static class ReadRuleProbes
         foreach (var (lat, resolved, reads) in rows)
         {
             string csv = Path.Combine(expDir, string.Create(inv, $"examination_lat{lat:F0}_cdf.csv"));
-            WriteExaminationCdf(csv, reads[0].Full, lat, s28, lim, "min_exclude read " + F(resolved) + " deg (linear interpolation)");
+            WriteExaminationCdf(csv, reads[0].Full, reads[0].D4, lat, s28, lim, "min_exclude read " + F(resolved) + " deg (linear interpolation)");
             files.Add(Path.GetFileName(csv));
         }
 
@@ -282,7 +295,9 @@ public static class ReadRuleProbes
         string headline = string.Create(inv, $"resolved 8/10/12 deg at 25/30/35 N; verdict {Word(mid.Reads[0].Full.Pass)} under every read (spread {spread:F1} dB)");
         sb.AppendLine("Expected: the resolved values 8.0 / 10.0 / 12.0 deg at 25 / 30 / 35 N; the examination CDFs at the three victims (expected/examination_lat*_cdf.csv) under the correct read, quotable to the pair column's tolerance (the 24 h run is the first half of the 48 h run: an extension pair).");
         sb.AppendLine();
-        AppendCommon(sb, lim, maskPath, paramPath, MaskSpecR2, quick, provenance, inv,
+        sb.AppendLine(DualSentence(rows.Select(r => (r.Lat, r.Reads))));
+        sb.AppendLine();
+        AppendCommon(sb, lim, maskPath, paramPath, MaskSpecR2, rows[0].Reads[0].D4, quick, provenance, inv,
             "The mask is a rule mask: mask 1's construction with the exclusion zone written into the alpha axis at " + F(MaskSpecR2.NotchAlphaDeg) + " deg -- the SMALLER row's value, so the mask is consistent with the declaration where the " + F(RowLoLatDeg) + " N row governs and lit inside the declared zone toward the " + F(RowHiLatDeg) + " N row (this producer's consistency grading: LIT INSIDE there). That is deliberate: the exclusion read can only matter where the mask carries power the gate removes. Payload " + F(-MaskSpecR2.TxDeltaDb) + " dB below mask 1's so the body of the CDF sits a few dB inside the limit under every read.");
         string rec = Path.Combine(expDir, "read-rule-probe.md");
         File.WriteAllText(rec, sb.ToString(), Utf8NoBom);
@@ -298,14 +313,13 @@ public static class ReadRuleProbes
         var con = new Constellation(DatasetGenerator.Shells);
         var mask = MaskFootprint.LoadFile(maskPath);
         double freqMhz = 0.5 * (s29.LowFreqMhz + s29.HighFreqMhz);
-        var (step, steps, half) = Depth(quick);
-        var table = new List<(double Lat, int Nco, ProbeExamination.Verdict Full, ProbeExamination.Verdict Half)>();
+        var table = new List<(double Lat, int Nco, ProbeExamination.Verdict Full, ProbeExamination.Verdict Half, ProbeExamination.D4Verdicts D4)>();
         foreach (double lat in (quick ? R3SweepLats : R3FineSweepLats))
         {
-            var full = ProbeExamination.Examine(con, mask, s29, lim, freqMhz, lat, EsLonDeg, GsoLonDeg, step, steps);
-            var h = ProbeExamination.Examine(con, mask, s29, lim, freqMhz, lat, EsLonDeg, GsoLonDeg, step, half);
-            table.Add((lat, DeclaredConstraints.MaxCoFreq(s29, lat), full, h));
+            var d4 = ProbeExamination.ExamineD4(con, DatasetGenerator.Shells, mask, s29, lim, freqMhz, lat, EsLonDeg, GsoLonDeg, Duration(quick));
+            table.Add((lat, DeclaredConstraints.MaxCoFreq(s29, lat), d4.Fine, d4.FineHalf, d4));
         }
+        var plan = table[0].D4.Plan;
 
         string expDir = Path.Combine(caseDir, "expected");
         Directory.CreateDirectory(expDir);
@@ -313,10 +327,10 @@ public static class ReadRuleProbes
         var cs = new StringBuilder();
         cs.AppendLine("# epfd(down) examination (S.1503-4 D5.1.4.1) per victim latitude, ES lon 0, GSO 10 E; the row's own reference dish.");
         cs.AppendLine("# " + lim.Label);
-        cs.AppendLine(string.Create(inv, $"# depth {step:F0} s x {steps} steps; the 24 h columns are the first half of the run (extension pair)."));
-        cs.AppendLine("lat_deg,max_co_freq_read,max_epfd_db,worst_margin_db,curve_margin_db,pass,quiet_steps,half_worst_margin_db,half_pass");
-        foreach (var (lat, nco, full, h) in table)
-            cs.AppendLine(string.Create(inv, $"{lat:F1},{nco},{full.MaxEpfdDb:F2},{full.WorstMarginDb:F2},{full.CurveMarginDb:F2},{(full.Pass ? 1 : 0)},{full.QuietSteps},{h.WorstMarginDb:F2},{(h.Pass ? 1 : 0)}"));
+        cs.AppendLine(string.Create(inv, $"# depth {Duration(quick) / 3600.0:F0} h on the S.1503-4 time step, every fine step ({table[0].D4.FineSteps}): {plan.Text}; the 24 h columns are the first half of the fine grid (extension pair); the dual columns are the dual time step's readings (fine-step region as Sec. D4.7.1 defines it, and as Sub-step 6.3 words it)."));
+        cs.AppendLine("lat_deg,max_co_freq_read,max_epfd_db,worst_margin_db,curve_margin_db,pass,quiet_steps,half_worst_margin_db,half_pass,dual_worst_margin_db,dual_pass,dual_mainbeam_worst_margin_db,dual_mainbeam_pass");
+        foreach (var (lat, nco, full, h, d4) in table)
+            cs.AppendLine(string.Create(inv, $"{lat:F1},{nco},{full.MaxEpfdDb:F2},{full.WorstMarginDb:F2},{full.CurveMarginDb:F2},{(full.Pass ? 1 : 0)},{full.QuietSteps},{h.WorstMarginDb:F2},{(h.Pass ? 1 : 0)},{d4.Dual.WorstMarginDb:F2},{(d4.Dual.Pass ? 1 : 0)},{d4.DualMainBeamOnly.WorstMarginDb:F2},{(d4.DualMainBeamOnly.Pass ? 1 : 0)}"));
         File.WriteAllText(csv, cs.ToString(), Utf8NoBom);
 
         var sb = new StringBuilder();
@@ -346,7 +360,9 @@ public static class ReadRuleProbes
         }
         sb.AppendLine("Latitudes reading " + R3NcoSpike + ": " + string.Join(", ", table.Where(t => t.Nco == R3NcoSpike).Select(t => LatText(t.Lat))) + ". Margins move dB-for-dB with the mask's power; the pair column says how far each figure is from converged (the 24 h run is the first half of the 48 h run: an extension pair, not an independent draw).");
         sb.AppendLine();
-        AppendCommon(sb, lim, maskPath, paramPath, MaskSpecR3, quick, provenance, inv,
+        sb.AppendLine(ProbeExamination.DualSentence(table.Select(x => (LatText(x.Lat), x.D4)).ToList()));
+        sb.AppendLine();
+        AppendCommon(sb, lim, maskPath, paramPath, MaskSpecR3, table[0].D4, quick, provenance, inv,
             "The mask is a rule mask: mask 1's construction with the declared exclusion zone written into the alpha axis (" + F(MaskSpecR3.NotchAlphaDeg) + " deg = the declared alpha0, so mask and declaration are consistent), alpha nodes every " + F(MaskSpecR3.BStepDeg) + " deg, payload " + F(-MaskSpecR3.TxDeltaDb) + " dB below mask 1's so that the 10-degree sweep passes and the finer sweeps fail.");
         string rec = Path.Combine(expDir, "sweep-grid-probe.md");
         File.WriteAllText(rec, sb.ToString(), Utf8NoBom);
@@ -356,14 +372,13 @@ public static class ReadRuleProbes
     // ---- shared text -----------------------------------------------------------
 
     private static void AppendCommon(StringBuilder sb, ProbeExamination.LimitRow lim, string maskPath, string paramPath,
-        DatasetGenerator.ProbeMaskSpec spec, bool quick, string provenance, CultureInfo inv, string maskText)
+        DatasetGenerator.ProbeMaskSpec spec, ProbeExamination.D4Verdicts plan0, bool quick, string provenance, CultureInfo inv, string maskText)
     {
-        var (step, steps, half) = Depth(quick);
         sb.AppendLine(LimitCurveRule.Name());
         sb.AppendLine();
         sb.AppendLine("Limit row (from the BR limits database, the same choice the compliance loop makes: the plain FSS row with the smallest reference dish): " + lim.Label + ". Points: " + string.Join("; ", lim.Points.Select(p => string.Create(inv, $"{p.EPFD:F1} dB(W/m2) in 40 kHz for {p.Perc:G4}% of time"))) + ". Worst margin = the minimum over the points of (limit epfd minus the epfd exceeded for at most the point's percentage), in the examination's 0.1 dB bins; positive is room to spare.");
         sb.AppendLine();
-        sb.AppendLine(string.Create(inv, $"Depth: {step:F0} s steps x {steps} = {step * steps / 3600.0:F0} h, and the {step * half / 3600.0:F0} h prefix as the extension pair.{(quick ? " QUICK profile: structure verification only, the numbers are not delivery numbers." : "")}"));
+        sb.AppendLine(string.Create(inv, $"Depth: {Duration(quick) / 3600.0:F0} h on the S.1503-4 time step, every fine step ({plan0.FineSteps} over the run): {plan0.Plan.Text}; the first half of the fine grid ({Duration(quick) / 7200.0:F0} h) is the extension pair.{(quick ? " QUICK profile: structure verification only, the numbers are not delivery numbers." : "")}"));
         sb.AppendLine();
         sb.AppendLine(maskText);
         sb.AppendLine();
@@ -372,14 +387,15 @@ public static class ReadRuleProbes
         sb.AppendLine("Provenance: " + provenance);
     }
 
-    private static void WriteExaminationCdf(string path, ProbeExamination.Verdict v, double lat, OperatingParamsSet set,
+    private static void WriteExaminationCdf(string path, ProbeExamination.Verdict v, ProbeExamination.D4Verdicts d4, double lat, OperatingParamsSet set,
         ProbeExamination.LimitRow lim, string readText)
     {
         var inv = CultureInfo.InvariantCulture;
         var sb = new StringBuilder();
         sb.AppendLine("# epfd(down) CDF -- the EXAMINATION (S.1503-4 D5.1.4.1 over the declared mask and set) at the victim, D7.1.2 bins (0.1 dB).");
         sb.AppendLine(string.Create(inv, $"# band={set.LowFreqMhz}-{set.HighFreqMhz} MHz  victim ES lat={lat:F0} lon={EsLonDeg:F0}, GSO lon={GsoLonDeg:F0}, dish {lim.DishM:F2} m (the limit row's)  {readText}"));
-        sb.AppendLine(string.Create(inv, $"# steps={v.Steps}  quiet_steps={v.QuietSteps}  max_epfd_db={v.MaxEpfdDb:F3}  worst_margin_db={v.WorstMarginDb:F2}  curve_margin_db={v.CurveMarginDb:F2}  verdict={Word(v.Pass)}  rule=limit-curve(tol 0.05 dB)"));
+        sb.AppendLine("# time step: every fine step, no coarse steps; " + d4.Plan.Text);
+        sb.AppendLine(string.Create(inv, $"# step_s={d4.Plan.FineStepSec}  steps={v.Steps}  quiet_steps={v.QuietSteps}  max_epfd_db={v.MaxEpfdDb:F3}  worst_margin_db={v.WorstMarginDb:F2}  curve_margin_db={v.CurveMarginDb:F2}  verdict={Word(v.Pass)}  rule=limit-curve(tol 0.05 dB)"));
         sb.AppendLine("epfd_dbw_m2_40khz,percent_time_exceeded");
         int first = Array.FindIndex(v.Pct, p => p < 100.0);
         int last = Array.FindLastIndex(v.Pct, p => p > 0.0);

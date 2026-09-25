@@ -37,6 +37,13 @@ public sealed class EpfdUpResult
     public required double MaxEpfdDb { get; init; }
     /// <summary>Steps with no contributing link (accumulated as no-epfd).</summary>
     public required long QuietSteps { get; init; }
+
+    /// <summary>
+    /// The same statistics over the run's first prefixSteps steps, when the
+    /// caller asked for them: exactly what a separate run of that many steps
+    /// over the same horizon accumulates, taken from this run. Null otherwise.
+    /// </summary>
+    public EpfdUpResult? Prefix { get; init; }
 }
 
 /// <summary>
@@ -60,11 +67,15 @@ public static class EpfdUp
     public static EpfdUpResult Run(Constellation constellation, Scheduler scheduler,
         ServiceGeography geography, EpfdGsoSatVictim victim,
         EpfdUpEsModel es, double timeStepSec, long steps, List<LimitPoint> limits,
-        double? simulationDurationSec = null, IProgress<double>? progress = null)
+        double? simulationDurationSec = null, IProgress<double>? progress = null,
+        long? prefixSteps = null)
     {
+        if (prefixSteps is long np0 && (np0 <= 0 || np0 > steps))
+            throw new ArgumentOutOfRangeException(nameof(prefixSteps), "a prefix is 1 to steps steps");
         long progressEvery = Math.Max(1, steps / 100);   // ~1% granularity for callers that listen
         double simDur = simulationDurationSec ?? timeStepSec * steps;
         var acc = new EpfdAccumulator(limits);
+        EpfdUpResult? prefix = null;
 
         double gsoLonRad = victim.GsoLonDeg * Math.PI / 180.0;
         var gso = new Vec3(GsoGeometry.GsoRadiusKm * Math.Cos(gsoLonRad),
@@ -131,6 +142,13 @@ public static class EpfdUp
                 acc.AccumulateSample(double.NegativeInfinity, 1);
                 quiet++;
             }
+
+            if (k == prefixSteps - 1)
+            {
+                var accP = new EpfdAccumulator(limits);
+                accP.MergeFrom(acc);
+                prefix = new EpfdUpResult { Accumulator = accP, Steps = k + 1, MaxEpfdDb = maxEpfd, QuietSteps = quiet };
+            }
         }
 
         return new EpfdUpResult
@@ -139,6 +157,7 @@ public static class EpfdUp
             Steps = steps,
             MaxEpfdDb = maxEpfd,
             QuietSteps = quiet,
+            Prefix = prefix,
         };
     }
 

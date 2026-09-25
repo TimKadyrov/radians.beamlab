@@ -83,18 +83,22 @@ public static class ConsistencyProbe
         // ---- the conservative verdict ---------------------------------------------
         var con = new Constellation(DatasetGenerator.Shells);
         double freqMhz = 0.5 * (s30.LowFreqMhz + s30.HighFreqMhz);
-        var (step, steps, half) = ReadRuleProbes.Depth(quick);
+        double duration = ReadRuleProbes.Duration(quick);
         IMaskPfdRead saturated = new ProbeExamination.ShellMaskRead(masks.Select(m => (IPureMaskPfdRead)MaskFootprint.LoadFile(m.Path)));
         IMaskPfdRead control = new ProbeExamination.ShellMaskRead(controlMasks.Select(m =>
             (IPureMaskPfdRead)new ProbeExamination.OffsetMaskRead(MaskFootprint.LoadFile(m.Path), TxDeltaDb)));
         var rows = new List<(double Lat, ProbeExamination.Verdict Sat, ProbeExamination.Verdict SatHalf, ProbeExamination.Verdict Ctl)>();
+        var d4s = new List<(string Where, ProbeExamination.D4Verdicts V)>();
         foreach (double lat in SweepLatsDeg)
         {
-            var v = ProbeExamination.Examine(con, saturated, s30, lim, freqMhz, lat, EsLonDeg, GsoLonDeg, step, steps);
-            var h = ProbeExamination.Examine(con, saturated, s30, lim, freqMhz, lat, EsLonDeg, GsoLonDeg, step, half);
-            var c = ProbeExamination.Examine(con, control, s30, lim, freqMhz, lat, EsLonDeg, GsoLonDeg, step, steps);
-            rows.Add((lat, v, h, c));
+            var sat = ProbeExamination.ExamineD4(con, DatasetGenerator.Shells, saturated, s30, lim, freqMhz, lat, EsLonDeg, GsoLonDeg, duration);
+            var ctl = ProbeExamination.ExamineD4(con, DatasetGenerator.Shells, control, s30, lim, freqMhz, lat, EsLonDeg, GsoLonDeg, duration);
+            rows.Add((lat, sat.Fine, sat.FineHalf, ctl.Fine));
+            d4s.Add((string.Create(inv, $"{lat:F0} N, saturated masks"), sat));
+            d4s.Add((string.Create(inv, $"{lat:F0} N, control"), ctl));
         }
+        var plan = d4s[0].V.Plan;
+        long fineSteps = d4s[0].V.FineSteps;
         var family = rows.First(r => r.Lat == FamilyVictimLatDeg);
 
         // ---- files ----------------------------------------------------------------
@@ -106,7 +110,7 @@ public static class ConsistencyProbe
         var cs = new StringBuilder();
         cs.AppendLine("# epfd(down) examination (S.1503-4 D5.1.4.1) over the saturated masks 14-16 under set 30, per victim latitude, ES lon 0, GSO 10 E; the row's own reference dish.");
         cs.AppendLine("# " + lim.Label);
-        cs.AppendLine(string.Create(inv, $"# depth {step:F0} s x {steps} steps; half = the first {half} steps (extension pair); control = the family's boresight-gated masks 2-4 at the same payload offset."));
+        cs.AppendLine(string.Create(inv, $"# depth {duration / 3600.0:F0} h on the S.1503-4 time step, every fine step ({fineSteps}): {plan.Text}; half = the first half of the fine grid (extension pair); control = the family's boresight-gated masks 2-4 at the same payload offset."));
         cs.AppendLine("lat_deg,max_epfd_db,worst_margin_db,curve_margin_db,pass," + string.Join(",", lim.Points.Select(p => string.Create(inv, $"margin_at_{p.Perc:G4}pct_db")))
             + ",half_worst_margin_db,control_max_epfd_db,control_worst_margin_db,control_pass");
         foreach (var (lat, v, h, c) in rows)
@@ -117,7 +121,7 @@ public static class ConsistencyProbe
         files.Add(Path.GetFileName(csv));
 
         string cdf = Path.Combine(expDir, string.Create(inv, $"examination_lat{FamilyVictimLatDeg:F0}_cdf.csv"));
-        WriteCdf(cdf, family.Sat, FamilyVictimLatDeg, s30, lim);
+        WriteCdf(cdf, family.Sat, plan, FamilyVictimLatDeg, s30, lim);
         files.Add(Path.GetFileName(cdf));
 
         // ---- the record -------------------------------------------------------------
@@ -177,13 +181,15 @@ public static class ConsistencyProbe
             + (firm.Count > 0 ? " The worst margin moved 0.5 dB or less at " + string.Join(", ", firm.Select(l => string.Create(inv, $"{l:F0} N"))) + " (quotable)." : "")
             + (moving.Count > 0 ? " It moved more than 0.5 dB at " + string.Join(", ", moving.Select(r => string.Create(inv, $"{r.Lat:F0} N ({r.Sat.WorstMarginDb - r.SatHalf.WorstMarginDb:+0.0;-0.0} dB)"))) + ": there the binding point is the short-term end of the row, a single-event statistic set by the closest main-beam pass of the run, which converges slowly by nature; those margins are provisional, the verdict is not." : ""));
         sb.AppendLine();
+        sb.AppendLine(ProbeExamination.DualSentence(d4s));
+        sb.AppendLine();
         sb.AppendLine("Margins are quotable to the tolerance of the pair column (the 24 h run is the first half of the 48 h run: an extension pair, not an independent draw). The examination CDF at " + string.Create(inv, $"{FamilyVictimLatDeg:F0}") + " N under the saturated masks is written beside this record (" + Path.GetFileName(cdf) + "); the per-victim table with every limit point and the control is in " + Path.GetFileName(csv) + ". No truth curve accompanies this case: the pair does not describe one system.");
         sb.AppendLine();
         sb.AppendLine(LimitCurveRule.Name());
         sb.AppendLine();
         sb.AppendLine("Limit row (from the BR limits database, the same choice the compliance loop makes: the plain FSS row with the smallest reference dish): " + lim.Label + ". Points: " + string.Join("; ", lim.Points.Select(p => string.Create(inv, $"{p.EPFD:F1} dB(W/m2) in 40 kHz for {p.Perc:G4}% of time"))) + ". Worst margin = the minimum over the points of (limit epfd minus the epfd exceeded for at most the point's percentage), in the examination's 0.1 dB bins; positive is room to spare.");
         sb.AppendLine();
-        sb.AppendLine(string.Create(inv, $"Depth: {step:F0} s steps x {steps} = {step * steps / 3600.0:F0} h, and the {step * half / 3600.0:F0} h prefix as the extension pair.{(quick ? " QUICK profile: structure verification only, the numbers are not delivery numbers." : "")}"));
+        sb.AppendLine(string.Create(inv, $"Depth: {duration / 3600.0:F0} h on the S.1503-4 time step, every fine step ({fineSteps} over the run): {plan.Text}; the first half of the fine grid ({duration / 7200.0:F0} h) is the extension pair.{(quick ? " QUICK profile: structure verification only, the numbers are not delivery numbers." : "")}"));
         sb.AppendLine();
         sb.AppendLine("Artefacts (frozen; checked by identity): " + string.Join("; ", masks.Select(m => "mask " + Path.GetFileName(m.Path) + " SHA-256 " + Provenance.Sha256Hex(m.Path))) + "; operating-parameter set " + Path.GetFileName(paramPath) + " SHA-256 " + Provenance.Sha256Hex(paramPath) + ".");
         sb.AppendLine();
@@ -251,13 +257,14 @@ public static class ConsistencyProbe
         _ => "no lit block to compare.",
     };
 
-    private static void WriteCdf(string path, ProbeExamination.Verdict v, double lat, OperatingParamsSet set, ProbeExamination.LimitRow lim)
+    private static void WriteCdf(string path, ProbeExamination.Verdict v, S1503TimeStep.Plan plan, double lat, OperatingParamsSet set, ProbeExamination.LimitRow lim)
     {
         var inv = CultureInfo.InvariantCulture;
         var sb = new StringBuilder();
         sb.AppendLine("# epfd(down) CDF -- the EXAMINATION (S.1503-4 D5.1.4.1 over the saturated masks and the declared set) at the victim, D7.1.2 bins (0.1 dB).");
         sb.AppendLine(string.Create(inv, $"# band={set.LowFreqMhz}-{set.HighFreqMhz} MHz  victim ES lat={lat:F0} lon={EsLonDeg:F0}, GSO lon={GsoLonDeg:F0}, dish {lim.DishM:F2} m (the limit row's)"));
-        sb.AppendLine(string.Create(inv, $"# steps={v.Steps}  quiet_steps={v.QuietSteps}  max_epfd_db={v.MaxEpfdDb:F3}  worst_margin_db={v.WorstMarginDb:F2}  curve_margin_db={v.CurveMarginDb:F2}  verdict={Word(v.Pass)}  rule=limit-curve(tol 0.05 dB)"));
+        sb.AppendLine("# time step: every fine step, no coarse steps; " + plan.Text);
+        sb.AppendLine(string.Create(inv, $"# step_s={plan.FineStepSec}  steps={v.Steps}  quiet_steps={v.QuietSteps}  max_epfd_db={v.MaxEpfdDb:F3}  worst_margin_db={v.WorstMarginDb:F2}  curve_margin_db={v.CurveMarginDb:F2}  verdict={Word(v.Pass)}  rule=limit-curve(tol 0.05 dB)"));
         sb.AppendLine("epfd_dbw_m2_40khz,percent_time_exceeded");
         int first = Array.FindIndex(v.Pct, p => p < 100.0);
         int last = Array.FindLastIndex(v.Pct, p => p > 0.0);

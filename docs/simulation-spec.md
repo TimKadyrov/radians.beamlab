@@ -316,3 +316,14 @@ the spec reads as history rather than as pending work.
    step (the Sec. D4 fine and coarse steps with the dual time step) is
    built, beside a truth on a preset 1 s step; the dataset's curves stay
    at 30 s for now (docs/simulation-debate.md, 23-24 September).
+   *Superseded 25 September 2026:* the dataset's truth curves take, per
+   direction, the largest of 1, 0.5, 0.2, 0.1 s ... that samples the
+   fastest crossing of the direction's 3 dB beam at least three times
+   (S.1503-4 eqs (1)-(2)): 1 s for epfd(down) and its epfd(is) byproduct,
+   0.5 s for the typical-ES uplink, 0.2 s for the gateway uplink. The 30 s
+   comb sampled those crossings 0.02 to 0.14 times. BL-I1's
+   examination-read curve and the probes' examinations (BL-R1 to BL-R3,
+   BL-C1) take every S.1503-4 fine step, their verdicts the fine-step
+   reading with the dual time step's two readings stated beside it, and
+   each 24 h extension pair is the first half of its own 48 h run
+   (docs/simulation-debate.md, 25 September).

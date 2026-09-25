@@ -60,6 +60,13 @@ public sealed class EpfdDownResult
     public EpfdAccumulator? IsAccumulator { get; init; }
     public double MaxEpfdIsDb { get; init; } = double.NegativeInfinity;
     public long IsQuietSteps { get; init; }
+
+    /// <summary>
+    /// The same statistics over the run's first prefixSteps steps, when the
+    /// caller asked for them: exactly what a separate run of that many steps
+    /// over the same horizon accumulates, taken from this run. Null otherwise.
+    /// </summary>
+    public EpfdDownResult? Prefix { get; init; }
 }
 
 /// <summary>
@@ -86,9 +93,9 @@ public static class EpfdDown
         EpfdDownVictim victim, double timeStepSec, long steps, List<LimitPoint> limits,
         double? simulationDurationSec = null,
         EpfdGsoSatVictim? isVictim = null, List<LimitPoint>? isLimits = null,
-        IProgress<double>? progress = null)
+        IProgress<double>? progress = null, long? prefixSteps = null)
         => RunMany(constellation, pointing, new[] { victim }, timeStepSec, steps, limits,
-            simulationDurationSec, isVictim, isLimits, progress)[0];
+            simulationDurationSec, isVictim, isLimits, progress, prefixSteps)[0];
 
     /// <summary>
     /// Many victims, ONE simulation. A victim is only an accumulator: the
@@ -101,16 +108,23 @@ public static class EpfdDown
     ///
     /// The epfd(is) byproduct concerns the GSO SATELLITE victim rather than the
     /// earth stations, so it is computed once and reported on the first result.
+    ///
+    /// With <paramref name="prefixSteps"/>, each result also carries the
+    /// statistics of the first prefixSteps steps (<see cref="EpfdDownResult.Prefix"/>),
+    /// copied from the accumulators once that step is done: the samples, their
+    /// order and the horizon are those of a separate run of prefixSteps steps.
     /// </summary>
     public static IReadOnlyList<EpfdDownResult> RunMany(Constellation constellation,
         IBeamPointing pointing, IReadOnlyList<EpfdDownVictim> victims,
         double timeStepSec, long steps, List<LimitPoint> limits,
         double? simulationDurationSec = null,
         EpfdGsoSatVictim? isVictim = null, List<LimitPoint>? isLimits = null,
-        IProgress<double>? progress = null)
+        IProgress<double>? progress = null, long? prefixSteps = null)
     {
         if (victims.Count == 0)
             throw new ArgumentException("at least one victim", nameof(victims));
+        if (prefixSteps is long np0 && (np0 <= 0 || np0 > steps))
+            throw new ArgumentOutOfRangeException(nameof(prefixSteps), "a prefix is 1 to steps steps");
         double simDur = simulationDurationSec ?? timeStepSec * steps;
         long progressEvery = Math.Max(1, steps / 100);   // ~1% granularity for callers that listen
 
@@ -150,6 +164,7 @@ public static class EpfdDown
 
         double maxEpfdIs = double.NegativeInfinity;
         long quietIs = 0;
+        EpfdDownResult[]? prefix = null;
 
         // Per-satellite linear terms of one step: terms[i * nv + v] toward
         // victim v and termsIs[i] toward the GSO satellite, 0 where the
@@ -257,6 +272,28 @@ public static class EpfdDown
                     quietIs++;
                 }
             }
+
+            if (k == prefixSteps - 1)
+            {
+                prefix = new EpfdDownResult[nv];
+                EpfdAccumulator? accIsP = null;
+                if (accIs is not null) { accIsP = new EpfdAccumulator(isLimits ?? limits); accIsP.MergeFrom(accIs); }
+                for (int v = 0; v < nv; v++)
+                {
+                    var accP = new EpfdAccumulator(limits);
+                    accP.MergeFrom(acc[v]);
+                    prefix[v] = new EpfdDownResult
+                    {
+                        Accumulator = accP,
+                        Steps = k + 1,
+                        MaxEpfdDb = maxEpfd[v],
+                        QuietSteps = quiet[v],
+                        IsAccumulator = v == 0 ? accIsP : null,
+                        MaxEpfdIsDb = v == 0 ? maxEpfdIs : double.NegativeInfinity,
+                        IsQuietSteps = v == 0 ? quietIs : 0,
+                    };
+                }
+            }
         }
 
         var results = new EpfdDownResult[nv];
@@ -270,6 +307,7 @@ public static class EpfdDown
                 IsAccumulator = v == 0 ? accIs : null,
                 MaxEpfdIsDb = v == 0 ? maxEpfdIs : double.NegativeInfinity,
                 IsQuietSteps = v == 0 ? quietIs : 0,
+                Prefix = prefix?[v],
             };
         return results;
     }

@@ -6747,6 +6747,127 @@ var looks = RandomLooks(300);
             $"missing={missOk72} sweep={sweepOk72} ({y25.Length} offsets) tag={tagOk72} field={fieldOk72} rows={rowsOk72} ({string.Join(" ", rows72.Select(r => $"{r.LatDeg:F0}:{r.AlphaDeg:F1}"))})"));
 }
 
+// ---- V73: the family's truth step per direction; the extension pair taken from the same run ----
+{
+    // (a) The truth-step rule: the largest ladder step giving at least three
+    // samples of the fastest crossing, per the family's four antennas.
+    var fam73 = new[] { (F: 19700.0, D: 0.6, Want: 1.0), (F: 17800.0, D: 0.6, Want: 1.0),
+                        (F: 28000.0, D: 0.65, Want: 0.5), (F: 29750.0, D: 2.4, Want: 0.2) };
+    var ladder73 = radians.beamlab.dataset.DatasetGenerator.TruthStepLadderSec;
+    var steps73 = fam73.Select(f => radians.beamlab.dataset.DatasetGenerator.TruthStepFor(f.F, f.D, "v73")).ToList();
+    bool ruleOk73 = steps73.Zip(fam73, (s, f) => s.StepSec == f.Want && s.Samples >= 3.0
+        && (s.StepSec == ladder73[0] || s.PassSec / ladder73[Array.IndexOf(ladder73, s.StepSec) - 1] < 3.0)).All(b => b);
+
+    // (b) EpfdDown: the prefix of a scheduled run, epfd(is) byproduct
+    // included, is bit for bit a separate run of that many steps over the
+    // same horizon (the family's old way of taking the pair).
+    bool Same73(radcompute1503_2.EpfdAccumulator x, radcompute1503_2.EpfdAccumulator y)
+    {
+        var (ex, px) = x.BuildCdf(); var (ey, py) = y.BuildCdf();
+        return ex.SequenceEqual(ey) && px.SequenceEqual(py);
+    }
+    var shellsF73 = radians.beamlab.dataset.DatasetGenerator.Shells;
+    var limits73 = new List<radlimits.LimitPoint> { new() { EPFD = -300.0, Perc = 0.001 }, new() { EPFD = 0.0, Perc = 100.0 } };
+    var geo73 = ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, 900.0);
+    PfdMaskViewModel Vm73(double fGhz) => new() { AltitudeKm = 1200.0, FrequencyGHz = fGhz, MinElevDeg = 10.0, AlphaExclDeg = 8.0, RefBwKHz = 40.0 };
+    EpfdGsoSatVictim Gso73(double fMhz) => new()
+    {
+        GsoLonDeg = 10.0, BoresightLatDeg = 45.0, BoresightLonDeg = 0.0,
+        Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APSREC408V01, fMhz, null), GmaxDbi = 40.7, Phi3DbDeg = 1.55,
+    };
+    var set73 = radians.beamlab.dataset.DatasetGenerator.SetFor(25, 0);
+    var vic73 = new EpfdDownVictim { EsLatDeg = 45.0, EsLonDeg = 0.0, GsoLonDeg = 10.0,
+        Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 17800.0, 0.6) };
+    long n73 = 600, h73 = 300; double dur73 = 1200.0;
+    EpfdDownResult Down73(long n, long? prefix)
+    {
+        var con = new Constellation(shellsF73);
+        return EpfdDown.Run(con, new ScheduledPointing(con, geo73, set73, Vm73(17.8), dur73), vic73, 1.0, n, limits73,
+            dur73, Gso73(17800.0), prefixSteps: prefix);
+    }
+    var downFull73 = Down73(n73, h73);
+    var downSep73 = Down73(h73, null);
+    var dp73 = downFull73.Prefix!;
+    bool downOk73 = dp73.Steps == h73 && Same73(dp73.Accumulator, downSep73.Accumulator)
+        && dp73.MaxEpfdDb.Equals(downSep73.MaxEpfdDb) && dp73.QuietSteps == downSep73.QuietSteps
+        && Same73(dp73.IsAccumulator!, downSep73.IsAccumulator!) && dp73.MaxEpfdIsDb.Equals(downSep73.MaxEpfdIsDb)
+        && dp73.IsQuietSteps == downSep73.IsQuietSteps && downSep73.Prefix is null
+        && !Same73(downFull73.Accumulator, dp73.Accumulator);
+
+    // (c) EpfdUp: the same for the scheduler's uplink links.
+    var setU73 = radians.beamlab.dataset.DatasetGenerator.SetFor(23, 0);
+    EpfdUpResult Up73(long n, long? prefix)
+    {
+        var con = new Constellation(shellsF73);
+        var es = new EpfdUpEsModel { PowerDbw = 12.0, PowerControlRefElevDeg = 10.0,
+            Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 28000.0, 0.65) };
+        return EpfdUp.Run(con, new Scheduler(con, geo73, setU73, new ScenePointing(Vm73(27.5)), dur73), geo73,
+            Gso73(27500.0), es, 0.5, n, limits73, dur73, prefixSteps: prefix);
+    }
+    var upFull73 = Up73(2 * n73, n73);
+    var upSep73 = Up73(n73, null);
+    var up73 = upFull73.Prefix!;
+    bool upOk73 = up73.Steps == n73 && Same73(up73.Accumulator, upSep73.Accumulator)
+        && up73.MaxEpfdDb.Equals(upSep73.MaxEpfdDb) && up73.QuietSteps == upSep73.QuietSteps;
+
+    // (d) RunD4: the prefix's three readings, the dual chains drawn over the
+    // prefix alone, are those of a separate run of that many fine steps. The
+    // shell is not station-kept, so its trajectories do not depend on the
+    // horizon and the separate run may have the shorter one.
+    string mask73 = Path.Combine(AppContext.BaseDirectory, "exp", "v59mask.xml");
+    var fp73 = MaskFootprint.LoadFile(mask73);
+    var shells73 = new[] { new ConstellationShell { AltitudeKm = 1200.0, InclinationDeg = 53.0, PlaneCount = 3, SatsPerPlane = 4 } };
+    var decl73 = new OperatingParamsSet
+    {
+        SatName = "V59", LowFreqMhz = 19700, HighFreqMhz = 19700, ElevAngleHeaderDeg = 10.0,
+        MaxCoFreqHeader = 2, MinAngleAtEsDeg = 5.0,
+    };
+    decl73.MinExclude.Add(new MinExcludeByOrbit { OrbId = 0, ByLat = { (0.0, 6.0), (60.0, 4.0) } });
+    var vicD73 = new EpfdDownVictim { EsLatDeg = 30.0, EsLonDeg = 0.0, GsoLonDeg = 10.0,
+        Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, 19700.0, 1.0) };
+    var plan73 = S1503TimeStep.Downlink(shells73, radantenna.AntennaLibrary.Compute3dBDeg(19700.0, 1.0));
+    long fineN73 = 4000;
+    double durD73 = fineN73 * plan73.FineStepSec;
+    var d4Full73 = EpfdDownMask.RunD4(new Constellation(shells73), fp73, decl73, vicD73, plan73, durD73, limits73, prefixFineSteps: fineN73 / 2);
+    var d4Sep73 = EpfdDownMask.RunD4(new Constellation(shells73), fp73, decl73, vicD73, plan73, durD73 / 2, limits73);
+    var d4p73 = d4Full73.Prefix!;
+    bool SameR73(EpfdDownResult x, EpfdDownResult y) => Same73(x.Accumulator, y.Accumulator)
+        && x.MaxEpfdDb.Equals(y.MaxEpfdDb) && x.QuietSteps == y.QuietSteps && x.Steps == y.Steps;
+    bool d4Ok73 = d4Full73.FineSteps == fineN73 && d4p73.FineSteps == fineN73 / 2 && d4Sep73.FineSteps == fineN73 / 2
+        && SameR73(d4p73.FineOnly, d4Sep73.FineOnly) && SameR73(d4p73.Dual, d4Sep73.Dual)
+        && SameR73(d4p73.DualMainBeamOnly, d4Sep73.DualMainBeamOnly)
+        && d4p73.DualSamples == d4Sep73.DualSamples && d4p73.DualMainBeamOnlySamples == d4Sep73.DualMainBeamOnlySamples
+        && d4Sep73.Prefix is null && d4p73.Prefix is null;
+
+    // (f) The probes' examination on the S.1503-4 time step: the plan is the
+    // limit row's reference dish, the verdict the fine-step reading of RunD4,
+    // the pair its first half, and the dual sentence names every reading.
+    var lim73 = new radians.beamlab.dataset.ProbeExamination.LimitRow("v73 row", 1.0,
+        new List<radlimits.LimitPoint> { new() { EPFD = -160.0, Perc = 5.0 }, new() { EPFD = -150.0, Perc = 1.0 } });
+    var pe73 = radians.beamlab.dataset.ProbeExamination.ExamineD4(new Constellation(shells73), shells73, fp73, decl73, lim73,
+        19700.0, 30.0, 0.0, 10.0, durD73);
+    var direct73 = EpfdDownMask.RunD4(new Constellation(shells73), fp73, decl73, vicD73, plan73, durD73, lim73.Points,
+        prefixFineSteps: fineN73 / 2);
+    var (dirE73, dirP73) = direct73.FineOnly.Accumulator.BuildCdf();
+    string dual73 = radians.beamlab.dataset.ProbeExamination.DualSentence(new List<(string, radians.beamlab.dataset.ProbeExamination.D4Verdicts)> { ("30 N", pe73) });
+    bool probeOk73 = pe73.Plan == plan73 && pe73.FineSteps == fineN73
+        && pe73.Fine.Steps == fineN73 && pe73.FineHalf.Steps == fineN73 / 2
+        && pe73.Fine.Epfd.SequenceEqual(dirE73) && pe73.Fine.Pct.SequenceEqual(dirP73)
+        && pe73.Fine.MaxEpfdDb.Equals(direct73.FineOnly.MaxEpfdDb)
+        && pe73.FineHalf.MaxEpfdDb.Equals(direct73.Prefix!.FineOnly.MaxEpfdDb)
+        && pe73.Dual.MaxEpfdDb.Equals(direct73.Dual.MaxEpfdDb)
+        && dual73.Contains("fine-step examination") && dual73.Contains("same verdict in all 1 examinations") == (pe73.Dual.Pass == pe73.Fine.Pass && pe73.DualMainBeamOnly.Pass == pe73.Fine.Pass);
+
+    // (e) A prefix outside 1..steps is refused.
+    bool refuseOk73 = false;
+    try { Down73(10, 0); } catch (ArgumentOutOfRangeException) { refuseOk73 = true; }
+
+    Check("V73 the family's truth step is the largest ladder step giving three samples of the fastest crossing (1/1/0.5/0.2 s); the extension pair taken from the same run equals a separate run bit for bit: epfd(down) with its epfd(is) byproduct, epfd(up), and the S.1503-4-step examination with its dual chains drawn over the prefix; the probes examine on that step at the limit row's dish, the fine-step reading their verdict",
+        ruleOk73 && downOk73 && upOk73 && d4Ok73 && probeOk73 && refuseOk73,
+        string.Create(CultureInfo.InvariantCulture,
+            $"rule={ruleOk73} ({string.Join(" ", steps73.Select(s => $"{s.StepSec:0.###}s/{s.Samples:0.0}"))}) down={downOk73} up={upOk73} d4={d4Ok73} (fine {plan73.FineStepSec:0.000} s, dual {d4p73.DualSamples}/{d4p73.FineSteps}) probe={probeOk73} refuse={refuseOk73}"));
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
 

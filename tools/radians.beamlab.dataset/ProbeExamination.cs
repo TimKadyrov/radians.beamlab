@@ -90,6 +90,59 @@ public static class ProbeExamination
             Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, freqMhz, lim.DishM),
         };
         var res = EpfdDownMask.Run(con, mask, set, victim, stepSec, steps, lim.Points, stepSec * steps);
+        return VerdictOf(res, lim, victimLatDeg, steps);
+    }
+
+    /// <summary>
+    /// The examination at one victim on the time step of S.1503-4 Sec. D4: the
+    /// plan for the family's shells and the row's reference dish, every fine
+    /// step of the run. Fine is the verdict; FineHalf the first half of the
+    /// same fine grid (the extension pair); Dual and DualMainBeamOnly the dual
+    /// time step's readings under the two wordings of its fine-step region.
+    /// </summary>
+    public sealed record D4Verdicts(Verdict Fine, Verdict FineHalf, Verdict Dual, Verdict DualMainBeamOnly,
+        S1503TimeStep.Plan Plan, long FineSteps);
+
+    public static D4Verdicts ExamineD4(Constellation con, IReadOnlyList<ConstellationShell> shells, IMaskPfdRead mask,
+        OperatingParamsSet set, LimitRow lim, double freqMhz, double victimLatDeg, double esLonDeg, double gsoLonDeg,
+        double durationSec)
+    {
+        var victim = new EpfdDownVictim
+        {
+            EsLatDeg = victimLatDeg, EsLonDeg = esLonDeg, GsoLonDeg = gsoLonDeg,
+            Antenna = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, freqMhz, lim.DishM),
+        };
+        var plan = S1503TimeStep.Downlink(shells, radantenna.AntennaLibrary.Compute3dBDeg(freqMhz, lim.DishM), durationSec);
+        long nFine = Math.Max(1, (long)Math.Round(durationSec / plan.FineStepSec));
+        var r = EpfdDownMask.RunD4(con, mask, set, victim, plan, durationSec, lim.Points, prefixFineSteps: nFine / 2);
+        return new D4Verdicts(
+            VerdictOf(r.FineOnly, lim, victimLatDeg, r.FineSteps),
+            VerdictOf(r.Prefix!.FineOnly, lim, victimLatDeg, r.Prefix.FineSteps),
+            VerdictOf(r.Dual, lim, victimLatDeg, r.FineSteps),
+            VerdictOf(r.DualMainBeamOnly, lim, victimLatDeg, r.FineSteps),
+            plan, r.FineSteps);
+    }
+
+    /// <summary>
+    /// One sentence for a record: whether the dual time step reaches the
+    /// fine-step verdicts in every examination listed, and how far its margins
+    /// sit from theirs. Each examination is named by where it was made.
+    /// </summary>
+    public static string DualSentence(IReadOnlyList<(string Where, D4Verdicts V)> exams)
+    {
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var flips = exams.Where(e => e.V.Dual.Pass != e.V.Fine.Pass || e.V.DualMainBeamOnly.Pass != e.V.Fine.Pass).ToList();
+        double Delta(Func<Verdict, double> m) => exams.Max(e => Math.Max(Math.Abs(m(e.V.Dual) - m(e.V.Fine)), Math.Abs(m(e.V.DualMainBeamOnly) - m(e.V.Fine))));
+        double dPoint = Delta(v => v.WorstMarginDb), dCurve = Delta(v => v.CurveMarginDb);
+        string head = "The verdicts are the fine-step examination's. The dual time step of Sec. D4.7 (Sub-steps 6.1-6.3 with the Step 24 weights; the fine-step region as Sec. D4.7.1 defines it and as Sub-step 6.3 words it) ";
+        string body = flips.Count == 0
+            ? string.Create(inv, $"reaches the same verdict in all {exams.Count} examinations")
+            : string.Create(inv, $"reaches a different verdict in {flips.Count} of the {exams.Count} examinations ({string.Join(", ", flips.Select(f => f.Where))})");
+        return head + body + string.Create(inv, $"; its point margins sit within {dPoint:0.0} dB and its curve margins within {dCurve:0.0} dB of the fine-step ones.");
+    }
+
+    private static Verdict VerdictOf(EpfdDownResult res, LimitRow lim, double victimLatDeg, long steps)
+    {
         var (passResults, _) = res.Accumulator.CompareWithLimits(lim.Points);
         var (epfd, pct) = res.Accumulator.BuildCdf();
         var points = lim.Points.Select(l =>

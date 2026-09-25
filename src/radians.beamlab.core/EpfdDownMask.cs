@@ -59,6 +59,12 @@ public sealed class D4ExamResult
     public required long DualMainBeamOnlySamples { get; init; }
     /// <summary>Every fine step, no coarse steps.</summary>
     public required EpfdDownResult FineOnly { get; init; }
+    /// <summary>
+    /// The same three readings over the run's first prefixFineSteps fine
+    /// steps, the dual chains drawn over those steps alone: what a run of that
+    /// many fine steps over the same horizon produces. Null unless asked for.
+    /// </summary>
+    public D4ExamResult? Prefix { get; init; }
 }
 
 /// <summary>
@@ -325,11 +331,14 @@ public static class EpfdDownMask
     /// </summary>
     public static D4ExamResult RunD4(Constellation constellation, IMaskPfdRead mask,
         OperatingParamsSet declared, EpfdDownVictim victim, S1503TimeStep.Plan plan,
-        double runDurationSec, List<LimitPoint> limits, IProgress<double>? progress = null)
+        double runDurationSec, List<LimitPoint> limits, IProgress<double>? progress = null,
+        long? prefixFineSteps = null)
     {
         double fine = plan.FineStepSec;
         long nFine = Math.Max(1, (long)Math.Round(runDurationSec / fine));
         if (nFine > int.MaxValue) throw new ArgumentException("run too long for one fine-step grid");
+        if (prefixFineSteps is long np0 && (np0 <= 0 || np0 > nFine))
+            throw new ArgumentOutOfRangeException(nameof(prefixFineSteps), "a prefix is 1 to the run's fine steps");
         var examiner = new StepExaminer(constellation, mask, declared, victim, runDurationSec);
         var epfd = new double[nFine];
         var zoneEdge = new bool[nFine];
@@ -364,7 +373,7 @@ public static class EpfdDownMask
             }
         }
 
-        EpfdDownResult Accumulate(IEnumerable<(long Index, int Weight)> samples)
+        EpfdDownResult Accumulate(IEnumerable<(long Index, int Weight)> samples, long steps)
         {
             var acc = new EpfdAccumulator(limits);
             double maxEpfd = double.NegativeInfinity;
@@ -383,25 +392,34 @@ public static class EpfdDownMask
                     quiet += w;
                 }
             }
-            return new EpfdDownResult { Accumulator = acc, Steps = nFine, MaxEpfdDb = maxEpfd, QuietSteps = quiet };
+            return new EpfdDownResult { Accumulator = acc, Steps = steps, MaxEpfdDb = maxEpfd, QuietSteps = quiet };
         }
 
-        IEnumerable<(long Index, int Weight)> EveryFineStep()
+        IEnumerable<(long Index, int Weight)> EveryFineStep(long n)
         {
-            for (long m = 0; m < nFine; m++) yield return (m, 1);
+            for (long m = 0; m < n; m++) yield return (m, 1);
         }
 
-        var chainEdge = DualChain(zoneEdge, plan.NCoarse);
-        var chainMain = DualChain(mainBeam, plan.NCoarse);
-        return new D4ExamResult
+        // The readings over the first n fine steps; n = nFine is the run itself.
+        D4ExamResult Readings(long n, D4ExamResult? prefix)
         {
-            Plan = plan,
-            FineSteps = nFine,
-            Dual = Accumulate(chainEdge),
-            DualSamples = chainEdge.Count,
-            DualMainBeamOnly = Accumulate(chainMain),
-            DualMainBeamOnlySamples = chainMain.Count,
-            FineOnly = Accumulate(EveryFineStep()),
-        };
+            IReadOnlyList<bool> edge = n == nFine ? zoneEdge : zoneEdge[..(int)n];
+            IReadOnlyList<bool> main = n == nFine ? mainBeam : mainBeam[..(int)n];
+            var chainEdge = DualChain(edge, plan.NCoarse);
+            var chainMain = DualChain(main, plan.NCoarse);
+            return new D4ExamResult
+            {
+                Plan = plan,
+                FineSteps = n,
+                Dual = Accumulate(chainEdge, n),
+                DualSamples = chainEdge.Count,
+                DualMainBeamOnly = Accumulate(chainMain, n),
+                DualMainBeamOnlySamples = chainMain.Count,
+                FineOnly = Accumulate(EveryFineStep(n), n),
+                Prefix = prefix,
+            };
+        }
+
+        return Readings(nFine, prefixFineSteps is long np ? Readings(np, null) : null);
     }
 }

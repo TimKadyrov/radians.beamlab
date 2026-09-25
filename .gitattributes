@@ -2,3 +2,5 @@
 # upstream (tests check J0 compares them verbatim) - no EOL normalization.
 src/radians.beamlab.core/orbits/** -text
 src/radians.beamlab.core/epfdshare/** -text
+# Shell scripts run under sh on Windows too: keep them LF.
+*.sh text eol=lf

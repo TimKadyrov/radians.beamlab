@@ -866,17 +866,16 @@ public static class DatasetGenerator
             Gateways.Select((g, i) => new ServiceCell(i + 1, g.LatDeg, g.LonDeg)).ToList(), 500.0);
         var expected = new List<string>();
         var curves = new List<FamilyCurves.Entry>();
-        long fullSteps = FullSteps(o), halfSteps = HalfSteps(o);
         string RowLabel(Band b) => LimitRowFor(o, b).Label;
         switch (caseName)
         {
             case "BL-D1":
             {
-                var full = WriteDownExpectation(Exp("epfd_down_cdf.csv"), null, Set21(ntc), D1, o);
-                var half = WriteDownExpectation(null, null, Set21(ntc), D1, o, halfSteps);
+                var (full, step) = WriteDownExpectation(Exp("epfd_down_cdf.csv"), null, Set21(ntc), D1, o);
+                var half = full.Prefix!;
                 curves.Add(new FamilyCurves.Entry("epfd(down), 19.7-20.2 GHz under set 21",
-                    FamilyCurves.FromDown("truth", full, fullSteps), FamilyCurves.FromDown("truth 24 h", half, halfSteps),
-                    null, null, FamilyCurves.TrackDurationNote, RowLabel(D1)));
+                    FamilyCurves.FromDown("truth", full, full.Steps), FamilyCurves.FromDown("truth 24 h", half, half.Steps),
+                    null, null, FamilyCurves.TrackDurationNote, RowLabel(D1), step));
                 expected.Add("down");
                 break;
             }
@@ -889,22 +888,22 @@ public static class DatasetGenerator
             {
                 var geo = ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, o.Quick ? 900.0 : 450.0);
                 const string desc = "victim GSO sat lon=10, boresight lat=45 lon=0; typical ES = scheduled cells, ceiling 12 dBW range-controlled + S.1428 0.65 m";
-                var full = WriteUpExpectation(Exp("epfd_up_cdf.csv"), Set23(ntc), U1, geo, 12.0, 28000.0, 0.65, desc, o);
-                var half = WriteUpExpectation(null, Set23(ntc), U1, geo, 12.0, 28000.0, 0.65, desc, o, halfSteps);
+                var (full, step) = WriteUpExpectation(Exp("epfd_up_cdf.csv"), Set23(ntc), U1, geo, 12.0, 28000.0, 0.65, desc, o);
+                var half = full.Prefix!;
                 curves.Add(new FamilyCurves.Entry("epfd(up), 27.5-28.6 GHz under set 23",
-                    FamilyCurves.FromUp("truth", full, fullSteps), FamilyCurves.FromUp("truth 24 h", half, halfSteps),
-                    null, null, FamilyCurves.UpNote, null));
+                    FamilyCurves.FromUp("truth", full, full.Steps), FamilyCurves.FromUp("truth 24 h", half, half.Steps),
+                    null, null, FamilyCurves.UpNote, null, step));
                 expected.Add("up");
                 break;
             }
             case "BL-U2":
             {
                 const string desc = "victim GSO sat lon=10, boresight lat=45 lon=0; ES = the three declared gateways, ceiling 15 dBW range-controlled + S.1428 2.4 m";
-                var full = WriteUpExpectation(Exp("epfd_up_cdf.csv"), Set24(ntc), U2, GatewayGeo(), 15.0, 29750.0, 2.4, desc, o);
-                var half = WriteUpExpectation(null, Set24(ntc), U2, GatewayGeo(), 15.0, 29750.0, 2.4, desc, o, halfSteps);
+                var (full, step) = WriteUpExpectation(Exp("epfd_up_cdf.csv"), Set24(ntc), U2, GatewayGeo(), 15.0, 29750.0, 2.4, desc, o);
+                var half = full.Prefix!;
                 curves.Add(new FamilyCurves.Entry("epfd(up), 29.5-30.0 GHz under set 24",
-                    FamilyCurves.FromUp("truth", full, fullSteps), FamilyCurves.FromUp("truth 24 h", half, halfSteps),
-                    null, null, FamilyCurves.UpNote, null));
+                    FamilyCurves.FromUp("truth", full, full.Steps), FamilyCurves.FromUp("truth 24 h", half, half.Steps),
+                    null, null, FamilyCurves.UpNote, null, step));
                 expected.Add("up");
                 break;
             }
@@ -912,43 +911,46 @@ public static class DatasetGenerator
             {
                 // The IS statistic is a byproduct of the downlink emission run
                 // over the same band: one snapshot stream, two accumulators.
-                var full = WriteDownExpectation(Exp("epfd_down_cdf.csv"), Exp("epfd_is_cdf.csv"), Set25(ntc), I1, o);
-                var half = WriteDownExpectation(null, null, Set25(ntc), I1, o, halfSteps, withIs: true);
+                var (full, step) = WriteDownExpectation(Exp("epfd_down_cdf.csv"), Exp("epfd_is_cdf.csv"), Set25(ntc), I1, o);
+                var half = full.Prefix!;
                 // Set 25 selects the classic algorithm, so the examination-read
-                // curve exists: masks 2/3/4 per shell, the family's victim.
+                // curve exists: masks 2/3/4 per shell, the family's victim, on
+                // the S.1503-4 time step with the first half of its fine grid
+                // as the extension pair.
                 var maskIds = new[] { 2, 3, 4 };
-                var examFull = ExaminationCurve("examination", xmlDir, maskIds, Set25(ntc), I1, o, fullSteps);
-                var examHalf = ExaminationCurve("examination 24 h", xmlDir, maskIds, Set25(ntc), I1, o, halfSteps);
+                var exam = ExaminationRun(xmlDir, maskIds, Set25(ntc), I1, o);
+                var examFull = FamilyCurves.FromDown("examination", exam.FineOnly, exam.FineSteps);
+                var examHalf = FamilyCurves.FromDown("examination 24 h", exam.Prefix!.FineOnly, exam.Prefix.FineSteps);
                 FamilyCurves.WriteExaminationCsv(Exp("epfd_down_examination_cdf.csv"), examFull, DownVictimDesc,
-                    I1.FMin, I1.FMax, ExpStepSec, "masks 2/3/4 per shell under set 25 (classic algorithm)");
+                    I1.FMin, I1.FMax, exam.Plan, "masks 2/3/4 per shell under set 25 (classic algorithm)");
                 curves.Add(new FamilyCurves.Entry("epfd(down), 17.8-18.4 GHz under set 25",
-                    FamilyCurves.FromDown("truth", full, fullSteps), FamilyCurves.FromDown("truth 24 h", half, halfSteps),
-                    examFull, examHalf, "", RowLabel(I1)));
+                    FamilyCurves.FromDown("truth", full, full.Steps), FamilyCurves.FromDown("truth 24 h", half, half.Steps),
+                    examFull, examHalf, "", RowLabel(I1), step, FamilyCurves.ExamStepText(exam, full.Steps)));
                 curves.Add(new FamilyCurves.Entry("epfd(is), 17.8-18.4 GHz under set 25 (byproduct of the same emission run)",
-                    FamilyCurves.FromIs("truth", full, fullSteps), FamilyCurves.FromIs("truth 24 h", half, halfSteps),
-                    null, null, FamilyCurves.IsNote, null));
+                    FamilyCurves.FromIs("truth", full, full.Steps), FamilyCurves.FromIs("truth 24 h", half, half.Steps),
+                    null, null, FamilyCurves.IsNote, null, step, IsByproduct: true));
                 expected.Add("down"); expected.Add("is"); expected.Add("examination");
                 break;
             }
             case "BL-ALL":
             {
-                var fullD = WriteDownExpectation(Exp("epfd_down_cdf.csv"), null, Set21(ntc), D1, o);
-                var halfD = WriteDownExpectation(null, null, Set21(ntc), D1, o, halfSteps);
+                var (fullD, stepD) = WriteDownExpectation(Exp("epfd_down_cdf.csv"), null, Set21(ntc), D1, o);
+                var halfD = fullD.Prefix!;
                 curves.Add(new FamilyCurves.Entry("epfd(down), 19.7-20.2 GHz under set 21",
-                    FamilyCurves.FromDown("truth", fullD, fullSteps), FamilyCurves.FromDown("truth 24 h", halfD, halfSteps),
-                    null, null, FamilyCurves.TrackDurationNote, RowLabel(D1)));
-                var fullI = WriteDownExpectation(null, Exp("epfd_is_cdf.csv"), Set26(ntc), D2v, o);
-                var halfI = WriteDownExpectation(null, null, Set26(ntc), D2v, o, halfSteps, withIs: true);
+                    FamilyCurves.FromDown("truth", fullD, fullD.Steps), FamilyCurves.FromDown("truth 24 h", halfD, halfD.Steps),
+                    null, null, FamilyCurves.TrackDurationNote, RowLabel(D1), stepD));
+                var (fullI, stepI) = WriteDownExpectation(null, Exp("epfd_is_cdf.csv"), Set26(ntc), D2v, o);
+                var halfI = fullI.Prefix!;
                 curves.Add(new FamilyCurves.Entry("epfd(is), 17.8-18.6 GHz under set 26 (byproduct of the D2 emission run)",
-                    FamilyCurves.FromIs("truth", fullI, fullSteps), FamilyCurves.FromIs("truth 24 h", halfI, halfSteps),
-                    null, null, FamilyCurves.IsNote, null));
+                    FamilyCurves.FromIs("truth", fullI, fullI.Steps), FamilyCurves.FromIs("truth 24 h", halfI, halfI.Steps),
+                    null, null, FamilyCurves.IsNote, null, stepI, IsByproduct: true));
                 var geo = ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, o.Quick ? 900.0 : 450.0);
                 const string desc = "victim GSO sat lon=10, boresight lat=45 lon=0; typical ES = scheduled cells, ceiling 12 dBW range-controlled + S.1428 0.65 m";
-                var fullU = WriteUpExpectation(Exp("epfd_up_cdf.csv"), Set23(ntc), U1, geo, 12.0, 28000.0, 0.65, desc, o);
-                var halfU = WriteUpExpectation(null, Set23(ntc), U1, geo, 12.0, 28000.0, 0.65, desc, o, halfSteps);
+                var (fullU, stepU) = WriteUpExpectation(Exp("epfd_up_cdf.csv"), Set23(ntc), U1, geo, 12.0, 28000.0, 0.65, desc, o);
+                var halfU = fullU.Prefix!;
                 curves.Add(new FamilyCurves.Entry("epfd(up), 27.5-28.6 GHz under set 23",
-                    FamilyCurves.FromUp("truth", fullU, fullSteps), FamilyCurves.FromUp("truth 24 h", halfU, halfSteps),
-                    null, null, FamilyCurves.UpNote, null));
+                    FamilyCurves.FromUp("truth", fullU, fullU.Steps), FamilyCurves.FromUp("truth 24 h", halfU, halfU.Steps),
+                    null, null, FamilyCurves.UpNote, null, stepU));
                 expected.Add("down"); expected.Add("is"); expected.Add("up");
                 break;
             }
@@ -993,13 +995,20 @@ public static class DatasetGenerator
         }
         if (curves.Count > 0)
         {
-            FamilyCurves.WriteRecord(Exp("curves.md"), caseName, curves, ExpStepSec, o.Quick, Provenance.Line(o.Quick));
+            FamilyCurves.WriteRecord(Exp("curves.md"), caseName, curves, ExpSimDur(o), o.Quick, Provenance.Line(o.Quick));
             expected.Add("curves");
         }
         File.WriteAllText(Path.Combine(caseDir, "README.md"), CaseReadme(caseName, ntc), Utf8NoBom);
         // The stamp goes last: it lists every other file of the triple by identity.
-        Provenance.WriteCaseStamp(caseDir, caseName, ntc, o.Quick, string.Create(CultureInfo.InvariantCulture,
-            $"truth curves {fullSteps} steps of {ExpStepSec:F0} s ({ExpStepSec * fullSteps / 3600.0:F0} h) with the {ExpStepSec * halfSteps / 3600.0:F0} h prefix as the extension pair; probe records state their own depth."));
+        var inv = CultureInfo.InvariantCulture;
+        string depthText = curves.Count == 0
+            ? "no truth curve in this case; probe records state their own depth."
+            : string.Create(inv, $"truth curves over {ExpSimDur(o) / 3600.0:F0} h with the first {ExpSimDur(o) / 7200.0:F0} h as the extension pair: ")
+              + string.Join("; ", curves.Select(c => string.Create(inv,
+                  $"{c.Direction} {c.TruthFull.Steps} steps of {c.Step!.StepSec:0.###} s")
+                  + (c.ExamFull is null ? "" : string.Create(inv, $", its examination-read curve {c.ExamFull.Steps} fine steps"))))
+              + "; probe records state their own depth.";
+        Provenance.WriteCaseStamp(caseDir, caseName, ntc, o.Quick, depthText);
         o.Log($"  {caseName}: SRS + Masks + README + stamp" +
               (expected.Count > 0 ? $" + expectation records ({string.Join("/", expected)})" : ""));
     }
@@ -1020,8 +1029,44 @@ public static class DatasetGenerator
 
     // ---- expectation data (simulated CDFs, sampling option 2) ----------
 
-    private const double ExpStepSec = 30.0;
     private static double ExpSimDur(DatasetOptions o) => o.Quick ? 7200.0 : 172800.0;
+
+    /// <summary>The truth steps tried, largest first: 1 s is the truth's step (operator, 2026-09-24).</summary>
+    public static readonly double[] TruthStepLadderSec = { 1.0, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01 };
+    /// <summary>The tool's under-sampling threshold (ComplianceLoopSteps.StepSentence).</summary>
+    public const double MinSamplesPerCrossing = 3.0;
+
+    /// <summary>
+    /// The truth's step for one direction: the largest of TruthStepLadderSec
+    /// that samples the fastest crossing of the direction's 3 dB beam at least
+    /// MinSamplesPerCrossing times. The crossing is the pass time of S.1503-4
+    /// eqs (1)-(2) at the family's lowest shell: across the GSO earth
+    /// station's beam for epfd(down) (Sec. D4.2), across the non-GSO earth
+    /// station's beam for epfd(up) (Sec. D4.3 takes the same equations with
+    /// that beam, so the downlink plan's pass time serves both). The epfd(is)
+    /// byproduct shares its downlink run's step.
+    /// </summary>
+    public static FamilyCurves.TruthStep TruthStepFor(double antFreqMhz, double dishM, string beam)
+    {
+        var plan = S1503TimeStep.Downlink(Shells, radantenna.AntennaLibrary.Compute3dBDeg(antFreqMhz, dishM));
+        double pass = plan.PassTimeSec;
+        double step = TruthStepLadderSec.FirstOrDefault(s => pass / s >= MinSamplesPerCrossing, TruthStepLadderSec[^1]);
+        return new FamilyCurves.TruthStep(step, pass, plan.Theta3dBDeg, plan.GoverningAltitudeKm,
+            plan.GoverningInclinationDeg, beam, TruthStepLadderSec);
+    }
+
+    /// <summary>
+    /// The family's truth steps as the top README states them. The uplink
+    /// antennas are the runs' own: 0.65 m at 28 GHz for the typical ES, 2.4 m
+    /// at 29.75 GHz for the gateways.
+    /// </summary>
+    private static string StepsLine()
+    {
+        static string S(double fMhz, double dishM) =>
+            TruthStepFor(fMhz, dishM, "").StepSec.ToString("0.###", CultureInfo.InvariantCulture) + " s";
+        return $"{S(D1.FMin, 0.6)} for epfd(down) in 19.7-20.2 GHz and {S(I1.FMin, 0.6)} in 17.8-18.6 GHz with its epfd(is) byproduct, "
+             + $"{S(28000.0, 0.65)} for the typical-ES uplink, {S(29750.0, 2.4)} for the gateway uplink";
+    }
 
     // Permissive limits: the deliverable is the CDF, not a verdict.
     private static List<radlimits.LimitPoint> PermissiveLimits() => new()
@@ -1043,7 +1088,7 @@ public static class DatasetGenerator
     };
 
     private static void WriteCdfCsv(string path, string label, string victimDesc, Band band,
-        long steps, long quietSteps, double maxDb,
+        double stepSec, long steps, long quietSteps, double maxDb,
         radcompute1503_2.EpfdAccumulator acc)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path));
@@ -1054,7 +1099,7 @@ public static class DatasetGenerator
         sb.AppendLine("# is bounded by the mask envelope by construction.");
         sb.AppendLine(FormattableString.Invariant($"# band={band.FMin}-{band.FMax} MHz  {victimDesc}"));
         sb.AppendLine(FormattableString.Invariant(
-            $"# step_s={ExpStepSec}  steps={steps}  quiet_steps={quietSteps}  max_epfd_db={maxDb:F3}"));
+            $"# step_s={stepSec}  steps={steps}  quiet_steps={quietSteps}  max_epfd_db={maxDb:F3}"));
         sb.AppendLine("epfd_dbw_m2_40khz,percent_time_exceeded");
         // Trim to the informative support (one flanking bin each side); the
         // omitted bins are exactly 100 below and exactly 0 above.
@@ -1073,39 +1118,39 @@ public static class DatasetGenerator
     /// same run also yields the epfd(is) CDF at the GSO satellite victim --
     /// the byproduct coupling: one snapshot stream, two accumulators.
     /// </summary>
-    private static EpfdDownResult WriteDownExpectation(string downPath, string isPath,
-        OperatingParamsSet declared, Band band, DatasetOptions o, long? stepsOverride = null, bool withIs = false)
+    private static (EpfdDownResult Result, FamilyCurves.TruthStep Step) WriteDownExpectation(string downPath, string isPath,
+        OperatingParamsSet declared, Band band, DatasetOptions o)
     {
         var con = new Constellation(Shells);
-        // The horizon stays the full duration whatever the step count, so a
-        // half-depth run is exactly the first half of the full one (the
-        // extension pair): satellite states must not depend on the count.
+        // The extension pair is the first half of this run (the result's
+        // Prefix): the same samples, in the same order, over the same full
+        // horizon as a separate half-length run.
         double simDur = ExpSimDur(o);
-        long steps = stepsOverride ?? FullSteps(o);
+        var step = TruthStepFor(band.FMin, 0.6,
+            string.Create(CultureInfo.InvariantCulture, $"the GSO earth station's beam (S.1428 0.6 m at {band.FMin / 1000.0:0.##} GHz)"));
+        long steps = FullSteps(o, step.StepSec);
 
         var vm = Vm(ShellA, band.FMin / 1000.0, 10.0, 8.0);
         var geo = ServiceGeography.Grid(30.0, 60.0, -20.0, 20.0, o.Quick ? 900.0 : 450.0);
         var pointing = new ScheduledPointing(con, geo, declared, vm, simDur);
         var ant = new radantenna.AntennaLibrary(radantenna.ApType.APERR_019V01, band.FMin, 0.6);
         var victim = new EpfdDownVictim { EsLatDeg = 45.0, EsLonDeg = 0.0, GsoLonDeg = 10.0, Antenna = ant };
-        var isVictim = isPath is null && !withIs ? null : GsoSatVictim(band.FMin);
+        var isVictim = isPath is null ? null : GsoSatVictim(band.FMin);
 
-        var res = EpfdDown.Run(con, pointing, victim, ExpStepSec, steps, PermissiveLimits(),
-            simDur, isVictim);
+        var res = EpfdDown.Run(con, pointing, victim, step.StepSec, steps, PermissiveLimits(),
+            simDur, isVictim, prefixSteps: steps / 2);
         if (downPath is not null)
             WriteCdfCsv(downPath, "epfd(down)", "victim ES lat=45 lon=0, GSO lon=10, S.1428 0.6 m",
-                band, steps, res.QuietSteps, res.MaxEpfdDb, res.Accumulator);
+                band, step.StepSec, steps, res.QuietSteps, res.MaxEpfdDb, res.Accumulator);
         if (isPath is not null)
             WriteCdfCsv(isPath, "epfd(is)",
                 "victim GSO sat lon=10, boresight lat=45 lon=0, S.672 40.7 dBi / 1.55 deg / Ls -20",
-                band, steps, res.IsQuietSteps, res.MaxEpfdIsDb, res.IsAccumulator);
-        return res;
+                band, step.StepSec, steps, res.IsQuietSteps, res.MaxEpfdIsDb, res.IsAccumulator);
+        return (res, step);
     }
 
-    /// <summary>The truth depth: 48 h at 30 s in the full profile, 2 h in quick.</summary>
-    private static long FullSteps(DatasetOptions o) => (long)(ExpSimDur(o) / ExpStepSec);
-    /// <summary>The extension pair's depth: the first half of the run.</summary>
-    private static long HalfSteps(DatasetOptions o) => FullSteps(o) / 2;
+    /// <summary>The truth depth: 48 h in the full profile, 2 h in quick, at the direction's step.</summary>
+    private static long FullSteps(DatasetOptions o, double stepSec) => (long)Math.Round(ExpSimDur(o) / stepSec);
 
     /// <summary>The family's epfd(down) victim description, as the CSV headers carry it.</summary>
     private const string DownVictimDesc = "victim ES lat=45 lon=0, GSO lon=10, S.1428 0.6 m";
@@ -1115,13 +1160,15 @@ public static class DatasetGenerator
     /// over the given service geography, radiating esPowerDbw through the
     /// declared-mask antenna family toward their serving satellites.
     /// </summary>
-    private static EpfdUpResult WriteUpExpectation(string path, OperatingParamsSet declared, Band band,
+    private static (EpfdUpResult Result, FamilyCurves.TruthStep Step) WriteUpExpectation(string path, OperatingParamsSet declared, Band band,
         ServiceGeography geo, double esPowerDbw, double antFreqMhz, double antDiamM,
-        string victimDesc, DatasetOptions o, long? stepsOverride = null)
+        string victimDesc, DatasetOptions o)
     {
         var con = new Constellation(Shells);
         double simDur = ExpSimDur(o);
-        long steps = stepsOverride ?? FullSteps(o);
+        var step = TruthStepFor(antFreqMhz, antDiamM,
+            string.Create(CultureInfo.InvariantCulture, $"the non-GSO earth station's beam (S.1428 {antDiamM:0.##} m at {antFreqMhz / 1000.0:0.##} GHz)"));
+        long steps = FullSteps(o, step.StepSec);
 
         var vm = Vm(ShellA, band.FMin / 1000.0, 10.0, 8.0);
         var scheduler = new Scheduler(con, geo, declared, new ScenePointing(vm), simDur);
@@ -1136,28 +1183,29 @@ public static class DatasetGenerator
             PowerControlRefElevDeg = declared.ElevAngleHeaderDeg ?? 10.0,
         };
         var res = EpfdUp.Run(con, scheduler, geo, GsoSatVictim(band.FMin), esModel,
-            ExpStepSec, steps, PermissiveLimits(), simDur);
+            step.StepSec, steps, PermissiveLimits(), simDur, prefixSteps: steps / 2);
         if (path is not null)
-            WriteCdfCsv(path, "epfd(up)", victimDesc, band, steps, res.QuietSteps, res.MaxEpfdDb,
+            WriteCdfCsv(path, "epfd(up)", victimDesc, band, step.StepSec, steps, res.QuietSteps, res.MaxEpfdDb,
                 res.Accumulator);
-        return res;
+        return (res, step);
     }
 
     /// <summary>
-    /// The examination-read epfd(down) curve of a case: Sec. D5.1.4.1 over the
+    /// The examination-read epfd(down) run of a case: Sec. D5.1.4.1 over the
     /// case's own pfd masks (the patched copies under xml/, one per shell when
     /// the notice links them per orbital-plane range) and its set, at the
-    /// family's victim, the truth's step and horizon. Classic algorithm only.
+    /// family's victim and the truth's horizon, on the time step of Sec. D4
+    /// (see <see cref="FamilyCurves.Examination"/>). Classic algorithm only.
     /// </summary>
-    private static FamilyCurves.Curve ExaminationCurve(string label, string xmlDir, IReadOnlyList<int> maskIds,
-        OperatingParamsSet declared, Band band, DatasetOptions o, long steps)
+    private static D4ExamResult ExaminationRun(string xmlDir, IReadOnlyList<int> maskIds,
+        OperatingParamsSet declared, Band band, DatasetOptions o)
     {
         var con = new Constellation(Shells);
         var reads = maskIds.Select(id => (IPureMaskPfdRead)MaskFootprint.LoadFile(
             Path.Combine(xmlDir, MaskDefs.Single(d => d.MaskId == id).FileName))).ToList();
         IMaskPfdRead masks = reads.Count == 1 ? reads[0] : new ProbeExamination.ShellMaskRead(reads);
-        return FamilyCurves.Examination(label, con, masks, declared, band.FMin, 0.6, 45.0, 0.0, 10.0,
-            ExpStepSec, steps, ExpSimDur(o), PermissiveLimits());
+        return FamilyCurves.Examination(con, Shells, masks, declared, band.FMin, 0.6, 45.0, 0.0, 10.0,
+            ExpSimDur(o), PermissiveLimits());
     }
 
     // ---- documentation -------------------------------------------------
@@ -1404,14 +1452,19 @@ public static class DatasetGenerator
             conservatism margin.
 
             The expectation CDFs use sampling option 2: body percentiles from a
-            {(o.Quick ? "2-hour" : "48-hour")} run at 30 s steps, tail justified by the envelope
-            argument. Measured caveat (margin-figure comb study, 2026-09-01): steps of
-            30-60 s starve main-beam transients on this class of geometry, so expectation
-            TAILS below each case's resolvable floor are not comparison material -- the
-            acceptance rule applies at resolvable percentiles, with the tail direction
-            still guaranteed by the envelope argument. If tail-level comparison is ever
-            needed, regenerate the expectations at 6 s steps (measured sufficient; the
-            per-run maxima moved ~20 dB from 60 s to 6 s and ~0.3 dB from 6 s to 1 s).
+            {(o.Quick ? "2-hour" : "48-hour")} run, tail justified by the envelope argument. Each
+            direction's step samples the fastest crossing of its 3 dB beam at least three
+            times (S.1503-4 eqs (1)-(2), the tool's under-sampling threshold):
+            {StepsLine()}; each record states its step and the crossing. The examination-read
+            curve and the probes' examinations (BL-R1 to BL-R3, BL-C1) take every S.1503-4
+            Sec. D4 fine step, the dual time step's readings stated beside them. Until
+            2026-09-25 every expectation was at 30 s, which sampled those crossings 0.02 to
+            0.14 times; the margin-figure
+            comb study of 2026-09-01 had measured that steps of 30-60 s starve main-beam
+            transients on this class of geometry. Percentiles below each record's resolvable
+            floor are not tabulated and are not comparison material -- the acceptance rule
+            applies at resolvable percentiles, with the tail direction still guaranteed by
+            the envelope argument.
             Victims: epfd(down) an S.1428 60 cm earth station at 45N 0E against
             the GSO satellite at 10E; epfd(up) and epfd(is) the GSO satellite at 10E with
             its S.672-4 receive beam (40.7 dBi / 1.55 deg / Ls -20, Sec. D6.5.2 Table 16)

@@ -5970,3 +5970,90 @@ latitude. The simulation runner's downlink file states the mask's own
 bandwidth on the mask path, its R-set picker shows the loop's
 *.operparams.json, and four window texts lose their jargon. Check V72
 added; harness 168 passed, 0 failed.
+
+## Beamlab — the dataset on the S.1503-4 time step: the truth's step per direction, the examinations on the fine step, 25 September 2026
+
+**What was wrong.** The dataset's truth curves, BL-I1's examination-read
+curve and the four probes' examinations all ran on one 30 s comb over
+48 h. The fastest crossing of the beam that matters lasts 3.77 s for the
+0.6 m GSO earth station at 19.7 GHz and 4.18 s at 17.8 GHz, 2.45 s for the
+0.65 m typical earth station at 28 GHz and 0.62 s for the 2.4 m gateway
+at 29.75 GHz, each at the 900 km polar shell (S.1503-4 eqs (1)-(2); Sec.
+D4.3 takes them with the non-GSO earth station's beam for the uplink).
+The comb sampled those crossings 0.13, 0.14, 0.08 and 0.02 times. A
+conforming examination samples at the Sec. D4 fine step, so a consumer
+comparing its curve with ours would have seen our step, not its code,
+and where the truth's tail sat below the real system's the direction
+check passed too easily.
+
+**What changed.** Each direction's truth step is now the largest of 1,
+0.5, 0.2, 0.1 s and finer that samples the fastest crossing at least
+three times, the tool's under-sampling threshold: 1 s for epfd(down) and
+its epfd(is) byproduct (3.8 and 4.2 samples), 0.5 s for the typical-ES
+uplink (4.9) and 0.2 s for the gateway uplink (3.1). BL-I1's
+examination-read curve and the probes' examinations take every S.1503-4
+fine step: 0.261 s for BL-I1's 0.6 m earth station, 0.200 s for the
+0.70 m row of BL-R1 to BL-R3, 0.153 s for BL-C1's 1.00 m row. A verdict
+is the fine-step reading; each record states the dual time step's two
+readings beside it, the fine-step region as Sec. D4.7.1 defines it and as
+Sub-step 6.3 words it. Each 24 h extension pair is now the first half of
+its own 48 h run: the downlink, uplink and Sec. D4 runs gain an optional
+prefix, bit for bit a separate run of that length over the same horizon
+(V73), and at quick depth the two ways gave byte-identical expectation
+files. The probes' 24 h pair used to be a separate run on half the
+horizon, which for the station-kept shell sweeps W_delta twice as fast;
+it now shares the full run's horizon, as the family's always did.
+
+**What moved.** The level on the new step minus the level on the 30 s
+comb, dB, at the percent of time exceeded, over 48 h:
+
+| case, curve | step (s): 30 s comb, new | 10% | 1% | 0.1% | 0.02% | max |
+|---|---|---|---|---|---|---|
+| BL-D1 epfd(down), set 21 | 30, 1 | -0.1 | -0.3 | +1.3 | +3.8 | +4.1 |
+| BL-I1 epfd(down), set 25 | 30, 1 | 0.0 | -0.1 | +1.5 | +2.6 | +3.3 |
+| BL-I1 examination-read, set 25 | 30, 0.261 | 0.0 | +0.2 | +2.2 | +2.5 | +0.1 |
+| BL-I1 epfd(is) | 30, 1 | -0.1 | +0.1 | +0.1 | +0.3 | 0.0 |
+| BL-U1 epfd(up), set 23 | 30, 0.5 | 0.0 | -0.1 | 0.0 | -0.1 | +0.3 |
+| BL-U2 epfd(up), set 24 | 30, 0.2 | 0.0 | -0.1 | -0.3 | +0.1 | +0.2 |
+
+The downlink body stood within 0.3 dB and its tail rose: 1.3 dB at 0.1%,
+3.8 dB at 0.02%, 4.1 dB at the maximum on BL-D1. The uplink stood within
+0.3 dB everywhere, the gateway's included. Both uplink sets declare a
+10-degree exclusion zone, so the earth station's beam does not reach the
+GSO satellite and there is no fast transient for the finer step to find;
+that is the likely reading, not a measured one.
+
+On BL-I1 the truth rose 1.5 dB at 0.1%, 2.6 dB at 0.02% and 3.3 dB at
+the maximum; the examination-read curve rose 2.2 and 2.5 dB at those
+percentiles and 0.1 dB at its maximum. The direction check holds at all
+15 resolvable percentiles, now down to 0.001%, the smallest gap +10.1 dB
+at 20% (it was +10.0 dB at 5%); at the maximum the gap closed from 14.7
+to 11.5 dB. The epfd(is) byproduct stood within 0.3 dB. The dual time
+step visits 73 349 of the 662 069 fine steps and reads within 0.1 dB of
+the fine-step curve at every tabulated percentile.
+BL-ALL's downlink and uplink curves come from BL-D1's and BL-U1's inputs
+and are byte-identical to theirs; its epfd(is), from set 26's downlink
+run, moved by 0.3 dB or less.
+
+The probes keep every expected outcome. BL-R1, BL-R2 and BL-R3 moved by
+0.1 dB or less in every margin: their rule masks notch the exclusion
+zone so that the body of the curve, not a main-beam pass, decides. BL-R3
+is still compliant on the 10-degree sweep and exceeded at 5 degrees and
+finer, the worst victim at 66 N. BL-C1 still fails at every victim, and
+there the maximum decides: it rose by up to 14.5 dB at 10 N and 9.5 dB at
+50 N, main-beam passes the comb had stepped over, so the worst margin is
+now -25.4 dB at 10 N (it was -24.1 dB at 40 N); the 0 N margin moved
+6.4 dB between the pair and is provisional. The dual time step reaches
+the fine-step verdict in every one of the probes' 1435 examinations, its
+margins within 0.1 dB.
+
+**Cost.** One full emission took 3 h on the new steps, of which BL-R3's
+1401-victim sweep is 36 min (6 min at 30 s). The harness's quick
+emission takes about 6 min. The harness modes curvescan, arcshield and
+readrulescan keep their own steps.
+
+**Checks.** V73 added; harness 169 passed, 0 failed.
+
+**Open.** The delivered dataset under dataset/ and the implementation
+project's consumer guide still carry the 30 s figures: placing the new
+emission and telling radians wait for the operator's word.
