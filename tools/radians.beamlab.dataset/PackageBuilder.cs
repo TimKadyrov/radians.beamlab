@@ -238,7 +238,7 @@ public static class PackageBuilder
         sb.AppendLine();
         sb.AppendLine("## The victims this project examined");
         sb.AppendLine();
-        sb.AppendLine("- Earth station at longitude 0, latitudes 0, 10, 20, 30, 40, 50, 60 deg; GSO satellite at +10 deg longitude offset; 1.00 m dish; Article 22 TABLE 22-1B, FSS 17800-18600 MHz, 40 kHz; 0.1 d and 1.0 d at 60 s steps.");
+        sb.AppendLine("- Earth station at longitude 0, latitudes 0, 10, 20, 30, 40, 50, 60 deg; GSO satellite at +10 deg longitude offset; 1.00 m dish; Article 22 TABLE 22-1B, FSS 17800-18600 MHz, 40 kHz; 0.1 d and 1.0 d on the S.1503-4 time step (every fine step, the dual time step's readings beside it), with E1 on a 1 s step beside that. Until 2026-09-25 the verdicts were at 60 s steps.");
         sb.AppendLine("- Entered geometry, not a search: run them as Additional Tests with the same earth station, GSO offset and dish.");
         sb.AppendLine();
         sb.AppendLine("## Caveats that travel with any verdict on this package");
