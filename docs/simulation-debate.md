@@ -6042,8 +6042,10 @@ is still compliant on the 10-degree sweep and exceeded at 5 degrees and
 finer, the worst victim at 66 N. BL-C1 still fails at every victim, and
 there the maximum decides: it rose by up to 14.5 dB at 10 N and 9.5 dB at
 50 N, main-beam passes the comb had stepped over, so the worst margin is
-now -25.4 dB at 10 N (it was -24.1 dB at 40 N); the 0 N margin moved
-6.4 dB between the pair and is provisional. The dual time step reaches
+now -25.4 dB at 10 N (it was -24.1 dB at 40 N). The margins at 0, 10 and
+20 N moved 6.4, 2.0 and 0.9 dB between the pair and are provisional by
+the record's own 0.5 dB rule, the headline's included; the verdict at
+every victim is firm. The dual time step reaches
 the fine-step verdict in every one of the probes' 1435 examinations, its
 margins within 0.1 dB.
 
