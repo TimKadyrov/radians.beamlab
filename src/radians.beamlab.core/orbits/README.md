@@ -22,9 +22,10 @@ Because byte-identity is the point, this directory keeps the original
 namespace (`Radians.Orbits.Core.*`) and is **exempt from the repository's
 ASCII-only-comments rule**.
 
-Note on Earth radius: the propagator uses the S.1503 value
-(`OrbitalConstants.EarthRadiusKm` = 6378.145) for orbital mechanics, while
-beamlab's ground geometry (`GeoMath`) is a 6371 km sphere. Constellation
-code derives sub-satellite direction from the position vector (radius-free)
-and converts altitude against the beamlab sphere so scene geometry stays
-internally consistent.
+Note on Earth radius: the propagator uses the S.1503-4 value
+(`OrbitalConstants.EarthRadiusKm` = 6378.145, Sec. A2.2 Table 2) for orbital
+mechanics, and beamlab's ground geometry (`GeoMath.EarthRadiusKm`) uses the
+same value since 2026-09-25, so earth stations and satellites share one
+sphere. Until then `GeoMath` was a 6371 km sphere, which raised every
+computed elevation by 0.10 to 0.27 deg for shells at 800 to 1200 km (debate
+Q5, e51).

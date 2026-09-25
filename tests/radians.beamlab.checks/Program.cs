@@ -6993,10 +6993,11 @@ var looks = RandomLooks(300);
     double azS75 = MaskFootprint.LoadFile(MaskXml75("v75-az.xml", (b, c) => b)).PfdDb(st75, ngso75, es75);
     double elS75 = MaskFootprint.LoadFile(MaskXml75("v75-el.xml", (b, c) => c)).PfdDb(st75, ngso75, es75);
     bool frameOk75 = Near(azS75, -39.677, 0.002) && Near(elS75, 24.146, 0.002);
-    // (d) Q5: the code's earth stations sit on the 6371 km sphere, its
-    // satellites on the propagator's frame (Earth radius 6378.145 km). For a
-    // satellite at a true elevation e (earth station on the 6378.145 km
-    // sphere), the elevation the code computes, over the project's shells.
+    // (d) Q5 closed: the code's earth stations sit on the S.1503-4 sphere
+    // (6378.145 km, Sec. A2.2 Table 2), the sphere of the propagator's frame.
+    // For a satellite at a true elevation e, the elevation the code computes
+    // from its own earth station is e, over the project's shells (until
+    // 2026-09-25 the 6371 km sphere raised it by 0.100 to 0.270 deg).
     double minRise75 = double.PositiveInfinity, maxRise75 = double.NegativeInfinity;
     double rs75 = OrbitalConstants.EarthRadiusKm;
     foreach (double h in new[] { 800.0, 900.0, 1150.0, 1200.0 })
@@ -7011,11 +7012,12 @@ var looks = RandomLooks(300);
             double rise = ElevationAngleDeg(sat, GeodeticToEcef(38.0, 0.0, 0.0)) - ElevationAngleDeg(sat, esTrue);
             minRise75 = Math.Min(minRise75, rise); maxRise75 = Math.Max(maxRise75, rise);
         }
-    double elG6371 = ElevationAngleDeg(gso75, GeodeticToEcef(38.0, -77.0, 0.0));
-    bool q5Ok75 = minRise75 > 0.0 && maxRise75 <= 0.30;
-    Check("V75 the S.1714 worked example (Doc 4A/416 Case 1, positions as in 4A/198 and 4A/313) reproduces through beamlab's geometry: positions, the earth station's view of the GSO satellite, and the satellite-frame az/el of the az/el mask read; the Earth-radius split (Q5) raises every elevation by 0.1 to 0.3 deg for the project's shells",
+    double elGOwn75 = ElevationAngleDeg(gso75, GeodeticToEcef(38.0, -77.0, 0.0));
+    bool q5Ok75 = GeoMath.EarthRadiusKm == OrbitalConstants.EarthRadiusKm
+        && Math.Abs(minRise75) < 1e-9 && Math.Abs(maxRise75) < 1e-9 && Near(elGOwn75, 28.44516, 1e-4);
+    Check("V75 the S.1714 worked example (Doc 4A/416 Case 1, positions as in 4A/198 and 4A/313) reproduces through beamlab's geometry: positions, the earth station's view of the GSO satellite, and the satellite-frame az/el of the az/el mask read; earth stations and satellites share the S.1503-4 sphere, so the code's elevations are the true ones (Q5 closed) and the example's GSO elevation reproduces from the code's own earth station",
         posOk75 && gsoOk75 && frameOk75 && q5Ok75,
-        string.Create(inv75, $"pos={posOk75} gso={gsoOk75} (el {elG75:F5}, az {azG75:F4}) frame={frameOk75} (az {azS75:F3}, el {elS75:F3}) q5={q5Ok75} (rise {minRise75:F3}..{maxRise75:F3} deg at 800-1200 km, 0-60 deg; the GSO at {elG6371:F5} deg from the 6371 km sphere against {elG75:F5})"));
+        string.Create(inv75, $"pos={posOk75} gso={gsoOk75} (el {elG75:F5}, az {azG75:F4}) frame={frameOk75} (az {azS75:F3}, el {elS75:F3}) q5={q5Ok75} (rise {minRise75:F3}..{maxRise75:F3} deg at 800-1200 km, 0-60 deg; the GSO at {elGOwn75:F5} deg from the code's earth station against the published 28.44516)"));
 }
 
 // ---- V76: the deciding point on a tie names the shortest time ----

@@ -107,7 +107,7 @@ phased array driven from a single feed network it is **not** the right model.
 
 Each beam's boresight starts as a unit vector in the satellite local NED
 frame (built from sub-satellite lat/lon). It is rotated into ECEF and
-intersected with the spherical Earth (radius 6 371 km) to find the ground
+intersected with the spherical Earth (radius 6 378.145 km, the S.1503-4 value the propagator also uses) to find the ground
 footprint centre. The horizon (line-of-sight) cap on Earth has half-angle
 `arccos(R / (R + h))` from the sub-point.
 

@@ -20,7 +20,14 @@ namespace radians.beamlab;
 /// </summary>
 public static class GeoMath
 {
-    public const double EarthRadiusKm = 6371.0;
+    /// <summary>
+    /// The Earth radius of S.1503-4 Sec. A2.2 Table 2, 6 378.145 km, the one the
+    /// propagator uses (OrbitalConstants.EarthRadiusKm), so earth stations and
+    /// satellites share one sphere. Until 2026-09-25 this was the 6371 km mean
+    /// radius, which raised every computed elevation by 0.10 to 0.27 deg for
+    /// shells at 800 to 1200 km (debate Q5, e51).
+    /// </summary>
+    public const double EarthRadiusKm = 6378.145;
     private const double Deg2Rad = Math.PI / 180.0;
     private const double Rad2Deg = 180.0 / Math.PI;
 
