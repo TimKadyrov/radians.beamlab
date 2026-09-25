@@ -248,7 +248,12 @@ public static class PackageBuilder
         sb.AppendLine("- min_elev 40 deg is generous to the filing: fewer eligible satellites, lower epfd.");
         sb.AppendLine("- One limit row was applied by this project (17800-18600 MHz); the mask's band reaches 20200 MHz where TABLE 22-1C governs.");
         sb.AppendLine();
-        sb.AppendLine(string.Create(inv, $"Generated {DateTime.Now:yyyy-MM-dd} by `radians.beamlab.dataset --package {p.Name} --design ... --rset ... --mask ... --mask-id {p.MaskId} --band {p.BandMinMhz:0.#} {p.BandMaxMhz:0.#} --ntc {p.NtcId}`."));
+        // The command as run, so the package can be rebuilt from its own README.
+        sb.AppendLine(string.Create(inv, $"Generated {DateTime.Now:yyyy-MM-dd} by `radians.beamlab.dataset --package {p.Name} --design \"{p.DesignPath}\" --rset \"{p.RsetJsonPath}\" --mask \"{p.MaskXmlPath}\" --mask-id {p.MaskId} --band {p.BandMinMhz:0.#} {p.BandMaxMhz:0.#} --ntc {p.NtcId}")
+            + (p.SatName != new PackageOptions().SatName ? $" --sat-name \"{p.SatName}\"" : "")
+            + (string.IsNullOrWhiteSpace(p.ExpectedPath) ? "" : $" --expected \"{p.ExpectedPath}\"")
+            + (string.IsNullOrWhiteSpace(p.Provenance) ? "" : " --provenance \"<the Provenance paragraph above>\"")
+            + "`.");
         File.WriteAllText(path, sb.ToString());
     }
 }

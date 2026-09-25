@@ -149,15 +149,9 @@ public static class ReadRuleProbes
     private static readonly UTF8Encoding Utf8NoBom = new(false);
 
     /// <summary>
-    /// The probes' depth until 2026-09-25: 48 h at 30 s and its 24 h prefix;
-    /// quick mode 2 h / 1 h. The probes now examine on the S.1503-4 time step
-    /// over <see cref="Duration"/>; the curvescan console mode still reads at
-    /// this depth.
+    /// The probes' run: 48 h, 2 h in quick mode, the first half the extension
+    /// pair, on the S.1503-4 time step (until 2026-09-25, 30 s steps).
     /// </summary>
-    public static (double StepSec, long Steps, long HalfSteps) Depth(bool quick)
-        => quick ? (30.0, 240, 120) : (30.0, 5760, 2880);
-
-    /// <summary>The probes' run: 48 h, 2 h in quick mode, the first half the extension pair.</summary>
     public static double Duration(bool quick) => quick ? 7200.0 : 172800.0;
 
     private static Read Measure(Constellation con, MaskFootprint mask, OperatingParamsSet set, ProbeExamination.LimitRow lim,

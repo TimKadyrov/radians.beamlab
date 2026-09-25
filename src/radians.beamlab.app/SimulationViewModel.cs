@@ -92,7 +92,24 @@ public sealed class SimulationViewModel : ObservableObject
         private set { if (SetField(ref _isRunning, value)) OnPropertyChanged(nameof(RunEnabled)); }
     }
 
-    public bool RunEnabled => !_isRunning;
+    public bool RunEnabled => !_isRunning && !_isPlaying;
+
+    private bool _isPlaying;
+    /// <summary>The map is playing the operation; the view sets it as the play timer starts and stops.</summary>
+    public bool IsPlaying
+    {
+        get => _isPlaying;
+        set
+        {
+            if (SetField(ref _isPlaying, value))
+            {
+                OnPropertyChanged(nameof(RunEnabled));
+                OnPropertyChanged(nameof(StopEnabled));
+            }
+        }
+    }
+
+    public bool StopEnabled => _isPlaying;
 
     // ---- the window's buttons: commands, with dialogs asked of the view ----
 

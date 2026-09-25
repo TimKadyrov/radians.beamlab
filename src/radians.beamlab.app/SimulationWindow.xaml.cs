@@ -64,8 +64,7 @@ public partial class SimulationWindow : Window
         _coastlines ??= new CoastlineDataProvider();
         _tSec = 0.0;
         DrawStatic();
-        StopBtn.IsEnabled = true;
-        QuickBtn.IsEnabled = false;
+        _vm.IsPlaying = true;
         _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _timer.Tick += OnTick;
         _timer.Start();
@@ -75,8 +74,7 @@ public partial class SimulationWindow : Window
     {
         _timer?.Stop();
         _timer = null;
-        StopBtn.IsEnabled = false;
-        QuickBtn.IsEnabled = true;
+        _vm.IsPlaying = false;
         PlayStatus.Text = string.Create(CultureInfo.InvariantCulture,
             $"{why} at t = {_tSec / 3600.0:F2} h");
     }

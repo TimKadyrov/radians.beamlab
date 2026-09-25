@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Windows.Input;
 using radians.beamlab;
+using Radians.Orbits.Core.Utilities;
 
 namespace radians.beamlab.app;
 
@@ -245,6 +246,13 @@ public sealed class SnsBuilderViewModel : ObservableObject
                 && !OrbitDesign.PrecessionMatchesInclination(shell.PrecessionRateDegPerSec, shell.InclinationDeg))
                 throw new InvalidOperationException(string.Create(CultureInfo.InvariantCulture,
                     $"{sh.FileName}: a precession turning {(shell.PrecessionRateDegPerSec > 0 ? "east" : "west")} at i = {shell.InclinationDeg:F1} deg cannot be filed -- the filed magnitude turns the way the inclination implies"));
+            // A typed Case 3 rate must close the declared repeat within keep_rnge per cycle,
+            // as the orbit tab's Save design requires.
+            if (sh.Data is { CaseChoice: 2, PrecessionDegPerSec: double typed, SelectedOrbits: int k, SelectedNodalDays: int m, RptDays: int }
+                && Math.Abs(OrbitDesign.Case3MismatchDegPerCycle(typed, OrbitalConstants.EarthRadiusKm + sh.Data.TargetAltitudeKm, k, m)) is double mm
+                && mm > sh.Data.KeepRangeDeg)
+                throw new InvalidOperationException(string.Create(CultureInfo.InvariantCulture,
+                    $"{sh.FileName}: the typed Case 3 rate leaves the track {mm:F3} deg from closing its repeat every cycle, more than keep_rnge {sh.Data.KeepRangeDeg:F3} deg -- clear it in the orbit design to use the closing rate, or correct it"));
             n.AddShell(shell);
         }
 

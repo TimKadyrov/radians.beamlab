@@ -583,11 +583,11 @@ internal static class ComplianceLoop
     /// derived alongside.
     ///
     /// Run:  -- examine profile design rset.json mask.xml [days] [stepSec]
-    ///                  [latFrom] [latTo] [latStep] [tag]
+    ///                  [latFrom] [latTo] [latStep] [tag] [gso=deg] [eslon=deg]
     /// </summary>
     public static int Examine(string profilePath, string designPath, string rsetJsonPath,
         string maskXmlPath, double days, double stepSec, double latFrom, double latTo,
-        double latStep, string tag, bool d4Exam = false)
+        double latStep, string tag, bool d4Exam = false, double gsoOffset = 10.0, double esLon = 0.0)
     {
         var inv = CultureInfo.InvariantCulture;
         var t0 = Stopwatch.StartNew();
@@ -620,7 +620,7 @@ internal static class ComplianceLoop
 
         long steps = (long)Math.Round(days * 86400.0 / stepSec);
         var sweep = new ComplianceViewModel.Sweep(shells, prof,
-            EsLon: 0.0, GsoOffset: 10.0, DishM: dishM,
+            EsLon: esLon, GsoOffset: gsoOffset, DishM: dishM,
             LatFrom: latFrom, LatTo: latTo, LatStep: latStep,
             Steps: steps, StepSec: stepSec, Limits: limitPoints);
         // FootprintSource says what a TRUTH run would compose; here only the
@@ -674,6 +674,9 @@ internal static class ComplianceLoop
         sb.AppendLine();
         sb.AppendLine("- R set: `" + Path.GetRelativePath(repo, rsetJsonPath) + "` -- " + DescribeSet(declared, inv));
         sb.AppendLine("- mask: `" + Path.GetRelativePath(repo, maskXmlPath) + "`");
+        // The victim line appears only off the default geometry, so default records are unchanged.
+        if (gsoOffset != 10.0 || esLon != 0.0)
+            sb.AppendLine(string.Create(inv, $"- victim: earth station at longitude {esLon:0.#}, GSO satellite {(gsoOffset >= 0 ? "+" : "")}{gsoOffset:0.#} deg"));
         if (trackNote.Length > 0) sb.AppendLine("- " + trackNote + ".");
         sb.AppendLine("- " + ComplianceViewModel.DescribeLimit(lim));
         sb.AppendLine(string.Create(inv, $"- sweep: lat {latFrom:F0}..{latTo:F0} step {latStep:F0}; {steps} steps of {stepSec:0.###} s; floor {100.0 / steps:F3}%; wall clock {t0.Elapsed.TotalMinutes:F1} min"));

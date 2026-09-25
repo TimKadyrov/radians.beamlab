@@ -166,7 +166,8 @@ public static class ConsistencyProbe
         sb.AppendLine();
         int failing = rows.Count(r => !r.Sat.Pass);
         var worstRow = rows.OrderBy(r => r.Sat.RuleMarginDb).First();
-        var bindingPoint = worstRow.Sat.Points.OrderBy(p => p.MarginDb).First();
+        // On a tie the shortest time binds (the deciding-point rule of ComplianceViewModel.BuildRow).
+        var bindingPoint = worstRow.Sat.Points.OrderBy(p => p.MarginDb).ThenBy(p => p.Perc).First();
         double maxDelta = rows.Max(r => r.Sat.MaxEpfdDb - r.Ctl.MaxEpfdDb);
         double minDelta = rows.Min(r => r.Sat.MaxEpfdDb - r.Ctl.MaxEpfdDb);
         string headline = string.Create(inv, $"grades {string.Join("/", grades.Select(g => MaskConsistency.Word(g.Report.Overall).Split(' ')[0]))}; examination {(failing == rows.Count ? "FAIL at every victim" : failing == 0 ? "PASS at every victim" : failing + " of " + rows.Count + " victims FAIL")}, worst {worstRow.Sat.WorstMarginDb:+0.0;-0.0} dB at {worstRow.Lat:F0} N ({bindingPoint.Perc:G4}% point)");

@@ -324,7 +324,10 @@ minimum over the points. The <em>curve margin</em> is the dB shift of the whole 
 that just clears the curve. The rule margin is the smaller of the two.</li>
 <li><strong>The deciding point</strong> is the limit point at the worst point margin.
 &ldquo;max&rdquo; is the maximum sample, read against the 0% row; it can only rise as the run
-lengthens. A percentage names a resolved percentile, which can move either way.</li>
+lengthens. A percentage names a resolved percentile, which can move either way. On a tie the
+shortest time is named: a limit point below the floor reads the maximum&rsquo;s bin, so where
+it ties with the 0% row the maximum is what decides (records made before 25 September 2026 named
+0.029% there).</li>
 <li><strong>The depth</strong> is the number of steps per latitude. It sets the resolvable
 floor, 100% divided by the steps: a limit point below the floor is located, not decided.</li>
 <li><strong>The acceptance test.</strong> E1 must sit at or above T at every latitude: the E1

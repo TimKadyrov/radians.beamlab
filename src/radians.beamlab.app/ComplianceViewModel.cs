@@ -508,11 +508,18 @@ public sealed class ComplianceViewModel : ObservableObject
     }
 
     /// <summary>The folder holding the app's docs/ (the repository), else the profile's own folder.</summary>
-    private string RunRoot()
+    private string RunRoot() => RunRootFor(_profilePath);
+
+    /// <summary>
+    /// Where a loop run of this profile lives: under the folder holding the
+    /// app's docs/ (the repository), else under the profile's own folder. One
+    /// rule, so the designer's Derive &amp; fill finds the run Run loop wrote.
+    /// </summary>
+    public static string RunRootFor(string profilePath)
     {
         string? docs = HomeViewModel.FindDocsDir(AppContext.BaseDirectory);
         if (docs is not null && Path.GetDirectoryName(docs) is string repo) return repo;
-        return Path.GetDirectoryName(Path.GetFullPath(_profilePath.Trim())) ?? ".";
+        return Path.GetDirectoryName(Path.GetFullPath(profilePath.Trim())) ?? ".";
     }
 
     public async Task RunLoopAsync()
@@ -763,10 +770,14 @@ public sealed class ComplianceViewModel : ObservableObject
             crossing = LimitCurveRule.Scan(epfd, pct, curve, limits);
             curveMargin = LimitCurveRule.CurveMarginDb(epfd, pct, curve, limits);
         }
-        // The first limit point at the worst margin names the deciding point.
+        // The limit point at the worst margin names the deciding point; on a tie
+        // the shortest time wins. A run too short to resolve the 0.029% point
+        // reads it in the maximum's bin, where it ties with the 0% row, and it
+        // is then the maximum that decides.
         double deciding = double.NaN;
         foreach (var l in limits)
-            if (MarginDb(epfd, pct, l.EPFD, l.Perc) == worst) { deciding = l.Perc; break; }
+            if (MarginDb(epfd, pct, l.EPFD, l.Perc) == worst && (double.IsNaN(deciding) || l.Perc < deciding))
+                deciding = l.Perc;
         return new ComplianceRow(lat, res.MaxEpfdDb, worst, pass, res.QuietSteps)
             { DecidingPercent = deciding, CurveCrossing = crossing, CurveMarginDb = curveMargin };
     }

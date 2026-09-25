@@ -81,7 +81,8 @@ internal static class CurveScan
         }
 
         // Part B: the sweep-grid probe (BL-R3) has no per-victim CDFs on disk -- re-examine its
-        // 10-degree grid, the grid the record calls compliant, at the record's depth.
+        // 10-degree grid, the grid the record calls compliant, as the record examines it: 48 h on
+        // the S.1503-4 time step, the fine-step reading.
         {
             string maskPath = Path.Combine(repo, "dataset", "BL-R3", "xml", "mask13_pfd_alpha_probe_sweep.xml");
             if (File.Exists(maskPath))
@@ -90,10 +91,10 @@ internal static class CurveScan
                 var mask = MaskFootprint.LoadFile(maskPath);
                 var set = DatasetGenerator.SetFor(29, 900123479);
                 double freqMhz = 0.5 * (set.LowFreqMhz + set.HighFreqMhz);
-                var (step, steps, _) = ReadRuleProbes.Depth(false);
                 for (double lat = -70.0; lat <= 70.0 + 1e-9; lat += 10.0)
                 {
-                    var v = ProbeExamination.Examine(con, mask, set, limD1, freqMhz, lat, ReadRuleProbes.EsLonDeg, ReadRuleProbes.GsoLonDeg, step, steps);
+                    var v = ProbeExamination.ExamineD4(con, DatasetGenerator.Shells, mask, set, limD1, freqMhz, lat,
+                        ReadRuleProbes.EsLonDeg, ReadRuleProbes.GsoLonDeg, ReadRuleProbes.Duration(false)).Fine;
                     var acc = new EpfdAccumulator(limD1.Points);
                     Report("BL-R3", string.Create(inv, $"lat{lat:+0;-0}"), v.Pass ? "PASS" : "FAIL", v.Epfd, v.Pct, acc, limD1.Points, tol, inv, ref flips);
                     scanned++;

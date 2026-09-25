@@ -73,12 +73,19 @@ if (args.Length > 0 && args[0] == "examine")
 {
     // examstep=d4 anywhere after the mode: also examine on the S.1503-4 time step.
     bool examD4E = args.Any(x => x.Equals("examstep=d4", StringComparison.OrdinalIgnoreCase));
-    string[] e = args.Where(x => !x.StartsWith("examstep=", StringComparison.OrdinalIgnoreCase)).ToArray();
-    if (e.Length < 5) { Console.WriteLine("usage: examine profile design rset.json mask.xml [days] [stepSec] [latFrom] [latTo] [latStep] [tag] [examstep=d4]"); return 2; }
+    // gso=<deg> and eslon=<deg>: the victim geometry, as in the loop mode (defaults +10 and 0).
+    double OptE(string key, double dflt)
+    {
+        string? v = args.FirstOrDefault(x => x.StartsWith(key, StringComparison.OrdinalIgnoreCase))?.Substring(key.Length);
+        return v is not null && double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double d) ? d : dflt;
+    }
+    string[] e = args.Where(x => !x.StartsWith("examstep=", StringComparison.OrdinalIgnoreCase)
+        && !x.StartsWith("gso=", StringComparison.OrdinalIgnoreCase) && !x.StartsWith("eslon=", StringComparison.OrdinalIgnoreCase)).ToArray();
+    if (e.Length < 5) { Console.WriteLine("usage: examine profile design rset.json mask.xml [days] [stepSec] [latFrom] [latTo] [latStep] [tag] [examstep=d4] [gso=deg] [eslon=deg]"); return 2; }
     double DE(int i, double dflt) => e.Length > i && double.TryParse(e[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : dflt;
     return ComplianceLoop.Examine(e[1], e[2], e[3], e[4],
         DE(5, 0.1), DE(6, 1.0), DE(7, 0.0), DE(8, 60.0), DE(9, 10.0),
-        e.Length > 10 ? e[10] : "examine", examD4E);
+        e.Length > 10 ? e[10] : "examine", examD4E, OptE("gso=", 10.0), OptE("eslon=", 0.0));
 }
 if (args.Length > 0 && args[0] == "parity")
     return MaskParity.Run(
@@ -6866,6 +6873,175 @@ var looks = RandomLooks(300);
         ruleOk73 && downOk73 && upOk73 && d4Ok73 && probeOk73 && refuseOk73,
         string.Create(CultureInfo.InvariantCulture,
             $"rule={ruleOk73} ({string.Join(" ", steps73.Select(s => $"{s.StepSec:0.###}s/{s.Samples:0.0}"))}) down={downOk73} up={upOk73} d4={d4Ok73} (fine {plan73.FineStepSec:0.000} s, dual {d4p73.DualSamples}/{d4p73.FineSteps}) probe={probeOk73} refuse={refuseOk73}"));
+}
+
+// ---- V74: the small items: the builder's typed-rate refusal; the play state drives Stop and Write CDFs; one run folder for Run loop and Derive & fill ----
+{
+    var inv74 = CultureInfo.InvariantCulture;
+    // (a) The SNS builder refuses a typed Case 3 rate that misses its repeat by
+    // more than keep_rnge per cycle, as the orbit tab's Save design does; a
+    // close rate and the default closing rate raise no such refusal.
+    var doc74 = new OrbitDesignDocumentViewModel();
+    var s74 = doc74.Shells[0];
+    s74.CaseChoice = 2;
+    double exact74 = OrbitDesign.Case3ExactClosingRateDegPerSec(
+        OrbitalConstants.EarthRadiusKm + s74.TargetAltitudeKm, s74.SelectedSolution!.Orbits, s74.SelectedSolution.NodalDays);
+    string Build74(string typed)
+    {
+        s74.PrecessionText = typed;
+        var sns = new SnsBuilderViewModel();
+        sns.Shells.Add(new ShellEntry("v74.orbitdesign.json", s74.BuildDesignData()));
+        try { sns.BuildNotice(); return ""; } catch (InvalidOperationException ex) { return ex.Message; }
+    }
+    string far74 = Build74((exact74 * 0.75).ToString("R", inv74));
+    string? farTab74 = doc74.SaveBlocker();
+    string near74 = Build74((exact74 * 0.999).ToString("R", inv74));
+    string dflt74 = Build74("");
+    bool snsOk74 = far74.Contains("keep_rnge") && farTab74 is not null && farTab74.Contains("keep_rnge")
+        && !near74.Contains("keep_rnge") && !dflt74.Contains("keep_rnge");
+
+    // (b) The simulation window's play state lives in the view model: playing
+    // disables Write CDFs and enables Stop, and both follow the flag back.
+    var sim74 = new SimulationViewModel();
+    var changed74 = new List<string>();
+    sim74.PropertyChanged += (_, e) => changed74.Add(e.PropertyName ?? "");
+    bool idle74 = sim74.RunEnabled && !sim74.StopEnabled;
+    sim74.IsPlaying = true;
+    bool playing74 = !sim74.RunEnabled && sim74.StopEnabled && changed74.Contains("RunEnabled") && changed74.Contains("StopEnabled");
+    sim74.IsPlaying = false;
+    bool playOk74 = idle74 && playing74 && sim74.RunEnabled && !sim74.StopEnabled;
+
+    // (c) Run loop and Derive & fill resolve the run folder by one rule. From a
+    // build outside the repository that is the profile's own folder, and the
+    // designer finds a run written there; inside it, it is the repository.
+    string dir74 = Path.Combine(AppContext.BaseDirectory, "exp", "v74");
+    Directory.CreateDirectory(dir74);
+    string prof74 = Path.Combine(dir74, "v74.opprofile.json");
+    var p74 = new OperationProfile(Name: "V74 probe");
+    File.WriteAllText(prof74, OperationProfileCodec.Save(p74));
+    File.SetLastWriteTimeUtc(prof74, DateTime.UtcNow.AddMinutes(-5));
+    string root74 = ComplianceViewModel.RunRootFor(prof74);
+    string? docs74 = HomeViewModel.FindDocsDir(AppContext.BaseDirectory);
+    bool rootOk74;
+    string where74;
+    if (docs74 is null)
+    {
+        string set74 = ComplianceViewModel.RunSetJsonPath(root74, p74);
+        Directory.CreateDirectory(Path.GetDirectoryName(set74)!);
+        File.WriteAllText(set74, "{}");
+        var op74 = new OpParamsViewModel { DeriveProfilePath = prof74 };
+        string? found74 = op74.FindLoopRunSet();
+        rootOk74 = Path.GetFullPath(root74) == Path.GetFullPath(dir74)
+            && found74 is not null && Path.GetFullPath(found74) == Path.GetFullPath(set74);
+        File.Delete(set74);
+        where74 = "profile folder";
+    }
+    else
+    {
+        rootOk74 = Path.GetFullPath(root74) == Path.GetFullPath(Path.GetDirectoryName(docs74)!);
+        where74 = "repository";
+    }
+
+    Check("V74 the SNS builder refuses a typed Case 3 rate off its repeat by more than keep_rnge, as Save design does; the play state in the view model drives Stop and Write CDFs; Run loop and Derive & fill share one run folder",
+        snsOk74 && playOk74 && rootOk74,
+        string.Create(inv74, $"sns={snsOk74} play={playOk74} root={rootOk74} ({where74})"));
+}
+
+// ---- V75: the S.1714 worked example as a geometry oracle; the Earth-radius split bounded (Q5) ----
+{
+    // WP 4A Doc 4A/416 (18 October 2021), Case 1 table; Docs 4A/198 and 4A/313
+    // carry the same positions (their satellite frame was orbit-referenced;
+    // 4A/416 moved it to the north-referenced frame of S.1503-4 Sec. D6.4.5).
+    // Inputs: Re 6378.15 km, Rn 7878 km, Rg 42164 km; GSO satellite at 30 W
+    // inclined 5 deg, at 5 N; earth station 38 N 77 W; the non-GSO
+    // sub-satellite point the table derives, 29.76146 N 60.1911 W.
+    var inv75 = CultureInfo.InvariantCulture;
+    const double re75 = 6378.15, rn75 = 7878.0, rg75 = 42164.0;
+    bool Near(double got, double want, double tol) => Math.Abs(got - want) <= tol;
+    var es75 = GeodeticToEcef(38.0, -77.0, re75 - GeoMath.EarthRadiusKm);
+    var ngso75 = GeodeticToEcef(29.76146, -60.1911, rn75 - GeoMath.EarthRadiusKm);
+    var gso75 = GeodeticToEcef(5.0, -30.0, rg75 - GeoMath.EarthRadiusKm);
+    // (a) positions: published to 4 decimals for the earth station, 3 for the
+    // non-GSO satellite (from its rounded sub-satellite point).
+    bool posOk75 = Near(es75.X, 1130.6154, 0.0005) && Near(es75.Y, -4897.233, 0.001) && Near(es75.Z, 3926.7812, 0.0005)
+        && Near(ngso75.X, 3399.674, 0.01) && Near(ngso75.Y, -5934.02, 0.01) && Near(ngso75.Z, 3910.561, 0.01)
+        && Near((ngso75 - es75).Length, 2494.76, 0.01);
+    // (b) the earth station's view of the GSO satellite: slant range, elevation,
+    // and azimuth from north toward east in the station's north/east basis.
+    double elG75 = ElevationAngleDeg(gso75, es75);
+    var (nE75, eE75, _) = SatNedBasis(38.0, -77.0);
+    var toG75 = (gso75 - es75).Normalized();
+    double azG75 = Math.Atan2(Vec3.Dot(toG75, eE75), Vec3.Dot(toG75, nE75)) * 180.0 / Math.PI;
+    if (azG75 < 0.0) azG75 += 360.0;
+    bool gsoOk75 = Near((gso75 - es75).Length, 38751.35, 0.01) && Near(elG75, 28.44516, 1e-4) && Near(azG75, 115.6339, 1e-3);
+    // (c) the satellite-frame azimuth and elevation of the earth station, read
+    // through the az/el mask reader itself: two masks linear in azimuth and in
+    // elevation return the read coordinates exactly.
+    string MaskXml75(string name, Func<double, double, double> value)
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, "exp", name);
+        string Cell(double b, double c) => string.Create(inv75, $"<pfd c=\"{c:0}\">{value(b, c):0}</pfd>");
+        File.WriteAllText(path, "<?xml version=\"1.0\"?>\n<srs><satellite_system sat_name=\"V75\" ntc_id=\"1\">"
+            + "<pfd_mask mask_id=\"1\" low_freq_mhz=\"19700\" high_freq_mhz=\"19700\" refbw_khz=\"40\" type=\"azimuth_elevation\">"
+            + "<by_a a=\"30\">"
+            + "<by_b b=\"-90\">" + Cell(-90, -90) + Cell(-90, 90) + "</by_b>"
+            + "<by_b b=\"90\">" + Cell(90, -90) + Cell(90, 90) + "</by_b>"
+            + "</by_a></pfd_mask></satellite_system></srs>");
+        return path;
+    }
+    var st75 = new SatelliteState(1, 0, 0, 0, ngso75, 29.76146, -60.1911, rn75 - OrbitalConstants.EarthRadiusKm, rn75, 0.0, 0.0);
+    double azS75 = MaskFootprint.LoadFile(MaskXml75("v75-az.xml", (b, c) => b)).PfdDb(st75, ngso75, es75);
+    double elS75 = MaskFootprint.LoadFile(MaskXml75("v75-el.xml", (b, c) => c)).PfdDb(st75, ngso75, es75);
+    bool frameOk75 = Near(azS75, -39.677, 0.002) && Near(elS75, 24.146, 0.002);
+    // (d) Q5: the code's earth stations sit on the 6371 km sphere, its
+    // satellites on the propagator's frame (Earth radius 6378.145 km). For a
+    // satellite at a true elevation e (earth station on the 6378.145 km
+    // sphere), the elevation the code computes, over the project's shells.
+    double minRise75 = double.PositiveInfinity, maxRise75 = double.NegativeInfinity;
+    double rs75 = OrbitalConstants.EarthRadiusKm;
+    foreach (double h in new[] { 800.0, 900.0, 1150.0, 1200.0 })
+        foreach (double e in new[] { 0.0, 5.0, 10.0, 20.0, 40.0, 60.0 })
+        {
+            var esTrue = GeodeticToEcef(38.0, 0.0, rs75 - GeoMath.EarthRadiusKm);
+            var (nT, _, _) = SatNedBasis(38.0, 0.0);
+            double er = e * Math.PI / 180.0;
+            var u = (esTrue.Normalized() * Math.Sin(er) + nT * Math.Cos(er)).Normalized();
+            double bq = Vec3.Dot(esTrue, u), cq = esTrue.LengthSq - Math.Pow(rs75 + h, 2);
+            var sat = esTrue + u * (-bq + Math.Sqrt(bq * bq - cq));
+            double rise = ElevationAngleDeg(sat, GeodeticToEcef(38.0, 0.0, 0.0)) - ElevationAngleDeg(sat, esTrue);
+            minRise75 = Math.Min(minRise75, rise); maxRise75 = Math.Max(maxRise75, rise);
+        }
+    double elG6371 = ElevationAngleDeg(gso75, GeodeticToEcef(38.0, -77.0, 0.0));
+    bool q5Ok75 = minRise75 > 0.0 && maxRise75 <= 0.30;
+    Check("V75 the S.1714 worked example (Doc 4A/416 Case 1, positions as in 4A/198 and 4A/313) reproduces through beamlab's geometry: positions, the earth station's view of the GSO satellite, and the satellite-frame az/el of the az/el mask read; the Earth-radius split (Q5) raises every elevation by 0.1 to 0.3 deg for the project's shells",
+        posOk75 && gsoOk75 && frameOk75 && q5Ok75,
+        string.Create(inv75, $"pos={posOk75} gso={gsoOk75} (el {elG75:F5}, az {azG75:F4}) frame={frameOk75} (az {azS75:F3}, el {elS75:F3}) q5={q5Ok75} (rise {minRise75:F3}..{maxRise75:F3} deg at 800-1200 km, 0-60 deg; the GSO at {elG6371:F5} deg from the 6371 km sphere against {elG75:F5})"));
+}
+
+// ---- V76: the deciding point on a tie names the shortest time ----
+{
+    // TABLE 22-1B, 1.00 m. A run of 1000 samples cannot resolve the 0.029%
+    // point: it reads the maximum's bin and ties with the 0% row, and the
+    // maximum decides. A control where the body decides names 10%.
+    var lim76 = new List<radlimits.LimitPoint>
+    {
+        new() { EPFD = -175.4, Perc = 100 }, new() { EPFD = -175.4, Perc = 10 }, new() { EPFD = -172.5, Perc = 1 },
+        new() { EPFD = -167.0, Perc = 0.286 }, new() { EPFD = -164.0, Perc = 0.029 }, new() { EPFD = -164.0, Perc = 0 },
+    };
+    (ComplianceRow Row, double At029, double At0) Row76(params (double Epfd, int Count)[] samples)
+    {
+        var acc = new radcompute1503_2.EpfdAccumulator(lim76);
+        foreach (var (e, c) in samples) acc.AccumulateSample(e, c);
+        var res = new EpfdDownResult { Accumulator = acc, Steps = samples.Sum(s => s.Count), MaxEpfdDb = samples.Max(s => s.Epfd), QuietSteps = 0 };
+        var (epfd, pct) = acc.BuildCdf();
+        return (ComplianceViewModel.BuildRow(40.0, res, lim76),
+            ComplianceViewModel.MarginDb(epfd, pct, -164.0, 0.029), ComplianceViewModel.MarginDb(epfd, pct, -164.0, 0.0));
+    }
+    var (tie76, t029, t0) = Row76((-190.0, 996), (-175.0, 3), (-161.0, 1));
+    var (body76, _, _) = Row76((-190.0, 850), (-176.0, 150));
+    Check("V76 the deciding point on a tie names the shortest time: where the 0.029% point is unresolved and ties with the 0% row, the maximum decides; where the body decides, its point is named",
+        tie76.DecidingText == "max" && t029 == t0 && tie76.WorstMarginDb == t0 && body76.DecidingText == "10%",
+        string.Create(CultureInfo.InvariantCulture, $"tie: {tie76.DecidingText} at {tie76.WorstMarginDb:+0.0;-0.0} (0.029% {t029:+0.0;-0.0}, 0% {t0:+0.0;-0.0}); body: {body76.DecidingText} at {body76.WorstMarginDb:+0.0;-0.0}"));
 }
 
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");

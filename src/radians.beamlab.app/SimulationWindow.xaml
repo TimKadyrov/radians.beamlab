@@ -105,7 +105,7 @@
                         ToolTip="Play: one simulation step per tick, satellites and links drawn live. Switches an accelerated run back to normal pace on the same timeline."/>
                 <Button x:Name="FfBtn" Content="⏩" FontSize="14" Width="34" Command="{Binding FastForwardCommand}"
                         ToolTip="Accelerated play: the same continuous timeline, many steps per tick with no map updates — the last frame stays and only the status clock moves. Switch back to ▶ at any moment."/>
-                <Button x:Name="StopBtn" Content="⏹" FontSize="14" Width="34" IsEnabled="False" Command="{Binding StopCommand}"/>
+                <Button x:Name="StopBtn" Content="⏹" FontSize="14" Width="34" IsEnabled="{Binding StopEnabled}" Command="{Binding StopCommand}"/>
                 <TextBlock x:Name="PlayStatus" VerticalAlignment="Center" Margin="10,0,0,0"
                            Foreground="#0B516F"/>
             </StackPanel>

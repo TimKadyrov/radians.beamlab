@@ -250,9 +250,7 @@ public sealed class OrbitDesignViewModel : ObservableObject
     /// </summary>
     public double? Case3MismatchDegPerCycle
         => ParsedPrecession() is double typed && _selectedSolution is { } r
-            ? (typed - OrbitDesign.Case3ExactClosingRateDegPerSec(
-                OrbitalConstants.EarthRadiusKm + _targetAltitudeKm, r.Orbits, r.NodalDays))
-              * Math.Round(OrbitDesign.Case3RepeatSeconds(OrbitalConstants.EarthRadiusKm + _targetAltitudeKm, r.Orbits))
+            ? OrbitDesign.Case3MismatchDegPerCycle(typed, OrbitalConstants.EarthRadiusKm + _targetAltitudeKm, r.Orbits, r.NodalDays)
             : null;
 
     // ---- outputs -------------------------------------------------------

@@ -327,14 +327,12 @@ public sealed class OpParamsViewModel : ObservableObject
     public string? FindLoopRunSet()
         => ResolveRunContext() is { } c ? LoopRunSetFor(c.Repo, c.Prof, _deriveProfilePath) : null;
 
-    // The repository and the selected profile, or null when either is missing.
+    // The folder a loop run of the profile lives under, and the profile; null without a profile.
     private (string Repo, OperationProfile Prof)? ResolveRunContext()
     {
-        if (_deriveProfilePath.Trim().Length == 0) return null;
-        string? docs = HomeViewModel.FindDocsDir(AppContext.BaseDirectory);
-        if (docs is null) return null;
-        string? repo = Path.GetDirectoryName(docs);
-        if (repo is null || !File.Exists(_deriveProfilePath)) return null;
+        if (_deriveProfilePath.Trim().Length == 0 || !File.Exists(_deriveProfilePath)) return null;
+        // The folder Run loop writes into (ComplianceViewModel.RunRootFor).
+        string repo = ComplianceViewModel.RunRootFor(_deriveProfilePath);
         try { return (repo, OperationProfileCodec.Load(File.ReadAllText(_deriveProfilePath))); }
         catch { return null; }
     }

@@ -311,6 +311,17 @@ public static class OrbitDesign
         => orbits * 2.0 * Math.PI / Math.Sqrt(OrbitalConstants.MuEarth / Math.Pow(semiMajorAxisKm, 3.0));
 
     /// <summary>
+    /// How far a typed Case 3 rate leaves the track from closing its k/m
+    /// repeat every cycle (deg): (typed - exact closing rate) x the Case-3
+    /// period, rounded to the second. Above keep_rnge the declared tolerance
+    /// cannot hold even for one cycle (the self-consistency check S.1503-2
+    /// asked of a supplied rate).
+    /// </summary>
+    public static double Case3MismatchDegPerCycle(double typedRateDegPerSec, double semiMajorAxisKm, int orbits, int nodalDays)
+        => (typedRateDegPerSec - Case3ExactClosingRateDegPerSec(semiMajorAxisKm, orbits, nodalDays))
+           * Math.Round(Case3RepeatSeconds(semiMajorAxisKm, orbits));
+
+    /// <summary>
     /// The SRS orbit.precession value for a signed rate in deg/s: its
     /// magnitude in degrees/day, format 999.99, >= 0 (S.1503-4 SRS orbit
     /// table). The direction is not on file: it is the one the inclination
