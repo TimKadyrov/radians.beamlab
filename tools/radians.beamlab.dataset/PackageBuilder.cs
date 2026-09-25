@@ -14,9 +14,10 @@ namespace radians.beamlab.dataset;
 /// One cross-read package: a filed pfd mask delivered verbatim as raw XML,
 /// paired with a constellation reconstructed from an orbit design and an R set
 /// this project derived. The notice goes into an SRS database the BL way; the
-/// mask and the operating-parameter XML travel as files (no Masks database --
-/// the consumer reads the XML directly), so a second implementation can
-/// examine the same declaration at the same victims.
+/// mask and the operating-parameter XML travel as files and, since
+/// 2026-09-25, also in a Masks database built the BL way (the BR native store
+/// for the mask), so a second implementation can read either form and examine
+/// the same declaration at the same victims.
 /// </summary>
 public sealed class PackageOptions
 {
@@ -101,17 +102,22 @@ public static class PackageBuilder
         // R set is the one source; sat_oper is the notice's own table.
         o.Log(string.Create(inv, $"SRS written: {n.Orbits.Count} orbit rows, {n.Phases.Count} phase rows, {bands.Count} sat_oper rows; the gates live in the R set only"));
 
-        // The mask travels as raw XML; no Masks database is built (operator
-        // direction, 2026-09-07: the consumer reads the XML directly). A
-        // database left by an earlier build of the same package is removed so
-        // the directory holds one form of the mask only.
-        string staleMasks = Path.Combine(caseDir, $"{p.NtcId} Masks.MDB");
-        if (File.Exists(staleMasks))
-        {
-            File.Delete(staleMasks);
-            o.Log("removed " + Path.GetFileName(staleMasks) + " from an earlier build");
-        }
-        o.Log("mask delivered as raw XML: xml/" + Path.GetFileName(maskXml));
+        // The mask and the R set travel as raw XML and in a Masks database
+        // built the BL way: the mask through the BR native store, the R set in
+        // the container form (2026-09-25; until then the XML only, operator
+        // direction of 2026-09-07). A reader that takes masks only through
+        // EpfdMasksApi64.dll reads the database; the XML is the same content.
+        SrsMdbWriter.EpfdMasksDllDirectory = DatasetGenerator.ResolveMasksDllDir(o);
+        var stored = SrsMdbWriter.WriteMasks(o.DonorMasksPath, Path.Combine(caseDir, $"{p.NtcId} Masks.MDB"), p.NtcId, p.SatName,
+            new[]
+            {
+                new SrsMdbWriter.MaskContent(p.MaskId, maskXml, 'P', p.BandMinMhz, p.BandMaxMhz),
+                new SrsMdbWriter.MaskContent(set.ParamId, paramXml, 'R', p.BandMinMhz, p.BandMaxMhz),
+            });
+        var badStore = stored.Where(r => r.Status != 0).ToList();
+        if (badStore.Count > 0)
+            throw new InvalidOperationException("mask store failed: " + string.Join(",", badStore.Select(r => $"{r.MaskId}:{r.Status}")));
+        o.Log("mask delivered as raw XML (xml/" + Path.GetFileName(maskXml) + ") and in " + $"{p.NtcId} Masks.MDB");
 
         string expectedName = null;
         if (p.ExpectedPath is string ep && File.Exists(ep))
@@ -197,7 +203,7 @@ public static class PackageBuilder
         sb.AppendLine("## Contents");
         sb.AppendLine();
         sb.AppendLine($"- `{p.NtcId} SRS.MDB` -- the notice: orbit and phase rows, one down scenario linking mask {p.MaskId}, sat_oper rows, mask_info registering mask {p.MaskId} (P) and param {set.ParamId} (R), mask_lnk3 to the operating parameters; plus the S.1503-2 group parameters (below).");
-        sb.AppendLine($"- `xml/mask{p.MaskId}_pfd_azel_filed.xml` -- the filed mask as raw XML, byte-identical to the source except the root `ntc_id`, rewritten to {p.NtcId}. No Masks database is built: read the XML directly.");
+        sb.AppendLine($"- `xml/mask{p.MaskId}_pfd_azel_filed.xml` -- the filed mask as raw XML, byte-identical to the source except the root `ntc_id`, rewritten to {p.NtcId}. The same mask, and the R set, are stored in `{p.NtcId} Masks.MDB`, the mask through the BR native store (EPFD_Masks_Store) as the BL cases store theirs.");
         sb.AppendLine($"- `xml/param{set.ParamId}_oper.xml` -- the R set in the S.1503-4 operating-parameter form, raw XML likewise.");
         if (expectedName is not null) sb.AppendLine($"- `expected/{expectedName}` -- this project's verdicts at the victims, both depths, with their caveats.");
         sb.AppendLine();
@@ -234,7 +240,7 @@ public static class PackageBuilder
         sb.AppendLine("## The mask");
         sb.AppendLine();
         sb.AppendLine(string.Create(inv, $"- Source: `{Path.GetFileName(p.MaskXmlPath)}`, {new FileInfo(p.MaskXmlPath).Length / 1048576.0:F1} MB, delivered as `xml/mask{p.MaskId}_pfd_azel_filed.xml`. Only the root `ntc_id` was rewritten (to match the notice); the XML keeps the filing's own `sat_name`, while the notice carries `{p.SatName}`."));
-        sb.AppendLine($"- The mask is registered in `mask_info` as mask_id {p.MaskId} (f_mask P, az/el) and linked to every orbit in scenario 1; the file is the mask. No Masks database is built for this package.");
+        sb.AppendLine($"- The mask is registered in `mask_info` as mask_id {p.MaskId} (f_mask P, az/el) and linked to every orbit in scenario 1; the XML file and its copy in the Masks database are the same mask.");
         sb.AppendLine();
         sb.AppendLine("## The victims this project examined");
         sb.AppendLine();

@@ -34,6 +34,10 @@ public static class SrsMdbWriter
         "epfd_param", "epfd_freq", "sat_oper",
         "mask_info", "mask_lnk1", "mask_lnk2", "mask_lnk3",
         "e_as_stn",   // grp-keyed, not ntc-keyed: fully cleared and rewritten
+        // The donor notice's own frequency assignments and groups: this writer
+        // files none, and a reader that does not filter by notice would take
+        // them for the written notice's (freq before grp, which it references).
+        "freq", "grp",
     };
 
     public static void WriteSrs(string donorSrsPath, string outSrsPath, SrsNotice n)

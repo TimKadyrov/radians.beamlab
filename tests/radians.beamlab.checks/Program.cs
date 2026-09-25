@@ -7046,6 +7046,41 @@ var looks = RandomLooks(300);
         string.Create(CultureInfo.InvariantCulture, $"tie: {tie76.DecidingText} at {tie76.WorstMarginDb:+0.0;-0.0} (0.029% {t029:+0.0;-0.0}, 0% {t0:+0.0;-0.0}); body: {body76.DecidingText} at {body76.WorstMarginDb:+0.0;-0.0}"));
 }
 
+// ---- V77: a written notice carries no row of the donor notice it was copied from ----
+{
+    // The SRS writer copies a donor database (NEXT101, ntc_id 127520101) and
+    // writes one notice into it. Every table with an ntc_id column must then
+    // hold the written notice's rows only: until 2026-09-25 the donor's grp
+    // (114 rows) and freq (550 rows) stayed behind, which a reader that does
+    // not filter by notice would take for the written notice's.
+    string srs77 = Path.Combine(AppContext.BaseDirectory, "exp", "ds", "BL-ALL", "900123476 SRS.MDB");
+    if (File.Exists(srs77))
+    {
+        var foreign77 = new List<string>();
+        int tables77 = 0;
+        using (var conn77 = new System.Data.OleDb.OleDbConnection($"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={srs77}"))
+        {
+            conn77.Open();
+            var names77 = conn77.GetSchema("Tables").Rows.Cast<System.Data.DataRow>()
+                .Where(r => (string)r["TABLE_TYPE"] == "TABLE").Select(r => (string)r["TABLE_NAME"]).ToList();
+            foreach (string tn in names77)
+            {
+                var cols = conn77.GetSchema("Columns", new[] { null, null, tn, null }).Rows.Cast<System.Data.DataRow>()
+                    .Select(r => (string)r["COLUMN_NAME"]).ToList();
+                if (!cols.Contains("ntc_id", StringComparer.OrdinalIgnoreCase)) continue;
+                tables77++;
+                using var cmd = new System.Data.OleDb.OleDbCommand($"SELECT COUNT(*) FROM [{tn}] WHERE ntc_id <> 900123476", conn77);
+                int n = Convert.ToInt32(cmd.ExecuteScalar());
+                if (n > 0) foreign77.Add($"{tn}:{n}");
+            }
+        }
+        Check("V77 a written notice carries no row of the donor notice: every ntc_id-keyed table of the BL-ALL notice holds BL-ALL's rows only",
+            foreign77.Count == 0 && tables77 > 0,
+            $"{tables77} ntc_id-keyed tables; foreign rows: {(foreign77.Count == 0 ? "none" : string.Join(" ", foreign77))}");
+    }
+    else Check("V77 donor rows (quick dataset not generated here)", true, "skipped: " + srs77 + " not present");
+}
+
 Console.WriteLine($"\n===== {pass} passed, {fail} failed =====");
 return fail == 0 ? 0 : 1;
 
